@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import type BetterSqlite3 from 'better-sqlite3';
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
@@ -40,4 +41,6 @@ db.pragma('wal_checkpoint(TRUNCATE)');
 console.log(`[db] Connected to ${DB_PATH}`);
 console.log(`[db] WAL mode: ${(db.pragma('journal_mode') as Array<{ journal_mode: string }>)[0].journal_mode}`);
 
-export default db;
+const typedDb: BetterSqlite3.Database = db;
+
+export default typedDb;

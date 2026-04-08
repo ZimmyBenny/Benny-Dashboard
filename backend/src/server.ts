@@ -2,6 +2,7 @@ import 'dotenv/config';
 import path from 'path';
 import dotenv from 'dotenv';
 import { createApp } from './app';
+import { runMigrations } from './db/migrate';
 
 // dotenv/config above loads .env from cwd (works when launched from project root via `tsx watch backend/src/server.ts`).
 // Secondary load: resolve relative to this file so `npm run dev` inside backend/ also finds the root .env.
@@ -23,9 +24,8 @@ if (process.env.JWT_SECRET.length < 32) {
 
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
-// runMigrations() will be called here in Plan 1.4
-// Placeholder to show the correct order:
-// runMigrations(); // <- Plan 1.4 adds this line before app.listen
+// Run all unapplied SQL migrations before accepting requests
+runMigrations();
 
 const app = createApp();
 
