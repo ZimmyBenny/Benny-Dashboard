@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@theme {
+  /* Electric Noir color palette */
+  --color-noir-bg: #060e20;
+  --color-primary: #cc97ff;
+  --color-secondary: #34b5fa;
+
+  /* Surface hierarchy */
+  --color-surface: rgba(13, 22, 45, 1);
+  --color-surface-variant: rgba(20, 32, 60, 1);
+  --color-surface-elevated: rgba(26, 40, 72, 1);
+
+  /* Typography */
+  --font-epilogue: "Epilogue", sans-serif;
+  --font-inter: "Inter", sans-serif;
+
+  /* Glow and blur — CSS variables, NOT Tailwind scale values */
+  --glow-primary: 0 0 20px rgba(204, 151, 255, 0.3);
+  --glow-secondary: 0 0 20px rgba(52, 181, 250, 0.2);
+  --glass-blur: blur(20px);
+  --glass-bg: rgba(13, 22, 45, 0.6);
+}
