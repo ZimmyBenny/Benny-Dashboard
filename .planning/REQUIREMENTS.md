@@ -36,7 +36,7 @@ Scope: Foundation, Auth, Shell, Design System, Home Page. All 7 module routes re
 - [x] **AUTH-08**: Token wird im Zustand-Store (Zustand) gespeichert und via `persist` in localStorage
 - [x] **AUTH-09**: axios-Interceptor fügt `Authorization: Bearer <token>` zu allen API-Requests hinzu
 - [x] **AUTH-10**: axios-Interceptor auf 401-Fehler loggt den User aus und leitet zu `/login` weiter
-- [ ] **AUTH-11**: Login-Seite ist öffentlich; alle anderen Routen sind durch `<PrivateRoute>` geschützt
+- [x] **AUTH-11**: Login-Seite ist öffentlich; alle anderen Routen sind durch `<PrivateRoute>` geschützt
 - [x] **AUTH-12**: Session überlebt Browser-Reload (Token im localStorage via Zustand persist)
 - [x] **AUTH-13**: `POST /api/auth/logout` invalidiert die Session auf Client-Seite
 

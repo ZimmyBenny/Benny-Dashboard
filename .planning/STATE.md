@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Executing Phase 2
-stopped_at: Completed 02-04-PLAN.md (2026-04-08)
-last_updated: "2026-04-08T21:38:20.400Z"
+stopped_at: Completed 02-05-PLAN.md (Tasks 1-3) — awaiting human UAT at Task 4 checkpoint
+last_updated: "2026-04-08T21:42:12.740Z"
 progress:
   total_phases: 3
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 10
-  completed_plans: 9
-  percent: 90
+  completed_plans: 10
+  percent: 100
 ---
 
 # Project State: Benny Dashboard
@@ -35,7 +35,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 [██████░░░░] 60% — 6/10 plans complete
 
-**Stopped at:** Completed 02-04-PLAN.md (2026-04-08)
+**Stopped at:** Completed 02-05-PLAN.md (Tasks 1-3) — awaiting human UAT at Task 4 checkpoint
 
 ## Decisions Made
 
@@ -49,6 +49,8 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 - [Phase 02]: verifyToken catch block returns generic INVALID_TOKEN; no error.message leaked to client (02-03)
 - [Phase 02]: baseURL '/api' relative in axios client (not full host) — Vite proxy handles routing; enforces parity between dev and future prod (02-04)
 - [Phase 02]: module-level redirecting flag in apiClient guards against 401 navigation storm from concurrent requests (02-04)
+- [Phase 02]: PrivateRoute returns null (not spinner) during Zustand persist rehydration — localStorage sync means 1-frame gate with no visible flash (02-05)
+- [Phase 02]: App.tsx repurposed as temp authenticated placeholder for Phase 2 UAT — Phase 3 replaces with AppShell (02-05)
 
 ## Open Decisions (must resolve before Milestone 2)
 
