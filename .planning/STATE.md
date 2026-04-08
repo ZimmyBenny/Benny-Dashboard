@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Executing Phase 2
-stopped_at: Completed 02-03-PLAN.md (2026-04-08)
-last_updated: "2026-04-08T21:35:09.222Z"
+stopped_at: Completed 02-04-PLAN.md (2026-04-08)
+last_updated: "2026-04-08T21:38:20.400Z"
 progress:
   total_phases: 3
   completed_phases: 1
   total_plans: 10
-  completed_plans: 8
-  percent: 80
+  completed_plans: 9
+  percent: 90
 ---
 
 # Project State: Benny Dashboard
@@ -35,7 +35,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 [██████░░░░] 60% — 6/10 plans complete
 
-**Stopped at:** Completed 02-03-PLAN.md (2026-04-08)
+**Stopped at:** Completed 02-04-PLAN.md (2026-04-08)
 
 ## Decisions Made
 
@@ -47,6 +47,8 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 - [Phase 02]: Rate limiter applied per-route on /login only (T-02.2-05); identical 401 for missing user and wrong password (OWASP); jwt.sign always uses explicit HS256 algorithm pin (T-02.2-02)
 - [Phase 02]: algorithms: ['HS256'] as literal array in jwt.verify — never read from config to prevent weakening (02-03)
 - [Phase 02]: verifyToken catch block returns generic INVALID_TOKEN; no error.message leaked to client (02-03)
+- [Phase 02]: baseURL '/api' relative in axios client (not full host) — Vite proxy handles routing; enforces parity between dev and future prod (02-04)
+- [Phase 02]: module-level redirecting flag in apiClient guards against 401 navigation storm from concurrent requests (02-04)
 
 ## Open Decisions (must resolve before Milestone 2)
 

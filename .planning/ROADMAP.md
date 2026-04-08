@@ -52,7 +52,7 @@
 **Goal:** A single user can log in with a username and password and receive a JWT. The token persists across browser reloads, is attached to every API request, and all routes except `/login` are inaccessible without it. The auth layer is hardened against the known risks for a local JWT setup.
 
 **Plans:**
-3/5 plans executed
+4/5 plans executed
 - [ ] **Plan 2.2 — JWT login endpoint with rate limiting.** Implement `POST /api/auth/login` in `routes/auth.routes.ts`. Accept `{ username, password }`, look up the single user row, compare with `bcrypt.compare`, sign a 7-day JWT with `algorithms: ['HS256']`. Apply `express-rate-limit` to the login endpoint (10 requests per 15 minutes). Implement `POST /api/auth/logout` as a no-op that signals client-side logout. Register auth routes in `app.ts` as a public route (no `verifyToken` applied).
 - [ ] **Plan 2.3 — `verifyToken` middleware protecting all non-auth API routes.** Implement `middleware/auth.ts` as a `verifyToken` function using `jwt.verify` with explicit `{ algorithms: ['HS256'] }`. Apply it per-router in `app.ts` to every `/api/*` route except `/api/auth/*`. Test that a request without a token to a protected route returns 401, and that the public `/api/health` and `/api/auth/*` routes remain accessible without a token.
 - [ ] **Plan 2.4 — Zustand authStore, axios client, and interceptors.** Create `store/authStore.ts` with Zustand + `persist` middleware writing to localStorage. Expose `token`, `login(token)`, and `logout()`. Create `api/client.ts` as an axios instance with a request interceptor that reads the token from the store and adds `Authorization: Bearer <token>`, and a response interceptor that calls `logout()` and redirects to `/login` on any 401. Create `api/auth.api.ts` with `loginRequest` and `logoutRequest` functions.
@@ -120,7 +120,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
 | 1. Foundation | 5/5 | Complete   | 2026-04-08 |
-| 2. Auth Layer | 3/5 | In Progress|  |
+| 2. Auth Layer | 4/5 | In Progress|  |
 | 3. Shell + Design System | 0/5 | Not started | — |
 
 ---
