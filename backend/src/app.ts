@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { errorHandler } from './middleware/errorHandler';
+import authRoutes from './routes/auth.routes';
 
 export function createApp() {
   const app = express();
@@ -20,11 +21,12 @@ export function createApp() {
     res.json({ status: 'ok' });
   });
 
-  // TODO Plan 2.x: register auth routes here (public)
-  // app.use('/api/auth', authRoutes);
+  // Public auth routes — MUST be registered BEFORE any verifyToken middleware
+  app.use('/api/auth', authRoutes);
 
-  // TODO Plan 2.x: register protected routes here (with verifyToken middleware)
-  // app.use('/api/tasks', verifyToken, tasksRoutes);
+  // TODO Plan 2.3: apply verifyToken here, then register protected routes
+  // app.use('/api', verifyToken);
+  // app.use('/api/tasks', tasksRoutes);
 
   // Global error handler — MUST be last middleware
   app.use(errorHandler);
