@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { errorHandler } from './middleware/errorHandler';
 import authRoutes from './routes/auth.routes';
+import { verifyToken, type AuthenticatedRequest } from './middleware/auth';
 
 export function createApp() {
   const app = express();
@@ -16,17 +17,19 @@ export function createApp() {
     credentials: true,
   }));
 
-  // Health check — public, no auth required
+  // PUBLIC — no token required
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
-
-  // Public auth routes — MUST be registered BEFORE any verifyToken middleware
   app.use('/api/auth', authRoutes);
 
-  // TODO Plan 2.3: apply verifyToken here, then register protected routes
-  // app.use('/api', verifyToken);
-  // app.use('/api/tasks', tasksRoutes);
+  // GUARD — everything mounted AFTER this line under /api requires a valid JWT
+  app.use('/api', verifyToken);
+
+  // Temporary probe route to verify the guard end-to-end (kept; Plan 3 may remove)
+  app.get('/api/_probe', (req: AuthenticatedRequest, res) => {
+    res.json({ ok: true, user: req.user });
+  });
 
   // Global error handler — MUST be last middleware
   app.use(errorHandler);
