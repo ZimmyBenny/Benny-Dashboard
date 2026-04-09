@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Executing Phase 2
-stopped_at: Completed 02-05-PLAN.md (Tasks 1-3) — awaiting human UAT at Task 4 checkpoint
+status: Phase 2 Complete — Ready for Phase 3
+stopped_at: Completed 02-05-PLAN.md — UAT approved (2026-04-08). Phase 2 done. Next: Phase 3 Shell + Design System.
 last_updated: "2026-04-08T21:42:12.740Z"
 progress:
   total_phases: 3
@@ -21,21 +21,21 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 **Core value:** Alles an einem Ort, lokal und privat — ohne Cloud-Abhängigkeiten, ohne Reibung beim täglichen Zugriff.
 **Current milestone:** Milestone 1 — Foundation → Working Dashboard Shell
-**Current focus:** Phase 2 — Auth Layer
+**Current focus:** Phase 3 — Shell + Design System
 
 ## Current Status
 
 | Phase | Status |
 |-------|--------|
 | Phase 1: Foundation | Complete (2026-04-08) |
-| Phase 2: Auth Layer | In Progress — Plan 2.1 complete |
+| Phase 2: Auth Layer | Complete (2026-04-08) |
 | Phase 3: Shell + Design System | Not started |
 
 ## Progress
 
 [██████░░░░] 60% — 6/10 plans complete
 
-**Stopped at:** Completed 02-05-PLAN.md (Tasks 1-3) — awaiting human UAT at Task 4 checkpoint
+**Stopped at:** Completed 02-05-PLAN.md — UAT approved (2026-04-08). Phase 2 done. Next: Phase 3 Shell + Design System.
 
 ## Decisions Made
 

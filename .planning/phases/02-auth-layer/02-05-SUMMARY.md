@@ -33,7 +33,7 @@ metrics:
 requirements:
   - AUTH-11
   - AUTH-12
-status: awaiting-human-uat
+status: complete
 ---
 
 # Phase 2 Plan 5: LoginPage, PrivateRoute, and browser router wiring Summary
@@ -130,4 +130,6 @@ None — no new network endpoints, auth paths, file access patterns, or schema c
 | npx tsc --noEmit | PASSED |
 | GET /login returns 200 HTML | PASSED |
 
-## Self-Check: PASSED (awaiting human UAT for Task 4)
+## Self-Check: PASSED
+
+Human UAT: APPROVED (2026-04-08) — all 8 UAT steps passed.
