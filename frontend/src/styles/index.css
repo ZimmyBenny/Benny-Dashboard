@@ -1,23 +1,120 @@
 @import "tailwindcss";
 
 @theme {
-  /* Electric Noir color palette */
-  --color-noir-bg: #060e20;
-  --color-primary: #cc97ff;
-  --color-secondary: #34b5fa;
+  /* === ELECTRIC NOIR — vollstaendige Token-Palette === */
+  /* Quelle: Design/home_hero_page/code.html tailwind.config */
 
-  /* Surface hierarchy */
-  --color-surface: rgba(13, 22, 45, 1);
-  --color-surface-variant: rgba(20, 32, 60, 1);
-  --color-surface-elevated: rgba(26, 40, 72, 1);
+  /* Hintergruende */
+  --color-background:                #060e20;
+  --color-surface:                   #060e20;
+  --color-surface-dim:               #060e20;
+  --color-surface-container-lowest:  #000000;
+  --color-surface-container-low:     #091328;
+  --color-surface-container:         #0f1930;
+  --color-surface-container-high:    #141f38;
+  --color-surface-container-highest: #192540;
+  --color-surface-variant:           #192540;
+  --color-surface-bright:            #1f2b49;
+  --color-surface-tint:              #cc97ff;
 
-  /* Typography */
-  --font-epilogue: "Epilogue", sans-serif;
-  --font-inter: "Inter", sans-serif;
+  /* Primaer */
+  --color-primary:             #cc97ff;
+  --color-primary-dim:         #9c48ea;
+  --color-primary-container:   #c284ff;
+  --color-primary-fixed:       #c284ff;
+  --color-primary-fixed-dim:   #b971ff;
+  --color-inverse-primary:     #842cd3;
+  --color-on-primary:          #47007c;
+  --color-on-primary-fixed:    #000000;
+  --color-on-primary-fixed-variant: #430076;
+  --color-on-primary-container: #360061;
 
-  /* Glow and blur — CSS variables, NOT Tailwind scale values */
-  --glow-primary: 0 0 20px rgba(204, 151, 255, 0.3);
-  --glow-secondary: 0 0 20px rgba(52, 181, 250, 0.2);
-  --glass-blur: blur(20px);
-  --glass-bg: rgba(13, 22, 45, 0.6);
+  /* Sekundaer */
+  --color-secondary:             #34b5fa;
+  --color-secondary-dim:         #17a8ec;
+  --color-secondary-container:   #006591;
+  --color-secondary-fixed:       #a4d8ff;
+  --color-secondary-fixed-dim:   #81ccff;
+  --color-on-secondary:          #003047;
+  --color-on-secondary-fixed:    #003853;
+  --color-on-secondary-fixed-variant: #00567c;
+  --color-on-secondary-container: #f3f8ff;
+
+  /* Tertiaer */
+  --color-tertiary:              #f6f9ff;
+  --color-tertiary-dim:          #e5e8ee;
+  --color-tertiary-container:    #e7ebf1;
+  --color-tertiary-fixed:        #f3f7fd;
+  --color-tertiary-fixed-dim:    #e5e8ee;
+  --color-on-tertiary:           #5b5f65;
+  --color-on-tertiary-fixed:     #474c51;
+  --color-on-tertiary-fixed-variant: #64686e;
+  --color-on-tertiary-container: #53575c;
+
+  /* Error */
+  --color-error:             #ff6e84;
+  --color-error-dim:         #d73357;
+  --color-error-container:   #a70138;
+  --color-on-error:          #490013;
+  --color-on-error-container: #ffb2b9;
+
+  /* On-Surface / Outline */
+  --color-on-surface:          #dee5ff;
+  --color-on-surface-variant:  #a3aac4;
+  --color-on-background:       #dee5ff;
+  --color-outline:             #6d758c;
+  --color-outline-variant:     #40485d;
+
+  /* Inverse */
+  --color-inverse-surface:     #faf8ff;
+  --color-inverse-on-surface:  #4d556b;
+
+  /* Typografie */
+  --font-headline: "Epilogue", sans-serif;
+  --font-body:     "Inter", sans-serif;
+  --font-label:    "Inter", sans-serif;
+
+  /* Glow + Blur — CSS-Variablen, NICHT Tailwind-Scale (per D-04) */
+  --glow-primary:   0 0 20px rgba(204, 151, 255, 0.3);
+  --glow-secondary: 0 0 12px rgba(52, 181, 250, 0.1);
+  --glow-error:     0 0 12px rgba(255, 110, 132, 0.3);
+  --glass-blur:     blur(20px);
+  --glass-bg:       rgba(25, 37, 64, 0.4);
+}
+
+/* Glass-Card Klasse — exakter Wert aus Design-HTML (per D-05) */
+/* NICHT via Tailwind-Opacity-Modifier, da rgba(25,37,64,0.4) nicht identisch mit surface-variant/40 */
+.glass-card {
+  background: rgba(25, 37, 64, 0.4);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Material Symbols — Basis font-variation-settings */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+.fill-icon {
+  font-variation-settings: 'FILL' 1;
+}
+
+/* Text-Glow Utility */
+.text-glow {
+  text-shadow: 0 0 20px rgba(204, 151, 255, 0.4);
+}
+
+/* CSS Scrollbar — Electric Noir (per DS-11) */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--color-surface-container-low); }
+::-webkit-scrollbar-thumb { background: var(--color-outline); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-outline-variant); }
+/* Firefox */
+* { scrollbar-width: thin; scrollbar-color: var(--color-outline) var(--color-surface-container-low); }
+
+/* Global: Body defaults */
+body {
+  background-color: var(--color-background);
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
 }

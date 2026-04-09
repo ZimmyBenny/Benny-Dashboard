@@ -33,7 +33,7 @@ export function LoginPage() {
   return (
     <div
       className="min-h-screen flex items-center justify-center px-6"
-      style={{ backgroundColor: 'var(--color-noir-bg)', fontFamily: 'var(--font-inter)' }}
+      style={{ backgroundColor: 'var(--color-background)', fontFamily: 'var(--font-body)' }}
     >
       <form
         onSubmit={handleSubmit}
@@ -47,7 +47,7 @@ export function LoginPage() {
       >
         <h1
           className="text-2xl mb-6"
-          style={{ color: 'var(--color-primary)', fontFamily: 'var(--font-epilogue)' }}
+          style={{ color: 'var(--color-primary)', fontFamily: 'var(--font-headline)' }}
         >
           Benny Dashboard
         </h1>
@@ -69,7 +69,7 @@ export function LoginPage() {
           className="w-full mb-4 px-3 py-2 rounded-md outline-hidden"
           style={{
             backgroundColor: 'var(--color-surface-variant)',
-            color: '#ffffff', // white input text — not yet a design token
+            color: 'var(--color-on-surface)',
           }}
         />
 
@@ -90,14 +90,14 @@ export function LoginPage() {
           className="w-full mb-6 px-3 py-2 rounded-md outline-hidden"
           style={{
             backgroundColor: 'var(--color-surface-variant)',
-            color: '#ffffff', // white input text — not yet a design token
+            color: 'var(--color-on-surface)',
           }}
         />
 
         {error && (
           <div
             className="mb-4 text-sm"
-            style={{ color: '#ff6b6b' }} // error red — Phase 3 will add as a CSS token
+            style={{ color: 'var(--color-error)' }}
             role="alert"
           >
             {error}
@@ -110,7 +110,7 @@ export function LoginPage() {
           className="w-full py-2 rounded-full font-medium"
           style={{
             background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
-            color: 'var(--color-noir-bg)',
+            color: 'var(--color-on-primary-fixed)',
             opacity: submitting ? 0.6 : 1,
           }}
         >
