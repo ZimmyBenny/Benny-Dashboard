@@ -328,11 +328,13 @@ export function DashboardPage() {
         }}>
           {/* Titel */}
           <p style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: '0.65rem',
-            letterSpacing: '0.22em',
+            fontFamily: 'var(--font-headline)',
+            fontWeight: 700,
+            fontSize: '0.875rem',
+            letterSpacing: '0.08em',
             textTransform: 'uppercase',
-            color: 'var(--color-outline)',
+            color: 'var(--color-on-surface)',
+            textAlign: 'center',
             marginBottom: '1rem',
           }}>
             Schnellzugriff
