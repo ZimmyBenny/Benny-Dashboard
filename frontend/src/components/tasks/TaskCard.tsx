@@ -147,6 +147,21 @@ export function TaskCard({ task, onClick, isDragging = false }: TaskCardProps) {
           ))}
         </div>
       )}
+
+      {/* Status-Notiz */}
+      {task.status_note && (
+        <p style={{
+          marginTop: '0.5rem',
+          fontFamily: 'var(--font-body)',
+          fontSize: '0.7rem',
+          fontStyle: 'italic',
+          color: 'var(--color-on-surface-variant)',
+          lineHeight: 1.4,
+          wordBreak: 'break-word',
+        }}>
+          {task.status_note}
+        </p>
+      )}
     </div>
   );
 }

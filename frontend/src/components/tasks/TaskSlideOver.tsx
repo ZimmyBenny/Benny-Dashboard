@@ -38,6 +38,7 @@ interface FormData {
   project_or_customer: string;
   notes: string;
   estimated_duration: string;
+  status_note: string;
 }
 
 function taskToForm(task: Task | null): FormData {
@@ -45,7 +46,7 @@ function taskToForm(task: Task | null): FormData {
     return {
       title: '', description: '', status: 'open', priority: 'medium',
       area: '', due_date: '', start_date: '', tags: '',
-      project_or_customer: '', notes: '', estimated_duration: '',
+      project_or_customer: '', notes: '', estimated_duration: '', status_note: '',
     };
   }
   return {
@@ -60,6 +61,7 @@ function taskToForm(task: Task | null): FormData {
     project_or_customer: task.project_or_customer ?? '',
     notes: task.notes ?? '',
     estimated_duration: task.estimated_duration != null ? String(task.estimated_duration) : '',
+    status_note: task.status_note ?? '',
   };
 }
 
@@ -111,6 +113,7 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete }: TaskS
         project_or_customer: form.project_or_customer || null,
         notes: form.notes || null,
         estimated_duration: form.estimated_duration ? Number(form.estimated_duration) : null,
+        status_note: form.status_note || null,
       });
       onClose();
     } finally {
@@ -243,6 +246,19 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete }: TaskS
                 onChange={(e) => handleChange('description', e.target.value)}
                 rows={3}
                 placeholder="Optionale Beschreibung..."
+              />
+            </div>
+
+            {/* Status-Notiz */}
+            <div>
+              <label style={LABEL_STYLE}>Status-Notiz</label>
+              <textarea
+                className="task-input"
+                style={{ ...INPUT_STYLE, resize: 'vertical', minHeight: '56px' }}
+                value={form.status_note}
+                onChange={(e) => handleChange('status_note', e.target.value)}
+                rows={2}
+                placeholder="Wartet auf / Naechster Schritt..."
               />
             </div>
 
