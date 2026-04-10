@@ -106,6 +106,31 @@ export function TaskFilters({ onFilterChange, onNewTask }: TaskFiltersProps) {
         <option value="low">Niedrig</option>
       </select>
 
+      {/* Reset filters */}
+      {(search || area || priority) && (
+        <button
+          onClick={() => { setSearch(''); setArea(''); setPriority(''); }}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.3rem',
+            padding: '0.5rem 0.875rem',
+            borderRadius: '0.5rem',
+            background: 'transparent',
+            border: '1px solid var(--color-outline-variant)',
+            color: 'var(--color-on-surface-variant)',
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.8125rem',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+          }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>filter_list_off</span>
+          Filter zurücksetzen
+        </button>
+      )}
+
       {/* Spacer */}
       <div style={{ flex: 1 }} />
 
