@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { useTimerStore } from '../store/timerStore';
 import {
@@ -6,6 +6,8 @@ import {
   createClient, createProject, createTimeEntry, updateTimeEntry, deleteTimeEntry,
   type Client, type Project, type TimeEntry,
 } from '../api/zeiterfassung.api';
+import { exportCsv, type ExportRow } from '../lib/exportCsv';
+import { exportPdf } from '../lib/exportPdf';
 
 // ── Hilfsfunktionen ────────────────────────────────────────────────────────────
 
@@ -536,6 +538,12 @@ export function ZeiterfassungPage() {
   const [filterProject, setFilterProject] = useState<number | ''>('');
   const [filterClient, setFilterClient] = useState<number | ''>('');
 
+  // Export-State
+  const [exportDateFrom, setExportDateFrom] = useState('');
+  const [exportDateTo, setExportDateTo] = useState('');
+  const [exportProject, setExportProject] = useState<number | ''>('');
+  const [exportClient, setExportClient] = useState<number | ''>('');
+
   // Daten laden
   const loadAll = useCallback(async () => {
     const [c, p, e] = await Promise.all([fetchClients(), fetchProjects(), fetchTimeEntries()]);
@@ -610,6 +618,67 @@ export function ZeiterfassungPage() {
     setShowPanel(true);
     setStoppedMs(null);
     setSessionStart(null);
+  }
+
+  // Export-Hilfsfunktionen
+  const exportEntries = useMemo((): ExportRow[] => {
+    return entries
+      .filter((e) => {
+        if (exportDateFrom && e.date < exportDateFrom) return false;
+        if (exportDateTo && e.date > exportDateTo) return false;
+        if (exportProject !== '' && e.project_id !== exportProject) return false;
+        if (exportClient !== '' && e.client_id !== exportClient) return false;
+        return true;
+      })
+      .map((e) => ({
+        date: e.date,
+        start_time: e.start_time,
+        end_time: e.end_time,
+        duration_seconds: e.duration_seconds,
+        project_name: e.project_name ?? null,
+        client_name: e.client_name ?? null,
+        title: e.title,
+        note: e.note,
+      }));
+  }, [entries, exportDateFrom, exportDateTo, exportProject, exportClient]);
+
+  const exportTotalSeconds = useMemo(
+    () => exportEntries.reduce((s, e) => s + e.duration_seconds, 0),
+    [exportEntries],
+  );
+
+  function exportFilename() {
+    const from = exportDateFrom || 'alle';
+    const to = exportDateTo || 'alle';
+    return `zeiterfassung-${from}-${to}`;
+  }
+
+  function exportFilterLabel() {
+    const parts: string[] = [];
+    if (exportProject !== '') {
+      const p = projects.find((x) => x.id === exportProject);
+      if (p) parts.push(`Projekt: ${p.name}`);
+    }
+    if (exportClient !== '') {
+      const c = clients.find((x) => x.id === exportClient);
+      if (c) parts.push(`Kunde: ${c.name}`);
+    }
+    if (exportDateFrom || exportDateTo) {
+      const f = exportDateFrom
+        ? new Date(exportDateFrom).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        : '';
+      const t = exportDateTo
+        ? new Date(exportDateTo).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+        : '';
+      parts.push(f && t ? `${f} – ${t}` : f || t);
+    }
+    return parts.join(' | ');
+  }
+
+  function formatExportTotal(seconds: number) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return `${h}h ${String(m).padStart(2, '0')}m`;
   }
 
   const isRunning = status === 'running';
@@ -841,7 +910,140 @@ export function ZeiterfassungPage() {
       )}
 
       {/* ── Export-Panel ─────────────────────────────────────── */}
-      {/* Wird in Task 4 eingefuegt */}
+      <div style={{
+        background: 'rgba(25,37,64,0.6)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderTop: '1px solid rgba(255,255,255,0.14)',
+        borderRadius: '1rem',
+        padding: '1.5rem 1.75rem',
+        marginBottom: '2rem',
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+          <h2 style={{
+            fontFamily: 'var(--font-headline)',
+            fontWeight: 700,
+            fontSize: '1rem',
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            color: 'var(--color-on-surface)',
+          }}>
+            Export
+          </h2>
+          {exportEntries.length > 0 && (
+            <span style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: '0.75rem',
+              color: 'var(--color-outline)',
+            }}>
+              {exportEntries.length} {exportEntries.length === 1 ? 'Eintrag' : 'Einträge'} · {formatExportTotal(exportTotalSeconds)}
+            </span>
+          )}
+        </div>
+
+        {/* Filter-Zeile */}
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '140px' }}>
+            <label style={labelStyle}>Von</label>
+            <input
+              type="date"
+              style={inputStyle}
+              value={exportDateFrom}
+              onChange={(e) => setExportDateFrom(e.target.value)}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '140px' }}>
+            <label style={labelStyle}>Bis</label>
+            <input
+              type="date"
+              style={inputStyle}
+              value={exportDateTo}
+              onChange={(e) => setExportDateTo(e.target.value)}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '160px', flex: 1 }}>
+            <label style={labelStyle}>Projekt</label>
+            <select
+              style={inputStyle}
+              value={exportProject}
+              onChange={(e) => setExportProject(e.target.value !== '' ? Number(e.target.value) : '')}
+            >
+              <option value="">Alle Projekte</option>
+              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '160px', flex: 1 }}>
+            <label style={labelStyle}>Kunde</label>
+            <select
+              style={inputStyle}
+              value={exportClient}
+              onChange={(e) => setExportClient(e.target.value !== '' ? Number(e.target.value) : '')}
+            >
+              <option value="">Alle Kunden</option>
+              {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          {(exportDateFrom || exportDateTo || exportProject !== '' || exportClient !== '') && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', justifyContent: 'flex-end' }}>
+              <label style={{ ...labelStyle, visibility: 'hidden' }}>Reset</label>
+              <button
+                onClick={() => { setExportDateFrom(''); setExportDateTo(''); setExportProject(''); setExportClient(''); }}
+                style={{
+                  padding: '0.625rem 0.875rem', borderRadius: '0.5rem', cursor: 'pointer',
+                  background: 'transparent', color: 'var(--color-outline)',
+                  border: '1px solid var(--color-outline-variant)',
+                  fontFamily: 'var(--font-body)', fontSize: '0.8rem',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Zurücksetzen
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Export-Buttons */}
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => exportCsv({ entries: exportEntries, filename: exportFilename() })}
+            disabled={exportEntries.length === 0}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              padding: '0.625rem 1.25rem',
+              borderRadius: '0.5rem',
+              background: exportEntries.length === 0 ? 'rgba(255,255,255,0.03)' : 'rgba(204,151,255,0.08)',
+              color: exportEntries.length === 0 ? 'var(--color-outline)' : 'var(--color-primary)',
+              border: `1px solid ${exportEntries.length === 0 ? 'var(--color-outline-variant)' : 'rgba(204,151,255,0.25)'}`,
+              cursor: exportEntries.length === 0 ? 'not-allowed' : 'pointer',
+              fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.875rem',
+              transition: 'background 200ms ease, border-color 200ms ease',
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>download</span>
+            CSV exportieren
+          </button>
+          <button
+            onClick={() => exportPdf({ entries: exportEntries, filterLabel: exportFilterLabel(), filename: exportFilename() })}
+            disabled={exportEntries.length === 0}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              padding: '0.625rem 1.25rem',
+              borderRadius: '0.5rem',
+              background: exportEntries.length === 0 ? 'rgba(255,255,255,0.03)' : 'rgba(52,181,250,0.08)',
+              color: exportEntries.length === 0 ? 'var(--color-outline)' : 'var(--color-secondary)',
+              border: `1px solid ${exportEntries.length === 0 ? 'var(--color-outline-variant)' : 'rgba(52,181,250,0.25)'}`,
+              cursor: exportEntries.length === 0 ? 'not-allowed' : 'pointer',
+              fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.875rem',
+              transition: 'background 200ms ease, border-color 200ms ease',
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>picture_as_pdf</span>
+            PDF exportieren
+          </button>
+        </div>
+      </div>
 
       {/* ── Zeiteinträge ─────────────────────────────────────── */}
       <div>

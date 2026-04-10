@@ -15,6 +15,8 @@
     "@tailwindcss/vite": "^4.2.2",
     "@tanstack/react-query": "^5.96.2",
     "axios": "^1.15.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7",
     "material-symbols": "^0.44.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
