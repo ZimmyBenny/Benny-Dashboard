@@ -12,6 +12,7 @@ export const navItems: NavItem[] = [
   { path: '/dj',              label: 'DJ',           icon: 'headphones' },
   { path: '/finances',        label: 'Finanzen',     icon: 'account_balance_wallet' },
   { path: '/amazon',          label: 'Amazon',       icon: 'shopping_cart' },
+  { path: '/ki-agenten',      label: 'KI Agenten',   icon: 'smart_toy' },
 ];
 
 // Settings ist kein Teil von navItems — wird separat gerendert (per D-09: margin-top: auto, kein Divider)
@@ -30,5 +31,6 @@ export const pageNames: Record<string, string> = {
   '/dj':              'DJ',
   '/finances':        'Finanzen',
   '/amazon':          'Amazon',
+  '/ki-agenten':      'KI Agenten',
   '/settings':        'Einstellungen',
 };

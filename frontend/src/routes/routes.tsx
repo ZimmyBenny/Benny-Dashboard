@@ -8,6 +8,7 @@ import { CalendarPage } from '../pages/CalendarPage';
 import { DjPage } from '../pages/DjPage';
 import { FinancesPage } from '../pages/FinancesPage';
 import { AmazonPage } from '../pages/AmazonPage';
+import { KiAgentsPage } from '../pages/KiAgentsPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { ZeiterfassungPage } from '../pages/ZeiterfassungPage';
 
@@ -26,6 +27,7 @@ export const router = createBrowserRouter([
           { path: '/dj',             element: <DjPage /> },
           { path: '/finances',       element: <FinancesPage /> },
           { path: '/amazon',         element: <AmazonPage /> },
+          { path: '/ki-agenten',     element: <KiAgentsPage /> },
           { path: '/settings',       element: <SettingsPage /> },
         ],
       },
