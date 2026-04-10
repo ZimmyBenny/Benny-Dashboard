@@ -2,7 +2,6 @@ import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { useTimerStore } from '../store/timerStore';
-import { useAuthStore } from '../store/authStore';
 import { fetchVisibleQuickLinks, type QuickLink } from '../api/quickLinks.api';
 import { fetchTaskStats, createTask, type TaskStats, type Task } from '../api/tasks.api';
 import { TaskSlideOver } from '../components/tasks/TaskSlideOver';
@@ -23,7 +22,6 @@ const modules = [
   { path: '/dj',            label: 'DJ',             icon: 'headphones',             description: 'Gigs · Bookings · Zahlungen' },
   { path: '/finances',      label: 'Finanzen',       icon: 'account_balance_wallet', description: 'Einnahmen · Ausgaben · Budgets' },
   { path: '/amazon',        label: 'Amazon',         icon: 'shopping_cart',          description: 'Bestellungen und Retouren' },
-  { path: '/settings',      label: 'Settings',       icon: 'settings',               description: 'Konfiguration & Präferenzen', isSettings: true as const },
 ];
 
 function formatMs(ms: number): string {
@@ -51,8 +49,6 @@ export function DashboardPage() {
     }, 1000);
     return () => clearInterval(id);
   }, []);
-
-  const { logout } = useAuthStore();
 
   // Schnellzugriff aus API
   const [quickLinks, setQuickLinks] = useState<QuickLink[]>([]);
@@ -275,28 +271,7 @@ export function DashboardPage() {
                 {mod.description}
               </p>
 
-              {'isSettings' in mod && (
-                <div style={{ marginTop: '0.875rem' }}>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); logout(); navigate('/login'); }}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
-                      padding: '0.35rem 0.8rem',
-                      borderRadius: '9999px',
-                      background: 'rgba(255,255,255,0.06)',
-                      border: '1px solid rgba(255,255,255,0.12)',
-                      color: 'var(--color-on-surface-variant)', cursor: 'pointer',
-                      fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.7rem',
-                      letterSpacing: '0.03em',
-                    }}
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>logout</span>
-                    Abmelden
-                  </button>
-                </div>
-              )}
-
-              {'isTasks' in mod && (
+{'isTasks' in mod && (
                 <div style={{ marginTop: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.625rem', justifyContent: 'space-between' }}>
                   <button
                     onClick={(e) => { e.stopPropagation(); setIsNewTaskOpen(true); }}
