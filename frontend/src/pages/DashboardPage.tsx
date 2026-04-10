@@ -476,6 +476,27 @@ export function DashboardPage() {
                 </p>
               </div>
 
+              {/* Diese Woche fällig */}
+              {taskStats.due_this_week > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '60px' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--color-primary)', marginBottom: '0.25rem' }}>
+                    event
+                  </span>
+                  <p style={{
+                    fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '1.5rem',
+                    letterSpacing: '-0.03em', color: 'var(--color-primary)', lineHeight: 1, marginBottom: '0.25rem',
+                  }}>
+                    {taskStats.due_this_week}
+                  </p>
+                  <p style={{
+                    fontFamily: 'var(--font-body)', fontSize: '0.7rem', textTransform: 'uppercase',
+                    letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)',
+                  }}>
+                    Diese Woche
+                  </p>
+                </div>
+              )}
+
               {/* Diese Woche erledigt */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '60px' }}>
                 <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#4ade80', marginBottom: '0.25rem' }}>

@@ -32,6 +32,7 @@ export interface TaskStats {
   waiting_count: number;
   done_this_week: number;
   overdue_count: number;
+  due_this_week: number;
 }
 
 export type TaskCreateData = Omit<Task, 'id' | 'created_at' | 'updated_at' | 'completed_at' | 'position'> & {
