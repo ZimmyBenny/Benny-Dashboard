@@ -318,36 +318,33 @@ export function DashboardPage() {
       </div>
       {/* ── Schnellzugriff ───────────────────────────────── */}
       <div style={{ marginTop: '2.5rem' }}>
-        {/* Section divider */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem' }}>
-          <p style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: '0.65rem',
-            letterSpacing: '0.22em',
-            textTransform: 'uppercase',
-            color: 'var(--color-outline)',
-            whiteSpace: 'nowrap',
-          }}>
-            Schnellzugriff
-          </p>
-          <div style={{
-            flex: 1, height: '1px',
-            background: 'linear-gradient(90deg, var(--color-outline-variant) 0%, transparent 100%)',
-          }} />
-        </div>
-
-        {/* Full-width card */}
+        {/* Full-width card inkl. Titel */}
         <div style={{
           width: '100%',
           padding: '1.25rem 1.5rem',
           background: 'var(--color-surface-container)',
           border: '1px solid var(--color-surface-container-high)',
           borderRadius: '1rem',
-          display: 'flex',
-          flexWrap: 'wrap',
-          justifyContent: 'center',
-          gap: '0.75rem',
         }}>
+          {/* Titel */}
+          <p style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.65rem',
+            letterSpacing: '0.22em',
+            textTransform: 'uppercase',
+            color: 'var(--color-outline)',
+            marginBottom: '1rem',
+          }}>
+            Schnellzugriff
+          </p>
+
+          {/* Links */}
+          <div style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            gap: '0.75rem',
+          }}>
           {quickLinks.map((link) => (
             <a
               key={link.url}
@@ -386,6 +383,7 @@ export function DashboardPage() {
               <span className="material-symbols-outlined" style={{ fontSize: '13px', opacity: 0.5 }}>open_in_new</span>
             </a>
           ))}
+          </div>
         </div>
       </div>
     </PageWrapper>
