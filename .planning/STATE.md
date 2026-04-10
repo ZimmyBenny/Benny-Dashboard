@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Executing Phase 3
-stopped_at: "Completed 02-05-PLAN.md — UAT approved (2026-04-08). Phase 2 done. Next: Phase 3 Shell + Design System."
-last_updated: "2026-04-09T21:15:18.584Z"
+stopped_at: Completed quick-260410-wn7 — Kalender-Modul V1 Apple Calendar Sync
+last_updated: "2026-04-10T22:17:41.004Z"
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 15
-  completed_plans: 10
-  percent: 67
+  completed_plans: 15
+  percent: 100
 ---
 
 # Project State: Benny Dashboard
@@ -35,7 +35,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 [██████░░░░] 60% — 6/10 plans complete
 
-**Stopped at:** Completed 02-05-PLAN.md — UAT approved (2026-04-08). Phase 2 done. Next: Phase 3 Shell + Design System.
+**Stopped at:** Completed quick-260410-wn7 — Kalender-Modul V1 Apple Calendar Sync
 
 ## Decisions Made
 
@@ -68,6 +68,10 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260410-dtr | Zeiterfassung Export CSV+PDF und Projekt-Schnellstart | 2026-04-10 | e59656f | [260410-dtr-zeiterfassung-export-csv-pdf-und-projekt](.planning/quick/260410-dtr-zeiterfassung-export-csv-pdf-und-projekt/) |
+| 260410-ub6 | Aufgaben-Modul V1: Kanban-Board, CRUD-Backend, Slide-Over, Dashboard-Widget | 2026-04-10 | e176dfb | [260410-ub6-aufgaben-modul-v1-sqlite-tasks-tabelle-c](.planning/quick/260410-ub6-aufgaben-modul-v1-sqlite-tasks-tabelle-c/) |
 
 ---
 *State initialized: 2026-04-07 | Last session: 2026-04-10*
+| 2026-04-10 | fast | TaskCard onClick → SlideOver fix (PointerSensor distance constraint) | ✅ |
+| 2026-04-10 | fast | TaskSlideOver Backdrop-Klick schließt Panel nicht mehr | ✅ |
+| 2026-04-10 | 260410-v3q | Status-Notiz beim Drag (DragPrompt + DB-Migration + KanbanBoard-Pause) | ✅ |
