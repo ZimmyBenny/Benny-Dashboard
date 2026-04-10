@@ -214,3 +214,105 @@ body {
   color: var(--color-on-surface);
   font-family: var(--font-body);
 }
+
+/* ── Light-Theme Override (Electric Noir — hell, warm getoennt) ── */
+[data-theme="light"] {
+  /* Hintergruende — warm-weiss, leicht blaeulich getoennt */
+  --color-background:                #f5f3ff;
+  --color-surface:                   #f5f3ff;
+  --color-surface-dim:               #ece9f7;
+  --color-surface-container-lowest:  #ffffff;
+  --color-surface-container-low:     #f0edf8;
+  --color-surface-container:         #eae7f4;
+  --color-surface-container-high:    #e4e0f0;
+  --color-surface-container-highest: #ddd9ec;
+  --color-surface-variant:           #ddd9ec;
+  --color-surface-bright:            #f8f6ff;
+  --color-surface-tint:              #7b2fc9;
+
+  /* Primaer — satter, dunkler als im Dark-Theme */
+  --color-primary:             #7b2fc9;
+  --color-primary-dim:         #6320a8;
+  --color-primary-container:   #eedcff;
+  --color-primary-fixed:       #eedcff;
+  --color-primary-fixed-dim:   #dbb8ff;
+  --color-inverse-primary:     #cc97ff;
+  --color-on-primary:          #ffffff;
+  --color-on-primary-fixed:    #2a004f;
+  --color-on-primary-fixed-variant: #430076;
+  --color-on-primary-container: #2a004f;
+
+  /* Sekundaer */
+  --color-secondary:             #0073a8;
+  --color-secondary-dim:         #005d8a;
+  --color-secondary-container:   #c8e6ff;
+  --color-secondary-fixed:       #c8e6ff;
+  --color-secondary-fixed-dim:   #8ecfff;
+  --color-on-secondary:          #ffffff;
+  --color-on-secondary-fixed:    #001e30;
+  --color-on-secondary-fixed-variant: #004a6e;
+  --color-on-secondary-container: #001e30;
+
+  /* Tertiaer */
+  --color-tertiary:              #4a4e54;
+  --color-tertiary-dim:          #3a3e44;
+  --color-tertiary-container:    #e0e3ea;
+  --color-tertiary-fixed:        #e0e3ea;
+  --color-tertiary-fixed-dim:    #c4c7ce;
+  --color-on-tertiary:           #ffffff;
+  --color-on-tertiary-fixed:     #1a1d23;
+  --color-on-tertiary-fixed-variant: #3a3e44;
+  --color-on-tertiary-container: #1a1d23;
+
+  /* Error */
+  --color-error:             #ba1a40;
+  --color-error-dim:         #9c0030;
+  --color-error-container:   #ffd9de;
+  --color-on-error:          #ffffff;
+  --color-on-error-container: #400012;
+
+  /* On-Surface / Outline */
+  --color-on-surface:          #1c1b2e;
+  --color-on-surface-variant:  #48465c;
+  --color-on-background:       #1c1b2e;
+  --color-outline:             #7a7890;
+  --color-outline-variant:     #c8c5d8;
+
+  /* Inverse */
+  --color-inverse-surface:     #2f2d42;
+  --color-inverse-on-surface:  #f3f0ff;
+
+  /* Glow — dezenter im Light-Theme */
+  --glow-primary:   0 0 16px rgba(123, 47, 201, 0.12);
+  --glow-secondary: 0 0 10px rgba(0, 115, 168, 0.08);
+  --glow-error:     0 0 10px rgba(186, 26, 64, 0.12);
+  --glass-bg:       rgba(234, 231, 244, 0.6);
+}
+
+[data-theme="light"] .glass-card {
+  background: rgba(234, 231, 244, 0.6);
+  border-top-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .module-card {
+  background: rgba(234, 231, 244, 0.6);
+  border-color: rgba(0, 0, 0, 0.08);
+  border-top-color: rgba(0, 0, 0, 0.1);
+}
+[data-theme="light"] .module-card:hover {
+  border-color: rgba(123, 47, 201, 0.25);
+  box-shadow: 0 0 24px rgba(123, 47, 201, 0.08), 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .text-glow {
+  text-shadow: 0 0 16px rgba(123, 47, 201, 0.15);
+}
+
+[data-theme="light"] .nav-active-accent::before {
+  box-shadow: 0 0 6px rgba(123, 47, 201, 0.3);
+}
+
+/* Scrollbar — Light-Theme */
+[data-theme="light"] ::-webkit-scrollbar-track { background: var(--color-surface-container-low); }
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: var(--color-outline-variant); }
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: var(--color-outline); }
