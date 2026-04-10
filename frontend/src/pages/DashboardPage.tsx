@@ -120,44 +120,6 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Zeiterfassung Widget (idle oder aktiv) ──────────── */}
-      {!timerActive ? (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: '1rem',
-          padding: '0.875rem 1.25rem',
-          marginBottom: '1.75rem',
-          background: 'rgba(255,255,255,0.03)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: '0.875rem',
-        }}>
-          <span className="material-symbols-outlined" style={{
-            fontSize: '20px', color: 'var(--color-outline)', flexShrink: 0,
-          }}>timer</span>
-          <p style={{
-            fontFamily: 'var(--font-body)', fontSize: '0.8rem',
-            color: 'var(--color-outline)', flex: 1,
-          }}>
-            Kein Timer läuft
-          </p>
-          <button
-            onClick={() => { startTimer(); navigate('/zeiterfassung'); }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '0.4rem',
-              padding: '0.5rem 1rem',
-              borderRadius: '9999px',
-              background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
-              color: '#000', border: 'none', cursor: 'pointer',
-              fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.8rem',
-              letterSpacing: '0.03em',
-              flexShrink: 0,
-            }}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>play_arrow</span>
-            Starten
-          </button>
-        </div>
-      ) : null}
-
       {/* ── Aktiver Timer Widget ─────────────────────────── */}
       {timerActive && (
         <div
