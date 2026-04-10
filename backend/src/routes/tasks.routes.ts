@@ -228,7 +228,7 @@ router.put('/:id', (req, res) => {
 // PATCH /api/tasks/reorder
 router.patch('/reorder', (req, res) => {
   const { updates } = req.body as {
-    updates: { id: number; status: string; position: number }[];
+    updates: { id: number; status: string; position: number; status_note?: string | null }[];
   };
 
   if (!Array.isArray(updates) || updates.length === 0) {
@@ -236,12 +236,19 @@ router.patch('/reorder', (req, res) => {
     return;
   }
 
-  const reorder = db.transaction((items: { id: number; status: string; position: number }[]) => {
-    const stmt = db.prepare(
+  const reorder = db.transaction((items: { id: number; status: string; position: number; status_note?: string | null }[]) => {
+    const stmtWithNote = db.prepare(
+      `UPDATE tasks SET status = ?, position = ?, status_note = ?, updated_at = datetime('now') WHERE id = ?`
+    );
+    const stmtWithoutNote = db.prepare(
       `UPDATE tasks SET status = ?, position = ?, updated_at = datetime('now') WHERE id = ?`
     );
     for (const u of items) {
-      stmt.run(u.status, u.position, u.id);
+      if ('status_note' in u) {
+        stmtWithNote.run(u.status, u.position, u.status_note ?? null, u.id);
+      } else {
+        stmtWithoutNote.run(u.status, u.position, u.id);
+      }
     }
   });
 

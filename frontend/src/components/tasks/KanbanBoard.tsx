@@ -12,7 +12,7 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import type { Task } from '../../api/tasks.api';
-import { fetchTasks, reorderTasks, updateTask } from '../../api/tasks.api';
+import { fetchTasks, reorderTasks } from '../../api/tasks.api';
 import { KanbanColumn } from './KanbanColumn';
 import { TaskCard } from './TaskCard';
 import { DragPrompt } from './DragPrompt';
@@ -59,6 +59,7 @@ export function KanbanBoard({ filters, onTaskClick, onShowAllDone, refreshKey = 
   });
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [dragOriginCol, setDragOriginCol] = useState<Status | null>(null);
   const [loading, setLoading] = useState(true);
   const [pendingDrag, setPendingDrag] = useState<PendingDrag | null>(null);
 
@@ -91,6 +92,7 @@ export function KanbanBoard({ filters, onTaskClick, onShowAllDone, refreshKey = 
     const id = Number(event.active.id);
     const task = allTasks.find((t) => t.id === id) ?? null;
     setActiveTask(task);
+    setDragOriginCol(findColumnOfTask(id));
   }
 
   function handleDragOver(event: DragOverEvent) {
@@ -124,7 +126,14 @@ export function KanbanBoard({ filters, onTaskClick, onShowAllDone, refreshKey = 
 
     if (!over) return;
 
-    const activeCol = findColumnOfTask(active.id);
+    // Use the origin column captured at drag start — NOT findColumnOfTask.
+    // By the time handleDragEnd fires, handleDragOver has already moved the
+    // task visually into the target column, so findColumnOfTask would return
+    // the destination column for activeCol, making activeCol === overCol and
+    // suppressing the DragPrompt entirely.
+    const activeCol = dragOriginCol;
+    setDragOriginCol(null);
+
     const overIsColumn = COLUMNS.some((c) => c.id === over.id);
     const overCol = overIsColumn
       ? (over.id as Status)
@@ -181,20 +190,29 @@ export function KanbanBoard({ filters, onTaskClick, onShowAllDone, refreshKey = 
     const { taskId, fromCol, toCol, snapshotBefore } = pendingDrag;
     setPendingDrag(null);
 
-    // tasksByColumn is already visually updated (task is in toCol)
+    // tasksByColumn is already visually updated (task is in toCol).
+    // We build reorder updates for both affected columns. For the moved task
+    // we include status_note directly — avoids a separate PUT /tasks/:id call
+    // that would overwrite all fields with empty defaults for missing body keys.
+    const noteValue = statusNote.trim() || null;
     const colsToUpdate = [fromCol, toCol];
-    const apiUpdates: { id: number; status: string; position: number }[] = [];
+    const apiUpdates: { id: number; status: string; position: number; status_note?: string | null }[] = [];
     for (const col of colsToUpdate) {
       tasksByColumn[col].forEach((t, idx) => {
-        apiUpdates.push({ id: t.id, status: col, position: idx });
+        const update: { id: number; status: string; position: number; status_note?: string | null } = {
+          id: t.id,
+          status: col,
+          position: idx,
+        };
+        if (t.id === taskId) {
+          update.status_note = noteValue;
+        }
+        apiUpdates.push(update);
       });
     }
 
     try {
       await reorderTasks(apiUpdates);
-      if (statusNote.trim()) {
-        await updateTask(taskId, { status_note: statusNote.trim() });
-      }
       load();
     } catch {
       setTasksByColumn(snapshotBefore);

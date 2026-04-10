@@ -61,7 +61,7 @@ export const updateTask = (id: number, data: TaskUpdateData) =>
 export const patchTaskStatus = (id: number, status: Task['status'], position: number, statusNote?: string | null) =>
   apiClient.patch<Task>(`/tasks/${id}/status`, { status, position, status_note: statusNote ?? null }).then((r) => r.data);
 
-export const reorderTasks = (updates: { id: number; status: string; position: number }[]) =>
+export const reorderTasks = (updates: { id: number; status: string; position: number; status_note?: string | null }[]) =>
   apiClient.patch('/tasks/reorder', { updates }).then((r) => r.data);
 
 export const deleteTask = (id: number) =>
