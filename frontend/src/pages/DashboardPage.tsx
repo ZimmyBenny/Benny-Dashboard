@@ -313,44 +313,23 @@ export function DashboardPage() {
                     <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>add</span>
                     Neue Aufgabe
                   </button>
-                  {taskStats !== null && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.3rem' }}>
-                      {taskStats.open_count > 0 && (
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem' }}>
-                          <span style={{
-                            fontFamily: 'var(--font-headline)', fontWeight: 800,
-                            fontSize: '1.25rem', letterSpacing: '-0.02em',
-                            color: 'var(--color-on-surface)', lineHeight: 1,
-                          }}>
-                            {taskStats.open_count}
-                          </span>
-                          <span style={{
-                            fontFamily: 'var(--font-body)', fontSize: '0.7rem',
-                            color: 'var(--color-on-surface-variant)',
-                            letterSpacing: '0.04em', textTransform: 'uppercase',
-                          }}>
-                            offen
-                          </span>
-                        </div>
-                      )}
-                      {taskStats.due_this_week > 0 && (
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem' }}>
-                          <span style={{
-                            fontFamily: 'var(--font-headline)', fontWeight: 800,
-                            fontSize: '1rem', letterSpacing: '-0.02em',
-                            color: 'var(--color-primary)', lineHeight: 1,
-                          }}>
-                            {taskStats.due_this_week}
-                          </span>
-                          <span style={{
-                            fontFamily: 'var(--font-body)', fontSize: '0.65rem',
-                            color: 'var(--color-on-surface-variant)',
-                            letterSpacing: '0.04em', textTransform: 'uppercase',
-                          }}>
-                            diese Woche
-                          </span>
-                        </div>
-                      )}
+                  {taskStats !== null && taskStats.open_count > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem' }}>
+                      <span style={{
+                        fontFamily: 'var(--font-headline)', fontWeight: 800,
+                        fontSize: '1.25rem', letterSpacing: '-0.02em',
+                        color: 'var(--color-on-surface)',
+                        lineHeight: 1,
+                      }}>
+                        {taskStats.open_count}
+                      </span>
+                      <span style={{
+                        fontFamily: 'var(--font-body)', fontSize: '0.7rem',
+                        color: 'var(--color-on-surface-variant)',
+                        letterSpacing: '0.04em', textTransform: 'uppercase',
+                      }}>
+                        offen
+                      </span>
                     </div>
                   )}
                 </div>
