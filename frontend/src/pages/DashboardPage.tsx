@@ -314,13 +314,23 @@ export function DashboardPage() {
                     Neue Aufgabe
                   </button>
                   {taskStats !== null && taskStats.open_count > 0 && (
-                    <span style={{
-                      fontFamily: 'var(--font-body)', fontSize: '0.7rem',
-                      color: 'var(--color-on-surface-variant)',
-                      letterSpacing: '0.03em',
-                    }}>
-                      {taskStats.open_count} offen
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem' }}>
+                      <span style={{
+                        fontFamily: 'var(--font-headline)', fontWeight: 800,
+                        fontSize: '1.25rem', letterSpacing: '-0.02em',
+                        color: 'var(--color-on-surface)',
+                        lineHeight: 1,
+                      }}>
+                        {taskStats.open_count}
+                      </span>
+                      <span style={{
+                        fontFamily: 'var(--font-body)', fontSize: '0.7rem',
+                        color: 'var(--color-on-surface-variant)',
+                        letterSpacing: '0.04em', textTransform: 'uppercase',
+                      }}>
+                        offen
+                      </span>
+                    </div>
                   )}
                 </div>
               )}
