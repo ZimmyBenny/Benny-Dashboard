@@ -1,4 +1,4 @@
-import axios from 'axios';
+import apiClient from './client';
 
 // ── Typen ──────────────────────────────────────────────────────────────────────
 
@@ -50,30 +50,30 @@ export interface CreateEventPayload {
 
 export async function fetchEvents(start?: string, end?: string): Promise<CalendarEvent[]> {
   const params = start && end ? { start, end } : {};
-  const res = await axios.get<CalendarEvent[]>('/api/calendar/events', { params });
+  const res = await apiClient.get<CalendarEvent[]>('/calendar/events', { params });
   return res.data;
 }
 
 export async function triggerSync(): Promise<SyncResult> {
-  const res = await axios.post<SyncResult>('/api/calendar/sync');
+  const res = await apiClient.post<SyncResult>('/calendar/sync');
   return res.data;
 }
 
 export async function fetchCalendars(checkNew = false): Promise<{ known: KnownCalendar[]; new_calendars: string[] }> {
-  const res = await axios.get('/api/calendar/calendars', { params: { check_new: checkNew } });
+  const res = await apiClient.get('/calendar/calendars', { params: { check_new: checkNew } });
   return res.data;
 }
 
 export async function createEvent(payload: CreateEventPayload): Promise<CalendarEvent> {
-  const res = await axios.post<{ ok: boolean; event: CalendarEvent }>('/api/calendar/events', payload);
+  const res = await apiClient.post<{ ok: boolean; event: CalendarEvent }>('/calendar/events', payload);
   return res.data.event;
 }
 
 export async function updateEvent(id: number, payload: Partial<CreateEventPayload>): Promise<CalendarEvent> {
-  const res = await axios.put<{ ok: boolean; event: CalendarEvent }>(`/api/calendar/events/${id}`, payload);
+  const res = await apiClient.put<{ ok: boolean; event: CalendarEvent }>(`/calendar/events/${id}`, payload);
   return res.data.event;
 }
 
 export async function deleteEvent(id: number): Promise<void> {
-  await axios.delete(`/api/calendar/events/${id}`);
+  await apiClient.delete(`/calendar/events/${id}`);
 }
