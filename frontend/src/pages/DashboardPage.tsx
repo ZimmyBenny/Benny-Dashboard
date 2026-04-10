@@ -288,7 +288,7 @@ export function DashboardPage() {
                     <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>add</span>
                     Neue Aufgabe
                   </button>
-                  {taskStats !== null && taskStats.open_count > 0 && (
+                  {taskStats !== null && (
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem' }}>
                       <span style={{
                         fontFamily: 'var(--font-headline)', fontWeight: 800,
