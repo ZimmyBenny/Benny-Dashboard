@@ -398,82 +398,70 @@ export function DashboardPage() {
             }} />
           </div>
 
-          <div
-            onClick={() => navigate('/tasks')}
-            style={{
-              width: '100%',
-              padding: '1.25rem 1.5rem',
-              background: 'var(--color-surface-container)',
-              border: '1px solid var(--color-surface-container-high)',
-              borderRadius: '1rem',
-              cursor: 'pointer',
-              transition: 'border-color 150ms ease',
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(204,151,255,0.25)';
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--color-surface-container-high)';
-            }}
-          >
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.25rem 2rem', alignItems: 'center' }}>
-              {/* Offen */}
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
-                <span style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '1.5rem', letterSpacing: '-0.03em', color: 'var(--color-on-surface)', lineHeight: 1 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.875rem' }}>
+            {/* Offen */}
+            <button className="module-card" onClick={() => navigate('/tasks')} style={{ textAlign: 'left', padding: '1.25rem' }}>
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.03em', color: 'var(--color-on-surface)', lineHeight: 1, marginBottom: '0.375rem' }}>
                   {taskStats.open_count}
-                </span>
-                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
-                  Offen
-                </span>
+                </p>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
+                  Offene Aufgaben
+                </p>
               </div>
+            </button>
 
-              {/* In Arbeit */}
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
-                <span style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '1.5rem', letterSpacing: '-0.03em', color: 'var(--color-secondary)', lineHeight: 1 }}>
+            {/* In Arbeit */}
+            <button className="module-card" onClick={() => navigate('/tasks')} style={{ textAlign: 'left', padding: '1.25rem' }}>
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.03em', color: 'var(--color-secondary)', lineHeight: 1, marginBottom: '0.375rem' }}>
                   {taskStats.in_progress_count}
-                </span>
-                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
+                </p>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
                   In Arbeit
-                </span>
+                </p>
               </div>
+            </button>
 
-              {/* Diese Woche fällig */}
-              {taskStats.due_this_week > 0 && (
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
-                  <span style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '1.5rem', letterSpacing: '-0.03em', color: 'var(--color-primary)', lineHeight: 1 }}>
+            {/* Diese Woche fällig */}
+            {taskStats.due_this_week > 0 && (
+              <button className="module-card" onClick={() => navigate('/tasks')} style={{ textAlign: 'left', padding: '1.25rem' }}>
+                <div style={{ position: 'relative', zIndex: 1 }}>
+                  <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.03em', color: 'var(--color-primary)', lineHeight: 1, marginBottom: '0.375rem' }}>
                     {taskStats.due_this_week}
-                  </span>
-                  <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
-                    Diese Woche
-                  </span>
+                  </p>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
+                    Diese Woche fällig
+                  </p>
                 </div>
-              )}
+              </button>
+            )}
 
-              {/* Erledigt diese Woche */}
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
-                <span style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '1.5rem', letterSpacing: '-0.03em', color: '#4ade80', lineHeight: 1 }}>
+            {/* Erledigt diese Woche */}
+            <button className="module-card" onClick={() => navigate('/tasks')} style={{ textAlign: 'left', padding: '1.25rem' }}>
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.03em', color: '#4ade80', lineHeight: 1, marginBottom: '0.375rem' }}>
                   {taskStats.done_this_week}
-                </span>
-                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
-                  Erledigt
-                </span>
+                </p>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
+                  Erledigt diese Woche
+                </p>
               </div>
+            </button>
 
-              {/* Überfällig */}
-              {taskStats.overdue_count > 0 && (
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
-                  <span style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '1.5rem', letterSpacing: '-0.03em', color: 'var(--color-error)', lineHeight: 1 }}>
+            {/* Überfällig */}
+            {taskStats.overdue_count > 0 && (
+              <button className="module-card" onClick={() => navigate('/tasks')} style={{ textAlign: 'left', padding: '1.25rem' }}>
+                <div style={{ position: 'relative', zIndex: 1 }}>
+                  <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.03em', color: 'var(--color-error)', lineHeight: 1, marginBottom: '0.375rem' }}>
                     {taskStats.overdue_count}
-                  </span>
-                  <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
+                  </p>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
                     Überfällig
-                  </span>
+                  </p>
                 </div>
-              )}
-
-              <div style={{ flex: 1 }} />
-              <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--color-outline)', flexShrink: 0 }}>chevron_right</span>
-            </div>
+              </button>
+            )}
           </div>
         </>
       )}
