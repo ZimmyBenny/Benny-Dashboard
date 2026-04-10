@@ -296,7 +296,7 @@ export function DashboardPage() {
                         color: 'var(--color-on-surface)',
                         lineHeight: 1,
                       }}>
-                        {taskStats.open_count}
+                        {taskStats.open_count ?? 0}
                       </span>
                       <span style={{
                         fontFamily: 'var(--font-body)', fontSize: '0.7rem',
@@ -390,7 +390,7 @@ export function DashboardPage() {
             <button className="module-card" onClick={() => navigate('/tasks')} style={{ textAlign: 'left', padding: '1.25rem' }}>
               <div style={{ position: 'relative', zIndex: 1 }}>
                 <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.03em', color: 'var(--color-secondary)', lineHeight: 1, marginBottom: '0.375rem' }}>
-                  {taskStats.in_progress_count}
+                  {taskStats.in_progress_count ?? 0}
                 </p>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
                   In Arbeit
@@ -402,7 +402,7 @@ export function DashboardPage() {
             <button className="module-card" onClick={() => navigate('/tasks')} style={{ textAlign: 'left', padding: '1.25rem' }}>
                 <div style={{ position: 'relative', zIndex: 1 }}>
                   <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.03em', color: 'var(--color-primary)', lineHeight: 1, marginBottom: '0.375rem' }}>
-                    {taskStats.due_this_week}
+                    {taskStats.due_this_week ?? 0}
                   </p>
                   <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
                     Diese Woche fällig
@@ -414,7 +414,7 @@ export function DashboardPage() {
             <button className="module-card" onClick={() => navigate('/tasks')} style={{ textAlign: 'left', padding: '1.25rem' }}>
               <div style={{ position: 'relative', zIndex: 1 }}>
                 <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.03em', color: '#4ade80', lineHeight: 1, marginBottom: '0.375rem' }}>
-                  {taskStats.done_this_week}
+                  {taskStats.done_this_week ?? 0}
                 </p>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
                   Erledigt diese Woche
@@ -426,7 +426,7 @@ export function DashboardPage() {
             <button className="module-card" onClick={() => navigate('/tasks')} style={{ textAlign: 'left', padding: '1.25rem' }}>
               <div style={{ position: 'relative', zIndex: 1 }}>
                 <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.03em', color: 'var(--color-error)', lineHeight: 1, marginBottom: '0.375rem' }}>
-                  {taskStats.overdue_count}
+                  {taskStats.overdue_count ?? 0}
                 </p>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
                   Überfällig
