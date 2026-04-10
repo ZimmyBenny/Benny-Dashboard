@@ -12,6 +12,10 @@ function getGreeting(): { time: string; name: string } {
   return { time: 'Gute Nacht,', name: 'Benny.' };
 }
 
+const quickLinks = [
+  { label: 'AMZ Ecosystem', url: 'https://www.amz-ecosystem.app', icon: 'open_in_new' },
+];
+
 const modules = [
   { path: '/zeiterfassung', label: 'Zeiterfassung', icon: 'timer',                  description: 'Zeiten · Projekte · Export', isTimer: true as const },
   { path: '/tasks',         label: 'Aufgaben',       icon: 'task_alt',               description: 'Planen · Verfolgen · Erledigen' },
@@ -311,6 +315,73 @@ export function DashboardPage() {
             </div>
           </button>
         ))}
+      </div>
+      {/* ── Schnellzugriff ───────────────────────────────── */}
+      <div style={{ marginTop: '2.5rem' }}>
+        {/* Section divider */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem' }}>
+          <p style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.65rem',
+            letterSpacing: '0.22em',
+            textTransform: 'uppercase',
+            color: 'var(--color-outline)',
+            whiteSpace: 'nowrap',
+          }}>
+            Schnellzugriff
+          </p>
+          <div style={{
+            flex: 1, height: '1px',
+            background: 'linear-gradient(90deg, var(--color-outline-variant) 0%, transparent 100%)',
+          }} />
+        </div>
+
+        {/* Links */}
+        <div style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+          gap: '0.75rem',
+        }}>
+          {quickLinks.map((link) => (
+            <a
+              key={link.url}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.625rem 1.25rem',
+                borderRadius: '9999px',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.09)',
+                color: 'var(--color-on-surface-variant)',
+                fontFamily: 'var(--font-body)',
+                fontSize: '0.8125rem',
+                fontWeight: 500,
+                letterSpacing: '0.01em',
+                textDecoration: 'none',
+                transition: 'border-color 150ms ease, color 150ms ease, background 150ms ease',
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(204,151,255,0.35)';
+                (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-primary)';
+                (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(204,151,255,0.06)';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(255,255,255,0.09)';
+                (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-on-surface-variant)';
+                (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.04)';
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>language</span>
+              {link.label}
+              <span className="material-symbols-outlined" style={{ fontSize: '13px', opacity: 0.5 }}>open_in_new</span>
+            </a>
+          ))}
+        </div>
       </div>
     </PageWrapper>
   );
