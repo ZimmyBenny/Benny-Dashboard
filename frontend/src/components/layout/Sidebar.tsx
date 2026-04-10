@@ -1,8 +1,10 @@
 import { NavLink, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { useUiStore } from '../../store/uiStore';
 import { useAuthStore } from '../../store/authStore';
 import { navItems, settingsItem } from './navConfig';
 import type { NavItem } from './navConfig';
+import apiClient from '../../api/client';
 
 function SidebarNavLink({
   item,
@@ -72,6 +74,21 @@ export function Sidebar() {
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
   const logout = useAuthStore((state) => state.logout);
   const navigate = useNavigate();
+
+  type BackupState = 'idle' | 'loading' | 'success' | 'error';
+  const [backupState, setBackupState] = useState<BackupState>('idle');
+
+  async function handleBackup() {
+    setBackupState('loading');
+    try {
+      await apiClient.post('/backup');
+      setBackupState('success');
+      setTimeout(() => setBackupState('idle'), 3000);
+    } catch {
+      setBackupState('error');
+      setTimeout(() => setBackupState('idle'), 3000);
+    }
+  }
 
   return (
     <aside
@@ -184,8 +201,58 @@ export function Sidebar() {
         </button>
       </div>
 
-      {/* Settings + Logout */}
+      {/* Backup + Settings + Logout */}
       <div className="p-2" style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+        {/* Backup Button */}
+        <div className="relative group">
+          <button
+            onClick={handleBackup}
+            disabled={backupState === 'loading'}
+            className="flex items-center gap-3 rounded-lg transition-all duration-150 w-full"
+            style={{
+              padding: collapsed ? '0.5rem' : '0.5rem 0.75rem',
+              justifyContent: collapsed ? 'center' : undefined,
+              color: backupState === 'success'
+                ? 'var(--color-secondary)'
+                : backupState === 'error'
+                  ? '#f87171'
+                  : 'var(--color-on-surface-variant)',
+              background: 'transparent',
+              border: 'none',
+              cursor: backupState === 'loading' ? 'default' : 'pointer',
+              opacity: backupState === 'loading' ? 0.6 : 1,
+            }}
+          >
+            <span className="material-symbols-outlined flex-shrink-0" style={{ fontSize: '20px' }}>
+              {backupState === 'success' ? 'cloud_done' : backupState === 'error' ? 'cloud_off' : 'backup'}
+            </span>
+            {!collapsed && (
+              <span style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: '0.8125rem',
+                fontWeight: 500,
+                letterSpacing: '0.01em',
+              }}>
+                {backupState === 'loading' ? 'Sichern…' : backupState === 'success' ? 'Gesichert!' : backupState === 'error' ? 'Fehler' : 'Backup'}
+              </span>
+            )}
+          </button>
+          {collapsed && (
+            <div
+              className="pointer-events-none absolute left-full top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded px-2 py-1 text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+              style={{
+                marginLeft: '8px',
+                backgroundColor: 'var(--color-surface-container-high)',
+                color: 'var(--color-on-surface)',
+                border: '1px solid var(--color-outline-variant)',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+              }}
+            >
+              Backup
+            </div>
+          )}
+        </div>
+
         <SidebarNavLink item={settingsItem} collapsed={collapsed} />
         <div className="relative group">
           <button

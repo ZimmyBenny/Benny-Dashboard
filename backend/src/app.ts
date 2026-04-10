@@ -6,6 +6,7 @@ import userRoutes from './routes/user.routes';
 import clientsRoutes from './routes/clients.routes';
 import projectsRoutes from './routes/projects.routes';
 import timeEntriesRoutes from './routes/timeEntries.routes';
+import backupRoutes from './routes/backup.routes';
 import { verifyToken, type AuthenticatedRequest } from './middleware/auth';
 
 export function createApp() {
@@ -35,6 +36,7 @@ export function createApp() {
   app.use('/api/clients', clientsRoutes);
   app.use('/api/projects', projectsRoutes);
   app.use('/api/time-entries', timeEntriesRoutes);
+  app.use('/api/backup', backupRoutes);
 
   // Temporary probe route to verify the guard end-to-end (kept; Plan 3 may remove)
   app.get('/api/_probe', (req: AuthenticatedRequest, res) => {
