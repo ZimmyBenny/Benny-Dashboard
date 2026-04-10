@@ -123,6 +123,7 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete }: TaskS
 
   async function handleDelete() {
     if (!task) return;
+    if (!window.confirm(`Aufgabe "${task.title}" wirklich löschen?`)) return;
     setDeleting(true);
     try {
       await onDelete(task.id);
@@ -417,7 +418,7 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete }: TaskS
                 }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>delete</span>
-                {deleting ? 'Wird geloescht...' : 'Loeschen'}
+                {deleting ? 'Wird gelöscht...' : 'Löschen'}
               </button>
             ) : (
               <div />
