@@ -378,7 +378,7 @@ export function DashboardPage() {
             <button className="module-card" onClick={() => navigate('/tasks')} style={{ textAlign: 'left', padding: '1.25rem' }}>
               <div style={{ position: 'relative', zIndex: 1 }}>
                 <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.03em', color: 'var(--color-on-surface)', lineHeight: 1, marginBottom: '0.375rem' }}>
-                  {taskStats.open_count}
+                  {taskStats.open_count ?? 0}
                 </p>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
                   Offene Aufgaben
