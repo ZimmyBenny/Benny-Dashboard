@@ -416,148 +416,63 @@ export function DashboardPage() {
               (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--color-surface-container-high)';
             }}
           >
-            <div style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: '1.5rem',
-              alignItems: 'center',
-            }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.25rem 2rem', alignItems: 'center' }}>
               {/* Offen */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '60px' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--color-on-surface-variant)', marginBottom: '0.25rem' }}>
-                  radio_button_unchecked
-                </span>
-                <p style={{
-                  fontFamily: 'var(--font-headline)',
-                  fontWeight: 800,
-                  fontSize: '1.5rem',
-                  letterSpacing: '-0.03em',
-                  color: 'var(--color-on-surface)',
-                  lineHeight: 1,
-                  marginBottom: '0.25rem',
-                }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
+                <span style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '1.5rem', letterSpacing: '-0.03em', color: 'var(--color-on-surface)', lineHeight: 1 }}>
                   {taskStats.open_count}
-                </p>
-                <p style={{
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '0.7rem',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.08em',
-                  color: 'var(--color-on-surface-variant)',
-                }}>
+                </span>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
                   Offen
-                </p>
+                </span>
               </div>
 
               {/* In Arbeit */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '60px' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--color-secondary)', marginBottom: '0.25rem' }}>
-                  pending
-                </span>
-                <p style={{
-                  fontFamily: 'var(--font-headline)',
-                  fontWeight: 800,
-                  fontSize: '1.5rem',
-                  letterSpacing: '-0.03em',
-                  color: 'var(--color-secondary)',
-                  lineHeight: 1,
-                  marginBottom: '0.25rem',
-                }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
+                <span style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '1.5rem', letterSpacing: '-0.03em', color: 'var(--color-secondary)', lineHeight: 1 }}>
                   {taskStats.in_progress_count}
-                </p>
-                <p style={{
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '0.7rem',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.08em',
-                  color: 'var(--color-on-surface-variant)',
-                }}>
+                </span>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
                   In Arbeit
-                </p>
+                </span>
               </div>
 
               {/* Diese Woche fällig */}
               {taskStats.due_this_week > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '60px' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--color-primary)', marginBottom: '0.25rem' }}>
-                    event
-                  </span>
-                  <p style={{
-                    fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '1.5rem',
-                    letterSpacing: '-0.03em', color: 'var(--color-primary)', lineHeight: 1, marginBottom: '0.25rem',
-                  }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
+                  <span style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '1.5rem', letterSpacing: '-0.03em', color: 'var(--color-primary)', lineHeight: 1 }}>
                     {taskStats.due_this_week}
-                  </p>
-                  <p style={{
-                    fontFamily: 'var(--font-body)', fontSize: '0.7rem', textTransform: 'uppercase',
-                    letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)',
-                  }}>
+                  </span>
+                  <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
                     Diese Woche
-                  </p>
+                  </span>
                 </div>
               )}
 
-              {/* Diese Woche erledigt */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '60px' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#4ade80', marginBottom: '0.25rem' }}>
-                  check_circle
-                </span>
-                <p style={{
-                  fontFamily: 'var(--font-headline)',
-                  fontWeight: 800,
-                  fontSize: '1.5rem',
-                  letterSpacing: '-0.03em',
-                  color: '#4ade80',
-                  lineHeight: 1,
-                  marginBottom: '0.25rem',
-                }}>
+              {/* Erledigt diese Woche */}
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
+                <span style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '1.5rem', letterSpacing: '-0.03em', color: '#4ade80', lineHeight: 1 }}>
                   {taskStats.done_this_week}
-                </p>
-                <p style={{
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '0.7rem',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.08em',
-                  color: 'var(--color-on-surface-variant)',
-                }}>
-                  Diese Woche
-                </p>
+                </span>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
+                  Erledigt
+                </span>
               </div>
 
-              {/* Ueberfaellig — nur wenn > 0 */}
+              {/* Überfällig */}
               {taskStats.overdue_count > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '60px' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--color-error)', marginBottom: '0.25rem' }}>
-                    warning
-                  </span>
-                  <p style={{
-                    fontFamily: 'var(--font-headline)',
-                    fontWeight: 800,
-                    fontSize: '1.5rem',
-                    letterSpacing: '-0.03em',
-                    color: 'var(--color-error)',
-                    lineHeight: 1,
-                    marginBottom: '0.25rem',
-                  }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem' }}>
+                  <span style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '1.5rem', letterSpacing: '-0.03em', color: 'var(--color-error)', lineHeight: 1 }}>
                     {taskStats.overdue_count}
-                  </p>
-                  <p style={{
-                    fontFamily: 'var(--font-body)',
-                    fontSize: '0.7rem',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.08em',
-                    color: 'var(--color-on-surface-variant)',
-                  }}>
-                    Ueberfaellig
-                  </p>
+                  </span>
+                  <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
+                    Überfällig
+                  </span>
                 </div>
               )}
 
-              {/* Spacer + navigate hint */}
               <div style={{ flex: 1 }} />
-              <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--color-outline)', flexShrink: 0 }}>
-                chevron_right
-              </span>
+              <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--color-outline)', flexShrink: 0 }}>chevron_right</span>
             </div>
           </div>
         </>
