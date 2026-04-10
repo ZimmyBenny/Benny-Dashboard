@@ -327,18 +327,24 @@ export function DashboardPage() {
           borderRadius: '1rem',
         }}>
           {/* Titel */}
-          <p style={{
-            fontFamily: 'var(--font-headline)',
-            fontWeight: 700,
-            fontSize: '0.875rem',
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            color: 'var(--color-on-surface)',
-            textAlign: 'center',
-            marginBottom: '1rem',
-          }}>
-            Schnellzugriff
-          </p>
+          <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+            <span className="material-symbols-outlined" style={{
+              fontSize: '1.375rem',
+              color: 'var(--color-primary)',
+              display: 'block',
+              marginBottom: '0.5rem',
+            }}>bolt</span>
+            <p style={{
+              fontFamily: 'var(--font-headline)',
+              fontWeight: 700,
+              fontSize: '0.875rem',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: 'var(--color-on-surface)',
+            }}>
+              Schnellzugriff
+            </p>
+          </div>
 
           {/* Links */}
           <div style={{
