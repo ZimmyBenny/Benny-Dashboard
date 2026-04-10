@@ -32,4 +32,14 @@ const app = createApp();
 app.listen(PORT, () => {
   console.log(`[server] Benny Dashboard API running on http://localhost:${PORT}`);
   console.log(`[server] Health: http://localhost:${PORT}/api/health`);
+
+  // Hintergrund-Sync: Apple Calendar alle 10 Minuten (kein UI-Blocking)
+  // Lazy import nach Server-Start damit Migration bereits abgeschlossen ist
+  const SYNC_INTERVAL_MS = 10 * 60 * 1000; // 10 Minuten
+  import('./services/calendarSync.service').then(({ fullSync }) => {
+    setInterval(() => {
+      fullSync().catch(err => console.error('[calendar] Background sync failed:', err));
+    }, SYNC_INTERVAL_MS);
+    console.log(`[calendar] Background sync scheduled every 10 minutes`);
+  }).catch(err => console.error('[calendar] Failed to load calendarSync.service:', err));
 });
