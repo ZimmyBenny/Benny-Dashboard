@@ -297,7 +297,7 @@ export function DashboardPage() {
               )}
 
               {'isTasks' in mod && (
-                <div style={{ marginTop: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                <div style={{ marginTop: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.625rem', justifyContent: 'space-between' }}>
                   <button
                     onClick={(e) => { e.stopPropagation(); setIsNewTaskOpen(true); }}
                     style={{
