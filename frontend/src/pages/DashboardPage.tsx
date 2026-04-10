@@ -95,7 +95,7 @@ export function DashboardPage() {
         <div>
           <h1 className="display-text" style={{
             fontSize: 'clamp(2.6rem, 5.5vw, 5rem)',
-            color: '#ffffff',
+            color: 'var(--color-on-surface)',
             marginBottom: '0.05em',
           }}>
             {greeting.time}
@@ -114,7 +114,7 @@ export function DashboardPage() {
             fontWeight: 800,
             fontSize: 'clamp(2rem, 3.5vw, 3.5rem)',
             letterSpacing: '-0.03em',
-            color: '#ffffff',
+            color: 'var(--color-on-surface)',
             lineHeight: 1,
             marginBottom: '0.4rem',
           }}>

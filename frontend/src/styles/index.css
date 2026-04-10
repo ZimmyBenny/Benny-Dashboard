@@ -316,3 +316,24 @@ body {
 [data-theme="light"] ::-webkit-scrollbar-track { background: var(--color-surface-container-low); }
 [data-theme="light"] ::-webkit-scrollbar-thumb { background: var(--color-outline-variant); }
 [data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: var(--color-outline); }
+
+/* Inputs + Textareas — Light-Theme */
+[data-theme="light"] input,
+[data-theme="light"] textarea,
+[data-theme="light"] select {
+  background: rgba(0, 0, 0, 0.04) !important;
+  border-color: rgba(0, 0, 0, 0.18) !important;
+  color: var(--color-on-surface) !important;
+  color-scheme: light;
+}
+[data-theme="light"] input::placeholder,
+[data-theme="light"] textarea::placeholder {
+  color: var(--color-outline) !important;
+}
+
+/* Inline-Karten mit rgba-weiss-Hintergründen — Light-Theme */
+[data-theme="light"] .module-card,
+[data-theme="light"] .glass-card {
+  background: rgba(255, 255, 255, 0.7) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
