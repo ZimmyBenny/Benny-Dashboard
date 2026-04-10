@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { useTimerStore } from '../store/timerStore';
+import { useAuthStore } from '../store/authStore';
 
 function getGreeting(): { time: string; name: string } {
   const hour = new Date().getHours();
@@ -18,7 +19,7 @@ const modules = [
   { path: '/dj',            label: 'DJ',             icon: 'headphones',             description: 'Gigs · Bookings · Zahlungen' },
   { path: '/finances',      label: 'Finanzen',       icon: 'account_balance_wallet', description: 'Einnahmen · Ausgaben · Budgets' },
   { path: '/amazon',        label: 'Amazon',         icon: 'shopping_cart',          description: 'Bestellungen und Retouren' },
-  { path: '/settings',      label: 'Settings',       icon: 'settings',               description: 'Konfiguration & Präferenzen' },
+  { path: '/settings',      label: 'Settings',       icon: 'settings',               description: 'Konfiguration & Präferenzen', isSettings: true as const },
 ];
 
 function formatMs(ms: number): string {
@@ -46,6 +47,8 @@ export function DashboardPage() {
     }, 1000);
     return () => clearInterval(id);
   }, []);
+
+  const { logout } = useAuthStore();
 
   // Aktiver Timer
   const { status: timerStatus, getElapsedMs, start: startTimer } = useTimerStore();
@@ -244,6 +247,27 @@ export function DashboardPage() {
               }}>
                 {mod.description}
               </p>
+
+              {'isSettings' in mod && (
+                <div style={{ marginTop: '0.875rem' }}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); logout(); navigate('/login'); }}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                      padding: '0.35rem 0.8rem',
+                      borderRadius: '9999px',
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      color: 'var(--color-on-surface-variant)', cursor: 'pointer',
+                      fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.7rem',
+                      letterSpacing: '0.03em',
+                    }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>logout</span>
+                    Abmelden
+                  </button>
+                </div>
+              )}
 
               {'isTimer' in mod && (
                 <div style={{ marginTop: '0.875rem' }}>
