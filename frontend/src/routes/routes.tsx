@@ -9,6 +9,7 @@ import { DjPage } from '../pages/DjPage';
 import { FinancesPage } from '../pages/FinancesPage';
 import { AmazonPage } from '../pages/AmazonPage';
 import { SettingsPage } from '../pages/SettingsPage';
+import { ZeiterfassungPage } from '../pages/ZeiterfassungPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -18,13 +19,14 @@ export const router = createBrowserRouter([
       {
         element: <AppShell />,
         children: [
-          { path: '/',         element: <DashboardPage /> },
-          { path: '/tasks',    element: <TasksPage /> },
-          { path: '/calendar', element: <CalendarPage /> },
-          { path: '/dj',       element: <DjPage /> },
-          { path: '/finances', element: <FinancesPage /> },
-          { path: '/amazon',   element: <AmazonPage /> },
-          { path: '/settings', element: <SettingsPage /> },
+          { path: '/',               element: <DashboardPage /> },
+          { path: '/zeiterfassung',  element: <ZeiterfassungPage /> },
+          { path: '/tasks',          element: <TasksPage /> },
+          { path: '/calendar',       element: <CalendarPage /> },
+          { path: '/dj',             element: <DjPage /> },
+          { path: '/finances',       element: <FinancesPage /> },
+          { path: '/amazon',         element: <AmazonPage /> },
+          { path: '/settings',       element: <SettingsPage /> },
         ],
       },
     ],

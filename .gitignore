@@ -17,6 +17,9 @@ backend/dist/
 *.db-wal
 *.db-shm
 
+# Claude Code local settings
+.claude/
+
 # macOS
 .DS_Store
 

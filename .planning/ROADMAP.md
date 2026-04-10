@@ -3,7 +3,7 @@
 **Milestone 1:** Foundation → Working Dashboard Shell
 **Granularity:** Standard
 **Coverage:** 56/56 Milestone 1 requirements mapped
-**Last updated:** 2026-04-07
+**Last updated:** 2026-04-09
 
 ---
 
@@ -81,12 +81,12 @@
 
 **Goal:** The Electric Noir design system is fully implemented as CSS tokens and reusable components. The authenticated app has a working shell — a collapsible sidebar with all 7 navigation entries, a persistent header, and smooth keyboard-driven collapse — with every module route registered and returning a styled placeholder. The Home dashboard and Settings page are fully complete.
 
-**Plans:**
-- [ ] **Plan 3.1 — Electric Noir CSS tokens and typography.** Define all design tokens in `styles/index.css` using Tailwind v4's `@theme` block: background `#060e20`, primary accent `#cc97ff`, secondary accent `#34b5fa`, and surface hierarchy layers. Load Epilogue (display/headlines) and Inter (body/labels) fonts. Enforce global rules: no 1px solid borders between sections, no drop shadows (only ambient glows using `0px 0px 12px rgba()` values), `backdrop-filter: blur()` restricted to cards and modals only (never sidebar or header), focus rings using `#cc97ff`. Style the CSS scrollbar to match Electric Noir. Define blur and glow values as CSS variables (not Tailwind scale values) to prevent drift across future modules.
-- [ ] **Plan 3.2 — UI primitives: Card, Button, Input, PageWrapper.** Build `components/ui/Card.tsx` with Glassmorphism: `surface-variant` background at 40% opacity + `backdrop-filter: blur(20px)`. Build `components/ui/Button.tsx` with two variants — Primary (gradient fill, fully rounded) and Secondary (glass style). Build `components/ui/Input.tsx` with three states — Default, Focus (secondary color glow), and Error. Build `components/layout/PageWrapper.tsx` that wraps all page content with consistent padding and scroll behavior. All components use only design token values — no raw hex in JSX.
-- [ ] **Plan 3.3 — AppShell, Header, Sidebar with collapsible behavior.** Build `components/layout/navConfig.ts` as the single source of truth for navigation items (path, label, icon) for all 7 routes. Build `Sidebar.tsx` that iterates `navConfig`, highlights the active route with `#cc97ff`, puts Settings visually separated at the bottom, and shows icon-only at 48–56px when collapsed or full width (220–240px) with labels when expanded. Animate the collapse transition at 150–200ms ease-out. Show tooltips with labels when collapsed and the user hovers an icon. Implement keyboard shortcut `[` to toggle sidebar. Build `Header.tsx`. Assemble `AppShell.tsx` rendering Sidebar + Header + `<Outlet />`. Store collapsed state in `store/uiStore.ts` with Zustand + persist so it survives page reloads.
-- [ ] **Plan 3.4 — All 7 module routes and placeholder pages.** Register all routes in `routes/routes.tsx` nested under `<PrivateRoute>` → `<AppShell>`: `/` (Dashboard/Home), `/tasks`, `/calendar`, `/dj`, `/finances`, `/amazon`, `/settings`. Create a `[Name]Page.tsx` placeholder for Tasks, Calendar, DJ, Finances, and Amazon modules — each uses `<PageWrapper>` and displays the module name and a "coming soon" note. No 404 for any of the 7 registered paths.
-- [ ] **Plan 3.5 — Home dashboard page and Settings page.** Build `DashboardPage.tsx`: a greeting line ("Good morning, Benny"), a responsive grid (3 columns at 1280px+, 2 columns at 768px+) of 7 `<Card>` components — one per module — each showing icon, module name, and short microcopy description. Every card is fully clickable and navigates to the corresponding module route. Cards have a hover state with a subtle glow or border highlight. Build `SettingsPage.tsx`: a protected page showing app version and build info, a password change form that calls `POST /api/auth/change-password`, and a Logout button that clears the token and redirects to `/login`. Implement `POST /api/auth/change-password` on the backend (accepts old password + new password, bcrypt-hashes the new password, updates the `user` row).
+**Plans:** 4/5 plans executed
+- [x] 03-01-PLAN.md — Electric Noir CSS tokens, fonts, Material Symbols, glass-card, scrollbar
+- [x] 03-02-PLAN.md — UI primitives: Card, Button, Input, PageWrapper
+- [x] 03-03-PLAN.md — AppShell, Header, Sidebar with collapsible behavior, uiStore, navConfig
+- [x] 03-04-PLAN.md — All 7 module routes registered, 5 placeholder pages
+- [ ] 03-05-PLAN.md — Home dashboard page (greeting + 7-card grid) and Settings page (version, password change, logout)
 
 **Depends on:** Phase 2
 
@@ -99,7 +99,7 @@
 - AppShell renders for every authenticated route with Sidebar + Header + page content
 - Sidebar shows all 7 navigation entries; Settings is visually separated at the bottom
 - Active route is highlighted with `#cc97ff`
-- Sidebar collapses to icon-only (approx 52px) and expands to full width (approx 240px) with 150–200ms animation
+- Sidebar collapses to icon-only (approx 52px) and expands to full width (approx 240px) with 150-200ms animation
 - Pressing `[` toggles the sidebar from anywhere in the app
 - Hovering a sidebar icon when collapsed shows a tooltip with the label
 - Sidebar state (collapsed/expanded) persists across browser reloads
@@ -121,7 +121,7 @@
 |-------|---------------|--------|-----------|
 | 1. Foundation | 5/5 | Complete   | 2026-04-08 |
 | 2. Auth Layer | 5/5 | Complete   | 2026-04-08 |
-| 3. Shell + Design System | 0/5 | Not started | — |
+| 3. Shell + Design System | 4/5 | In Progress|  |
 
 ---
 
@@ -167,4 +167,4 @@ Future milestone phases — scope and plans defined at milestone start, not now.
 
 ---
 
-*Last updated: 2026-04-07*
+*Last updated: 2026-04-09*

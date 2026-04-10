@@ -5,12 +5,13 @@ export interface NavItem {
 }
 
 export const navItems: NavItem[] = [
-  { path: '/',         label: 'Dashboard', icon: 'dashboard' },
-  { path: '/tasks',    label: 'Aufgaben',  icon: 'task_alt' },
-  { path: '/calendar', label: 'Kalender',  icon: 'calendar_month' },
-  { path: '/dj',       label: 'DJ',        icon: 'headphones' },
-  { path: '/finances', label: 'Finanzen',  icon: 'account_balance_wallet' },
-  { path: '/amazon',   label: 'Amazon',    icon: 'shopping_cart' },
+  { path: '/',                label: 'Dashboard',    icon: 'dashboard' },
+  { path: '/zeiterfassung',   label: 'Zeiterfassung', icon: 'timer' },
+  { path: '/tasks',           label: 'Aufgaben',     icon: 'task_alt' },
+  { path: '/calendar',        label: 'Kalender',     icon: 'calendar_month' },
+  { path: '/dj',              label: 'DJ',           icon: 'headphones' },
+  { path: '/finances',        label: 'Finanzen',     icon: 'account_balance_wallet' },
+  { path: '/amazon',          label: 'Amazon',       icon: 'shopping_cart' },
 ];
 
 // Settings ist kein Teil von navItems — wird separat gerendert (per D-09: margin-top: auto, kein Divider)
@@ -22,11 +23,12 @@ export const settingsItem: NavItem = {
 
 // Seitennamen-Mapping fuer den Header (per D-15)
 export const pageNames: Record<string, string> = {
-  '/':          'Dashboard',
-  '/tasks':     'Aufgaben',
-  '/calendar':  'Kalender',
-  '/dj':        'DJ',
-  '/finances':  'Finanzen',
-  '/amazon':    'Amazon',
-  '/settings':  'Einstellungen',
+  '/':                'Dashboard',
+  '/zeiterfassung':   'Zeiterfassung',
+  '/tasks':           'Aufgaben',
+  '/calendar':        'Kalender',
+  '/dj':              'DJ',
+  '/finances':        'Finanzen',
+  '/amazon':          'Amazon',
+  '/settings':        'Einstellungen',
 };

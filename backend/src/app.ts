@@ -3,6 +3,9 @@ import cors from 'cors';
 import { errorHandler } from './middleware/errorHandler';
 import authRoutes from './routes/auth.routes';
 import userRoutes from './routes/user.routes';
+import clientsRoutes from './routes/clients.routes';
+import projectsRoutes from './routes/projects.routes';
+import timeEntriesRoutes from './routes/timeEntries.routes';
 import { verifyToken, type AuthenticatedRequest } from './middleware/auth';
 
 export function createApp() {
@@ -29,6 +32,9 @@ export function createApp() {
 
   // Protected routes — registered AFTER verifyToken guard
   app.use('/api/user', userRoutes);
+  app.use('/api/clients', clientsRoutes);
+  app.use('/api/projects', projectsRoutes);
+  app.use('/api/time-entries', timeEntriesRoutes);
 
   // Temporary probe route to verify the guard end-to-end (kept; Plan 3 may remove)
   app.get('/api/_probe', (req: AuthenticatedRequest, res) => {

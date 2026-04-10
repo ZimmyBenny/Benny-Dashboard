@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Epilogue:wght@400;700;800;900&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "tertiary-dim": "#e5e8ee",
+              "primary-dim": "#9c48ea",
+              "primary-container": "#c284ff",
+              "surface-tint": "#cc97ff",
+              "secondary": "#34b5fa",
+              "on-primary": "#47007c",
+              "error-container": "#a70138",
+              "on-error-container": "#ffb2b9",
+              "on-tertiary-fixed": "#474c51",
+              "secondary-dim": "#17a8ec",
+              "on-primary-fixed": "#000000",
+              "on-primary-fixed-variant": "#430076",
+              "on-error": "#490013",
+              "secondary-fixed": "#a4d8ff",
+              "background": "#060e20",
+              "on-tertiary-container": "#53575c",
+              "on-secondary-fixed": "#003853",
+              "surface-container-low": "#091328",
+              "error": "#ff6e84",
+              "surface-variant": "#192540",
+              "on-primary-container": "#360061",
+              "surface-container-lowest": "#000000",
+              "on-tertiary": "#5b5f65",
+              "secondary-fixed-dim": "#81ccff",
+              "inverse-on-surface": "#4d556b",
+              "on-surface": "#dee5ff",
+              "surface": "#060e20",
+              "surface-bright": "#1f2b49",
+              "on-secondary-fixed-variant": "#00567c",
+              "tertiary-fixed": "#f3f7fd",
+              "inverse-surface": "#faf8ff",
+              "tertiary-container": "#e7ebf1",
+              "tertiary-fixed-dim": "#e5e8ee",
+              "secondary-container": "#006591",
+              "on-secondary-container": "#f3f8ff",
+              "primary-fixed-dim": "#b971ff",
+              "surface-container": "#0f1930",
+              "inverse-primary": "#842cd3",
+              "tertiary": "#f6f9ff",
+              "outline": "#6d758c",
+              "primary-fixed": "#c284ff",
+              "surface-container-highest": "#192540",
+              "error-dim": "#d73357",
+              "outline-variant": "#40485d",
+              "surface-dim": "#060e20",
+              "on-secondary": "#003047",
+              "primary": "#cc97ff",
+              "on-tertiary-fixed-variant": "#64686e",
+              "on-surface-variant": "#a3aac4",
+              "on-background": "#dee5ff",
+              "surface-container-high": "#141f38"
+            },
+            fontFamily: {
+              "headline": ["Epilogue"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .glass-card {
+        background: rgba(25, 37, 64, 0.4);
+        backdrop-filter: blur(20px);
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      .bg-sonic-gradient {
+        background: radial-gradient(circle at top right, rgba(204, 151, 255, 0.15), transparent),
+                    radial-gradient(circle at bottom left, rgba(52, 181, 250, 0.1), transparent);
+      }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-primary/30 selection:text-primary min-h-screen">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 w-full z-50 bg-slate-950/40 backdrop-blur-xl border-b border-white/10 shadow-2xl shadow-purple-500/10">
+<nav class="flex justify-between items-center px-8 py-4 max-w-screen-2xl mx-auto">
+<div class="text-2xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400 font-headline uppercase">
+                SonicArchitect
+            </div>
+<div class="hidden md:flex items-center gap-8">
+<a class="font-epilogue tracking-tighter uppercase text-sm font-bold text-slate-300 hover:text-white transition-colors hover:bg-white/5 px-2 py-1 rounded" href="#">Portfolio</a>
+<a class="font-epilogue tracking-tighter uppercase text-sm font-bold text-slate-300 hover:text-white transition-colors hover:bg-white/5 px-2 py-1 rounded" href="#">Services</a>
+<a class="font-epilogue tracking-tighter uppercase text-sm font-bold text-slate-300 hover:text-white transition-colors hover:bg-white/5 px-2 py-1 rounded" href="#">Profile</a>
+<a class="font-epilogue tracking-tighter uppercase text-sm font-bold text-purple-400 border-b-2 border-purple-500 pb-1 px-2 py-1 rounded" href="#">Bookings</a>
+</div>
+<button class="bg-gradient-to-r from-primary to-primary-dim text-on-primary-fixed px-6 py-2 rounded-full font-headline font-bold text-sm uppercase tracking-widest active:scale-95 transition-all shadow-lg shadow-primary/20">
+                Hire Now
+            </button>
+</nav>
+</header>
+<main class="pt-32 pb-20 px-6 max-w-screen-xl mx-auto bg-sonic-gradient min-h-screen relative overflow-hidden">
+<!-- Background Accents -->
+<div class="absolute -top-24 -right-24 w-96 h-96 bg-primary/10 blur-[120px] rounded-full"></div>
+<div class="absolute -bottom-24 -left-24 w-96 h-96 bg-secondary/5 blur-[120px] rounded-full"></div>
+<div class="grid lg:grid-cols-12 gap-16 items-start">
+<!-- Headline & Info Section -->
+<div class="lg:col-span-5 space-y-12">
+<div class="space-y-4">
+<span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-surface-container-high border border-outline-variant/30 text-xs font-bold uppercase tracking-[0.2em] text-secondary">
+<span class="w-2 h-2 rounded-full bg-error animate-pulse"></span>
+                        Booking Open 2024
+                    </span>
+<h1 class="text-6xl md:text-7xl font-headline font-black tracking-tighter leading-[0.9] text-on-surface">
+                        SECURE THE <span class="text-transparent bg-clip-text bg-gradient-to-b from-primary to-secondary">SOUND</span>.
+                    </h1>
+<p class="text-on-surface-variant text-lg max-w-md leading-relaxed">
+                        Crafting bespoke sonic experiences for premium nightlife, corporate galas, and private events. Elevate your atmosphere with clinical precision.
+                    </p>
+</div>
+<!-- Contact Details -->
+<div class="space-y-8">
+<div class="flex items-start gap-6 group">
+<div class="w-12 h-12 flex items-center justify-center rounded-xl bg-surface-container-high text-primary group-hover:bg-primary group-hover:text-on-primary transition-all duration-300">
+<span class="material-symbols-outlined">alternate_email</span>
+</div>
+<div>
+<p class="text-xs font-headline font-bold uppercase tracking-widest text-outline">Direct Channel</p>
+<p class="text-xl font-medium">booking@sonicarchitect.pro</p>
+</div>
+</div>
+<div class="flex items-start gap-6 group">
+<div class="w-12 h-12 flex items-center justify-center rounded-xl bg-surface-container-high text-secondary group-hover:bg-secondary group-hover:text-on-secondary transition-all duration-300">
+<span class="material-symbols-outlined">call</span>
+</div>
+<div>
+<p class="text-xs font-headline font-bold uppercase tracking-widest text-outline">Hotline</p>
+<p class="text-xl font-medium">+1 (555) 902-1104</p>
+</div>
+</div>
+</div>
+<!-- Social Proof/Quick Links -->
+<div class="pt-8 border-t border-white/5 space-y-6">
+<p class="text-xs font-headline font-bold uppercase tracking-[0.3em] text-outline">Listen &amp; Follow</p>
+<div class="flex gap-4">
+<a class="px-6 py-3 rounded-xl bg-surface-container flex items-center gap-3 hover:bg-surface-bright transition-colors group" href="#">
+<span class="material-symbols-outlined text-primary">equalizer</span>
+<span class="font-headline font-bold text-sm tracking-tighter">SOUNDCLOUD</span>
+</a>
+<a class="px-6 py-3 rounded-xl bg-surface-container flex items-center gap-3 hover:bg-surface-bright transition-colors group" href="#">
+<span class="material-symbols-outlined text-secondary">camera</span>
+<span class="font-headline font-bold text-sm tracking-tighter">INSTAGRAM</span>
+</a>
+</div>
+</div>
+</div>
+<!-- Booking Form Card -->
+<div class="lg:col-span-7">
+<div class="glass-card p-8 md:p-12 rounded-lg shadow-2xl relative overflow-hidden group">
+<!-- Glass Shine -->
+<div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
+<form action="#" class="space-y-8 relative z-10">
+<div class="grid md:grid-cols-2 gap-8">
+<!-- Event Date -->
+<div class="space-y-2">
+<label class="text-xs font-headline font-bold uppercase tracking-widest text-on-surface-variant block px-1">Event Date</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border-none rounded-2xl py-4 pl-12 pr-4 text-on-surface focus:ring-2 focus:ring-secondary/50 transition-all placeholder:text-outline" type="date"/>
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">calendar_today</span>
+</div>
+</div>
+<!-- Type of Event -->
+<div class="space-y-2">
+<label class="text-xs font-headline font-bold uppercase tracking-widest text-on-surface-variant block px-1">Type of Event</label>
+<div class="relative">
+<select class="w-full bg-surface-container-low border-none rounded-2xl py-4 pl-12 pr-4 text-on-surface focus:ring-2 focus:ring-secondary/50 appearance-none transition-all">
+<option>Nightclub Residency</option>
+<option>Corporate Experience</option>
+<option>Private High-End Lounge</option>
+<option>Festival Stage</option>
+</select>
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">theater_comedy</span>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-outline pointer-events-none">expand_more</span>
+</div>
+</div>
+</div>
+<!-- Location -->
+<div class="space-y-2">
+<label class="text-xs font-headline font-bold uppercase tracking-widest text-on-surface-variant block px-1">Location / Venue</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border-none rounded-2xl py-4 pl-12 pr-4 text-on-surface focus:ring-2 focus:ring-secondary/50 transition-all placeholder:text-outline/40" placeholder="e.g. OMNIA, Las Vegas" type="text"/>
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">location_on</span>
+</div>
+</div>
+<!-- Message -->
+<div class="space-y-2">
+<label class="text-xs font-headline font-bold uppercase tracking-widest text-on-surface-variant block px-1">The Blueprint (Details)</label>
+<div class="relative">
+<textarea class="w-full bg-surface-container-low border-none rounded-2xl py-4 pl-12 pr-4 text-on-surface focus:ring-2 focus:ring-secondary/50 transition-all placeholder:text-outline/40" placeholder="Describe the sonic atmosphere you're looking for..." rows="4"></textarea>
+<span class="material-symbols-outlined absolute left-4 top-6 text-outline">edit_note</span>
+</div>
+</div>
+<button class="w-full bg-gradient-to-r from-primary to-primary-dim hover:from-primary-dim hover:to-primary text-on-primary-fixed font-headline font-black text-lg py-5 rounded-full tracking-widest uppercase shadow-xl shadow-primary/30 transition-all active:scale-[0.98] flex items-center justify-center gap-3" type="submit">
+                            INITIALIZE REQUEST
+                            <span class="material-symbols-outlined" data-weight="fill">bolt</span>
+</button>
+</form>
+<!-- Background Texture Overlay -->
+<div class="absolute inset-0 opacity-[0.03] pointer-events-none mix-blend-overlay">
+<img class="w-full h-full object-cover" data-alt="high-tech microchip texture with glowing circuit paths and neon light diffraction in dark blue" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBkdX99ywxiQiJSH4NOy2pydnGEIML13p_DyCsgGkiqgWgJNsfHa8yisE4gobfPXEztAe3x_srZHoiX3a1lE-ViI1zwOs57qk5KCVMaDbYNAVUBw3CsvyH8uuLvryeFhGFYjL4k9XoEutqG2a37lfu0jgwreRCOjV7YwCHLhFg0jFCWn5YWqWK3CeE6k2Kl7XIUkkVJt6o-NKk_ZClILlIwgT9mfepPZPups5KQ8Jy1NMah5ujmePOR72EkwQt0H2zgapceXo_faqk"/>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Map/Location Visual Anchor -->
+<section class="mt-20 px-8 max-w-screen-2xl mx-auto">
+<div class="h-96 w-full rounded-lg overflow-hidden relative group grayscale hover:grayscale-0 transition-all duration-700">
+<img class="w-full h-full object-cover" data-alt="abstract night cityscape view of glowing city lights and winding highways from high altitude at midnight" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAjOlBUtMj-_e1sKkY0P3243ug5a0C2U1D9Pk6j-tilNgBf6yniU2_yeQGfireGKmMLyUVD-z8cEtfyPzlOD-mD_sKe1_PDcqmYovf4CNgY5HGEC8-_NjufjYcAHOLMzG9lfHgqXJUAeaV97ma8fw7v8mqmiVF8XoY9hfEmovG7gABldYD6018pnn_ZM3-O-twfH1YF5eCBoEsw6Q3bfFXCqtGoVjGsAuSizLFYTkbNhY8HRdjFbDFjSjpTJk5PK9FJwzC8kIgjgwY"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent"></div>
+<div class="absolute bottom-12 left-12 space-y-2">
+<p class="text-xs font-headline font-black uppercase tracking-[0.5em] text-secondary">Global Operations</p>
+<h3 class="text-4xl font-headline font-black tracking-tighter">BASE: NEW YORK / IBIZA</h3>
+</div>
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+<div class="w-4 h-4 bg-primary rounded-full relative">
+<div class="absolute inset-0 bg-primary rounded-full animate-ping opacity-75"></div>
+<div class="absolute inset-0 bg-primary rounded-full animate-pulse scale-150 opacity-20"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Footer -->
+<footer class="w-full py-12 px-8 mt-20 bg-slate-950 border-t border-white/5">
+<div class="max-w-screen-2xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+<div class="text-lg font-bold text-slate-200 font-headline tracking-tighter uppercase">
+                SonicArchitect
+            </div>
+<div class="flex gap-8">
+<a class="font-inter text-xs tracking-widest uppercase text-slate-500 hover:text-purple-400 transition-colors" href="#">Instagram</a>
+<a class="font-inter text-xs tracking-widest uppercase text-slate-500 hover:text-purple-400 transition-colors" href="#">Soundcloud</a>
+<a class="font-inter text-xs tracking-widest uppercase text-slate-500 hover:text-purple-400 transition-colors" href="#">Mixcloud</a>
+<a class="font-inter text-xs tracking-widest uppercase text-slate-500 hover:text-purple-400 transition-colors" href="#">Privacy</a>
+</div>
+<p class="font-inter text-xs tracking-widest uppercase text-slate-500">
+                © 2024 SonicArchitect. Engineered for the Night.
+            </p>
+</div>
+</footer>
+</body></html>

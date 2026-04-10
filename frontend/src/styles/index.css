@@ -104,6 +104,102 @@
   text-shadow: 0 0 20px rgba(204, 151, 255, 0.4);
 }
 
+/* Display Typography — Electric Noir Hero Text */
+.display-text {
+  font-family: var(--font-headline);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 0.92;
+  text-transform: uppercase;
+}
+
+/* Gradient Text — primary → secondary (horizontal, links nach rechts) */
+.gradient-text {
+  background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-secondary) 55%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Ambient corner light leaks */
+.ambient-bg {
+  position: relative;
+}
+.ambient-bg::before {
+  content: '';
+  position: absolute;
+  top: -120px;
+  right: -120px;
+  width: 480px;
+  height: 480px;
+  background: radial-gradient(circle, rgba(204, 151, 255, 0.07) 0%, transparent 65%);
+  pointer-events: none;
+  border-radius: 50%;
+  z-index: 0;
+}
+.ambient-bg::after {
+  content: '';
+  position: absolute;
+  bottom: -80px;
+  left: 20%;
+  width: 360px;
+  height: 360px;
+  background: radial-gradient(circle, rgba(52, 181, 250, 0.06) 0%, transparent 65%);
+  pointer-events: none;
+  border-radius: 50%;
+  z-index: 0;
+}
+
+/* Module Card — premium grid card */
+.module-card {
+  position: relative;
+  overflow: hidden;
+  background: rgba(25, 37, 64, 0.4);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  transition: border-color 220ms ease, box-shadow 220ms ease, transform 220ms ease;
+  cursor: pointer;
+}
+.module-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+.module-card:hover::before {
+  opacity: 1;
+}
+.module-card:hover {
+  border-color: rgba(204, 151, 255, 0.2);
+  box-shadow: 0 0 32px rgba(204, 151, 255, 0.12), 0 8px 32px rgba(0, 0, 0, 0.4);
+  transform: translateY(-2px);
+}
+
+/* Sidebar accent line for active nav */
+.nav-active-accent {
+  position: relative;
+}
+.nav-active-accent::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  background: var(--color-primary);
+  border-radius: 0 2px 2px 0;
+  box-shadow: 0 0 8px rgba(204, 151, 255, 0.6);
+}
+
 /* CSS Scrollbar — Electric Noir (per DS-11) */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--color-surface-container-low); }
