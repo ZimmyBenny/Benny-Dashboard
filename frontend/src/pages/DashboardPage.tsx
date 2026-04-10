@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { useTimerStore } from '../store/timerStore';
 import { useAuthStore } from '../store/authStore';
+import { fetchVisibleQuickLinks, type QuickLink } from '../api/quickLinks.api';
 
 function getGreeting(): { time: string; name: string } {
   const hour = new Date().getHours();
@@ -12,9 +13,6 @@ function getGreeting(): { time: string; name: string } {
   return { time: 'Gute Nacht,', name: 'Benny.' };
 }
 
-const quickLinks = [
-  { label: 'AMZ Ecosystem', url: 'https://www.amz-ecosystem.app', icon: 'open_in_new' },
-];
 
 const modules = [
   { path: '/zeiterfassung', label: 'Zeiterfassung', icon: 'timer',                  description: 'Zeiten · Projekte · Export', isTimer: true as const },
@@ -53,6 +51,13 @@ export function DashboardPage() {
   }, []);
 
   const { logout } = useAuthStore();
+
+  // Schnellzugriff aus API
+  const [quickLinks, setQuickLinks] = useState<QuickLink[]>([]);
+
+  useEffect(() => {
+    fetchVisibleQuickLinks().then(setQuickLinks).catch(() => {});
+  }, []);
 
   // Aktiver Timer
   const { status: timerStatus, getElapsedMs, start: startTimer } = useTimerStore();
@@ -347,51 +352,62 @@ export function DashboardPage() {
           </div>
 
           {/* Links */}
-          <div style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            justifyContent: 'center',
-            gap: '0.75rem',
-          }}>
-          {quickLinks.map((link) => (
-            <a
-              key={link.url}
-              href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.5rem 1.25rem',
-                borderRadius: '9999px',
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.09)',
-                color: 'var(--color-on-surface-variant)',
-                fontFamily: 'var(--font-body)',
-                fontSize: '0.8125rem',
-                fontWeight: 500,
-                letterSpacing: '0.01em',
-                textDecoration: 'none',
-                transition: 'border-color 150ms ease, color 150ms ease, background 150ms ease',
-              }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(204,151,255,0.35)';
-                (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-primary)';
-                (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(204,151,255,0.06)';
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(255,255,255,0.09)';
-                (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-on-surface-variant)';
-                (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.04)';
-              }}
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>language</span>
-              {link.label}
-              <span className="material-symbols-outlined" style={{ fontSize: '13px', opacity: 0.5 }}>open_in_new</span>
-            </a>
-          ))}
-          </div>
+          {quickLinks.length === 0 ? (
+            <p style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: '0.8125rem',
+              color: 'var(--color-on-surface-variant)',
+              textAlign: 'center',
+            }}>
+              Keine Schnellzugriffe konfiguriert
+            </p>
+          ) : (
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+              gap: '0.75rem',
+            }}>
+              {quickLinks.map((link) => (
+                <a
+                  key={link.id}
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.5rem 1.25rem',
+                    borderRadius: '9999px',
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.09)',
+                    color: 'var(--color-on-surface-variant)',
+                    fontFamily: 'var(--font-body)',
+                    fontSize: '0.8125rem',
+                    fontWeight: 500,
+                    letterSpacing: '0.01em',
+                    textDecoration: 'none',
+                    transition: 'border-color 150ms ease, color 150ms ease, background 150ms ease',
+                  }}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(204,151,255,0.35)';
+                    (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-primary)';
+                    (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(204,151,255,0.06)';
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(255,255,255,0.09)';
+                    (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-on-surface-variant)';
+                    (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.04)';
+                  }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>language</span>
+                  {link.label}
+                  <span className="material-symbols-outlined" style={{ fontSize: '13px', opacity: 0.5 }}>open_in_new</span>
+                </a>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </PageWrapper>
