@@ -353,7 +353,7 @@ export function DashboardPage() {
           </button>
         ))}
       </div>
-      {/* ── Aufgaben-Uebersicht ──────────────────────────── */}
+      {/* ── Aufgaben-Ubersicht ──────────────────────────── */}
       {taskStats !== null && (
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '2.5rem', marginBottom: '1.25rem' }}>
@@ -365,7 +365,7 @@ export function DashboardPage() {
               color: 'var(--color-outline)',
               whiteSpace: 'nowrap',
             }}>
-              Aufgaben-Uebersicht
+              Aufgaben-Ubersicht
             </p>
             <div style={{
               flex: 1, height: '1px',
