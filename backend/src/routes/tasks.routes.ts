@@ -65,7 +65,7 @@ router.post('/', (req, res) => {
     title, description, status, area, priority, due_date, tags,
     project_or_customer, notes, start_date, reminder_at, has_reminder,
     create_calendar_entry, calendar_event_id, calendar_sync_status,
-    is_all_day, estimated_duration,
+    is_all_day, estimated_duration, status_note,
   } = req.body as {
     title?: string;
     description?: string | null;
@@ -84,10 +84,16 @@ router.post('/', (req, res) => {
     calendar_sync_status?: string | null;
     is_all_day?: number;
     estimated_duration?: number | null;
+    status_note?: string | null;
   };
 
   if (!title || !title.trim()) {
     res.status(400).json({ error: 'Titel ist erforderlich' });
+    return;
+  }
+
+  if (status_note && status_note.length > 500) {
+    res.status(400).json({ error: 'status_note darf maximal 500 Zeichen lang sein' });
     return;
   }
 
@@ -104,8 +110,8 @@ router.post('/', (req, res) => {
       title, description, status, area, priority, due_date, tags,
       project_or_customer, notes, start_date, reminder_at, has_reminder,
       create_calendar_entry, calendar_event_id, calendar_sync_status,
-      is_all_day, estimated_duration, position
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      is_all_day, estimated_duration, status_note, position
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     title.trim(),
     description ?? null,
@@ -124,6 +130,7 @@ router.post('/', (req, res) => {
     calendar_sync_status ?? null,
     is_all_day ?? 0,
     estimated_duration ?? null,
+    status_note ?? null,
     position,
   );
 
@@ -145,7 +152,7 @@ router.put('/:id', (req, res) => {
     title, description, status, area, priority, due_date, tags,
     project_or_customer, notes, start_date, reminder_at, has_reminder,
     create_calendar_entry, calendar_event_id, calendar_sync_status,
-    is_all_day, estimated_duration, position,
+    is_all_day, estimated_duration, position, status_note,
   } = req.body as {
     title?: string;
     description?: string | null;
@@ -165,7 +172,13 @@ router.put('/:id', (req, res) => {
     is_all_day?: number;
     estimated_duration?: number | null;
     position?: number;
+    status_note?: string | null;
   };
+
+  if (status_note && status_note.length > 500) {
+    res.status(400).json({ error: 'status_note darf maximal 500 Zeichen lang sein' });
+    return;
+  }
 
   const newStatus = status ?? existing.status;
   let completedAtExpr = 'completed_at';
@@ -181,7 +194,7 @@ router.put('/:id', (req, res) => {
         due_date = ?, tags = ?, project_or_customer = ?, notes = ?,
         start_date = ?, reminder_at = ?, has_reminder = ?, create_calendar_entry = ?,
         calendar_event_id = ?, calendar_sync_status = ?, is_all_day = ?,
-        estimated_duration = ?, position = COALESCE(?, position),
+        estimated_duration = ?, status_note = ?, position = COALESCE(?, position),
         completed_at = ${completedAtExpr},
         updated_at = datetime('now')
     WHERE id = ?
@@ -203,6 +216,7 @@ router.put('/:id', (req, res) => {
     calendar_sync_status ?? null,
     is_all_day ?? 0,
     estimated_duration ?? null,
+    status_note !== undefined ? (status_note ?? null) : (existing as Record<string, unknown>).status_note ?? null,
     position ?? null,
     id,
   );
@@ -238,11 +252,16 @@ router.patch('/reorder', (req, res) => {
 // PATCH /api/tasks/:id/status
 router.patch('/:id/status', (req, res) => {
   const id = Number(req.params.id);
-  const { status, position } = req.body as { status: string; position: number };
+  const { status, position, status_note } = req.body as { status: string; position: number; status_note?: string | null };
 
   const existing = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as { status: string } | undefined;
   if (!existing) {
     res.status(404).json({ error: 'Task nicht gefunden' });
+    return;
+  }
+
+  if (status_note && status_note.length > 500) {
+    res.status(400).json({ error: 'status_note darf maximal 500 Zeichen lang sein' });
     return;
   }
 
@@ -255,9 +274,10 @@ router.patch('/:id/status', (req, res) => {
 
   db.prepare(`
     UPDATE tasks
-    SET status = ?, position = ?, completed_at = ${completedAtExpr}, updated_at = datetime('now')
+    SET status = ?, position = ?, status_note = COALESCE(?, status_note),
+        completed_at = ${completedAtExpr}, updated_at = datetime('now')
     WHERE id = ?
-  `).run(status, position, id);
+  `).run(status, position, status_note ?? null, id);
 
   const updated = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
   res.json(updated);
