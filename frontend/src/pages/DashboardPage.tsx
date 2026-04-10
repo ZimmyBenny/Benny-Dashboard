@@ -336,8 +336,13 @@ export function DashboardPage() {
           }} />
         </div>
 
-        {/* Links */}
+        {/* Full-width card */}
         <div style={{
+          width: '100%',
+          padding: '1.25rem 1.5rem',
+          background: 'var(--color-surface-container)',
+          border: '1px solid var(--color-surface-container-high)',
+          borderRadius: '1rem',
           display: 'flex',
           flexWrap: 'wrap',
           justifyContent: 'center',
@@ -353,7 +358,7 @@ export function DashboardPage() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '0.5rem',
-                padding: '0.625rem 1.25rem',
+                padding: '0.5rem 1.25rem',
                 borderRadius: '9999px',
                 background: 'rgba(255,255,255,0.04)',
                 border: '1px solid rgba(255,255,255,0.09)',
