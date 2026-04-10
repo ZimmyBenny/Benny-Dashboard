@@ -4,7 +4,8 @@ import { PageWrapper } from '../components/layout/PageWrapper';
 import { useTimerStore } from '../store/timerStore';
 import { useAuthStore } from '../store/authStore';
 import { fetchVisibleQuickLinks, type QuickLink } from '../api/quickLinks.api';
-import { fetchTaskStats, type TaskStats } from '../api/tasks.api';
+import { fetchTaskStats, createTask, type TaskStats, type Task } from '../api/tasks.api';
+import { TaskSlideOver } from '../components/tasks/TaskSlideOver';
 
 function getGreeting(): { time: string; name: string } {
   const hour = new Date().getHours();
@@ -17,7 +18,7 @@ function getGreeting(): { time: string; name: string } {
 
 const modules = [
   { path: '/zeiterfassung', label: 'Zeiterfassung', icon: 'timer',                  description: 'Zeiten · Projekte · Export', isTimer: true as const },
-  { path: '/tasks',         label: 'Aufgaben',       icon: 'task_alt',               description: 'Planen · Verfolgen · Erledigen' },
+  { path: '/tasks',         label: 'Aufgaben',       icon: 'task_alt',               description: 'Planen · Verfolgen · Erledigen', isTasks: true as const },
   { path: '/calendar',      label: 'Kalender',       icon: 'calendar_month',         description: 'Termine und Events im Überblick' },
   { path: '/dj',            label: 'DJ',             icon: 'headphones',             description: 'Gigs · Bookings · Zahlungen' },
   { path: '/finances',      label: 'Finanzen',       icon: 'account_balance_wallet', description: 'Einnahmen · Ausgaben · Budgets' },
@@ -66,6 +67,15 @@ export function DashboardPage() {
   useEffect(() => {
     fetchTaskStats().then(setTaskStats).catch(() => {});
   }, []);
+
+  // Neue Aufgabe SlideOver
+  const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
+
+  async function handleCreateTask(data: Partial<Task> & { title: string }) {
+    await createTask(data);
+    fetchTaskStats().then(setTaskStats).catch(() => {});
+    setIsNewTaskOpen(false);
+  }
 
   // Aktiver Timer
   const { status: timerStatus, getElapsedMs, start: startTimer } = useTimerStore();
@@ -283,6 +293,35 @@ export function DashboardPage() {
                     <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>logout</span>
                     Abmelden
                   </button>
+                </div>
+              )}
+
+              {'isTasks' in mod && (
+                <div style={{ marginTop: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setIsNewTaskOpen(true); }}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                      padding: '0.35rem 0.8rem',
+                      borderRadius: '9999px',
+                      background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+                      color: '#000', border: 'none', cursor: 'pointer',
+                      fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.7rem',
+                      letterSpacing: '0.03em',
+                    }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>add</span>
+                    Neue Aufgabe
+                  </button>
+                  {taskStats !== null && taskStats.open_count > 0 && (
+                    <span style={{
+                      fontFamily: 'var(--font-body)', fontSize: '0.7rem',
+                      color: 'var(--color-on-surface-variant)',
+                      letterSpacing: '0.03em',
+                    }}>
+                      {taskStats.open_count} offen
+                    </span>
+                  )}
                 </div>
               )}
 
@@ -582,6 +621,13 @@ export function DashboardPage() {
           )}
         </div>
       </div>
+      <TaskSlideOver
+        isOpen={isNewTaskOpen}
+        onClose={() => setIsNewTaskOpen(false)}
+        task={null}
+        onSave={handleCreateTask}
+        onDelete={async () => {}}
+      />
     </PageWrapper>
   );
 }
