@@ -1,4 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
+import { useUiStore } from '../store/uiStore';
 import { useNavigate } from 'react-router-dom';
 import {
   DndContext,
@@ -218,6 +219,8 @@ function SortableItem({
 
 export function SettingsPage() {
   const navigate = useNavigate();
+  const theme = useUiStore((state) => state.theme);
+  const setTheme = useUiStore((state) => state.setTheme);
 
   // ── Password change state ──
   const [oldPassword, setOldPassword] = useState('');
@@ -380,6 +383,77 @@ export function SettingsPage() {
             <p style={{ color: 'var(--color-on-surface-variant)' }}>
               Benny Dashboard v{__APP_VERSION__}
             </p>
+          </div>
+        </Card>
+
+        {/* Erscheinungsbild */}
+        <Card>
+          <div className="p-6">
+            <h2
+              className="text-lg font-semibold mb-2"
+              style={{
+                fontFamily: 'var(--font-headline)',
+                color: 'var(--color-on-surface)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+              }}
+            >
+              <span className="material-symbols-outlined" style={{
+                fontSize: '1.25rem',
+                color: 'var(--color-primary)',
+              }}>palette</span>
+              Erscheinungsbild
+            </h2>
+            <p className="mb-4" style={{ color: 'var(--color-on-surface-variant)' }}>
+              Wechsel zwischen hellem und dunklem Design.
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => setTheme('dark')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '0.5rem',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  background: theme === 'dark' ? 'var(--color-primary)' : 'var(--color-surface-container-high)',
+                  color: theme === 'dark' ? 'var(--color-on-primary)' : 'var(--color-on-surface-variant)',
+                  transition: 'background 150ms ease, color 150ms ease',
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>dark_mode</span>
+                Dunkel
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme('light')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '0.5rem',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  background: theme === 'light' ? 'var(--color-primary)' : 'var(--color-surface-container-high)',
+                  color: theme === 'light' ? 'var(--color-on-primary)' : 'var(--color-on-surface-variant)',
+                  transition: 'background 150ms ease, color 150ms ease',
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>light_mode</span>
+                Hell
+              </button>
+            </div>
           </div>
         </Card>
 

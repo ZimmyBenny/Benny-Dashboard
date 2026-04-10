@@ -7,6 +7,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Epilogue:wght@400;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    <script>
+      try {
+        var s = JSON.parse(localStorage.getItem('benny-ui') || '{}');
+        if (s.state && s.state.theme === 'light') {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      } catch {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

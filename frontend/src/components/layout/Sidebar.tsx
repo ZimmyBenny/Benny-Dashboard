@@ -72,6 +72,8 @@ function SidebarNavLink({
 export function Sidebar() {
   const collapsed = useUiStore((state) => state.sidebarCollapsed);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
+  const theme = useUiStore((state) => state.theme);
+  const toggleTheme = useUiStore((state) => state.toggleTheme);
   const logout = useAuthStore((state) => state.logout);
   const navigate = useNavigate();
 
@@ -249,6 +251,51 @@ export function Sidebar() {
               }}
             >
               Backup
+            </div>
+          )}
+        </div>
+
+        {/* Theme Toggle Button */}
+        <div className="relative group">
+          <button
+            onClick={toggleTheme}
+            className="flex items-center gap-3 rounded-lg transition-all duration-150 w-full"
+            style={{
+              padding: collapsed ? '0.5rem' : '0.5rem 0.75rem',
+              justifyContent: collapsed ? 'center' : undefined,
+              color: 'var(--color-on-surface-variant)',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+            }}
+            title={theme === 'dark' ? 'Tagmodus' : 'Nachtmodus'}
+          >
+            <span className="material-symbols-outlined flex-shrink-0" style={{ fontSize: '20px' }}>
+              {theme === 'dark' ? 'light_mode' : 'dark_mode'}
+            </span>
+            {!collapsed && (
+              <span style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: '0.8125rem',
+                fontWeight: 500,
+                letterSpacing: '0.01em',
+              }}>
+                {theme === 'dark' ? 'Tagmodus' : 'Nachtmodus'}
+              </span>
+            )}
+          </button>
+          {collapsed && (
+            <div
+              className="pointer-events-none absolute left-full top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded px-2 py-1 text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+              style={{
+                marginLeft: '8px',
+                backgroundColor: 'var(--color-surface-container-high)',
+                color: 'var(--color-on-surface)',
+                border: '1px solid var(--color-outline-variant)',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+              }}
+            >
+              {theme === 'dark' ? 'Tagmodus' : 'Nachtmodus'}
             </div>
           )}
         </div>

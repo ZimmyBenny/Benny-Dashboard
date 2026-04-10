@@ -6,6 +6,12 @@ import { Header } from './Header';
 
 export function AppShell() {
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
+  const theme = useUiStore((state) => state.theme);
+
+  // Theme auf documentElement synchronisieren
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
