@@ -473,6 +473,21 @@ function EntryList({
                 }}>
                   {[entry.project_name, entry.client_name].filter(Boolean).join(' · ') || '—'}
                 </p>
+                {(entry.start_time || entry.end_time) && (
+                  <p style={{
+                    fontFamily: 'var(--font-body)', fontSize: '0.7rem',
+                    color: 'var(--color-outline)', marginTop: '0.125rem',
+                    letterSpacing: '0.02em',
+                  }}>
+                    {entry.start_time
+                      ? new Date(entry.start_time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+                      : '?'}
+                    {' → '}
+                    {entry.end_time
+                      ? new Date(entry.end_time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
+                      : '?'}
+                  </p>
+                )}
               </div>
 
               {/* Dauer */}
@@ -535,6 +550,7 @@ export function ZeiterfassungPage() {
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [editEntry, setEditEntry] = useState<TimeEntry | null>(null);
   const [showPanel, setShowPanel] = useState(false);
+  const [showEntries, setShowEntries] = useState(true);
   const [filterProject, setFilterProject] = useState<number | ''>('');
   const [filterClient, setFilterClient] = useState<number | ''>('');
 
@@ -909,6 +925,59 @@ export function ZeiterfassungPage() {
         </div>
       )}
 
+      {/* ── Zeiteinträge (collapsible) ───────────────────────── */}
+      <div style={{ marginBottom: '2rem' }}>
+        <button
+          onClick={() => setShowEntries((v) => !v)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '1rem', width: '100%',
+            background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+            marginBottom: showEntries ? '1.25rem' : 0,
+          }}
+        >
+          <p style={{
+            fontFamily: 'var(--font-body)', fontSize: '0.65rem',
+            letterSpacing: '0.22em', textTransform: 'uppercase',
+            color: 'var(--color-outline)', whiteSpace: 'nowrap',
+          }}>
+            Einträge
+          </p>
+          <div style={{
+            flex: 1, height: '1px',
+            background: 'linear-gradient(90deg, var(--color-outline-variant) 0%, transparent 100%)',
+          }} />
+          <span style={{
+            fontFamily: 'var(--font-body)', fontSize: '0.75rem',
+            color: 'var(--color-outline)',
+          }}>
+            {entries.length} gesamt
+          </span>
+          <span className="material-symbols-outlined" style={{
+            fontSize: '16px',
+            color: 'var(--color-outline)',
+            transition: 'transform 200ms ease',
+            transform: showEntries ? 'rotate(0deg)' : 'rotate(-90deg)',
+          }}>
+            expand_more
+          </span>
+        </button>
+
+        {showEntries && (
+          <EntryList
+            entries={entries}
+            clients={clients}
+            projects={projects}
+            onEdit={(entry) => handleEdit(entry)}
+            onDelete={handleDelete}
+            onQuickStart={handleQuickStart}
+            filterProject={filterProject}
+            filterClient={filterClient}
+            setFilterProject={setFilterProject}
+            setFilterClient={setFilterClient}
+          />
+        )}
+      </div>
+
       {/* ── Export-Panel ─────────────────────────────────────── */}
       <div style={{
         background: 'rgba(25,37,64,0.6)',
@@ -1045,41 +1114,6 @@ export function ZeiterfassungPage() {
         </div>
       </div>
 
-      {/* ── Zeiteinträge ─────────────────────────────────────── */}
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem' }}>
-          <p style={{
-            fontFamily: 'var(--font-body)', fontSize: '0.65rem',
-            letterSpacing: '0.22em', textTransform: 'uppercase',
-            color: 'var(--color-outline)', whiteSpace: 'nowrap',
-          }}>
-            Einträge
-          </p>
-          <div style={{
-            flex: 1, height: '1px',
-            background: 'linear-gradient(90deg, var(--color-outline-variant) 0%, transparent 100%)',
-          }} />
-          <span style={{
-            fontFamily: 'var(--font-body)', fontSize: '0.75rem',
-            color: 'var(--color-outline)',
-          }}>
-            {entries.length} gesamt
-          </span>
-        </div>
-
-        <EntryList
-          entries={entries}
-          clients={clients}
-          projects={projects}
-          onEdit={(entry) => handleEdit(entry)}
-          onDelete={handleDelete}
-          onQuickStart={handleQuickStart}
-          filterProject={filterProject}
-          filterClient={filterClient}
-          setFilterProject={setFilterProject}
-          setFilterClient={setFilterClient}
-        />
-      </div>
     </PageWrapper>
   );
 }

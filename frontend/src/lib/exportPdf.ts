@@ -1,5 +1,5 @@
 // exportPdf.ts — Zeiterfassung PDF-Export Utility
-// jsPDF + jspdf-autotable, Landscape, Electric Noir Farbschema
+// jsPDF + jspdf-autotable, Landscape A4, professionelles helles Layout
 
 import { jsPDF } from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
@@ -18,17 +18,17 @@ function formatHHMM(seconds: number): string {
 }
 
 function formatTimeFromISO(iso: string | null): string {
-  if (!iso) return '—';
+  if (!iso) return '';
   try {
     const d = new Date(iso);
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   } catch {
-    return '—';
+    return '';
   }
 }
 
 function formatDateDE(iso: string): string {
-  if (!iso) return '—';
+  if (!iso) return '';
   try {
     const [y, m, d] = iso.split('-');
     return `${d}.${m}.${y}`;
@@ -37,42 +37,56 @@ function formatDateDE(iso: string): string {
   }
 }
 
+// Electric Noir Akzentfarbe als RGB
+const ENR_NAVY   = [13, 26, 50]   as [number, number, number]; // Tabellenkopf
+const ENR_TEXT   = [25, 30, 50]   as [number, number, number]; // Dunkler Fliesstext
+const ENR_MUTED  = [100, 110, 130] as [number, number, number]; // Gedämpfter Text
+const ENR_LINE   = [200, 205, 215] as [number, number, number]; // Trennlinie
+const ENR_ALT    = [245, 246, 250] as [number, number, number]; // Wechselzeile
+const ENR_ACCENT = [130, 80, 200]  as [number, number, number]; // Lila Akzent (Gesamtzeile)
+
 export function exportPdf(options: PdfExportOptions): void {
   const { entries, filterLabel = '', filename = 'zeiterfassung-export' } = options;
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-
   const pageW = doc.internal.pageSize.getWidth();
-  const now = new Date();
-  const generatedAt = now.toLocaleDateString('de-DE', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-  }) + ', ' + now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  const pageH = doc.internal.pageSize.getHeight();
 
-  // ── Header ──────────────────────────────────────────────────────────────────
+  const now = new Date();
+  const generatedAt =
+    now.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) +
+    ', ' +
+    now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+  // ── Header Seite 1 ───────────────────────────────────────────────────────────
+
+  // Akzent-Balken links oben
+  doc.setFillColor(...ENR_NAVY);
+  doc.rect(0, 0, 4, 40, 'F');
 
   // Titel
-  doc.setFontSize(18);
+  doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(230, 230, 240);
-  doc.text('Zeiterfassung', 15, 18);
+  doc.setTextColor(...ENR_TEXT);
+  doc.text('Zeiterfassung', 15, 16);
 
-  // Untertitel / Filter-Label
+  // Filter-Label als Untertitel
   if (filterLabel) {
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(160, 160, 180);
-    doc.text(filterLabel, 15, 25);
+    doc.setTextColor(...ENR_MUTED);
+    doc.text(filterLabel, 15, 24);
   }
 
   // Generierungsdatum rechts oben
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(120, 120, 140);
-  doc.text(`Erstellt: ${generatedAt}`, pageW - 15, 14, { align: 'right' });
+  doc.setTextColor(...ENR_MUTED);
+  doc.text(`Erstellt: ${generatedAt}`, pageW - 15, 10, { align: 'right' });
 
   // Trennlinie
-  doc.setDrawColor(50, 70, 100);
-  doc.setLineWidth(0.3);
+  doc.setDrawColor(...ENR_LINE);
+  doc.setLineWidth(0.4);
   doc.line(15, filterLabel ? 29 : 22, pageW - 15, filterLabel ? 29 : 22);
 
   // ── Tabelle ──────────────────────────────────────────────────────────────────
@@ -90,8 +104,8 @@ export function exportPdf(options: PdfExportOptions): void {
     formatTimeFromISO(e.end_time),
     formatHHMM(e.duration_seconds),
     (e.duration_seconds / 3600).toFixed(2),
-    e.project_name ?? '—',
-    e.client_name ?? '—',
+    e.project_name ?? '',
+    e.client_name ?? '',
     e.title,
     e.note ?? '',
   ]);
@@ -104,47 +118,40 @@ export function exportPdf(options: PdfExportOptions): void {
     styles: {
       fontSize: 8,
       cellPadding: { top: 2.5, right: 3, bottom: 2.5, left: 3 },
-      textColor: [210, 215, 230],
-      lineColor: [40, 60, 90],
-      lineWidth: 0.1,
+      textColor: ENR_TEXT,
+      lineColor: ENR_LINE,
+      lineWidth: 0.15,
+      overflow: 'linebreak',
     },
     headStyles: {
-      fillColor: [20, 35, 65],
-      textColor: [200, 200, 220],
+      fillColor: ENR_NAVY,
+      textColor: [230, 235, 255],
       fontStyle: 'bold',
       fontSize: 7.5,
     },
     alternateRowStyles: {
-      fillColor: [14, 26, 50],
+      fillColor: ENR_ALT,
     },
     bodyStyles: {
-      fillColor: [10, 20, 40],
+      fillColor: [255, 255, 255],
     },
     columnStyles: {
-      0: { cellWidth: 22 },  // Datum
-      1: { cellWidth: 14 },  // Start
-      2: { cellWidth: 14 },  // Ende
-      3: { cellWidth: 18 },  // Dauer
-      4: { cellWidth: 16 },  // Dez.-h
-      5: { cellWidth: 30 },  // Projekt
-      6: { cellWidth: 28 },  // Kunde
-      7: { cellWidth: 55 },  // Tätigkeit
-      8: { cellWidth: 'auto' as unknown as number },  // Notiz — Rest
+      0: { cellWidth: 22 },              // Datum
+      1: { cellWidth: 14 },              // Start
+      2: { cellWidth: 14 },              // Ende
+      3: { cellWidth: 18 },              // Dauer
+      4: { cellWidth: 16, halign: 'right' }, // Dez.-h
+      5: { cellWidth: 30 },              // Projekt
+      6: { cellWidth: 28 },              // Kunde
+      7: { cellWidth: 55 },              // Tätigkeit
+      8: { cellWidth: 'auto' as unknown as number }, // Notiz
     },
     didDrawPage: (data) => {
-      // Seitenzahl unten rechts
+      // Seitenzahl unten rechts — nur Text, kein Rechteck
       doc.setFontSize(7);
-      doc.setTextColor(100, 110, 130);
-      const pageNum = (doc.internal as unknown as { getCurrentPageInfo: () => { pageNumber: number } })
-        .getCurrentPageInfo().pageNumber;
-      doc.text(`Seite ${pageNum}`, pageW - 15, doc.internal.pageSize.getHeight() - 8, { align: 'right' });
-
-      // Hintergrund der ganzen Seite (subtle dark background)
-      if (data.pageNumber === 1) {
-        doc.setFillColor(6, 14, 32);
-        doc.rect(0, 0, pageW, doc.internal.pageSize.getHeight(), 'F');
-        // Neu zeichnen nach Background — autotable zeichnet danach
-      }
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...ENR_MUTED);
+      doc.text(`Seite ${data.pageNumber}`, pageW - 15, pageH - 8, { align: 'right' });
     },
   });
 
@@ -155,22 +162,25 @@ export function exportPdf(options: PdfExportOptions): void {
   const totalDecimal = (totalSeconds / 3600).toFixed(2);
   const totalEntries = entries.length;
 
-  const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5;
+  const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6;
+
+  // Trennlinie vor Gesamtzeile
+  doc.setDrawColor(...ENR_LINE);
+  doc.setLineWidth(0.3);
+  doc.line(pageW - 120, finalY - 2, pageW - 15, finalY - 2);
 
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(204, 151, 255); // var(--color-primary) = #cc97ff
+  doc.setTextColor(...ENR_ACCENT);
   doc.text(
-    `Gesamt: ${totalHHMM} (${totalDecimal} h) — ${totalEntries} Eintr${totalEntries === 1 ? 'ag' : 'äge'}`,
+    `Gesamt: ${totalHHMM}  |  ${totalDecimal} h  |  ${totalEntries} Eintr${totalEntries === 1 ? 'ag' : 'äge'}`,
     pageW - 15,
-    finalY,
+    finalY + 2,
     { align: 'right' },
   );
 
   // TODO: Stundensatz + Betrag hier ergänzen wenn hourly_rate verfügbar
-  // Beispiel: `Betrag: ${(totalDecimal * hourlyRate).toFixed(2)} €`
-
-  // ── Download ──────────────────────────────────────────────────────────────────
+  // Beispiel: `Betrag: ${(parseFloat(totalDecimal) * hourlyRate).toFixed(2)} €`
 
   doc.save(`${filename}.pdf`);
 }
