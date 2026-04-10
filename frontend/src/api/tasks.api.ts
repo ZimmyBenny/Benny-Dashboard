@@ -21,6 +21,7 @@ export interface Task {
   estimated_duration: number | null;
   completed_at: string | null;
   position: number;
+  status_note: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -57,8 +58,8 @@ export const createTask = (data: Partial<Task> & { title: string }) =>
 export const updateTask = (id: number, data: TaskUpdateData) =>
   apiClient.put<Task>(`/tasks/${id}`, data).then((r) => r.data);
 
-export const patchTaskStatus = (id: number, status: Task['status'], position: number) =>
-  apiClient.patch<Task>(`/tasks/${id}/status`, { status, position }).then((r) => r.data);
+export const patchTaskStatus = (id: number, status: Task['status'], position: number, statusNote?: string | null) =>
+  apiClient.patch<Task>(`/tasks/${id}/status`, { status, position, status_note: statusNote ?? null }).then((r) => r.data);
 
 export const reorderTasks = (updates: { id: number; status: string; position: number }[]) =>
   apiClient.patch('/tasks/reorder', { updates }).then((r) => r.data);

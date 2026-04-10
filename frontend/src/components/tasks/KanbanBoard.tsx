@@ -12,9 +12,10 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import type { Task } from '../../api/tasks.api';
-import { fetchTasks, reorderTasks } from '../../api/tasks.api';
+import { fetchTasks, reorderTasks, updateTask } from '../../api/tasks.api';
 import { KanbanColumn } from './KanbanColumn';
 import { TaskCard } from './TaskCard';
+import { DragPrompt } from './DragPrompt';
 
 type Status = Task['status'];
 
@@ -32,6 +33,13 @@ function groupByStatus(tasks: Task[]): Record<Status, Task[]> {
     waiting:     tasks.filter((t) => t.status === 'waiting').sort((a, b) => a.position - b.position),
     done:        tasks.filter((t) => t.status === 'done').sort((a, b) => a.position - b.position),
   };
+}
+
+interface PendingDrag {
+  taskId: number;
+  fromCol: Status;
+  toCol: Status;
+  snapshotBefore: Record<Status, Task[]>;
 }
 
 interface KanbanBoardProps {
@@ -52,6 +60,7 @@ export function KanbanBoard({ filters, onTaskClick, onShowAllDone, refreshKey = 
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingDrag, setPendingDrag] = useState<PendingDrag | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -123,14 +132,29 @@ export function KanbanBoard({ filters, onTaskClick, onShowAllDone, refreshKey = 
 
     if (!activeCol || !overCol) return;
 
+    // Cross-column drop: pause and show DragPrompt
+    if (activeCol !== overCol) {
+      // Snapshot was already taken before handleDragOver moved the task visually.
+      // We need the snapshot BEFORE the visual move — reconstruct from allTasks.
+      const snapshot = groupByStatus(allTasks);
+
+      setPendingDrag({
+        taskId: Number(active.id),
+        fromCol: activeCol,
+        toCol: overCol,
+        snapshotBefore: snapshot,
+      });
+      return;
+    }
+
+    // Same-column reorder: persist immediately as before
     setTasksByColumn((prev) => {
       const activeId = Number(active.id);
       const overId = overIsColumn ? null : Number(over.id);
 
       let updated = { ...prev };
 
-      if (activeCol === overCol && !overIsColumn) {
-        // Reorder within same column
+      if (!overIsColumn) {
         const col = [...prev[activeCol]];
         const oldIndex = col.findIndex((t) => t.id === activeId);
         const newIndex = col.findIndex((t) => t.id === overId);
@@ -139,22 +163,48 @@ export function KanbanBoard({ filters, onTaskClick, onShowAllDone, refreshKey = 
         }
       }
 
-      // Persist all items in affected columns with new positions
-      const colsToUpdate = activeCol === overCol ? [activeCol] : [activeCol, overCol];
       const apiUpdates: { id: number; status: string; position: number }[] = [];
-      for (const col of colsToUpdate) {
-        updated[col].forEach((t, idx) => {
-          apiUpdates.push({ id: t.id, status: col, position: idx });
-        });
-      }
+      updated[activeCol].forEach((t, idx) => {
+        apiUpdates.push({ id: t.id, status: activeCol, position: idx });
+      });
 
       reorderTasks(apiUpdates).catch(() => {
-        // Revert on error
         setTasksByColumn(groupByStatus(allTasks));
       });
 
       return updated;
     });
+  }
+
+  async function handleDragPromptConfirm(statusNote: string) {
+    if (!pendingDrag) return;
+    const { taskId, fromCol, toCol, snapshotBefore } = pendingDrag;
+    setPendingDrag(null);
+
+    // tasksByColumn is already visually updated (task is in toCol)
+    const colsToUpdate = [fromCol, toCol];
+    const apiUpdates: { id: number; status: string; position: number }[] = [];
+    for (const col of colsToUpdate) {
+      tasksByColumn[col].forEach((t, idx) => {
+        apiUpdates.push({ id: t.id, status: col, position: idx });
+      });
+    }
+
+    try {
+      await reorderTasks(apiUpdates);
+      if (statusNote.trim()) {
+        await updateTask(taskId, { status_note: statusNote.trim() });
+      }
+      load();
+    } catch {
+      setTasksByColumn(snapshotBefore);
+    }
+  }
+
+  function handleDragPromptCancel() {
+    if (!pendingDrag) return;
+    setTasksByColumn(pendingDrag.snapshotBefore);
+    setPendingDrag(null);
   }
 
   if (loading) {
@@ -166,40 +216,51 @@ export function KanbanBoard({ filters, onTaskClick, onShowAllDone, refreshKey = 
   }
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCorners}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
-    >
-      <div style={{
-        display: 'flex',
-        gap: '1rem',
-        overflowX: 'auto',
-        paddingBottom: '0.5rem',
-        alignItems: 'flex-start',
-      }}>
-        {COLUMNS.map((col) => (
-          <KanbanColumn
-            key={col.id}
-            id={col.id}
-            title={col.title}
-            icon={col.icon}
-            color={col.color}
-            tasks={tasksByColumn[col.id]}
-            onTaskClick={onTaskClick}
-            onShowAllDone={col.id === 'done' ? onShowAllDone : undefined}
-            totalDoneCount={col.id === 'done' ? tasksByColumn.done.length : undefined}
-          />
-        ))}
-      </div>
+    <>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+      >
+        <div style={{
+          display: 'flex',
+          gap: '1rem',
+          overflowX: 'auto',
+          paddingBottom: '0.5rem',
+          alignItems: 'flex-start',
+        }}>
+          {COLUMNS.map((col) => (
+            <KanbanColumn
+              key={col.id}
+              id={col.id}
+              title={col.title}
+              icon={col.icon}
+              color={col.color}
+              tasks={tasksByColumn[col.id]}
+              onTaskClick={onTaskClick}
+              onShowAllDone={col.id === 'done' ? onShowAllDone : undefined}
+              totalDoneCount={col.id === 'done' ? tasksByColumn.done.length : undefined}
+            />
+          ))}
+        </div>
 
-      <DragOverlay>
-        {activeTask ? (
-          <TaskCard task={activeTask} onClick={() => {}} isDragging />
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+        <DragOverlay>
+          {activeTask ? (
+            <TaskCard task={activeTask} onClick={() => {}} isDragging />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+
+      {pendingDrag && (
+        <DragPrompt
+          fromCol={COLUMNS.find((c) => c.id === pendingDrag.fromCol)?.title ?? pendingDrag.fromCol}
+          toCol={COLUMNS.find((c) => c.id === pendingDrag.toCol)?.title ?? pendingDrag.toCol}
+          onConfirm={handleDragPromptConfirm}
+          onCancel={handleDragPromptCancel}
+        />
+      )}
+    </>
   );
 }
