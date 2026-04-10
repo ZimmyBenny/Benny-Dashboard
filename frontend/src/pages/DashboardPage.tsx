@@ -399,8 +399,7 @@ export function DashboardPage() {
             </button>
 
             {/* Diese Woche fällig */}
-            {taskStats.due_this_week > 0 && (
-              <button className="module-card" onClick={() => navigate('/tasks')} style={{ textAlign: 'left', padding: '1.25rem' }}>
+            <button className="module-card" onClick={() => navigate('/tasks')} style={{ textAlign: 'left', padding: '1.25rem' }}>
                 <div style={{ position: 'relative', zIndex: 1 }}>
                   <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.03em', color: 'var(--color-primary)', lineHeight: 1, marginBottom: '0.375rem' }}>
                     {taskStats.due_this_week}
@@ -409,8 +408,7 @@ export function DashboardPage() {
                     Diese Woche fällig
                   </p>
                 </div>
-              </button>
-            )}
+            </button>
 
             {/* Erledigt diese Woche */}
             <button className="module-card" onClick={() => navigate('/tasks')} style={{ textAlign: 'left', padding: '1.25rem' }}>
@@ -425,18 +423,16 @@ export function DashboardPage() {
             </button>
 
             {/* Überfällig */}
-            {taskStats.overdue_count > 0 && (
-              <button className="module-card" onClick={() => navigate('/tasks')} style={{ textAlign: 'left', padding: '1.25rem' }}>
-                <div style={{ position: 'relative', zIndex: 1 }}>
-                  <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.03em', color: 'var(--color-error)', lineHeight: 1, marginBottom: '0.375rem' }}>
-                    {taskStats.overdue_count}
-                  </p>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
-                    Überfällig
-                  </p>
-                </div>
-              </button>
-            )}
+            <button className="module-card" onClick={() => navigate('/tasks')} style={{ textAlign: 'left', padding: '1.25rem' }}>
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.03em', color: 'var(--color-error)', lineHeight: 1, marginBottom: '0.375rem' }}>
+                  {taskStats.overdue_count}
+                </p>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
+                  Überfällig
+                </p>
+              </div>
+            </button>
           </div>
         </>
       )}
