@@ -1,5 +1,6 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useUiStore } from '../../store/uiStore';
+import { useAuthStore } from '../../store/authStore';
 import { navItems, settingsItem } from './navConfig';
 import type { NavItem } from './navConfig';
 
@@ -17,42 +18,46 @@ function SidebarNavLink({
       <NavLink
         to={item.path}
         end={end}
-        className={({ isActive }) =>
-          [
-            'flex items-center gap-3 px-3 py-2 rounded-lg transition-colors duration-150',
-            isActive
-              ? 'text-primary bg-surface-container-high'
-              : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high',
-            collapsed ? 'justify-center' : '',
-          ]
-            .filter(Boolean)
-            .join(' ')
-        }
-        style={({ isActive }) =>
-          isActive
-            ? { color: 'var(--color-primary)', backgroundColor: 'var(--color-surface-container-high)' }
-            : {}
-        }
+        className="flex items-center gap-3 rounded-lg transition-all duration-150"
+        style={({ isActive }) => ({
+          padding: collapsed ? '0.5rem' : '0.5rem 0.75rem',
+          justifyContent: collapsed ? 'center' : undefined,
+          color: isActive ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
+          backgroundColor: isActive ? 'var(--color-surface-container-high)' : 'transparent',
+          boxShadow: isActive ? 'inset 3px 0 0 var(--color-primary)' : 'none',
+        })}
       >
         <span
           className="material-symbols-outlined flex-shrink-0"
-          style={{ fontSize: '22px' }}
+          style={{ fontSize: '20px' }}
         >
           {item.icon}
         </span>
         {!collapsed && (
-          <span className="truncate text-sm font-medium">{item.label}</span>
+          <span style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.8125rem',
+            fontWeight: 500,
+            letterSpacing: '0.01em',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}>
+            {item.label}
+          </span>
         )}
       </NavLink>
 
-      {/* CSS-Tooltip — nur sichtbar wenn collapsed */}
+      {/* Tooltip when collapsed */}
       {collapsed && (
         <div
-          className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded px-2 py-1 text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+          className="pointer-events-none absolute left-full top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded px-2 py-1 text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-150"
           style={{
+            marginLeft: '8px',
             backgroundColor: 'var(--color-surface-container-high)',
             color: 'var(--color-on-surface)',
             border: '1px solid var(--color-outline-variant)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
           }}
         >
           {item.label}
@@ -64,6 +69,9 @@ function SidebarNavLink({
 
 export function Sidebar() {
   const collapsed = useUiStore((state) => state.sidebarCollapsed);
+  const toggleSidebar = useUiStore((state) => state.toggleSidebar);
+  const logout = useAuthStore((state) => state.logout);
+  const navigate = useNavigate();
 
   return (
     <aside
@@ -71,32 +79,71 @@ export function Sidebar() {
       style={{
         width: collapsed ? '52px' : '240px',
         backgroundColor: 'var(--color-surface-container)',
+        borderRight: '1px solid var(--color-surface-container-high)',
       }}
     >
-      {/* Logo / App-Kuerzel */}
+      {/* Brand mark */}
       <div
-        className="flex items-center h-14 px-3 flex-shrink-0"
-        style={{ borderBottom: '1px solid var(--color-surface-container-high)' }}
+        className="flex items-center flex-shrink-0"
+        style={{
+          height: '56px',
+          padding: collapsed ? '0' : '0 1rem',
+          justifyContent: collapsed ? 'center' : undefined,
+          borderBottom: '1px solid rgba(255,255,255,0.05)',
+        }}
       >
         {collapsed ? (
-          <span
-            className="material-symbols-outlined mx-auto"
-            style={{ color: 'var(--color-primary)', fontSize: '22px' }}
-          >
-            bolt
-          </span>
+          <div style={{
+            width: '32px', height: '32px', borderRadius: '8px',
+            background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <span style={{
+              fontFamily: 'var(--font-headline)',
+              fontWeight: 900,
+              fontSize: '0.8rem',
+              color: '#000',
+              letterSpacing: '-0.02em',
+            }}>B</span>
+          </div>
         ) : (
-          <span
-            className="font-headline font-bold text-sm tracking-wide truncate"
-            style={{ color: 'var(--color-primary)' }}
-          >
-            Benny Dashboard
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', overflow: 'hidden' }}>
+            <div style={{
+              width: '28px', height: '28px', borderRadius: '7px', flexShrink: 0,
+              background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <span style={{
+                fontFamily: 'var(--font-headline)',
+                fontWeight: 900, fontSize: '0.7rem', color: '#000',
+              }}>B</span>
+            </div>
+            <div style={{ overflow: 'hidden' }}>
+              <p style={{
+                fontFamily: 'var(--font-headline)',
+                fontWeight: 700,
+                fontSize: '0.8125rem',
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                color: 'var(--color-on-surface)',
+                lineHeight: 1.2,
+                whiteSpace: 'nowrap',
+              }}>Dashboard</p>
+              <p style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: '0.625rem',
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                color: 'var(--color-outline)',
+                lineHeight: 1,
+              }}>Benny</p>
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Haupt-Navigation */}
-      <nav className="flex flex-col gap-1 p-2 flex-1">
+      {/* Navigation */}
+      <nav className="flex flex-col gap-0.5 p-2 flex-1" style={{ overflowY: 'auto' }}>
         {navItems.map((item) => (
           <SidebarNavLink
             key={item.path}
@@ -107,9 +154,81 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* Settings am unteren Ende — mt-auto via separatem Wrapper (kein Divider, per D-09) */}
-      <div className="p-2 mt-auto">
+      {/* Toggle collapse button */}
+      <div className="p-2" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+        <button
+          onClick={toggleSidebar}
+          className="flex items-center gap-3 rounded-lg transition-all duration-150 w-full"
+          style={{
+            padding: collapsed ? '0.5rem' : '0.5rem 0.75rem',
+            justifyContent: collapsed ? 'center' : undefined,
+            color: 'var(--color-on-surface-variant)',
+            background: 'transparent',
+            cursor: 'pointer',
+          }}
+          title={collapsed ? 'Sidebar ausklappen' : 'Sidebar einklappen'}
+        >
+          <span className="material-symbols-outlined flex-shrink-0" style={{ fontSize: '20px' }}>
+            {collapsed ? 'chevron_right' : 'chevron_left'}
+          </span>
+          {!collapsed && (
+            <span style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: '0.8125rem',
+              fontWeight: 500,
+              letterSpacing: '0.01em',
+            }}>
+              Einklappen
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Settings + Logout */}
+      <div className="p-2" style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
         <SidebarNavLink item={settingsItem} collapsed={collapsed} />
+        <div className="relative group">
+          <button
+            onClick={() => { logout(); navigate('/login'); }}
+            className="flex items-center gap-3 rounded-lg transition-all duration-150 w-full"
+            style={{
+              padding: collapsed ? '0.5rem' : '0.5rem 0.75rem',
+              justifyContent: collapsed ? 'center' : undefined,
+              color: 'var(--color-on-surface-variant)',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <span className="material-symbols-outlined flex-shrink-0" style={{ fontSize: '20px' }}>
+              logout
+            </span>
+            {!collapsed && (
+              <span style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: '0.8125rem',
+                fontWeight: 500,
+                letterSpacing: '0.01em',
+              }}>
+                Abmelden
+              </span>
+            )}
+          </button>
+          {collapsed && (
+            <div
+              className="pointer-events-none absolute left-full top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded px-2 py-1 text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+              style={{
+                marginLeft: '8px',
+                backgroundColor: 'var(--color-surface-container-high)',
+                color: 'var(--color-on-surface)',
+                border: '1px solid var(--color-outline-variant)',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+              }}
+            >
+              Abmelden
+            </div>
+          )}
+        </div>
       </div>
     </aside>
   );
