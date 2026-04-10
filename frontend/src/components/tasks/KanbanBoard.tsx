@@ -3,6 +3,9 @@ import {
   DndContext,
   closestCorners,
   DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
   type DragStartEvent,
   type DragOverEvent,
   type DragEndEvent,
@@ -39,6 +42,10 @@ interface KanbanBoardProps {
 }
 
 export function KanbanBoard({ filters, onTaskClick, onShowAllDone, refreshKey = 0 }: KanbanBoardProps) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
   const [tasksByColumn, setTasksByColumn] = useState<Record<Status, Task[]>>({
     open: [], in_progress: [], waiting: [], done: [],
   });
@@ -160,6 +167,7 @@ export function KanbanBoard({ filters, onTaskClick, onShowAllDone, refreshKey = 
 
   return (
     <DndContext
+      sensors={sensors}
       collisionDetection={closestCorners}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
