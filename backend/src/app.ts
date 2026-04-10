@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { errorHandler } from './middleware/errorHandler';
 import authRoutes from './routes/auth.routes';
+import userRoutes from './routes/user.routes';
 import { verifyToken, type AuthenticatedRequest } from './middleware/auth';
 
 export function createApp() {
@@ -25,6 +26,9 @@ export function createApp() {
 
   // GUARD — everything mounted AFTER this line under /api requires a valid JWT
   app.use('/api', verifyToken);
+
+  // Protected routes — registered AFTER verifyToken guard
+  app.use('/api/user', userRoutes);
 
   // Temporary probe route to verify the guard end-to-end (kept; Plan 3 may remove)
   app.get('/api/_probe', (req: AuthenticatedRequest, res) => {
