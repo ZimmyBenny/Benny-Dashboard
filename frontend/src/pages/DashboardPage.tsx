@@ -4,6 +4,7 @@ import { PageWrapper } from '../components/layout/PageWrapper';
 import { useTimerStore } from '../store/timerStore';
 import { useAuthStore } from '../store/authStore';
 import { fetchVisibleQuickLinks, type QuickLink } from '../api/quickLinks.api';
+import { fetchTaskStats, type TaskStats } from '../api/tasks.api';
 
 function getGreeting(): { time: string; name: string } {
   const hour = new Date().getHours();
@@ -57,6 +58,13 @@ export function DashboardPage() {
 
   useEffect(() => {
     fetchVisibleQuickLinks().then(setQuickLinks).catch(() => {});
+  }, []);
+
+  // Aufgaben-Statistiken
+  const [taskStats, setTaskStats] = useState<TaskStats | null>(null);
+
+  useEffect(() => {
+    fetchTaskStats().then(setTaskStats).catch(() => {});
   }, []);
 
   // Aktiver Timer
@@ -321,6 +329,170 @@ export function DashboardPage() {
           </button>
         ))}
       </div>
+      {/* ── Aufgaben-Uebersicht ──────────────────────────── */}
+      {taskStats !== null && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '2.5rem', marginBottom: '1.25rem' }}>
+            <p style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: '0.65rem',
+              letterSpacing: '0.22em',
+              textTransform: 'uppercase',
+              color: 'var(--color-outline)',
+              whiteSpace: 'nowrap',
+            }}>
+              Aufgaben-Uebersicht
+            </p>
+            <div style={{
+              flex: 1, height: '1px',
+              background: 'linear-gradient(90deg, var(--color-outline-variant) 0%, transparent 100%)',
+            }} />
+          </div>
+
+          <div
+            onClick={() => navigate('/tasks')}
+            style={{
+              width: '100%',
+              padding: '1.25rem 1.5rem',
+              background: 'var(--color-surface-container)',
+              border: '1px solid var(--color-surface-container-high)',
+              borderRadius: '1rem',
+              cursor: 'pointer',
+              transition: 'border-color 150ms ease',
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(204,151,255,0.25)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--color-surface-container-high)';
+            }}
+          >
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '1.5rem',
+              alignItems: 'center',
+            }}>
+              {/* Offen */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '60px' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--color-on-surface-variant)', marginBottom: '0.25rem' }}>
+                  radio_button_unchecked
+                </span>
+                <p style={{
+                  fontFamily: 'var(--font-headline)',
+                  fontWeight: 800,
+                  fontSize: '1.5rem',
+                  letterSpacing: '-0.03em',
+                  color: 'var(--color-on-surface)',
+                  lineHeight: 1,
+                  marginBottom: '0.25rem',
+                }}>
+                  {taskStats.open_count}
+                </p>
+                <p style={{
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '0.7rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  color: 'var(--color-on-surface-variant)',
+                }}>
+                  Offen
+                </p>
+              </div>
+
+              {/* In Arbeit */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '60px' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--color-secondary)', marginBottom: '0.25rem' }}>
+                  pending
+                </span>
+                <p style={{
+                  fontFamily: 'var(--font-headline)',
+                  fontWeight: 800,
+                  fontSize: '1.5rem',
+                  letterSpacing: '-0.03em',
+                  color: 'var(--color-secondary)',
+                  lineHeight: 1,
+                  marginBottom: '0.25rem',
+                }}>
+                  {taskStats.in_progress_count}
+                </p>
+                <p style={{
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '0.7rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  color: 'var(--color-on-surface-variant)',
+                }}>
+                  In Arbeit
+                </p>
+              </div>
+
+              {/* Diese Woche erledigt */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '60px' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#4ade80', marginBottom: '0.25rem' }}>
+                  check_circle
+                </span>
+                <p style={{
+                  fontFamily: 'var(--font-headline)',
+                  fontWeight: 800,
+                  fontSize: '1.5rem',
+                  letterSpacing: '-0.03em',
+                  color: '#4ade80',
+                  lineHeight: 1,
+                  marginBottom: '0.25rem',
+                }}>
+                  {taskStats.done_this_week}
+                </p>
+                <p style={{
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '0.7rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  color: 'var(--color-on-surface-variant)',
+                }}>
+                  Diese Woche
+                </p>
+              </div>
+
+              {/* Ueberfaellig — nur wenn > 0 */}
+              {taskStats.overdue_count > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '60px' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--color-error)', marginBottom: '0.25rem' }}>
+                    warning
+                  </span>
+                  <p style={{
+                    fontFamily: 'var(--font-headline)',
+                    fontWeight: 800,
+                    fontSize: '1.5rem',
+                    letterSpacing: '-0.03em',
+                    color: 'var(--color-error)',
+                    lineHeight: 1,
+                    marginBottom: '0.25rem',
+                  }}>
+                    {taskStats.overdue_count}
+                  </p>
+                  <p style={{
+                    fontFamily: 'var(--font-body)',
+                    fontSize: '0.7rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    color: 'var(--color-on-surface-variant)',
+                  }}>
+                    Ueberfaellig
+                  </p>
+                </div>
+              )}
+
+              {/* Spacer + navigate hint */}
+              <div style={{ flex: 1 }} />
+              <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--color-outline)', flexShrink: 0 }}>
+                chevron_right
+              </span>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* ── Schnellzugriff ───────────────────────────────── */}
       <div style={{ marginTop: '2.5rem' }}>
         {/* Full-width card inkl. Titel */}
