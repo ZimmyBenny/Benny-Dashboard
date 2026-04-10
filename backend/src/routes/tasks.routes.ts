@@ -49,12 +49,12 @@ router.get('/', (req, res) => {
 router.get('/stats', (_req, res) => {
   const stats = db.prepare(`
     SELECT
-      SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END)          AS open_count,
-      SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END)   AS in_progress_count,
-      SUM(CASE WHEN status = 'waiting' THEN 1 ELSE 0 END)        AS waiting_count,
-      SUM(CASE WHEN status = 'done' AND updated_at >= date('now', '-7 days') THEN 1 ELSE 0 END) AS done_this_week,
-      SUM(CASE WHEN due_date < date('now') AND status != 'done' THEN 1 ELSE 0 END) AS overdue_count,
-      SUM(CASE WHEN due_date >= date('now', 'weekday 0', '-7 days') AND due_date <= date('now', 'weekday 0', '+0 days') AND status != 'done' THEN 1 ELSE 0 END) AS due_this_week
+      COALESCE(SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END), 0)          AS open_count,
+      COALESCE(SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END), 0)   AS in_progress_count,
+      COALESCE(SUM(CASE WHEN status = 'waiting' THEN 1 ELSE 0 END), 0)        AS waiting_count,
+      COALESCE(SUM(CASE WHEN status = 'done' AND updated_at >= date('now', '-7 days') THEN 1 ELSE 0 END), 0) AS done_this_week,
+      COALESCE(SUM(CASE WHEN due_date < date('now') AND status != 'done' THEN 1 ELSE 0 END), 0) AS overdue_count,
+      COALESCE(SUM(CASE WHEN due_date >= date('now', 'weekday 0', '-7 days') AND due_date <= date('now', 'weekday 0', '+0 days') AND status != 'done' THEN 1 ELSE 0 END), 0) AS due_this_week
     FROM tasks
   `).get();
   res.json(stats);
