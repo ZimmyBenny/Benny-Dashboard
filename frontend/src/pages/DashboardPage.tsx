@@ -1,61 +1,329 @@
 import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { PageWrapper } from '../components/layout/PageWrapper';
-import { Card } from '../components/ui/Card';
+import { useTimerStore } from '../store/timerStore';
 
-function getGreeting(): string {
+function getGreeting(): { time: string; name: string } {
   const hour = new Date().getHours();
-  if (hour >= 5 && hour < 12) return 'Guten Morgen, Benny';
-  if (hour >= 12 && hour < 18) return 'Guten Nachmittag, Benny';
-  if (hour >= 18 && hour < 22) return 'Guten Abend, Benny';
-  return 'Gute Nacht, Benny';
+  if (hour >= 5 && hour < 12) return { time: 'Guten Morgen,', name: 'Benny.' };
+  if (hour >= 12 && hour < 18) return { time: 'Guten Nachmittag,', name: 'Benny.' };
+  if (hour >= 18 && hour < 22) return { time: 'Guten Abend,', name: 'Benny.' };
+  return { time: 'Gute Nacht,', name: 'Benny.' };
 }
 
 const modules = [
-  { path: '/',          label: 'Dashboard',     icon: 'dashboard',              description: 'Dein Command Center auf einen Blick' },
-  { path: '/tasks',     label: 'Aufgaben',      icon: 'task_alt',               description: 'Aufgaben planen, verfolgen, erledigen' },
-  { path: '/calendar',  label: 'Kalender',      icon: 'calendar_month',         description: 'Termine und Events im Ueberblick' },
-  { path: '/dj',        label: 'DJ',            icon: 'headphones',             description: 'Gigs, Bookings und Zahlungsstatus' },
-  { path: '/finances',  label: 'Finanzen',      icon: 'account_balance_wallet', description: 'Einnahmen, Ausgaben und Budgets' },
-  { path: '/amazon',    label: 'Amazon',        icon: 'shopping_cart',          description: 'Bestellungen und Retouren tracken' },
-  { path: '/settings',  label: 'Einstellungen', icon: 'settings',               description: 'Passwort, Version und Praeferenzen' },
+  { path: '/zeiterfassung', label: 'Zeiterfassung', icon: 'timer',                  description: 'Zeiten · Projekte · Export', isTimer: true as const },
+  { path: '/tasks',         label: 'Aufgaben',       icon: 'task_alt',               description: 'Planen · Verfolgen · Erledigen' },
+  { path: '/calendar',      label: 'Kalender',       icon: 'calendar_month',         description: 'Termine und Events im Überblick' },
+  { path: '/dj',            label: 'DJ',             icon: 'headphones',             description: 'Gigs · Bookings · Zahlungen' },
+  { path: '/finances',      label: 'Finanzen',       icon: 'account_balance_wallet', description: 'Einnahmen · Ausgaben · Budgets' },
+  { path: '/amazon',        label: 'Amazon',         icon: 'shopping_cart',          description: 'Bestellungen und Retouren' },
+  { path: '/settings',      label: 'Settings',       icon: 'settings',               description: 'Konfiguration & Präferenzen' },
 ];
+
+function formatMs(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
 
 export function DashboardPage() {
   const navigate = useNavigate();
+  const greeting = getGreeting();
+  const dateStr = new Date().toLocaleDateString('de-DE', {
+    weekday: 'long', day: 'numeric', month: 'long',
+  });
+
+  const [time, setTime] = useState(() =>
+    new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  );
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setTime(new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Aktiver Timer
+  const { status: timerStatus, getElapsedMs, start: startTimer } = useTimerStore();
+  const [timerDisplay, setTimerDisplay] = useState(() => getElapsedMs());
+  const timerActive = timerStatus === 'running' || timerStatus === 'paused';
+
+  useEffect(() => {
+    if (timerStatus !== 'running') {
+      setTimerDisplay(getElapsedMs());
+      return;
+    }
+    const id = setInterval(() => setTimerDisplay(getElapsedMs()), 1000);
+    return () => clearInterval(id);
+  }, [timerStatus, getElapsedMs]);
 
   return (
     <PageWrapper>
-      <h1
-        className="text-3xl font-bold mb-8"
-        style={{ fontFamily: 'var(--font-headline)', color: 'var(--color-on-surface)' }}
-      >
-        {getGreeting()}
-      </h1>
+      {/* ── Hero ─────────────────────────────────────────── */}
+      <div style={{ position: 'relative', marginBottom: '3rem', paddingTop: '0.5rem', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        {/* Ambient glows */}
+        <div aria-hidden style={{
+          position: 'absolute', top: '-80px', right: '-100px',
+          width: '420px', height: '420px', borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(204,151,255,0.09) 0%, transparent 65%)',
+          pointerEvents: 'none',
+        }} />
+        <div aria-hidden style={{
+          position: 'absolute', bottom: '-40px', left: '25%',
+          width: '300px', height: '300px', borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(52,181,250,0.07) 0%, transparent 65%)',
+          pointerEvents: 'none',
+        }} />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {/* Left: Greeting */}
+        <div>
+          <h1 className="display-text" style={{
+            fontSize: 'clamp(2.6rem, 5.5vw, 5rem)',
+            color: '#ffffff',
+            marginBottom: '0.05em',
+          }}>
+            {greeting.time}
+          </h1>
+          <h1 className="display-text gradient-text" style={{
+            fontSize: 'clamp(2.6rem, 5.5vw, 5rem)',
+          }}>
+            {greeting.name}
+          </h1>
+        </div>
+
+        {/* Right: Clock + Date */}
+        <div style={{ textAlign: 'right', flexShrink: 0, paddingTop: '0.25rem' }}>
+          <p style={{
+            fontFamily: 'var(--font-headline)',
+            fontWeight: 800,
+            fontSize: 'clamp(2rem, 3.5vw, 3.5rem)',
+            letterSpacing: '-0.03em',
+            color: '#ffffff',
+            lineHeight: 1,
+            marginBottom: '0.4rem',
+          }}>
+            {time}
+          </p>
+          <p style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: 'clamp(0.8rem, 1.2vw, 1rem)',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            color: 'var(--color-outline)',
+          }}>
+            {dateStr}
+          </p>
+        </div>
+      </div>
+
+      {/* ── Zeiterfassung Widget (idle oder aktiv) ──────────── */}
+      {!timerActive ? (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '1rem',
+          padding: '0.875rem 1.25rem',
+          marginBottom: '1.75rem',
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: '0.875rem',
+        }}>
+          <span className="material-symbols-outlined" style={{
+            fontSize: '20px', color: 'var(--color-outline)', flexShrink: 0,
+          }}>timer</span>
+          <p style={{
+            fontFamily: 'var(--font-body)', fontSize: '0.8rem',
+            color: 'var(--color-outline)', flex: 1,
+          }}>
+            Kein Timer läuft
+          </p>
+          <button
+            onClick={() => { startTimer(); navigate('/zeiterfassung'); }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.4rem',
+              padding: '0.5rem 1rem',
+              borderRadius: '9999px',
+              background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+              color: '#000', border: 'none', cursor: 'pointer',
+              fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.8rem',
+              letterSpacing: '0.03em',
+              flexShrink: 0,
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>play_arrow</span>
+            Starten
+          </button>
+        </div>
+      ) : null}
+
+      {/* ── Aktiver Timer Widget ─────────────────────────── */}
+      {timerActive && (
+        <div
+          onClick={() => navigate('/zeiterfassung')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '1rem',
+            padding: '0.875rem 1.25rem',
+            marginBottom: '1.75rem',
+            background: timerStatus === 'running'
+              ? 'rgba(52,181,250,0.07)'
+              : 'rgba(204,151,255,0.07)',
+            border: `1px solid ${timerStatus === 'running' ? 'rgba(52,181,250,0.2)' : 'rgba(204,151,255,0.2)'}`,
+            borderRadius: '0.875rem',
+            cursor: 'pointer',
+            transition: 'border-color 200ms ease',
+          }}
+        >
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <span className="material-symbols-outlined" style={{
+              fontSize: '20px',
+              color: timerStatus === 'running' ? 'var(--color-secondary)' : 'var(--color-primary)',
+            }}>timer</span>
+            {timerStatus === 'running' && (
+              <span style={{
+                position: 'absolute', top: '-2px', right: '-2px',
+                width: '7px', height: '7px', borderRadius: '50%',
+                background: 'var(--color-secondary)',
+                boxShadow: '0 0 6px rgba(52,181,250,0.8)',
+              }} />
+            )}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: '0.7rem',
+              letterSpacing: '0.1em', textTransform: 'uppercase',
+              color: timerStatus === 'running' ? 'var(--color-secondary)' : 'var(--color-primary)',
+              marginBottom: '0.1rem',
+            }}>
+              {timerStatus === 'running' ? 'Zeiterfassung läuft' : 'Zeiterfassung pausiert'}
+            </p>
+          </div>
+          <div style={{
+            fontFamily: 'var(--font-headline)', fontWeight: 800,
+            fontSize: '1.25rem', letterSpacing: '-0.02em',
+            color: timerStatus === 'running' ? 'var(--color-secondary)' : 'var(--color-primary)',
+          }}>
+            {formatMs(timerDisplay)}
+          </div>
+          <span className="material-symbols-outlined" style={{
+            fontSize: '18px', color: 'var(--color-outline)', flexShrink: 0,
+          }}>chevron_right</span>
+        </div>
+      )}
+
+      {/* ── Section divider ──────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem' }}>
+        <p style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: '0.65rem',
+          letterSpacing: '0.22em',
+          textTransform: 'uppercase',
+          color: 'var(--color-outline)',
+          whiteSpace: 'nowrap',
+        }}>
+          Module
+        </p>
+        <div style={{
+          flex: 1, height: '1px',
+          background: 'linear-gradient(90deg, var(--color-outline-variant) 0%, transparent 100%)',
+        }} />
+      </div>
+
+      {/* ── Module grid ──────────────────────────────────── */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+        gap: '0.875rem',
+      }}>
         {modules.map((mod) => (
-          <Card key={mod.path} hoverable onClick={() => navigate(mod.path)}>
-            <div className="p-6 flex flex-col gap-3">
-              <span
-                className="material-symbols-outlined text-4xl"
-                style={{ color: 'var(--color-primary)' }}
-              >
+          <button
+            key={mod.path}
+            className="module-card"
+            onClick={() => navigate(mod.path)}
+            style={{ textAlign: 'left', padding: '1.5rem 1.5rem 1.25rem', cursor: 'pointer' }}
+          >
+            {/* Ghost icon backdrop */}
+            <span className="material-symbols-outlined" aria-hidden style={{
+              position: 'absolute', bottom: '0.5rem', right: '0.75rem',
+              fontSize: '4.5rem', lineHeight: 1,
+              color: 'var(--color-primary)', opacity: 0.06,
+              pointerEvents: 'none',
+            }}>
+              {mod.icon}
+            </span>
+
+            {/* Content */}
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <span className="material-symbols-outlined" style={{
+                fontSize: '1.375rem',
+                color: 'var(--color-primary)',
+                display: 'block',
+                marginBottom: '0.875rem',
+              }}>
                 {mod.icon}
               </span>
-              <h2
-                className="text-lg font-semibold"
-                style={{ fontFamily: 'var(--font-headline)', color: 'var(--color-on-surface)' }}
-              >
+              <p style={{
+                fontFamily: 'var(--font-headline)',
+                fontWeight: 700,
+                fontSize: '0.875rem',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: 'var(--color-on-surface)',
+                marginBottom: '0.375rem',
+              }}>
                 {mod.label}
-              </h2>
-              <p
-                className="text-sm"
-                style={{ color: 'var(--color-on-surface-variant)' }}
-              >
+              </p>
+              <p style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: '0.75rem',
+                color: 'var(--color-on-surface-variant)',
+                lineHeight: 1.5,
+              }}>
                 {mod.description}
               </p>
+
+              {'isTimer' in mod && (
+                <div style={{ marginTop: '0.875rem' }}>
+                  {timerActive ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {timerStatus === 'running' && (
+                        <span style={{
+                          width: '6px', height: '6px', borderRadius: '50%',
+                          background: 'var(--color-secondary)',
+                          boxShadow: '0 0 6px rgba(52,181,250,0.7)',
+                          flexShrink: 0,
+                        }} />
+                      )}
+                      <span style={{
+                        fontFamily: 'var(--font-headline)', fontWeight: 800,
+                        fontSize: '1.1rem', letterSpacing: '-0.02em',
+                        color: timerStatus === 'running' ? 'var(--color-secondary)' : 'var(--color-primary)',
+                      }}>
+                        {formatMs(timerDisplay)}
+                      </span>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); startTimer(); navigate('/zeiterfassung'); }}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                        padding: '0.35rem 0.8rem',
+                        borderRadius: '9999px',
+                        background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+                        color: '#000', border: 'none', cursor: 'pointer',
+                        fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.7rem',
+                        letterSpacing: '0.03em',
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>play_arrow</span>
+                      Starten
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
-          </Card>
+          </button>
         ))}
       </div>
     </PageWrapper>
