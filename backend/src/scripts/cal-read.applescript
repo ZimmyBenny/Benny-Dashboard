@@ -6,9 +6,23 @@
 -- Bei 10 Kalendern: ~80-100s Laufzeit. execFile timeout muss >= 300s sein.
 
 on run
-  set calNamesStr to (do shell script "echo $CAL_NAMES")
-  set daysBack to (do shell script "echo $DAYS_BACK") as integer
-  set daysForward to (do shell script "echo $DAYS_FORWARD") as integer
+  -- system attribute liest aus dem osascript-Prozess-Env (korrekt bei execFile mit env:{}).
+  -- do shell script "echo $VAR" startet eine neue Shell ohne das Parent-Env — deshalb immer leer.
+  try
+    set calNamesStr to system attribute "CAL_NAMES"
+  on error
+    set calNamesStr to ""
+  end try
+  try
+    set daysBack to (system attribute "DAYS_BACK") as integer
+  on error
+    set daysBack to 30
+  end try
+  try
+    set daysForward to (system attribute "DAYS_FORWARD") as integer
+  on error
+    set daysForward to 90
+  end try
 
   -- Referenzdatum fuer UTC-Epoch-Berechnung (kein do shell script pro Event noetig)
   set refDate to (date "Donnerstag, 1. Januar 1970 um 00:00:00")
@@ -38,8 +52,8 @@ on run
 
             -- Titel und Kalender-Name JSON-sicher escapen:
             -- Backslash zuerst (damit er nicht doppelt ersetzt wird), dann " und Steuerzeichen
-            set evtTitle to do shell script "printf '%s' " & quoted form of (summary of evt) & " | sed 's/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g' | tr -d '\\r' | tr '\\n' ' ' | tr '\\t' ' '"
-            set evtCalEscaped to do shell script "printf '%s' " & quoted form of (name of cal) & " | sed 's/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g'"
+            set evtTitle to do shell script "printf '%s' " & quoted form of ((summary of evt) as text) & " | sed 's/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g' | tr -d '\\r' | tr '\\n' ' ' | tr '\\t' ' '"
+            set evtCalEscaped to do shell script "printf '%s' " & quoted form of ((name of cal) as text) & " | sed 's/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g'"
 
             set jsonEntry to "{\"uid\":\"" & evtUID & "\",\"title\":\"" & evtTitle & "\",\"startEpoch\":" & startEpoch & ",\"endEpoch\":" & endEpoch & ",\"stampEpoch\":" & stampEpoch & ",\"allDay\":" & (evtAllDay as text) & ",\"cal\":\"" & evtCalEscaped & "\"}"
             set end of jsonParts to jsonEntry

@@ -113,7 +113,13 @@ export async function syncPull(): Promise<SyncPullResult> {
 
   let events: RawEvent[];
   try {
-    events = JSON.parse(raw);
+    // AppleScript auf deutschem macOS formatiert große Integer als "1,7782776E+9"
+    // (Komma als Dezimaltrennzeichen, kein valides JSON) — vor dem Parsen normalisieren.
+    const sanitized = raw.replace(/"(startEpoch|endEpoch|stampEpoch)":([\d.,E+\-]+)(?=[,}\]])/g, (_, key, num) => {
+      const clean = num.replace(/\./g, '').replace(',', '.');
+      return `"${key}":${Math.round(parseFloat(clean))}`;
+    });
+    events = JSON.parse(sanitized);
   } catch (parseErr) {
     console.error('[calendar] syncPull: AppleScript-Output ist kein valides JSON:', parseErr);
     console.error('[calendar] Raw output (first 500 chars):', raw.slice(0, 500));
