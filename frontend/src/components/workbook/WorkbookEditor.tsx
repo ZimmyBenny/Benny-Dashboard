@@ -85,7 +85,13 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
       Placeholder.configure({ placeholder: 'Hier tippen — Seite bearbeiten...' }),
       CharacterCount,
     ],
-    content: page.content,
+    content: (() => {
+      try {
+        return typeof page.content === 'string' ? JSON.parse(page.content) : page.content;
+      } catch {
+        return page.content;
+      }
+    })(),
     onUpdate: ({ editor: ed }) => {
       const content = ed.getJSON();
       latestPayloadRef.current = { content, title, tags };
