@@ -229,6 +229,7 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
       >
         {/* Backdrop */}
         <div
+          onClick={task === null ? onClose : undefined}
           style={{
             position: 'fixed',
             inset: 0,
@@ -239,9 +240,28 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
           }}
         />
 
-        {/* Panel */}
+        {/* Panel — modal (neue Aufgabe) oder Slide-Over (bestehende Aufgabe) */}
         <div
-          style={{
+          style={task === null ? {
+            // Zentriertes schwebendes Modal für neue Aufgaben
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: isOpen ? 'translate(-50%, -50%) scale(1)' : 'translate(-50%, -50%) scale(0.95)',
+            opacity: isOpen ? 1 : 0,
+            transition: 'transform 200ms cubic-bezier(0.32, 0.72, 0, 1), opacity 200ms ease',
+            width: 'min(560px, 92vw)',
+            maxHeight: '90vh',
+            borderRadius: '0.75rem',
+            background: 'var(--color-surface-container)',
+            border: '1px solid var(--color-outline-variant)',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.45)',
+            overflowY: 'auto',
+            zIndex: 50,
+            display: 'flex',
+            flexDirection: 'column',
+          } : {
+            // Slide-Over von rechts für bestehende Aufgaben
             position: 'fixed',
             top: 0,
             right: 0,
