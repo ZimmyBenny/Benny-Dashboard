@@ -86,11 +86,16 @@ export function ArchiveList({ onTaskClick, refreshKey = 0 }: ArchiveListProps) {
               >
                 <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: 'var(--color-outline)', flexShrink: 0 }}>inventory_2</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 600, fontSize: '0.875rem', color: 'var(--color-on-surface)', marginBottom: tags.length > 0 ? '0.25rem' : 0, wordBreak: 'break-word' }}>
+                  <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 600, fontSize: '0.875rem', color: 'var(--color-on-surface)', marginBottom: (task.area || tags.length > 0) ? '0.25rem' : 0, wordBreak: 'break-word' }}>
                     {task.title}
                   </p>
-                  {tags.length > 0 && (
+                  {(task.area || tags.length > 0) && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                      {task.area && (
+                        <span style={{ padding: '0.1rem 0.4rem', borderRadius: '9999px', background: 'rgba(52,181,250,0.08)', color: 'var(--color-secondary)', fontFamily: 'var(--font-body)', fontSize: '0.6rem', fontWeight: 500 }}>
+                          {task.area}
+                        </span>
+                      )}
                       {tags.map((tag) => (
                         <span key={tag} style={{ padding: '0.1rem 0.4rem', borderRadius: '9999px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.6rem' }}>
                           #{tag}
