@@ -73,6 +73,26 @@ function EventForm({ calendars, initialDate, editEvent, onSaved, onDeleted, onCl
   const [notes, setNotes]         = useState(editEvent?.notes ?? '');
   const [saving, setSaving]       = useState(false);
   const [error, setError]         = useState<string | null>(null);
+  const [modalPos, setModalPos]   = useState<{ x: number; y: number } | null>(null);
+  const dragRef = useRef<{ startX: number; startY: number; initX: number; initY: number } | null>(null);
+
+  function handleHeaderMouseDown(e: React.MouseEvent) {
+    e.preventDefault();
+    const el = (e.currentTarget as HTMLElement).closest('[data-modal]') as HTMLElement | null;
+    const rect = el ? el.getBoundingClientRect() : { left: window.innerWidth / 2, top: window.innerHeight / 2 };
+    dragRef.current = { startX: e.clientX, startY: e.clientY, initX: rect.left, initY: rect.top };
+    function onMove(ev: MouseEvent) {
+      if (!dragRef.current) return;
+      setModalPos({ x: dragRef.current.initX + ev.clientX - dragRef.current.startX, y: dragRef.current.initY + ev.clientY - dragRef.current.startY });
+    }
+    function onUp() {
+      dragRef.current = null;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -120,22 +140,40 @@ function EventForm({ calendars, initialDate, editEvent, onSaved, onDeleted, onCl
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, pointerEvents: 'auto' }}>
       {/* Backdrop */}
-      <div style={{ flex: 1, background: 'rgba(0,0,0,0.5)' }} onClick={onClose} />
-      {/* Panel */}
-      <div style={{
-        width: '420px', background: 'var(--color-surface-container)', borderLeft: '1px solid var(--color-outline-variant)',
-        padding: '2rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.25rem',
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.125rem', color: 'var(--color-on-surface)', margin: 0 }}>
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)' }} onClick={onClose} />
+      {/* Modal */}
+      <div
+        data-modal
+        style={modalPos ? {
+          position: 'fixed', left: modalPos.x, top: modalPos.y,
+          width: 'min(460px, 92vw)', maxHeight: '90vh', overflowY: 'auto',
+          background: 'var(--color-surface-container)', borderRadius: '0.75rem',
+          border: '1px solid var(--color-outline-variant)', boxShadow: '0 24px 80px rgba(0,0,0,0.45)',
+          display: 'flex', flexDirection: 'column', zIndex: 51,
+        } : {
+          position: 'fixed', top: '50%', left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 'min(460px, 92vw)', maxHeight: '90vh', overflowY: 'auto',
+          background: 'var(--color-surface-container)', borderRadius: '0.75rem',
+          border: '1px solid var(--color-outline-variant)', boxShadow: '0 24px 80px rgba(0,0,0,0.45)',
+          display: 'flex', flexDirection: 'column', zIndex: 51,
+        }}
+      >
+        <div
+          onMouseDown={handleHeaderMouseDown}
+          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-outline-variant)',
+            cursor: 'grab', userSelect: 'none', flexShrink: 0 }}>
+          <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1rem', color: 'var(--color-on-surface)', margin: 0, fontWeight: 700 }}>
             {editEvent ? 'Event bearbeiten' : 'Neues Event'}
           </h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-on-surface-variant)', fontSize: '1.25rem' }}>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-on-surface-variant)' }}>
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
+        <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
         {error && (
           <div style={{ color: '#ef4444', fontSize: '0.8rem', padding: '0.5rem', background: 'rgba(239,68,68,0.1)', borderRadius: '0.375rem' }}>
@@ -208,8 +246,9 @@ function EventForm({ calendars, initialDate, editEvent, onSaved, onDeleted, onCl
             )}
           </div>
         </form>
-      </div>
-    </div>
+        </div>{/* padding */}
+      </div>{/* modal */}
+    </div>{/* outer */}
   );
 }
 
@@ -301,6 +340,21 @@ export function CalendarPage() {
 
   return (
     <PageWrapper>
+      {/* Seitentitel wie Arbeitsmappe */}
+      <div style={{
+        padding: '0.875rem 1.5rem',
+        borderBottom: '1px solid var(--color-outline-variant)',
+        background: 'var(--color-surface-container-low)',
+        display: 'flex', alignItems: 'center', flexShrink: 0,
+      }}>
+        <span className="gradient-text" style={{
+          fontFamily: 'var(--font-headline)', fontWeight: 800,
+          fontSize: '1.5rem', letterSpacing: '-0.01em',
+        }}>
+          Kalender
+        </span>
+      </div>
+
       {/* Neuer-Kalender-Popup */}
       {newCalendars.length > 0 && (
         <div style={{
