@@ -337,3 +337,60 @@ body {
   background: rgba(255, 255, 255, 0.7) !important;
   border-color: rgba(0, 0, 0, 0.1) !important;
 }
+
+/* ── TipTap ProseMirror Editor ─────────────────────── */
+.ProseMirror {
+  outline: none;
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  line-height: 1.7;
+  min-height: 400px;
+  padding: 1.5rem 2rem;
+}
+.ProseMirror h1 { font-family: var(--font-headline); font-weight: 800; font-size: 2rem; margin: 1.5rem 0 0.75rem; letter-spacing: -0.02em; }
+.ProseMirror h2 { font-family: var(--font-headline); font-weight: 700; font-size: 1.5rem; margin: 1.25rem 0 0.5rem; }
+.ProseMirror h3 { font-family: var(--font-headline); font-weight: 700; font-size: 1.15rem; margin: 1rem 0 0.4rem; }
+.ProseMirror p { margin: 0.6rem 0; }
+.ProseMirror ul, .ProseMirror ol { padding-left: 1.5rem; margin: 0.6rem 0; }
+.ProseMirror a { color: var(--color-secondary); text-decoration: underline; }
+.ProseMirror blockquote {
+  border-left: 3px solid var(--color-primary);
+  padding: 0.25rem 0 0.25rem 1rem;
+  margin: 1rem 0;
+  color: var(--color-on-surface-variant);
+  font-style: italic;
+}
+.ProseMirror code {
+  background: rgba(255,255,255,0.06);
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+}
+.ProseMirror pre {
+  background: var(--color-surface-container-high);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+}
+.ProseMirror ul[data-type="taskList"] { list-style: none; padding: 0; }
+.ProseMirror ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 0.5rem; }
+.ProseMirror ul[data-type="taskList"] li > label > input[type="checkbox"] {
+  accent-color: var(--color-primary);
+  margin-top: 0.35rem;
+}
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--color-outline);
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+/* WorkbookSearch FTS5 mark highlight */
+.workbook-search mark {
+  background: rgba(204, 151, 255, 0.25);
+  color: var(--color-on-surface);
+  padding: 0 0.15rem;
+  border-radius: 0.2rem;
+}

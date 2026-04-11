@@ -38,7 +38,7 @@ export function TaskCard({ task, onClick, isDragging = false }: TaskCardProps) {
       onClick={onClick}
       style={{
         transform: CSS.Transform.toString(transform),
-        transition: transition ?? undefined,
+        transition: transition ?? 'border-color 150ms ease',
         background: 'var(--color-surface-container)',
         border: '1px solid var(--color-surface-container-high)',
         borderRadius: '0.75rem',
@@ -48,7 +48,6 @@ export function TaskCard({ task, onClick, isDragging = false }: TaskCardProps) {
         boxShadow: dragging ? 'var(--glow-primary)' : 'none',
         userSelect: 'none',
         marginBottom: '0.5rem',
-        transition: 'border-color 150ms ease',
       }}
       onMouseEnter={(e) => {
         if (!dragging) {

@@ -11,6 +11,7 @@ import { AmazonPage } from '../pages/AmazonPage';
 import { KiAgentsPage } from '../pages/KiAgentsPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { ZeiterfassungPage } from '../pages/ZeiterfassungPage';
+import { WorkbookPage } from '../pages/WorkbookPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -23,6 +24,7 @@ export const router = createBrowserRouter([
           { path: '/',               element: <DashboardPage /> },
           { path: '/zeiterfassung',  element: <ZeiterfassungPage /> },
           { path: '/tasks',          element: <TasksPage /> },
+          { path: '/arbeitsmappe',   element: <WorkbookPage /> },
           { path: '/calendar',       element: <CalendarPage /> },
           { path: '/dj',             element: <DjPage /> },
           { path: '/finances',       element: <FinancesPage /> },
