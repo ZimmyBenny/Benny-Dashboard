@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Task } from '../../api/tasks.api';
@@ -7,6 +8,7 @@ interface TaskCardProps {
   onClick: () => void;
   isDragging?: boolean;
   onArchive?: (id: number) => void;
+  onDelete?: (id: number, title: string) => void;
 }
 
 const PRIORITY_STYLES: Record<Task['priority'], { color: string; bg: string; label: string }> = {
@@ -21,10 +23,11 @@ function isOverdue(dueDate: string | null, status: Task['status']): boolean {
   return dueDate < new Date().toISOString().slice(0, 10);
 }
 
-export function TaskCard({ task, onClick, isDragging = false, onArchive }: TaskCardProps) {
+export function TaskCard({ task, onClick, isDragging = false, onArchive, onDelete }: TaskCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging: isSortableDragging } = useSortable({
     id: task.id,
   });
+  const [hovered, setHovered] = useState(false);
 
   const dragging = isDragging || isSortableDragging;
   const priority = PRIORITY_STYLES[task.priority] ?? PRIORITY_STYLES.medium;
@@ -41,7 +44,7 @@ export function TaskCard({ task, onClick, isDragging = false, onArchive }: TaskC
         transform: CSS.Transform.toString(transform),
         transition: transition ?? 'border-color 150ms ease',
         background: 'var(--color-surface-container)',
-        border: '1px solid var(--color-surface-container-high)',
+        border: `1px solid ${hovered && !dragging ? 'rgba(204,151,255,0.3)' : 'var(--color-surface-container-high)'}`,
         borderRadius: '0.75rem',
         padding: '1rem',
         cursor: 'pointer',
@@ -49,16 +52,33 @@ export function TaskCard({ task, onClick, isDragging = false, onArchive }: TaskC
         boxShadow: dragging ? 'var(--glow-primary)' : 'none',
         userSelect: 'none',
         marginBottom: '0.5rem',
+        position: 'relative',
       }}
-      onMouseEnter={(e) => {
-        if (!dragging) {
-          (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(204,151,255,0.3)';
-        }
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--color-surface-container-high)';
-      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
+      {/* Delete button — oben rechts, nur bei Hover */}
+      {onDelete && hovered && !dragging && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(task.id, task.title); }}
+          title="Löschen"
+          style={{
+            position: 'absolute', top: '0.5rem', right: '0.5rem',
+            background: 'rgba(255,110,132,0.08)',
+            border: '1px solid rgba(255,110,132,0.2)',
+            borderRadius: '0.375rem',
+            padding: '0.15rem 0.3rem',
+            cursor: 'pointer',
+            color: 'var(--color-error)',
+            display: 'inline-flex', alignItems: 'center',
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,110,132,0.18)'; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,110,132,0.08)'; }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>delete</span>
+        </button>
+      )}
+
       {/* Title */}
       <p style={{
         fontFamily: 'var(--font-headline)',

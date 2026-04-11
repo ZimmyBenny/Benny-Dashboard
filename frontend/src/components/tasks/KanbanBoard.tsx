@@ -12,7 +12,7 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import type { Task } from '../../api/tasks.api';
-import { fetchTasks, reorderTasks, archiveTask } from '../../api/tasks.api';
+import { fetchTasks, reorderTasks, archiveTask, deleteTask } from '../../api/tasks.api';
 import { KanbanColumn } from './KanbanColumn';
 import { TaskCard } from './TaskCard';
 import { DragPrompt } from './DragPrompt';
@@ -219,6 +219,16 @@ export function KanbanBoard({ filters, onTaskClick, onShowAllDone, refreshKey = 
     }
   }
 
+  async function handleDelete(taskId: number, taskTitle: string) {
+    if (!window.confirm(`Aufgabe "${taskTitle}" wirklich löschen?`)) return;
+    try {
+      await deleteTask(taskId);
+      load();
+    } catch {
+      // silently ignore
+    }
+  }
+
   async function handleArchive(taskId: number) {
     try {
       await archiveTask(taskId);
@@ -270,6 +280,7 @@ export function KanbanBoard({ filters, onTaskClick, onShowAllDone, refreshKey = 
               onShowAllDone={col.id === 'done' ? onShowAllDone : undefined}
               totalDoneCount={col.id === 'done' ? tasksByColumn.done.length : undefined}
               onArchive={col.id === 'done' ? handleArchive : undefined}
+              onDelete={handleDelete}
             />
           ))}
         </div>
