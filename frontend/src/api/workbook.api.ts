@@ -198,3 +198,38 @@ export async function deleteAttachment(id: number): Promise<void> {
 export function getAttachmentDownloadUrl(id: number): string {
   return `/api/workbook/attachments/${id}/download`;
 }
+
+// Export
+export interface ExportParams {
+  format: 'csv' | 'pdf';
+  section_id?: number | null;
+  page_id?: number | null;
+}
+
+export async function exportWorkbook(params: ExportParams): Promise<void> {
+  const query: Record<string, string> = { format: params.format };
+  if (params.section_id != null) query.section_id = String(params.section_id);
+  if (params.page_id != null) query.page_id = String(params.page_id);
+
+  const response = await apiClient.get('/workbook/export', {
+    params: query,
+    responseType: 'blob',
+  });
+
+  // Dateiname aus Content-Disposition auslesen (Fallback: generisch)
+  const disposition = (response.headers['content-disposition'] as string | undefined) ?? '';
+  const match = disposition.match(/filename="?([^";]+)"?/);
+  const filename = match?.[1] ?? `arbeitsmappe-export.${params.format}`;
+
+  const blob = new Blob([response.data as BlobPart], {
+    type: params.format === 'csv' ? 'text/csv;charset=utf-8;' : 'application/pdf',
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
