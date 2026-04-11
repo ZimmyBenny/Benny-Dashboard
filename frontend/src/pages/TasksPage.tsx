@@ -36,6 +36,13 @@ export function TasksPage() {
     setBoardRefreshKey((k) => k + 1);
   }
 
+  // Refresh wenn ReminderPoller einen Status ändert
+  useEffect(() => {
+    const handler = () => refreshBoard();
+    window.addEventListener('tasks-refresh', handler);
+    return () => window.removeEventListener('tasks-refresh', handler);
+  }, []);
+
   function handleTaskClick(task: Task) {
     setSelectedTask(task);
     setIsSlideOverOpen(true);

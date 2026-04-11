@@ -152,9 +152,8 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
     return () => document.removeEventListener('keydown', handler);
   }, [isOpen, onClose]);
 
-  // Drag-Handler für das Modal (nur bei neuen Aufgaben)
+  // Drag-Handler für das Modal
   function handleHeaderMouseDown(e: React.MouseEvent) {
-    if (task !== null) return;
     e.preventDefault();
     const el = (e.currentTarget as HTMLElement).closest('[data-modal]') as HTMLElement | null;
     const rect = el ? el.getBoundingClientRect() : { left: window.innerWidth / 2, top: window.innerHeight / 2 };
@@ -257,7 +256,7 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
       >
         {/* Backdrop */}
         <div
-          onClick={task === null ? onClose : undefined}
+          onClick={onClose}
           style={{
             position: 'fixed',
             inset: 0,
@@ -268,10 +267,10 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
           }}
         />
 
-        {/* Panel — modal (neue Aufgabe) oder Slide-Over (bestehende Aufgabe) */}
+        {/* Panel — schwebendes Modal */}
         <div
           data-modal
-          style={task === null ? (modalPos ? {
+          style={modalPos ? {
             // Manuell verschoben — absolute Position
             position: 'fixed',
             left: modalPos.x,
@@ -290,7 +289,7 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
             display: 'flex',
             flexDirection: 'column',
           } : {
-            // Zentriertes schwebendes Modal für neue Aufgaben
+            // Zentriertes schwebendes Modal
             position: 'fixed',
             top: '50%',
             left: '50%',
@@ -307,26 +306,11 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
             zIndex: 50,
             display: 'flex',
             flexDirection: 'column',
-          }) : {
-            // Slide-Over von rechts für bestehende Aufgaben
-            position: 'fixed',
-            top: 0,
-            right: 0,
-            bottom: 0,
-            width: 'min(520px, 90vw)',
-            transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
-            transition: 'transform 250ms cubic-bezier(0.32, 0.72, 0, 1)',
-            background: 'var(--color-surface-container)',
-            borderLeft: '1px solid var(--color-outline-variant)',
-            overflowY: 'auto',
-            zIndex: 50,
-            display: 'flex',
-            flexDirection: 'column',
           }}
         >
           {/* Header */}
           <div
-            onMouseDown={task === null ? handleHeaderMouseDown : undefined}
+            onMouseDown={handleHeaderMouseDown}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -334,7 +318,7 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
               padding: '1.25rem 1.5rem',
               borderBottom: '1px solid var(--color-outline-variant)',
               flexShrink: 0,
-              cursor: task === null ? 'grab' : 'default',
+              cursor: 'grab',
               userSelect: 'none',
             }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>

@@ -52,6 +52,7 @@ export function ReminderPoller() {
   const handleStatusChange = useCallback(async (task: Task, status: Task['status']) => {
     try {
       await patchTaskStatus(task.id, status, task.position);
+      window.dispatchEvent(new CustomEvent('tasks-refresh'));
     } catch (err) {
       console.error('[ReminderPoller] status change failed', err);
     }
