@@ -62,7 +62,7 @@ export function ReminderPoller() {
   const handleOpen = useCallback((task: Task) => {
     markDismissed(task);
     setQueue((prev) => prev.filter((t) => t.id !== task.id));
-    navigate('/aufgaben', { state: { openTask: task } });
+    navigate('/tasks', { state: { openTask: task } });
   }, [navigate]);
 
   const handleLater = useCallback((task: Task) => {
