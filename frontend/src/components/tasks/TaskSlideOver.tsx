@@ -428,7 +428,7 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete }: TaskS
                 <label style={LABEL_STYLE}>Ursprung</label>
                 <button
                   onClick={() => {
-                    navigate('/workbook', { state: { openPageId: task.source_page_id } });
+                    navigate('/arbeitsmappe', { state: { openPageId: task.source_page_id } });
                     onClose();
                   }}
                   style={{
