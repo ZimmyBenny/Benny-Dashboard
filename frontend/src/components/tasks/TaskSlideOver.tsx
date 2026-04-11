@@ -127,14 +127,19 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Draggable modal position (null = zentriert via CSS, {x,y} = manuell verschoben)
+  const [modalPos, setModalPos] = useState<{ x: number; y: number } | null>(null);
+  const dragRef = useRef<{ startX: number; startY: number; initX: number; initY: number } | null>(null);
+
   // Refs to always read the current DOM value at save time — guards against
   // native macOS date/time pickers not reliably firing onChange into React state.
   const reminderDateRef = useRef<HTMLInputElement>(null);
   const reminderTimeRef = useRef<HTMLInputElement>(null);
 
-  // Reset form when task changes or panel opens
+  // Reset form when task changes or panel opens; reset modal position
   useEffect(() => {
     setForm(taskToForm(task, prefill));
+    setModalPos(null);
   }, [task, isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Escape key
@@ -146,6 +151,29 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [isOpen, onClose]);
+
+  // Drag-Handler für das Modal (nur bei neuen Aufgaben)
+  function handleHeaderMouseDown(e: React.MouseEvent) {
+    if (task !== null) return;
+    e.preventDefault();
+    const el = (e.currentTarget as HTMLElement).closest('[data-modal]') as HTMLElement | null;
+    const rect = el ? el.getBoundingClientRect() : { left: window.innerWidth / 2, top: window.innerHeight / 2 };
+    dragRef.current = { startX: e.clientX, startY: e.clientY, initX: rect.left, initY: rect.top };
+
+    function onMove(ev: MouseEvent) {
+      if (!dragRef.current) return;
+      const dx = ev.clientX - dragRef.current.startX;
+      const dy = ev.clientY - dragRef.current.startY;
+      setModalPos({ x: dragRef.current.initX + dx, y: dragRef.current.initY + dy });
+    }
+    function onUp() {
+      dragRef.current = null;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }
 
   function handleChange(field: keyof FormData, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -242,7 +270,26 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
 
         {/* Panel — modal (neue Aufgabe) oder Slide-Over (bestehende Aufgabe) */}
         <div
-          style={task === null ? {
+          data-modal
+          style={task === null ? (modalPos ? {
+            // Manuell verschoben — absolute Position
+            position: 'fixed',
+            left: modalPos.x,
+            top: modalPos.y,
+            transform: 'none',
+            opacity: isOpen ? 1 : 0,
+            transition: 'opacity 200ms ease',
+            width: 'min(560px, 92vw)',
+            maxHeight: '90vh',
+            borderRadius: '0.75rem',
+            background: 'var(--color-surface-container)',
+            border: '1px solid var(--color-outline-variant)',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.45)',
+            overflowY: 'auto',
+            zIndex: 50,
+            display: 'flex',
+            flexDirection: 'column',
+          } : {
             // Zentriertes schwebendes Modal für neue Aufgaben
             position: 'fixed',
             top: '50%',
@@ -260,7 +307,7 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
             zIndex: 50,
             display: 'flex',
             flexDirection: 'column',
-          } : {
+          }) : {
             // Slide-Over von rechts für bestehende Aufgaben
             position: 'fixed',
             top: 0,
@@ -278,14 +325,18 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
           }}
         >
           {/* Header */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '1.25rem 1.5rem',
-            borderBottom: '1px solid var(--color-outline-variant)',
-            flexShrink: 0,
-          }}>
+          <div
+            onMouseDown={task === null ? handleHeaderMouseDown : undefined}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '1.25rem 1.5rem',
+              borderBottom: '1px solid var(--color-outline-variant)',
+              flexShrink: 0,
+              cursor: task === null ? 'grab' : 'default',
+              userSelect: 'none',
+            }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
               <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--color-primary)' }}>
                 {task ? 'edit' : 'add_task'}
