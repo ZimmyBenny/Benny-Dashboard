@@ -246,9 +246,9 @@ function EventForm({ calendars, initialDate, editEvent, onSaved, onDeleted, onCl
             )}
           </div>
         </form>
-        </div>{/* padding */}
-      </div>{/* modal */}
-    </div>{/* outer */}
+        </div>
+      </div>
+    </div>
   );
 }
 
