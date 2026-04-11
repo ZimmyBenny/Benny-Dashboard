@@ -18,7 +18,7 @@ function getGreeting(): { time: string; name: string } {
 const modules = [
   { path: '/zeiterfassung', label: 'Zeiterfassung', icon: 'timer',                  description: 'Zeiten · Projekte · Export', isTimer: true as const },
   { path: '/tasks',         label: 'Aufgaben',       icon: 'task_alt',               description: 'Planen · Verfolgen · Erledigen', isTasks: true as const },
-  { path: '/calendar',      label: 'Kalender',       icon: 'calendar_month',         description: 'Termine und Events im Überblick' },
+  { path: '/calendar',      label: 'Kalender',       icon: 'calendar_month',         description: 'Termine und Events im Überblick', isCalendar: true as const },
   { path: '/dj',            label: 'DJ',             icon: 'headphones',             description: 'Gigs · Bookings · Zahlungen' },
   { path: '/finances',      label: 'Finanzen',       icon: 'account_balance_wallet', description: 'Einnahmen · Ausgaben · Budgets' },
   { path: '/amazon',        label: 'Amazon',         icon: 'shopping_cart',          description: 'Bestellungen und Retouren' },
@@ -307,6 +307,26 @@ export function DashboardPage() {
                       </span>
                     </div>
                   )}
+                </div>
+              )}
+
+              {'isCalendar' in mod && (
+                <div style={{ marginTop: '0.875rem' }}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); navigate('/calendar', { state: { openNewEvent: true } }); }}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                      padding: '0.35rem 0.8rem',
+                      borderRadius: '9999px',
+                      background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+                      color: '#000', border: 'none', cursor: 'pointer',
+                      fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.7rem',
+                      letterSpacing: '0.03em',
+                    }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>add</span>
+                    Neuer Termin
+                  </button>
                 </div>
               )}
 

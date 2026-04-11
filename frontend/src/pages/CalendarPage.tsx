@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import {
   fetchEvents, triggerSync, fetchCalendars, createEvent, updateEvent, deleteEvent,
@@ -764,6 +765,7 @@ function TodayView({ today, eventsByDate, calendars, onEditEvent }: TodayViewPro
 
 export function CalendarPage() {
   const today = new Date();
+  const location = useLocation();
   const [viewMode, setViewMode]         = useState<ViewMode>('month');
   const [viewYear, setViewYear]         = useState(today.getFullYear());
   const [viewMonth, setViewMonth]       = useState(today.getMonth());
@@ -779,6 +781,16 @@ export function CalendarPage() {
   const [showForm, setShowForm]         = useState(false);
   const [editEvent, setEditEvent]       = useState<CalendarEvent | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Vom Dashboard mit openNewEvent navigiert → Formular direkt öffnen
+  useEffect(() => {
+    if ((location.state as { openNewEvent?: boolean } | null)?.openNewEvent) {
+      setShowForm(true);
+      setEditEvent(null);
+      window.history.replaceState({}, document.title);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const loadEvents = useCallback(async () => {
     const from = new Date(viewYear, viewMonth - 1, 1).toISOString();

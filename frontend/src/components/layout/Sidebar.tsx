@@ -145,9 +145,9 @@ export function Sidebar() {
       className="flex flex-col h-screen flex-shrink-0 overflow-hidden transition-[width] duration-150 ease-out"
       style={{
         width: collapsed ? '52px' : '240px',
-        backgroundColor: 'var(--color-surface-container)',
-        borderRight: '1px solid var(--color-outline-variant)',
-        boxShadow: '2px 0 12px rgba(0,0,0,0.35)',
+        backgroundColor: '#0a0a0f',
+        borderRight: '1px solid rgba(255,255,255,0.07)',
+        boxShadow: '2px 0 16px rgba(0,0,0,0.6)',
       }}
     >
       {/* Brand mark */}

@@ -123,7 +123,7 @@ export function DragPrompt({ fromCol, toCol, onConfirm, onCancel }: DragPromptPr
               cursor: 'pointer',
             }}
           >
-            Bestaetigen
+            Bestätigen
           </button>
         </div>
       </div>
