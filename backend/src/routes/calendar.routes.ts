@@ -58,8 +58,8 @@ router.get('/sync-log', (req, res) => {
 
 // GET /api/calendar/apple-calendars — alle Kalender direkt aus Apple Calendar
 router.get('/apple-calendars', async (_req, res) => {
-  const names = await listCalendars();
-  res.json(names);
+  const calendars = await listCalendars();
+  res.json(calendars.map(c => c.name));
 });
 
 // POST /api/calendar/events — Neues Event erstellen (Dashboard -> SQLite -> Apple)

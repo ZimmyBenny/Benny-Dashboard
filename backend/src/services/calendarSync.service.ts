@@ -31,9 +31,14 @@ function epochToISO(epochSecs: number): string {
 
 // ── Kalender-Liste aus Apple Calendar ─────────────────────────────────────────
 
-export async function listCalendars(): Promise<string[]> {
+export interface CalendarInfo {
+  name: string;
+  color: string;
+}
+
+export async function listCalendars(): Promise<CalendarInfo[]> {
   const raw = await runScript('cal-list-calendars.applescript');
-  return JSON.parse(raw) as string[];
+  return JSON.parse(raw) as CalendarInfo[];
 }
 
 // ── Neue Kalender erkennen ────────────────────────────────────────────────────
@@ -43,11 +48,16 @@ export async function detectNewCalendars(): Promise<string[]> {
   const known = new Set<string>(
     (db.prepare('SELECT name FROM known_calendars').all() as Array<{ name: string }>).map(r => r.name)
   );
-  const newOnes = appleCalendars.filter(n => !known.has(n));
+  const newOnes = appleCalendars.filter(c => !known.has(c.name));
   // Alle erkannten Kalender in known_calendars eintragen (inkl. neue)
   const insert = db.prepare('INSERT OR IGNORE INTO known_calendars (name) VALUES (?)');
-  for (const name of appleCalendars) insert.run(name);
-  return newOnes;
+  for (const cal of appleCalendars) insert.run(cal.name);
+  // Farben fuer alle Kalender aktualisieren
+  const updateColor = db.prepare('UPDATE known_calendars SET color = ? WHERE name = ? AND (color IS NULL OR color != ?)');
+  for (const cal of appleCalendars) {
+    updateColor.run(cal.color, cal.name, cal.color);
+  }
+  return newOnes.map(c => c.name);
 }
 
 // Alias fuer Abwaertskompatibilitaet mit bisherigem Aufruf in routes
@@ -72,8 +82,13 @@ async function resolveCalendarNames(): Promise<string> {
   const allCalendars = await listCalendars();
   // In known_calendars eintragen fuer naechstes Mal
   const insert = db.prepare('INSERT OR IGNORE INTO known_calendars (name) VALUES (?)');
-  for (const name of allCalendars) insert.run(name);
-  return allCalendars.join(',');
+  for (const cal of allCalendars) insert.run(cal.name);
+  // Farben aktualisieren
+  const updateColor = db.prepare('UPDATE known_calendars SET color = ? WHERE name = ? AND (color IS NULL OR color != ?)');
+  for (const cal of allCalendars) {
+    updateColor.run(cal.color, cal.name, cal.color);
+  }
+  return allCalendars.map(c => c.name).join(',');
 }
 
 // ── Pull: Apple -> SQLite ─────────────────────────────────────────────────────
