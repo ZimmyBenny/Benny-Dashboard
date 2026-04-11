@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { Task } from '../../api/tasks.api';
 
 const AREAS = ['DJ', 'Amazon', 'Finanzen', 'KI-Agenten', 'Privat', 'Sonstiges'];
@@ -74,6 +75,7 @@ interface TaskSlideOverProps {
 }
 
 export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete }: TaskSlideOverProps) {
+  const navigate = useNavigate();
   const [form, setForm] = useState<FormData>(() => taskToForm(task));
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -385,6 +387,45 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete }: TaskS
                 placeholder="z.B. 60"
               />
             </div>
+
+            {/* Arbeitsmappe-Link — nur anzeigen wenn task?.source_page_id gesetzt */}
+            {task?.source_page_id && (
+              <div>
+                <label style={LABEL_STYLE}>Ursprung</label>
+                <button
+                  onClick={() => {
+                    navigate('/workbook', { state: { openPageId: task.source_page_id } });
+                    onClose();
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    width: '100%',
+                    padding: '0.5rem 0.75rem',
+                    background: 'var(--color-surface-container-low)',
+                    border: '1px solid var(--color-outline-variant)',
+                    borderRadius: '0.5rem',
+                    cursor: 'pointer',
+                    color: 'var(--color-primary)',
+                    fontFamily: 'var(--font-body)',
+                    fontSize: '0.875rem',
+                    textAlign: 'left',
+                    transition: 'background 0.1s',
+                  }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '1rem', flexShrink: 0 }}>
+                    menu_book
+                  </span>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {task.source_page_title ?? `Seite #${task.source_page_id}`}
+                  </span>
+                  <span className="material-symbols-outlined" style={{ fontSize: '0.9rem', marginLeft: 'auto', flexShrink: 0, color: 'var(--color-on-surface-variant)' }}>
+                    open_in_new
+                  </span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Footer */}
