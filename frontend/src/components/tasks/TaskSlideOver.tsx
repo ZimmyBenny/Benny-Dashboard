@@ -407,11 +407,26 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
                 <input
                   ref={reminderTimeRef}
                   className="task-input"
-                  style={{ ...INPUT_STYLE, colorScheme: 'dark' }}
-                  type="time"
+                  style={INPUT_STYLE}
+                  type="text"
+                  inputMode="numeric"
                   value={form.reminder_time}
                   onChange={(e) => handleChange('reminder_time', e.target.value)}
-                  placeholder="Uhrzeit (optional)"
+                  onBlur={(e) => {
+                    const raw = e.target.value.trim();
+                    if (!raw) return;
+                    // Normalize: "930" → "09:30", "9:3" → "09:03", "9:30" → "09:30"
+                    const digits = raw.replace(/\D/g, '');
+                    let h = '', m = '';
+                    if (digits.length <= 2) { h = digits; m = '00'; }
+                    else if (digits.length === 3) { h = digits[0]; m = digits.slice(1); }
+                    else { h = digits.slice(0, 2); m = digits.slice(2, 4); }
+                    const hh = Math.min(23, parseInt(h || '0', 10));
+                    const mm = Math.min(59, parseInt(m || '0', 10));
+                    const normalized = `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
+                    handleChange('reminder_time', normalized);
+                  }}
+                  placeholder="z.B. 14:30"
                 />
               </div>
               {(form.reminder_date || form.reminder_time) && (
