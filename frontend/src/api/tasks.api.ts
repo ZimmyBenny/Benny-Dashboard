@@ -4,7 +4,7 @@ export interface Task {
   id: number;
   title: string;
   description: string | null;
-  status: 'open' | 'in_progress' | 'waiting' | 'done';
+  status: 'open' | 'in_progress' | 'waiting' | 'done' | 'archived';
   area: string | null;
   priority: 'low' | 'medium' | 'high' | 'urgent';
   due_date: string | null;
@@ -72,3 +72,9 @@ export const reorderTasks = (updates: { id: number; status: string; position: nu
 
 export const deleteTask = (id: number) =>
   apiClient.delete(`/tasks/${id}`).then((r) => r.data);
+
+export const archiveTask = (id: number) =>
+  apiClient.patch<Task>(`/tasks/${id}/status`, { status: 'archived', position: 0 }).then((r) => r.data);
+
+export const fetchArchivedTasks = (search?: string) =>
+  apiClient.get<Task[]>('/tasks', { params: { status: 'archived', ...(search ? { search } : {}) } }).then((r) => r.data);
