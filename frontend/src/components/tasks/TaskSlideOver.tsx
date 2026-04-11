@@ -517,19 +517,6 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
               />
             </div>
 
-            {/* Notes */}
-            <div>
-              <label style={LABEL_STYLE}>Notizen</label>
-              <textarea
-                className="task-input"
-                style={{ ...INPUT_STYLE, resize: 'vertical', minHeight: '96px' }}
-                value={form.notes}
-                onChange={(e) => handleChange('notes', e.target.value)}
-                rows={4}
-                placeholder="Interne Notizen..."
-              />
-            </div>
-
             {/* Estimated duration */}
             <div>
               <label style={LABEL_STYLE}>Geschaetzte Dauer (Minuten)</label>
