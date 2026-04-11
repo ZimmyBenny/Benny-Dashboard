@@ -14,7 +14,7 @@ function runScript(scriptName: string, env: Record<string, string> = {}): Promis
     execFile(
       'osascript',
       [scriptPath],
-      { env: { ...process.env, ...env }, timeout: 60_000, maxBuffer: 1024 * 1024 * 5 },
+      { env: { ...process.env, ...env }, timeout: 300_000, maxBuffer: 1024 * 1024 * 10 },
       (err, stdout, stderr) => {
         if (err) return reject(new Error(stderr || err.message));
         resolve(stdout.trim());
@@ -111,7 +111,14 @@ export async function syncPull(): Promise<SyncPullResult> {
     cal: string;
   }
 
-  const events: RawEvent[] = JSON.parse(raw);
+  let events: RawEvent[];
+  try {
+    events = JSON.parse(raw);
+  } catch (parseErr) {
+    console.error('[calendar] syncPull: AppleScript-Output ist kein valides JSON:', parseErr);
+    console.error('[calendar] Raw output (first 500 chars):', raw.slice(0, 500));
+    throw new Error('AppleScript-Output konnte nicht geparst werden. Moeglicherweise enthaelt ein Event-Titel ungueltige Zeichen.');
+  }
   let created = 0, updated = 0, skipped = 0, errors = 0;
 
   const upsert = db.prepare(`

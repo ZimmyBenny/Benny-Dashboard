@@ -3,7 +3,7 @@ import { fetchTemplates, type Template } from '../../api/workbook.api';
 
 interface TemplatePickerModalProps {
   onClose: () => void;
-  onCreate: (template_id: number | null) => Promise<void>;
+  onCreate: (template_id: number | null, template_name?: string) => Promise<void>;
 }
 
 export function TemplatePickerModal({ onClose, onCreate }: TemplatePickerModalProps) {
@@ -26,11 +26,11 @@ export function TemplatePickerModal({ onClose, onCreate }: TemplatePickerModalPr
     return () => document.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  async function handleSelect(template_id: number | null) {
+  async function handleSelect(template_id: number | null, template_name?: string) {
     if (creating) return;
     setCreating(true);
     try {
-      await onCreate(template_id);
+      await onCreate(template_id, template_name);
     } finally {
       setCreating(false);
     }
@@ -109,7 +109,7 @@ export function TemplatePickerModal({ onClose, onCreate }: TemplatePickerModalPr
               name={tmpl.name}
               description={tmpl.description ?? ''}
               icon="note_alt"
-              onClick={() => handleSelect(tmpl.id)}
+              onClick={() => handleSelect(tmpl.id, tmpl.name)}
               disabled={creating}
             />
           ))}

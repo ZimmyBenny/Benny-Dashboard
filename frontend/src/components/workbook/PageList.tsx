@@ -129,8 +129,8 @@ export function PageList({ pages, activeId, onSelect, onNew, onNewChild, onReloa
               style={{
                 fontFamily: 'var(--font-body)',
                 fontSize: isChild ? '0.82rem' : '0.88rem',
-                fontWeight: 600,
-                color: 'var(--color-on-surface)',
+                fontWeight: isChild ? 400 : 600,
+                color: isChild ? 'var(--color-on-surface-variant)' : 'var(--color-on-surface)',
                 overflow: 'hidden',
                 display: '-webkit-box',
                 WebkitLineClamp: 2,
@@ -236,7 +236,11 @@ export function PageList({ pages, activeId, onSelect, onNew, onNewChild, onReloa
 
         {/* Kinder anzeigen wenn expanded (nur Top-Level hat Kinder) */}
         {!isChild && expandedIds.has(page.id) && (
-          <div style={{ borderLeft: '1px solid var(--color-outline-variant)', marginLeft: '1.5rem' }}>
+          <div style={{
+            marginLeft: '1rem',
+            borderLeft: '2px solid rgba(204,151,255,0.25)',
+            background: 'rgba(0,0,0,0.08)',
+          }}>
             {loadingChildren.has(page.id) ? (
               <div style={{ padding: '0.5rem 1rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.78rem' }}>
                 Lädt...

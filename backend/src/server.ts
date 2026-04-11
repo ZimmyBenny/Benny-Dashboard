@@ -35,7 +35,7 @@ app.listen(PORT, () => {
 
   // Hintergrund-Sync: Apple Calendar alle 10 Minuten (kein UI-Blocking)
   // Lazy import nach Server-Start damit Migration bereits abgeschlossen ist
-  const SYNC_INTERVAL_MS = 10 * 60 * 1000; // 10 Minuten
+  const SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 Minuten (Sync dauert ~90s bei vielen Kalendern)
   import('./services/calendarSync.service').then(({ fullSync }) => {
     setInterval(() => {
       fullSync().catch(err => console.error('[calendar] Background sync failed:', err));

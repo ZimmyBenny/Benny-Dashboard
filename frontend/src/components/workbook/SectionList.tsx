@@ -1,4 +1,4 @@
-import { deleteSection, type Section } from '../../api/workbook.api';
+import { deleteSection, updateSection, type Section } from '../../api/workbook.api';
 
 interface SectionListProps {
   sections: Section[];
@@ -15,6 +15,14 @@ export function SectionList({ sections, activeId, onSelect, onNew, onReload }: S
     await deleteSection(id);
     onReload();
   }
+
+  async function handleRename(e: React.MouseEvent, section: Section) {
+    e.stopPropagation();
+    const newName = window.prompt('Neuer Name:', section.name);
+    if (!newName || newName.trim() === section.name) return;
+    await updateSection(section.id, { name: newName.trim(), icon: section.icon });
+    onReload();
+  }
   return (
     <div
       style={{
@@ -22,25 +30,45 @@ export function SectionList({ sections, activeId, onSelect, onNew, onReload }: S
         background: 'var(--color-surface-container)',
         borderRight: '1px solid var(--color-outline-variant)',
         overflowY: 'auto',
-        padding: '1rem 0',
         display: 'flex',
         flexDirection: 'column',
       }}
     >
+      {/* Header */}
       <div
         style={{
-          fontFamily: 'var(--font-headline)',
-          fontSize: '0.65rem',
-          letterSpacing: '0.22em',
-          color: 'var(--color-outline)',
-          margin: '0 1rem 1rem',
-          textTransform: 'uppercase',
+          padding: '0.75rem 1rem',
+          borderBottom: '1px solid var(--color-outline-variant)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexShrink: 0,
         }}
       >
-        Arbeitsmappe
+        <button
+          onClick={onNew}
+          title="Neuer Bereich"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.25rem',
+            padding: '0.3rem 0.6rem',
+            background: 'var(--color-primary)',
+            color: 'var(--color-on-primary)',
+            border: 'none',
+            borderRadius: '0.35rem',
+            cursor: 'pointer',
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.8rem',
+            fontWeight: 600,
+          }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '0.9rem' }}>add</span>
+          Neuer Bereich
+        </button>
       </div>
 
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, paddingTop: '0.5rem' }}>
         {sections.map((section) => (
           <div
             key={section.id}
@@ -67,15 +95,13 @@ export function SectionList({ sections, activeId, onSelect, onNew, onReload }: S
               if (activeId !== section.id) {
                 (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.04)';
               }
-              const btn = e.currentTarget.querySelector<HTMLButtonElement>('.section-delete-btn');
-              if (btn) btn.style.opacity = '1';
+              e.currentTarget.querySelectorAll<HTMLButtonElement>('.section-action-btn').forEach((b) => (b.style.opacity = '1'));
             }}
             onMouseLeave={(e) => {
               if (activeId !== section.id) {
                 (e.currentTarget as HTMLDivElement).style.background = 'transparent';
               }
-              const btn = e.currentTarget.querySelector<HTMLButtonElement>('.section-delete-btn');
-              if (btn) btn.style.opacity = '0';
+              e.currentTarget.querySelectorAll<HTMLButtonElement>('.section-action-btn').forEach((b) => (b.style.opacity = '0'));
             }}
           >
             <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', color: 'var(--color-on-surface-variant)', lineHeight: 1, marginTop: '2px' }}>
@@ -85,7 +111,25 @@ export function SectionList({ sections, activeId, onSelect, onNew, onReload }: S
               {section.name}
             </span>
             <button
-              className="section-delete-btn"
+              className="section-action-btn"
+              onClick={(e) => handleRename(e, section)}
+              style={{
+                opacity: 0,
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '0.1rem',
+                display: 'flex',
+                alignItems: 'center',
+                color: 'var(--color-on-surface-variant)',
+                transition: 'opacity 0.15s',
+                flexShrink: 0,
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '0.9rem' }}>edit</span>
+            </button>
+            <button
+              className="section-action-btn"
               onClick={(e) => handleDelete(e, section.id, section.name)}
               style={{
                 opacity: 0,
@@ -106,35 +150,6 @@ export function SectionList({ sections, activeId, onSelect, onNew, onReload }: S
         ))}
       </div>
 
-      <button
-        onClick={onNew}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-          padding: '0.6rem 1rem',
-          margin: '0.5rem 0.75rem 0',
-          background: 'transparent',
-          border: '1px dashed var(--color-outline-variant)',
-          borderRadius: '0.4rem',
-          cursor: 'pointer',
-          color: 'var(--color-on-surface-variant)',
-          fontFamily: 'var(--font-body)',
-          fontSize: '0.85rem',
-          transition: 'background 0.15s, color 0.15s',
-        }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = 'rgba(204,151,255,0.06)';
-          (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-primary)';
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-          (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-on-surface-variant)';
-        }}
-      >
-        <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>add</span>
-        Neue Sektion
-      </button>
     </div>
   );
 }

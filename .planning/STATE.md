@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Executing Phase 3
-stopped_at: Completed quick-260410-wn7 — Kalender-Modul V1 Apple Calendar Sync
-last_updated: "2026-04-10T22:17:41.004Z"
+stopped_at: "Checkpoint 260411-ea1 Task 4: UAT — Vollstaendige Arbeitsmappe V1"
+last_updated: "2026-04-11T08:34:38.131Z"
 progress:
   total_phases: 3
   completed_phases: 3
@@ -35,7 +35,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 [██████░░░░] 60% — 6/10 plans complete
 
-**Stopped at:** Completed quick-260410-wn7 — Kalender-Modul V1 Apple Calendar Sync
+**Stopped at:** Checkpoint 260411-ea1 Task 4: UAT — Vollstaendige Arbeitsmappe V1
 
 ## Decisions Made
 
@@ -69,9 +69,12 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 |---|-------------|------|--------|-----------|
 | 260410-dtr | Zeiterfassung Export CSV+PDF und Projekt-Schnellstart | 2026-04-10 | e59656f | [260410-dtr-zeiterfassung-export-csv-pdf-und-projekt](.planning/quick/260410-dtr-zeiterfassung-export-csv-pdf-und-projekt/) |
 | 260410-ub6 | Aufgaben-Modul V1: Kanban-Board, CRUD-Backend, Slide-Over, Dashboard-Widget | 2026-04-10 | e176dfb | [260410-ub6-aufgaben-modul-v1-sqlite-tasks-tabelle-c](.planning/quick/260410-ub6-aufgaben-modul-v1-sqlite-tasks-tabelle-c/) |
+| 260411-i4e | Arbeitsmappe V1.2: Multi-Select Anhänge + Unterseiten (eine Ebene) | 2026-04-11 | 2e1be72 | [260411-i4e-arbeitsmappe-v1-2-multi-select-anh-nge-u](.planning/quick/260411-i4e-arbeitsmappe-v1-2-multi-select-anh-nge-u/) |
 
 ---
 *State initialized: 2026-04-07 | Last session: 2026-04-10*
 | 2026-04-10 | fast | TaskCard onClick → SlideOver fix (PointerSensor distance constraint) | ✅ |
 | 2026-04-10 | fast | TaskSlideOver Backdrop-Klick schließt Panel nicht mehr | ✅ |
 | 2026-04-10 | 260410-v3q | Status-Notiz beim Drag (DragPrompt + DB-Migration + KanbanBoard-Pause) | ✅ |
+| 2026-04-11 | 260410-wn7 | Kalender-Modul V1 — Apple Calendar Sync (JXA/AppleScript, bidirektional, Sync-Log, Kalender-Erkennung) | ✅ |
+| 2026-04-11 | fast | DashboardPage: Offene Aufgaben-Zahl immer anzeigen — auch wenn 0 | ✅ |
