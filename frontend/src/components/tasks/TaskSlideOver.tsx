@@ -2,6 +2,24 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Task } from '../../api/tasks.api';
 
+// Convert UTC ISO (e.g. "2026-04-11 18:30:00" or "2026-04-11T18:30:00Z") to local datetime-local value "YYYY-MM-DDTHH:mm"
+function toLocalInputValue(iso: string): string {
+  // SQLite datetime('now') returns "YYYY-MM-DD HH:MM:SS" without timezone — treat as UTC
+  const normalized = iso.includes('T') ? iso : iso.replace(' ', 'T') + 'Z';
+  const d = new Date(normalized);
+  if (isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// Convert local datetime-local value back to UTC ISO for DB
+function toUtcIso(local: string): string | null {
+  if (!local) return null;
+  const d = new Date(local); // interpreted as local time
+  if (isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
 const AREAS = ['DJ', 'Amazon', 'Finanzen', 'KI-Agenten', 'Privat', 'Sonstiges'];
 
 const INPUT_STYLE: React.CSSProperties = {
@@ -35,6 +53,7 @@ interface FormData {
   area: string;
   due_date: string;
   start_date: string;
+  reminder_at: string;
   tags: string;
   project_or_customer: string;
   notes: string;
@@ -46,7 +65,7 @@ function taskToForm(task: Task | null): FormData {
   if (!task) {
     return {
       title: '', description: '', status: 'open', priority: 'medium',
-      area: '', due_date: '', start_date: '', tags: '',
+      area: '', due_date: '', start_date: '', reminder_at: '', tags: '',
       project_or_customer: '', notes: '', estimated_duration: '', status_note: '',
     };
   }
@@ -58,6 +77,7 @@ function taskToForm(task: Task | null): FormData {
     area: task.area ?? '',
     due_date: task.due_date ?? '',
     start_date: task.start_date ?? '',
+    reminder_at: task.reminder_at ? toLocalInputValue(task.reminder_at) : '',
     tags: task.tags ?? '',
     project_or_customer: task.project_or_customer ?? '',
     notes: task.notes ?? '',
@@ -111,6 +131,8 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete }: TaskS
         area: form.area || null,
         due_date: form.due_date || null,
         start_date: form.start_date || null,
+        reminder_at: toUtcIso(form.reminder_at),
+        has_reminder: form.reminder_at ? 1 : 0,
         tags: form.tags || null,
         project_or_customer: form.project_or_customer || null,
         notes: form.notes || null,
@@ -333,6 +355,18 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete }: TaskS
                   onChange={(e) => handleChange('start_date', e.target.value)}
                 />
               </div>
+            </div>
+
+            {/* Erinnerung */}
+            <div>
+              <label style={LABEL_STYLE}>Erinnerung am</label>
+              <input
+                className="task-input"
+                style={INPUT_STYLE}
+                type="datetime-local"
+                value={form.reminder_at}
+                onChange={(e) => handleChange('reminder_at', e.target.value)}
+              />
             </div>
 
             {/* Tags */}
