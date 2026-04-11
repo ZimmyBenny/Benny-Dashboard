@@ -934,18 +934,35 @@ export function CalendarPage() {
         {/* Toolbar: View-Toggle + Sync + Neu */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
           {/* View-Toggle */}
-          <div style={{ display: 'flex', gap: '0.25rem', background: 'rgba(255,255,255,0.04)', borderRadius: '0.5rem', padding: '0.25rem' }}>
-            {(['month', 'week', 'list', 'today'] as ViewMode[]).map(v => (
-              <button key={v} onClick={() => setViewMode(v)} style={{
-                padding: '0.375rem 0.875rem', borderRadius: '0.375rem', border: 'none', cursor: 'pointer',
-                fontFamily: 'var(--font-body)', fontSize: '0.8rem',
-                background: viewMode === v ? 'var(--color-primary)' : 'transparent',
-                color: viewMode === v ? 'var(--color-on-primary)' : 'var(--color-on-surface-variant)',
-                transition: 'background 0.15s',
-              }}>
-                {v === 'month' ? 'Monat' : v === 'week' ? 'Woche' : v === 'list' ? 'Liste' : 'Heute'}
-              </button>
-            ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {/* Monat / Woche / Liste */}
+            <div style={{ display: 'flex', gap: '2px', background: 'rgba(255,255,255,0.06)', borderRadius: '9999px', padding: '3px' }}>
+              {(['month', 'week', 'list'] as ViewMode[]).map(v => (
+                <button key={v} onClick={() => setViewMode(v)} style={{
+                  padding: '0.375rem 1rem', borderRadius: '9999px', border: 'none', cursor: 'pointer',
+                  fontFamily: 'var(--font-body)', fontSize: '0.8rem', fontWeight: viewMode === v ? 700 : 500,
+                  background: viewMode === v ? 'var(--color-primary)' : 'transparent',
+                  color: viewMode === v ? '#000' : 'var(--color-on-surface-variant)',
+                  boxShadow: viewMode === v ? '0 0 14px rgba(204,151,255,0.55)' : 'none',
+                  transition: 'all 0.15s',
+                }}>
+                  {v === 'month' ? 'Monat' : v === 'week' ? 'Woche' : 'Liste'}
+                </button>
+              ))}
+            </div>
+            {/* Heute — separat, pink glow */}
+            <button onClick={() => setViewMode('today')} style={{
+              padding: '0.375rem 1rem', borderRadius: '9999px', border: 'none', cursor: 'pointer',
+              fontFamily: 'var(--font-body)', fontSize: '0.8rem', fontWeight: viewMode === 'today' ? 700 : 500,
+              background: viewMode === 'today'
+                ? 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))'
+                : 'rgba(255,255,255,0.06)',
+              color: viewMode === 'today' ? '#000' : 'var(--color-on-surface-variant)',
+              boxShadow: viewMode === 'today' ? '0 0 18px rgba(204,151,255,0.6)' : 'none',
+              transition: 'all 0.15s',
+            }}>
+              Heute
+            </button>
           </div>
 
           {/* Sync + Neu */}
