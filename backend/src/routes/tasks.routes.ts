@@ -34,8 +34,11 @@ router.get('/', (req, res) => {
     params.push(like, like, like, like);
   }
 
+  // For archived status: all, sorted by completed_at DESC
   // For done status: only last 20 unless all_done=true
-  if (status === 'done' && all_done !== 'true') {
+  if (status === 'archived') {
+    sql += ' ORDER BY t.completed_at DESC';
+  } else if (status === 'done' && all_done !== 'true') {
     sql += ' ORDER BY t.completed_at DESC LIMIT 20';
   } else {
     sql += ' ORDER BY t.position ASC';
@@ -312,7 +315,9 @@ router.patch('/:id/status', (req, res) => {
   }
 
   let completedAtExpr = 'completed_at';
-  if (status === 'done' && existing.status !== 'done') {
+  if (status === 'archived') {
+    completedAtExpr = 'completed_at'; // behalte vorhandenen Wert
+  } else if (status === 'done' && existing.status !== 'done') {
     completedAtExpr = "datetime('now')";
   } else if (status !== 'done' && existing.status === 'done') {
     completedAtExpr = 'NULL';
