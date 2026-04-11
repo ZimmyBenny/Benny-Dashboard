@@ -12,7 +12,7 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import type { Task } from '../../api/tasks.api';
-import { fetchTasks, reorderTasks } from '../../api/tasks.api';
+import { fetchTasks, reorderTasks, archiveTask } from '../../api/tasks.api';
 import { KanbanColumn } from './KanbanColumn';
 import { TaskCard } from './TaskCard';
 import { DragPrompt } from './DragPrompt';
@@ -219,6 +219,15 @@ export function KanbanBoard({ filters, onTaskClick, onShowAllDone, refreshKey = 
     }
   }
 
+  async function handleArchive(taskId: number) {
+    try {
+      await archiveTask(taskId);
+      load();
+    } catch {
+      // silently ignore
+    }
+  }
+
   function handleDragPromptCancel() {
     if (!pendingDrag) return;
     setTasksByColumn(pendingDrag.snapshotBefore);
@@ -260,6 +269,7 @@ export function KanbanBoard({ filters, onTaskClick, onShowAllDone, refreshKey = 
               onTaskClick={onTaskClick}
               onShowAllDone={col.id === 'done' ? onShowAllDone : undefined}
               totalDoneCount={col.id === 'done' ? tasksByColumn.done.length : undefined}
+              onArchive={col.id === 'done' ? handleArchive : undefined}
             />
           ))}
         </div>

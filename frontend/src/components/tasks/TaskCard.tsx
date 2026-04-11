@@ -6,6 +6,7 @@ interface TaskCardProps {
   task: Task;
   onClick: () => void;
   isDragging?: boolean;
+  onArchive?: (id: number) => void;
 }
 
 const PRIORITY_STYLES: Record<Task['priority'], { color: string; bg: string; label: string }> = {
@@ -20,7 +21,7 @@ function isOverdue(dueDate: string | null, status: Task['status']): boolean {
   return dueDate < new Date().toISOString().slice(0, 10);
 }
 
-export function TaskCard({ task, onClick, isDragging = false }: TaskCardProps) {
+export function TaskCard({ task, onClick, isDragging = false, onArchive }: TaskCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging: isSortableDragging } = useSortable({
     id: task.id,
   });
@@ -178,6 +179,34 @@ export function TaskCard({ task, onClick, isDragging = false }: TaskCardProps) {
         }}>
           {task.status_note}
         </p>
+      )}
+
+      {onArchive && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); onArchive(task.id); }}
+            title="Archivieren"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              background: 'transparent',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '0.375rem',
+              padding: '0.2rem 0.45rem',
+              cursor: 'pointer',
+              color: 'var(--color-outline)',
+              fontFamily: 'var(--font-body)',
+              fontSize: '0.65rem',
+              letterSpacing: '0.04em',
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-primary)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(204,151,255,0.3)'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-outline)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.08)'; }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>inventory_2</span>
+            Archivieren
+          </button>
+        </div>
       )}
     </div>
   );

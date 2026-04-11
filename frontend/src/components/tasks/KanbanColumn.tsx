@@ -12,6 +12,7 @@ interface KanbanColumnProps {
   onTaskClick: (task: Task) => void;
   onShowAllDone?: () => void;
   totalDoneCount?: number;
+  onArchive?: (id: number) => void;
 }
 
 export function KanbanColumn({
@@ -23,6 +24,7 @@ export function KanbanColumn({
   onTaskClick,
   onShowAllDone,
   totalDoneCount,
+  onArchive,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
@@ -93,7 +95,7 @@ export function KanbanColumn({
       >
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           {tasks.map((task) => (
-            <TaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} />
+            <TaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} onArchive={onArchive} />
           ))}
         </SortableContext>
 
