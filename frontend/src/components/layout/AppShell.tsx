@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { useUiStore } from '../../store/uiStore';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { ReminderPoller } from '../tasks/ReminderPoller';
 
 export function AppShell() {
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
@@ -61,6 +62,7 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+      <ReminderPoller />
     </div>
   );
 }
