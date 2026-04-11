@@ -105,11 +105,8 @@ router.patch('/sections/:id/archive', (req: Request, res: Response) => {
 
 router.delete('/sections/:id', (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const count = db.prepare('SELECT COUNT(*) as c FROM workbook_pages WHERE section_id = ?').get(id) as { c: number };
-  if (count.c > 0) {
-    res.status(400).json({ error: 'Sektion nicht leer' });
-    return;
-  }
+  // Alle Seiten der Sektion löschen (inkl. Unterseiten), dann Sektion
+  db.prepare('DELETE FROM workbook_pages WHERE section_id = ?').run(id);
   db.prepare('DELETE FROM workbook_sections WHERE id = ?').run(id);
   res.status(204).end();
 });

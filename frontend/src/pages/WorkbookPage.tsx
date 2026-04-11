@@ -110,7 +110,16 @@ export function WorkbookPage() {
             setActivePageId(null);
           }}
           onNew={() => setSectionSlideOpen(true)}
-          onReload={() => fetchSections().then(setSections).catch(() => {})}
+          onReload={() => fetchSections().then((s) => {
+            setSections(s);
+            // Falls die aktive Sektion gelöscht wurde: erste verfügbare wählen oder leeren
+            if (activeSectionId !== null && !s.find((sec) => sec.id === activeSectionId)) {
+              const next = s[0]?.id ?? null;
+              setActiveSectionId(next);
+              setActivePageId(null);
+              setActivePage(null);
+            }
+          }).catch(() => {})}
         />
 
         <PageList

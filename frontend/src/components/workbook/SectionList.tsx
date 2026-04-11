@@ -11,7 +11,7 @@ interface SectionListProps {
 export function SectionList({ sections, activeId, onSelect, onNew, onReload }: SectionListProps) {
   async function handleDelete(e: React.MouseEvent, id: number, name: string) {
     e.stopPropagation();
-    if (!window.confirm(`Sektion "${name}" wirklich löschen?`)) return;
+    if (!window.confirm(`Bereich "${name}" und alle Seiten darin wirklich löschen?`)) return;
     await deleteSection(id);
     onReload();
   }

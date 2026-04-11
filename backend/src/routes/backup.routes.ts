@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { exec } from 'child_process';
-import { copyFile, mkdir, readdir } from 'fs/promises';
+import { copyFile, mkdir } from 'fs/promises';
 import { promisify } from 'util';
 import path from 'path';
 import os from 'os';
@@ -55,7 +55,7 @@ router.post('/', async (_req, res) => {
     result.errors.push(`DB: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  // ── 3. Uploads → iCloud (sync: copy with original names, remove deleted) ──────
+  // ── 3. Uploads → iCloud (nur kopieren, nie automatisch löschen) ──────────────
   try {
     const uploadsBackupDir = path.join(ICLOUD_BACKUP_DIR, 'uploads');
     await mkdir(uploadsBackupDir, { recursive: true });
@@ -64,23 +64,13 @@ router.post('/', async (_req, res) => {
     type AttRow = { id: number; file_name: string; storage_path: string };
     const attachments = db.prepare('SELECT id, file_name, storage_path FROM workbook_attachments').all() as AttRow[];
 
-    // Kopiere jede Datei unter Originalnamen ins Backup
+    // Neue/vorhandene Dateien ins Backup kopieren — nichts wird automatisch gelöscht
     await Promise.all(
       attachments.map(async (att) => {
         const src = path.join(UPLOADS_PATH, att.storage_path);
         const dest = path.join(uploadsBackupDir, att.file_name);
         try { await copyFile(src, dest); } catch { /* Datei fehlt lokal — überspringen */ }
       })
-    );
-
-    // Backup-Dateien die nicht mehr in DB sind löschen (sync)
-    const { unlink } = await import('fs/promises');
-    const validNames = new Set(attachments.map((a) => a.file_name));
-    const backupFiles = await readdir(uploadsBackupDir).catch(() => [] as string[]);
-    await Promise.all(
-      backupFiles
-        .filter((f) => !validNames.has(f))
-        .map((f) => unlink(path.join(uploadsBackupDir, f)).catch(() => {}))
     );
 
     result.uploads = attachments.length > 0
