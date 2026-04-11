@@ -33,6 +33,7 @@ export interface Page {
   updated_by: string;
   created_at: string;
   updated_at: string;
+  parent_id?: number | null;
 }
 
 export interface Template {
@@ -85,11 +86,13 @@ export async function fetchPages(params?: {
   section_id?: number;
   pinned?: boolean;
   archived?: boolean;
+  parent_id?: number | null;
 }): Promise<Page[]> {
   const query: Record<string, string> = {};
   if (params?.section_id !== undefined) query.section_id = String(params.section_id);
   if (params?.pinned !== undefined) query.pinned = String(params.pinned);
   if (params?.archived !== undefined) query.archived = String(params.archived);
+  if (params?.parent_id !== undefined && params.parent_id !== null) query.parent_id = String(params.parent_id);
   const { data } = await apiClient.get<Page[]>('/workbook/pages', { params: query });
   return data;
 }
@@ -99,6 +102,7 @@ export async function createPage(data: {
   title?: string;
   template_id?: number | null;
   tags?: string;
+  parent_id?: number | null;
 }): Promise<Page> {
   const { data: result } = await apiClient.post<Page>('/workbook/pages', data);
   return result;
@@ -159,4 +163,38 @@ export async function fetchRecentlyVisited(): Promise<Page[]> {
 // Page view tracking
 export async function trackPageView(id: number): Promise<void> {
   await apiClient.post(`/workbook/pages/${id}/view`);
+}
+
+// Attachments
+export interface Attachment {
+  id: number;
+  page_id: number;
+  file_name: string;
+  file_type: string;
+  file_size: number;
+  storage_path: string;
+  uploaded_at: string;
+  uploaded_by: string;
+}
+
+export async function fetchAttachments(pageId: number): Promise<Attachment[]> {
+  const { data } = await apiClient.get<Attachment[]>(`/workbook/pages/${pageId}/attachments`);
+  return data;
+}
+
+export async function uploadAttachment(pageId: number, file: File): Promise<Attachment> {
+  const form = new FormData();
+  form.append('file', file);
+  const { data } = await apiClient.post<Attachment>(`/workbook/pages/${pageId}/attachments`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+}
+
+export async function deleteAttachment(id: number): Promise<void> {
+  await apiClient.delete(`/workbook/attachments/${id}`);
+}
+
+export function getAttachmentDownloadUrl(id: number): string {
+  return `/api/workbook/attachments/${id}/download`;
 }

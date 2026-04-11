@@ -6,7 +6,11 @@ import TaskItem from '@tiptap/extension-task-item';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import CharacterCount from '@tiptap/extension-character-count';
-import { updatePage, togglePin, toggleArchive, toggleTemplate, type Page } from '../../api/workbook.api';
+import {
+  updatePage, togglePin, toggleArchive, toggleTemplate,
+  fetchAttachments, uploadAttachment, deleteAttachment, getAttachmentDownloadUrl,
+  type Page, type Attachment,
+} from '../../api/workbook.api';
 import type { SaveStatus } from '../../pages/WorkbookPage';
 
 interface WorkbookEditorProps {
@@ -36,19 +40,33 @@ type ToolbarPayload = {
   tags: string;
 };
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpdated }: WorkbookEditorProps) {
   const [title, setTitle] = useState(page.title);
   const [tags, setTags] = useState(page.tags ?? '');
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [dragOver, setDragOver] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [selectMode, setSelectMode] = useState(false);
 
   const saveTimerRef = useRef<number | null>(null);
   const pendingSaveRef = useRef<Promise<void> | null>(null);
   const latestPayloadRef = useRef<ToolbarPayload | null>(null);
+  // Refs so onUpdate always reads the current title/tags without stale closure
+  const titleRef = useRef(page.title);
+  const tagsRef = useRef(page.tags ?? '');
 
-  const doSave = useCallback(async () => {
+  const doSave = useCallback(async (silent = false) => {
     const payload = latestPayloadRef.current;
     if (!payload) return;
     try {
-      onSaveStatusChange('saving');
+      if (!silent) onSaveStatusChange('saving');
       if (pendingSaveRef.current) await pendingSaveRef.current;
       const p = updatePage(page.id, {
         title: payload.title,
@@ -56,15 +74,15 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         tags: payload.tags,
       }).then((updated) => {
         onPageUpdated(updated);
-        onSaveStatusChange('saved');
+        if (!silent) onSaveStatusChange('saved');
       }).catch(() => {
-        onSaveStatusChange('error');
+        if (!silent) onSaveStatusChange('error');
       });
       pendingSaveRef.current = p;
       await p;
       pendingSaveRef.current = null;
     } catch {
-      onSaveStatusChange('error');
+      if (!silent) onSaveStatusChange('error');
     }
   }, [page.id, onSaveStatusChange, onPageUpdated]);
 
@@ -72,6 +90,39 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = window.setTimeout(doSave, 1500) as unknown as number;
   }, [doSave]);
+
+  // Load attachments when page changes
+  useEffect(() => {
+    fetchAttachments(page.id).then(setAttachments).catch(() => {});
+  }, [page.id]);
+
+  async function handleUploadFiles(files: FileList | File[]) {
+    if (uploading) return;
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const att = await uploadAttachment(page.id, file);
+        setAttachments((prev) => [...prev, att]);
+      }
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleDeleteAttachment(id: number) {
+    if (!window.confirm('Anhang wirklich löschen?')) return;
+    await deleteAttachment(id);
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  }
+
+  async function handleBulkDelete() {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`${selectedIds.size} Anhang/Anhänge wirklich löschen?`)) return;
+    await Promise.all([...selectedIds].map((id) => deleteAttachment(id)));
+    setAttachments((prev) => prev.filter((a) => !selectedIds.has(a.id)));
+    setSelectedIds(new Set());
+    setSelectMode(false);
+  }
 
   const editor = useEditor({
     extensions: [
@@ -94,7 +145,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     })(),
     onUpdate: ({ editor: ed }) => {
       const content = ed.getJSON();
-      latestPayloadRef.current = { content, title, tags };
+      latestPayloadRef.current = { content, title: titleRef.current, tags: tagsRef.current };
       scheduleSave();
     },
   }, [page.id]);
@@ -106,10 +157,15 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     };
   }, [editor]);
 
-  // Sync title/tags when page changes
+  // Sync title/tags when page changes; reset select mode
   useEffect(() => {
     setTitle(page.title);
+    titleRef.current = page.title;
     setTags(page.tags ?? '');
+    tagsRef.current = page.tags ?? '';
+    latestPayloadRef.current = null;
+    setSelectMode(false);
+    setSelectedIds(new Set());
   }, [page.id]);
 
   // Unmount / page switch: cancel timer + immediate save
@@ -120,7 +176,8 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         saveTimerRef.current = null;
       }
       if (latestPayloadRef.current) {
-        doSave();
+        doSave(true);
+        latestPayloadRef.current = null;
       }
     };
   }, [page.id, doSave]);
@@ -234,10 +291,11 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
           value={title}
           onChange={(e) => {
             setTitle(e.target.value);
+            titleRef.current = e.target.value;
             latestPayloadRef.current = {
               content: editor?.getJSON(),
               title: e.target.value,
-              tags,
+              tags: tagsRef.current,
             };
             scheduleSave();
           }}
@@ -262,9 +320,10 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
           value={tags}
           onChange={(e) => {
             setTags(e.target.value);
+            tagsRef.current = e.target.value;
             latestPayloadRef.current = {
               content: editor?.getJSON(),
-              title,
+              title: titleRef.current,
               tags: e.target.value,
             };
             scheduleSave();
@@ -284,10 +343,142 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         />
       </div>
 
-      {/* Editor */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      {/* Editor with drag-and-drop */}
+      <div
+        style={{ flex: 1, overflowY: 'auto', position: 'relative' }}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false); }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          if (e.dataTransfer.files.length > 0) handleUploadFiles(e.dataTransfer.files);
+        }}
+      >
         <EditorContent editor={editor} />
+        {dragOver && (
+          <div style={{
+            position: 'absolute', inset: 0, zIndex: 10,
+            background: 'rgba(204,151,255,0.08)',
+            border: '2px dashed var(--color-primary)',
+            borderRadius: '0.5rem',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            pointerEvents: 'none',
+          }}>
+            <div style={{ textAlign: 'center', color: 'var(--color-primary)' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '2.5rem', display: 'block' }}>upload_file</span>
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.9rem', fontWeight: 600 }}>
+                Dateien hier ablegen
+              </span>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Attachments */}
+      {attachments.length > 0 && (
+        <div style={{
+          borderTop: '1px solid var(--color-outline-variant)',
+          padding: '0.75rem 2rem',
+          display: 'flex', flexDirection: 'column', gap: '0.4rem',
+        }}>
+          {/* Header: Label + Auswahl-Kontrolle */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+            <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.72rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-outline)' }}>
+              Anhänge
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              {selectedIds.size > 0 && (
+                <button
+                  onClick={handleBulkDelete}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.25rem',
+                    padding: '0.2rem 0.5rem',
+                    background: 'rgba(239,68,68,0.12)',
+                    border: '1px solid rgba(239,68,68,0.3)',
+                    borderRadius: '0.3rem',
+                    cursor: 'pointer',
+                    color: 'var(--color-error)',
+                    fontFamily: 'var(--font-body)',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '0.85rem' }}>delete</span>
+                  Auswahl löschen ({selectedIds.size})
+                </button>
+              )}
+              <button
+                onClick={() => { setSelectMode((v) => !v); setSelectedIds(new Set()); }}
+                title={selectMode ? 'Auswahl beenden' : 'Mehrere auswählen'}
+                style={{
+                  display: 'flex', alignItems: 'center',
+                  padding: '0.2rem',
+                  background: selectMode ? 'rgba(204,151,255,0.15)' : 'transparent',
+                  border: 'none',
+                  borderRadius: '0.25rem',
+                  cursor: 'pointer',
+                  color: selectMode ? 'var(--color-primary)' : 'var(--color-outline)',
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>checklist</span>
+              </button>
+            </div>
+          </div>
+
+          {attachments.map((att) => (
+            <div
+              key={att.id}
+              onClick={() => {
+                if (selectMode) {
+                  setSelectedIds((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(att.id)) next.delete(att.id); else next.add(att.id);
+                    return next;
+                  });
+                }
+              }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                cursor: selectMode ? 'pointer' : 'default',
+                padding: '0.1rem 0.25rem',
+                borderRadius: '0.2rem',
+                background: selectMode && selectedIds.has(att.id) ? 'rgba(204,151,255,0.08)' : 'transparent',
+              }}
+            >
+              {selectMode && (
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(att.id)}
+                  onChange={() => {}}
+                  style={{ accentColor: 'var(--color-primary)', width: '14px', height: '14px', flexShrink: 0, cursor: 'pointer' }}
+                />
+              )}
+              <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: 'var(--color-on-surface-variant)', flexShrink: 0 }}>
+                attach_file
+              </span>
+              <a
+                href={getAttachmentDownloadUrl(att.id)}
+                download={att.file_name}
+                onClick={(e) => selectMode && e.preventDefault()}
+                style={{ fontFamily: 'var(--font-body)', fontSize: '0.82rem', color: 'var(--color-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none' }}
+              >
+                {att.file_name}
+              </a>
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.72rem', color: 'var(--color-outline)', flexShrink: 0 }}>
+                {formatBytes(att.file_size)}
+              </span>
+              {!selectMode && (
+                <button
+                  onClick={() => handleDeleteAttachment(att.id)}
+                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.1rem', display: 'flex', alignItems: 'center', color: 'var(--color-error)', flexShrink: 0 }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '0.9rem' }}>delete</span>
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Footer */}
       <div
