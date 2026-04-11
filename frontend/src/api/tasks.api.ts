@@ -22,6 +22,8 @@ export interface Task {
   completed_at: string | null;
   position: number;
   status_note: string | null;
+  source_page_id: number | null;
+  source_page_title: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   fetchSections,
   fetchPages,
@@ -19,6 +20,7 @@ import { TemplatePickerModal } from '../components/workbook/TemplatePickerModal'
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 export function WorkbookPage() {
+  const location = useLocation();
   const [sections, setSections] = useState<Section[]>([]);
   const [pages, setPages] = useState<Page[]>([]);
   const [activeSectionId, setActiveSectionId] = useState<number | null>(null);
@@ -55,6 +57,15 @@ export function WorkbookPage() {
     }).catch(() => {});
     trackPageView(activePageId).catch(() => {});
   }, [activePageId]);
+
+  // openPageId aus location.state (Navigation von TaskSlideOver)
+  useEffect(() => {
+    const openPageId = (location.state as { openPageId?: number } | null)?.openPageId;
+    if (openPageId) {
+      setActivePageId(openPageId);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [location.state]);
 
   // Cmd+K listener
   useEffect(() => {
@@ -151,6 +162,7 @@ export function WorkbookPage() {
               setActivePage(p);
               setPages((ps) => ps.map((x) => (x.id === p.id ? p : x)));
             }}
+            sectionName={sections.find((s) => s.id === activeSectionId)?.name ?? ''}
           />
         ) : (
           <WorkbookHome
