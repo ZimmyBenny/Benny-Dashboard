@@ -1,4 +1,4 @@
-import type { Section } from '../../api/workbook.api';
+import { deleteSection, type Section } from '../../api/workbook.api';
 
 interface SectionListProps {
   sections: Section[];
@@ -8,7 +8,13 @@ interface SectionListProps {
   onReload: () => void;
 }
 
-export function SectionList({ sections, activeId, onSelect, onNew }: SectionListProps) {
+export function SectionList({ sections, activeId, onSelect, onNew, onReload }: SectionListProps) {
+  async function handleDelete(e: React.MouseEvent, id: number, name: string) {
+    e.stopPropagation();
+    if (!window.confirm(`Sektion "${name}" wirklich löschen?`)) return;
+    await deleteSection(id);
+    onReload();
+  }
   return (
     <div
       style={{
@@ -36,9 +42,9 @@ export function SectionList({ sections, activeId, onSelect, onNew }: SectionList
 
       <div style={{ flex: 1 }}>
         {sections.map((section) => (
-          <button
+          <div
             key={section.id}
-            onClick={() => onSelect(section.id)}
+            className="workbook-section-row"
             style={{
               width: '100%',
               display: 'flex',
@@ -46,37 +52,57 @@ export function SectionList({ sections, activeId, onSelect, onNew }: SectionList
               gap: '0.6rem',
               padding: '0.55rem 1rem',
               background: activeId === section.id ? 'rgba(204,151,255,0.08)' : 'transparent',
-              borderTop: 'none',
-              borderRight: 'none',
-              borderBottom: 'none',
               borderLeft: activeId === section.id
                 ? '3px solid var(--color-primary)'
                 : '3px solid transparent',
               cursor: 'pointer',
-              textAlign: 'left',
               color: 'var(--color-on-surface)',
               fontFamily: 'var(--font-body)',
               fontSize: '0.9rem',
               transition: 'background 0.15s',
+              position: 'relative',
             }}
+            onClick={() => onSelect(section.id)}
             onMouseEnter={(e) => {
               if (activeId !== section.id) {
-                (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.04)';
+                (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.04)';
               }
+              const btn = e.currentTarget.querySelector<HTMLButtonElement>('.section-delete-btn');
+              if (btn) btn.style.opacity = '1';
             }}
             onMouseLeave={(e) => {
               if (activeId !== section.id) {
-                (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+                (e.currentTarget as HTMLDivElement).style.background = 'transparent';
               }
+              const btn = e.currentTarget.querySelector<HTMLButtonElement>('.section-delete-btn');
+              if (btn) btn.style.opacity = '0';
             }}
           >
-            <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', color: 'var(--color-on-surface-variant)' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', color: 'var(--color-on-surface-variant)', lineHeight: 1, marginTop: '2px' }}>
               {section.icon || 'folder'}
             </span>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {section.name}
             </span>
-          </button>
+            <button
+              className="section-delete-btn"
+              onClick={(e) => handleDelete(e, section.id, section.name)}
+              style={{
+                opacity: 0,
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '0.1rem',
+                display: 'flex',
+                alignItems: 'center',
+                color: 'var(--color-error)',
+                transition: 'opacity 0.15s',
+                flexShrink: 0,
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '0.9rem' }}>delete</span>
+            </button>
+          </div>
         ))}
       </div>
 

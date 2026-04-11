@@ -26,13 +26,12 @@ export function Header() {
       </span>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <span style={{
+        <span className="gradient-text" style={{
           fontFamily: 'var(--font-headline)',
-          fontWeight: 700,
-          fontSize: '0.8125rem',
-          letterSpacing: '0.06em',
+          fontWeight: 800,
+          fontSize: '0.9rem',
+          letterSpacing: '0.08em',
           textTransform: 'uppercase',
-          color: 'var(--color-on-surface)',
         }}>
           {pageName}
         </span>
