@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Task } from '../../api/tasks.api';
 
@@ -113,6 +113,11 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Refs to always read the current DOM value at save time — guards against
+  // native macOS date/time pickers not reliably firing onChange into React state.
+  const reminderDateRef = useRef<HTMLInputElement>(null);
+  const reminderTimeRef = useRef<HTMLInputElement>(null);
+
   // Reset form when task changes or panel opens
   useEffect(() => {
     setForm(taskToForm(task, prefill));
@@ -134,6 +139,21 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
 
   async function handleSave() {
     if (!form.title.trim()) return;
+
+    // Read actual DOM values at save time as the authoritative source.
+    // React state (form.reminder_date / reminder_time) is kept in sync via onChange,
+    // but native macOS date/time pickers can in some cases update the DOM without
+    // triggering a React synthetic onChange. Reading the ref value here closes that gap.
+    const reminderDate = reminderDateRef.current?.value ?? form.reminder_date;
+    const reminderTime = reminderTimeRef.current?.value ?? form.reminder_time;
+
+    // Allow date-only reminder: if a date is set but no time, default to 08:00.
+    const effectiveTime = reminderTime || (reminderDate ? '08:00' : '');
+    const hasReminder = !!(reminderDate && effectiveTime);
+    const reminderIso = hasReminder
+      ? toUtcIso(`${reminderDate}T${effectiveTime}`)
+      : null;
+
     setSaving(true);
     try {
       await onSave({
@@ -144,10 +164,8 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
         area: form.area || null,
         due_date: form.due_date || null,
         start_date: form.start_date || null,
-        reminder_at: (form.reminder_date && form.reminder_time)
-          ? toUtcIso(`${form.reminder_date}T${form.reminder_time}`)
-          : null,
-        has_reminder: (form.reminder_date && form.reminder_time) ? 1 : 0,
+        reminder_at: reminderIso,
+        has_reminder: hasReminder ? 1 : 0,
         tags: form.tags || null,
         project_or_customer: form.project_or_customer || null,
         notes: form.notes || null,
@@ -378,6 +396,7 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
               <label style={LABEL_STYLE}>Erinnerung am</label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                 <input
+                  ref={reminderDateRef}
                   className="task-input"
                   style={{ ...INPUT_STYLE, colorScheme: 'dark' }}
                   type="date"
@@ -386,12 +405,13 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
                   placeholder="Datum"
                 />
                 <input
+                  ref={reminderTimeRef}
                   className="task-input"
                   style={{ ...INPUT_STYLE, colorScheme: 'dark' }}
                   type="time"
                   value={form.reminder_time}
                   onChange={(e) => handleChange('reminder_time', e.target.value)}
-                  placeholder="Uhrzeit"
+                  placeholder="Uhrzeit (optional)"
                 />
               </div>
               {(form.reminder_date || form.reminder_time) && (
