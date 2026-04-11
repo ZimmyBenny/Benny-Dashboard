@@ -15,6 +15,8 @@ import type { SaveStatus } from '../../pages/WorkbookPage';
 import { createTask, deleteTask } from '../../api/tasks.api';
 import type { Task } from '../../api/tasks.api';
 import { TaskSlideOver } from '../tasks/TaskSlideOver';
+import { EmailCardExtension } from '../../lib/EmailCardExtension';
+import { parseEml } from '../../lib/parseEml';
 
 interface WorkbookEditorProps {
   page: Page;
@@ -109,6 +111,34 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
       for (const file of Array.from(files)) {
         const att = await uploadAttachment(page.id, file);
         setAttachments((prev) => [...prev, att]);
+
+        // .eml-Dateien: zusätzlich als Email-Vorschau-Card in den Editor einfügen
+        const isEml =
+          file.name.toLowerCase().endsWith('.eml') ||
+          file.type === 'message/rfc822';
+
+        if (isEml && editor) {
+          try {
+            const emlData = await parseEml(file);
+            editor
+              .chain()
+              .focus()
+              .insertContent({
+                type: 'emailCard',
+                attrs: {
+                  subject:      emlData.subject,
+                  from:         emlData.from,
+                  date:         emlData.date,
+                  preview:      emlData.preview,
+                  attachmentId: att.id,
+                  fileName:     file.name,
+                },
+              })
+              .run();
+          } catch {
+            // Parsing fehlgeschlagen — Datei ist trotzdem als Anhang gespeichert
+          }
+        }
       }
     } finally {
       setUploading(false);
@@ -141,6 +171,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
       }),
       Placeholder.configure({ placeholder: 'Hier tippen — Seite bearbeiten...' }),
       CharacterCount,
+      EmailCardExtension,
     ],
     content: (() => {
       try {
@@ -384,7 +415,29 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         onDrop={(e) => {
           e.preventDefault();
           setDragOver(false);
-          if (e.dataTransfer.files.length > 0) handleUploadFiles(e.dataTransfer.files);
+
+          // macOS Mail.app liefert .eml-Dateien über dataTransfer.items (type="message/rfc822"),
+          // nicht über dataTransfer.files (die sind leer). Beide Quellen prüfen.
+          const files: File[] = [];
+
+          if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+            for (let i = 0; i < e.dataTransfer.items.length; i++) {
+              const item = e.dataTransfer.items[i];
+              if (item.kind === 'file') {
+                const f = item.getAsFile();
+                if (f) files.push(f);
+              }
+            }
+          }
+
+          // Fallback: dataTransfer.files (normale Browser-Drops)
+          if (files.length === 0 && e.dataTransfer.files.length > 0) {
+            for (let i = 0; i < e.dataTransfer.files.length; i++) {
+              files.push(e.dataTransfer.files[i]);
+            }
+          }
+
+          if (files.length > 0) handleUploadFiles(files);
         }}
       >
         <EditorContent editor={editor} />
