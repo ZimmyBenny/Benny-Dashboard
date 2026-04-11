@@ -63,7 +63,7 @@ interface FormData {
   status_note: string;
 }
 
-function taskToForm(task: Task | null): FormData {
+function taskToForm(task: Task | null, prefill?: { title?: string; area?: string }): FormData {
   let reminder_date = '';
   let reminder_time = '';
   if (task?.reminder_at) {
@@ -73,8 +73,8 @@ function taskToForm(task: Task | null): FormData {
   }
   if (!task) {
     return {
-      title: '', description: '', status: 'open', priority: 'medium',
-      area: '', due_date: '', start_date: '', reminder_at: '',
+      title: prefill?.title ?? '', description: '', status: 'open', priority: 'medium',
+      area: prefill?.area ?? '', due_date: '', start_date: '', reminder_at: '',
       reminder_date: '', reminder_time: '',
       tags: '', project_or_customer: '', notes: '', estimated_duration: '', status_note: '',
     };
@@ -104,9 +104,10 @@ interface TaskSlideOverProps {
   task: Task | null;
   onSave: (data: Partial<Task> & { title: string }) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
+  prefill?: { title?: string; area?: string; source_page_id?: number; source_page_title?: string };
 }
 
-export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete }: TaskSlideOverProps) {
+export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill }: TaskSlideOverProps) {
   const navigate = useNavigate();
   const [form, setForm] = useState<FormData>(() => taskToForm(task));
   const [saving, setSaving] = useState(false);
@@ -114,8 +115,8 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete }: TaskS
 
   // Reset form when task changes or panel opens
   useEffect(() => {
-    setForm(taskToForm(task));
-  }, [task, isOpen]);
+    setForm(taskToForm(task, prefill));
+  }, [task, isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Escape key
   useEffect(() => {
@@ -152,6 +153,7 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete }: TaskS
         notes: form.notes || null,
         estimated_duration: form.estimated_duration ? Number(form.estimated_duration) : null,
         status_note: form.status_note || null,
+        source_page_id: task?.source_page_id ?? prefill?.source_page_id ?? null,
       });
       onClose();
     } finally {
@@ -456,13 +458,14 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete }: TaskS
               />
             </div>
 
-            {/* Arbeitsmappe-Link — nur anzeigen wenn task?.source_page_id gesetzt */}
-            {task?.source_page_id && (
+            {/* Arbeitsmappe-Link — anzeigen wenn task oder prefill eine source_page_id haben */}
+            {(task?.source_page_id || prefill?.source_page_id) && (
               <div>
                 <label style={LABEL_STYLE}>Ursprung</label>
                 <button
                   onClick={() => {
-                    navigate('/arbeitsmappe', { state: { openPageId: task.source_page_id } });
+                    const pageId = task?.source_page_id ?? prefill?.source_page_id;
+                    navigate('/arbeitsmappe', { state: { openPageId: pageId } });
                     onClose();
                   }}
                   style={{
@@ -486,7 +489,7 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete }: TaskS
                     menu_book
                   </span>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {task.source_page_title ?? `Seite #${task.source_page_id}`}
+                    {task?.source_page_title ?? prefill?.source_page_title ?? `Seite #${task?.source_page_id ?? prefill?.source_page_id}`}
                   </span>
                   <span className="material-symbols-outlined" style={{ fontSize: '0.9rem', marginLeft: 'auto', flexShrink: 0, color: 'var(--color-on-surface-variant)' }}>
                     open_in_new

@@ -12,7 +12,9 @@ import {
   type Page, type Attachment,
 } from '../../api/workbook.api';
 import type { SaveStatus } from '../../pages/WorkbookPage';
-import apiClient from '../../api/client';
+import { createTask, deleteTask } from '../../api/tasks.api';
+import type { Task } from '../../api/tasks.api';
+import { TaskSlideOver } from '../tasks/TaskSlideOver';
 
 interface WorkbookEditorProps {
   page: Page;
@@ -56,9 +58,8 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
   const [uploading, setUploading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
-  const [taskModalOpen, setTaskModalOpen] = useState(false);
-  const [taskForm, setTaskForm] = useState({ title: '', area: '', priority: 'medium' as const, due_date: '' });
-  const [taskSaving, setTaskSaving] = useState(false);
+  const [taskSlideOverOpen, setTaskSlideOverOpen] = useState(false);
+  const [taskSlideOverPrefill, setTaskSlideOverPrefill] = useState<{ title?: string; area?: string; source_page_id?: number; source_page_title?: string } | undefined>();
 
   const saveTimerRef = useRef<number | null>(null);
   const pendingSaveRef = useRef<Promise<void> | null>(null);
@@ -293,8 +294,8 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         <div style={{ width: '1px', height: '1.2rem', background: 'var(--color-outline-variant)', margin: '0 0.2rem' }} />
         <button
           onClick={() => {
-            setTaskForm({ title: page.title, area: sectionName ?? '', priority: 'medium', due_date: '' });
-            setTaskModalOpen(true);
+            setTaskSlideOverPrefill({ title: page.title, area: sectionName ?? '', source_page_id: page.id, source_page_title: page.title });
+            setTaskSlideOverOpen(true);
           }}
           title="Aufgabe aus dieser Seite erstellen"
           style={{
@@ -531,144 +532,14 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         </span>
       </div>
 
-      {/* Aufgabe-Modal */}
-      {taskModalOpen && (
-        <>
-          {/* Backdrop */}
-          <div
-            onClick={() => setTaskModalOpen(false)}
-            style={{
-              position: 'fixed', inset: 0, zIndex: 60,
-              background: 'rgba(0,0,0,0.55)',
-            }}
-          />
-          {/* Modal Card */}
-          <div
-            style={{
-              position: 'fixed', top: '50%', left: '50%', zIndex: 61,
-              transform: 'translate(-50%, -50%)',
-              background: 'var(--color-surface-container)',
-              border: '1px solid var(--color-outline-variant)',
-              borderRadius: '0.75rem',
-              padding: '1.5rem',
-              width: 'min(420px, 90vw)',
-              display: 'flex', flexDirection: 'column', gap: '1rem',
-            }}
-          >
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '0.95rem', color: 'var(--color-on-surface)' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', color: 'var(--color-primary)' }}>add_task</span>
-                Aufgabe erstellen
-              </div>
-              <button onClick={() => setTaskModalOpen(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-on-surface-variant)', display: 'flex', alignItems: 'center' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>close</span>
-              </button>
-            </div>
-
-            {/* Titel */}
-            <div>
-              <label style={{ display: 'block', fontFamily: 'var(--font-body)', fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--color-outline)', marginBottom: '0.3rem' }}>
-                Titel *
-              </label>
-              <input
-                autoFocus
-                value={taskForm.title}
-                onChange={(e) => setTaskForm((f) => ({ ...f, title: e.target.value }))}
-                onKeyDown={(e) => { if (e.key === 'Escape') setTaskModalOpen(false); }}
-                style={{ width: '100%', background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline-variant)', borderRadius: '0.5rem', color: 'var(--color-on-surface)', fontFamily: 'var(--font-body)', fontSize: '0.875rem', padding: '0.5rem 0.75rem', outline: 'none', boxSizing: 'border-box' }}
-              />
-            </div>
-
-            {/* Bereich */}
-            <div>
-              <label style={{ display: 'block', fontFamily: 'var(--font-body)', fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--color-outline)', marginBottom: '0.3rem' }}>
-                Bereich
-              </label>
-              <input
-                value={taskForm.area}
-                onChange={(e) => setTaskForm((f) => ({ ...f, area: e.target.value }))}
-                onKeyDown={(e) => { if (e.key === 'Escape') setTaskModalOpen(false); }}
-                style={{ width: '100%', background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline-variant)', borderRadius: '0.5rem', color: 'var(--color-on-surface)', fontFamily: 'var(--font-body)', fontSize: '0.875rem', padding: '0.5rem 0.75rem', outline: 'none', boxSizing: 'border-box' }}
-              />
-            </div>
-
-            {/* Prioritaet + Fällig nebeneinander */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-              <div>
-                <label style={{ display: 'block', fontFamily: 'var(--font-body)', fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--color-outline)', marginBottom: '0.3rem' }}>
-                  Priorität
-                </label>
-                <select
-                  value={taskForm.priority}
-                  onChange={(e) => setTaskForm((f) => ({ ...f, priority: e.target.value as 'low' | 'medium' | 'high' | 'urgent' }))}
-                  style={{ width: '100%', background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline-variant)', borderRadius: '0.5rem', color: 'var(--color-on-surface)', fontFamily: 'var(--font-body)', fontSize: '0.875rem', padding: '0.5rem 0.75rem', outline: 'none', boxSizing: 'border-box' }}
-                >
-                  <option value="low">Niedrig</option>
-                  <option value="medium">Mittel</option>
-                  <option value="high">Hoch</option>
-                  <option value="urgent">Dringend</option>
-                </select>
-              </div>
-              <div>
-                <label style={{ display: 'block', fontFamily: 'var(--font-body)', fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--color-outline)', marginBottom: '0.3rem' }}>
-                  Fällig am
-                </label>
-                <input
-                  type="date"
-                  value={taskForm.due_date}
-                  onChange={(e) => setTaskForm((f) => ({ ...f, due_date: e.target.value }))}
-                  style={{ width: '100%', background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline-variant)', borderRadius: '0.5rem', color: 'var(--color-on-surface)', fontFamily: 'var(--font-body)', fontSize: '0.875rem', padding: '0.5rem 0.75rem', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }}
-                />
-              </div>
-            </div>
-
-            {/* Verknüpft mit */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', background: 'rgba(204,151,255,0.08)', border: '1px solid rgba(204,151,255,0.2)' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: 'var(--color-primary)', flexShrink: 0 }}>menu_book</span>
-              <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)' }}>
-                Verknüpft mit <strong style={{ color: 'var(--color-on-surface)' }}>{page.title}</strong>
-              </span>
-            </div>
-
-            {/* Submit */}
-            <button
-              disabled={taskSaving || !taskForm.title.trim()}
-              onClick={async () => {
-                if (!taskForm.title.trim()) return;
-                setTaskSaving(true);
-                try {
-                  await apiClient.post('/tasks', {
-                    title: taskForm.title.trim(),
-                    area: taskForm.area || null,
-                    priority: taskForm.priority,
-                    due_date: taskForm.due_date || null,
-                    source_page_id: page.id,
-                  });
-                  setTaskModalOpen(false);
-                } finally {
-                  setTaskSaving(false);
-                }
-              }}
-              style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem',
-                padding: '0.6rem 1.5rem',
-                borderRadius: '9999px',
-                background: taskForm.title.trim() ? 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))' : 'rgba(255,255,255,0.08)',
-                border: 'none',
-                color: taskForm.title.trim() ? '#000' : 'var(--color-on-surface-variant)',
-                fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.85rem',
-                cursor: taskSaving || !taskForm.title.trim() ? 'not-allowed' : 'pointer',
-                opacity: taskSaving ? 0.7 : 1,
-                alignSelf: 'flex-end',
-              }}
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>add_task</span>
-              {taskSaving ? 'Wird erstellt...' : 'Aufgabe erstellen'}
-            </button>
-          </div>
-        </>
-      )}
+      <TaskSlideOver
+        isOpen={taskSlideOverOpen}
+        onClose={() => setTaskSlideOverOpen(false)}
+        task={null}
+        prefill={taskSlideOverPrefill}
+        onSave={async (data) => { await createTask(data); }}
+        onDelete={async (id) => { await deleteTask(id); }}
+      />
     </div>
   );
 }
