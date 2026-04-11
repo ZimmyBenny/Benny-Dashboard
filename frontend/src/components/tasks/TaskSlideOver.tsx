@@ -15,7 +15,10 @@ function toLocalInputValue(iso: string): string {
 // Convert local datetime-local value back to UTC ISO for DB
 function toUtcIso(local: string): string | null {
   if (!local) return null;
-  const d = new Date(local); // interpreted as local time
+  // Safari requires seconds for valid ISO 8601 — "2026-04-11T14:30" → NaN in Safari
+  // Always append ":00" when only HH:mm is present
+  const withSeconds = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(local) ? local + ':00' : local;
+  const d = new Date(withSeconds);
   if (isNaN(d.getTime())) return null;
   return d.toISOString();
 }
