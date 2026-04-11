@@ -24,9 +24,10 @@ on run
     set daysForward to 90
   end try
 
-  -- Referenzdatum fuer UTC-Epoch-Berechnung (kein do shell script pro Event noetig)
-  set refDate to (date "Donnerstag, 1. Januar 1970 um 00:00:00")
-  set utcOffset to time to GMT -- z.B. 7200 fuer UTC+2 (CEST)
+  -- Epoch-Anker: Shell liefert UTC-Epoch des aktuellen Moments (locale-unabhaengig).
+  -- Statt hartkodiertem "Donnerstag, 1. Januar 1970 um 00:00:00" (bricht bei nicht-DE-Locale).
+  -- Rechnung: eventEpoch = (eventDate - nowDate) + nowEpoch  (Timezone kuertzt sich heraus)
+  set nowEpoch to (do shell script "date '+%s'") as integer
 
   tell application "Calendar"
     set theNow to current date
@@ -42,12 +43,12 @@ on run
             set evtUID to uid of evt
             set evtAllDay to allday event of evt
 
-            -- Epoch direkt in AppleScript berechnen (kein do shell script pro Event!)
-            set startEpoch to (((start date of evt) - refDate) - utcOffset) as integer
-            set endEpoch to (((end date of evt) - refDate) - utcOffset) as integer
+            -- Epoch berechnen: relativ zu "jetzt" (kein locale-abhaengiges Referenzdatum)
+            set startEpoch to (((start date of evt) - theNow) + nowEpoch) as integer
+            set endEpoch to (((end date of evt) - theNow) + nowEpoch) as integer
             set stampEpoch to 0
             try
-              set stampEpoch to (((stamp date of evt) - refDate) - utcOffset) as integer
+              set stampEpoch to (((stamp date of evt) - theNow) + nowEpoch) as integer
             end try
 
             -- Titel und Kalender-Name JSON-sicher escapen:
