@@ -257,8 +257,8 @@ export function CalendarPage() {
     try {
       await triggerSync(); // returns 202 immediately
       setLastSync(new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }));
-      // Events nach 5s neu laden (Sync braucht ~90-140s — weiteres Polling via Background-Sync)
-      setTimeout(() => loadEvents(), 5000);
+      // Sync dauert ~90-140s — Events an mehreren Zeitpunkten nachladen um das Fenster abzudecken
+      [5, 30, 60, 90, 120, 150].forEach(sec => setTimeout(() => loadEvents(), sec * 1000));
     } catch (err) {
       setSyncError(String(err));
     } finally {
@@ -270,8 +270,8 @@ export function CalendarPage() {
   useEffect(() => {
     loadCalendars(true);
     handleSync();
-    // Polling: alle 60s nach neuen Kalendern schauen
-    pollRef.current = setInterval(() => loadCalendars(true), 60_000);
+    // Polling: alle 60s Kalender + Events aktualisieren
+    pollRef.current = setInterval(() => { loadCalendars(true); loadEvents(); }, 60_000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

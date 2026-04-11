@@ -12,15 +12,26 @@ function toLocalInputValue(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-// Convert local datetime-local value back to UTC ISO for DB
-function toUtcIso(local: string): string | null {
-  if (!local) return null;
-  // Safari requires seconds for valid ISO 8601 — "2026-04-11T14:30" → NaN in Safari
-  // Always append ":00" when only HH:mm is present
-  const withSeconds = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(local) ? local + ':00' : local;
-  const d = new Date(withSeconds);
-  if (isNaN(d.getTime())) return null;
-  return d.toISOString();
+// Normalize a raw time string (e.g. "1430", "9:3", "14:30") to "HH:MM"
+function normalizeTime(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  let h = '', m = '';
+  if (digits.length <= 2) { h = digits; m = '00'; }
+  else if (digits.length === 3) { h = digits[0]; m = digits.slice(1); }
+  else { h = digits.slice(0, 2); m = digits.slice(2, 4); }
+  const hh = Math.min(23, parseInt(h || '0', 10));
+  const mm = Math.min(59, parseInt(m || '0', 10));
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+
+// Build a UTC ISO string from a "YYYY-MM-DD" date and "HH:MM" time using the
+// numeric Date constructor — avoids all string-parsing quirks across browsers.
+function buildReminderIso(date: string, time: string): string | null {
+  if (!date) return null;
+  const [y, mo, d] = date.split('-').map(Number);
+  const [hh, mm] = time.split(':').map(Number);
+  if (!y || !mo || !d) return null;
+  return new Date(y, mo - 1, d, hh || 8, mm || 0, 0).toISOString();
 }
 
 const AREAS = ['DJ', 'Amazon', 'Finanzen', 'KI-Agenten', 'Privat', 'Sonstiges'];
@@ -143,20 +154,19 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
   async function handleSave() {
     if (!form.title.trim()) return;
 
-    // Read actual DOM values at save time as the authoritative source.
-    // React state (form.reminder_date / reminder_time) is kept in sync via onChange,
-    // but native macOS date/time pickers can in some cases update the DOM without
-    // triggering a React synthetic onChange. Reading the ref value here closes that gap.
-    // Use || not ?? so empty string ("") also falls back to React state
+    // Read actual DOM values at save time — guards against native macOS date pickers
+    // not reliably firing React synthetic onChange.
     const reminderDate = reminderDateRef.current?.value || form.reminder_date;
-    const reminderTime = reminderTimeRef.current?.value || form.reminder_time;
+    const rawTime = reminderTimeRef.current?.value || form.reminder_time;
+
+    // Normalize time inline (onBlur may not have fired if user clicked Save directly).
+    // Handles "1430", "14.30", "14:30 ", "9" → proper "HH:MM".
+    const reminderTime = rawTime.trim() ? normalizeTime(rawTime) : '';
 
     // Allow date-only reminder: if a date is set but no time, default to 08:00.
     const effectiveTime = reminderTime || (reminderDate ? '08:00' : '');
     const hasReminder = !!(reminderDate && effectiveTime);
-    const reminderIso = hasReminder
-      ? toUtcIso(`${reminderDate}T${effectiveTime}`)
-      : null;
+    const reminderIso = hasReminder ? buildReminderIso(reminderDate, effectiveTime) : null;
 
     setSaving(true);
     try {
