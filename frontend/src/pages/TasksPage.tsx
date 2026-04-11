@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { KanbanBoard } from '../components/tasks/KanbanBoard';
 import { TaskFilters } from '../components/tasks/TaskFilters';
@@ -13,11 +14,23 @@ interface Filters {
 }
 
 export function TasksPage() {
+  const location = useLocation();
   const [filters, setFilters] = useState<Filters>({ search: '', area: '', priority: '' });
   const [activeTab, setActiveTab] = useState<'kanban' | 'archive'>('kanban');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isSlideOverOpen, setIsSlideOverOpen] = useState(false);
   const [boardRefreshKey, setBoardRefreshKey] = useState(0);
+
+  // Wenn vom Reminder-Popup navigiert wird, Aufgabe direkt öffnen
+  useEffect(() => {
+    const openTask = (location.state as { openTask?: Task } | null)?.openTask;
+    if (openTask) {
+      setSelectedTask(openTask);
+      setIsSlideOverOpen(true);
+      window.history.replaceState({}, document.title);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function refreshBoard() {
     setBoardRefreshKey((k) => k + 1);

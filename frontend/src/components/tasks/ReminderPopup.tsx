@@ -4,6 +4,7 @@ import type { Task } from '../../api/tasks.api';
 interface ReminderPopupProps {
   task: Task;
   onStatusChange: (task: Task, status: Task['status']) => void | Promise<void>;
+  onOpen: (task: Task) => void;
   onLater: (task: Task) => void;
 }
 
@@ -22,7 +23,7 @@ function playNotificationSound() {
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 0.6);
     osc.onended = () => ctx.close();
-  } catch { /* browser blockt AudioContext ohne User-Interaktion — ignorieren */ }
+  } catch { /* AudioContext ohne User-Interaktion geblockt */ }
 }
 
 function formatLocalDateTime(iso: string): string {
@@ -35,6 +36,14 @@ function formatLocalDateTime(iso: string): string {
   });
 }
 
+const PRIORITY_LABEL: Record<Task['priority'], string> = {
+  urgent: 'Dringend', high: 'Hoch', medium: 'Mittel', low: 'Niedrig',
+};
+const PRIORITY_COLOR: Record<Task['priority'], string> = {
+  urgent: 'var(--color-error)', high: 'var(--color-primary)',
+  medium: 'var(--color-on-surface-variant)', low: 'var(--color-outline)',
+};
+
 const STATUS_OPTIONS: { status: Task['status']; label: string; primary?: boolean }[] = [
   { status: 'open',        label: 'Offen' },
   { status: 'in_progress', label: 'In Arbeit' },
@@ -42,85 +51,100 @@ const STATUS_OPTIONS: { status: Task['status']; label: string; primary?: boolean
   { status: 'done',        label: 'Erledigt', primary: true },
 ];
 
-export function ReminderPopup({ task, onStatusChange, onLater }: ReminderPopupProps) {
+export function ReminderPopup({ task, onStatusChange, onOpen, onLater }: ReminderPopupProps) {
   useEffect(() => { playNotificationSound(); }, []);
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.6)',
-        zIndex: 100,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1rem',
-      }}
-    >
-      <div
-        style={{
-          background: 'var(--color-surface-container)',
-          border: '1px solid var(--color-outline-variant)',
-          borderRadius: '0.75rem',
-          padding: '1.5rem',
-          width: '100%',
-          maxWidth: '420px',
-        }}
-      >
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+      zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+    }}>
+      <div style={{
+        background: 'var(--color-surface-container)',
+        border: '1px solid var(--color-outline-variant)',
+        borderRadius: '0.875rem', padding: '1.5rem',
+        width: '100%', maxWidth: '440px',
+        boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
+      }}>
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-          <span
-            className="material-symbols-outlined"
-            style={{ fontSize: '22px', color: 'var(--color-primary)' }}
-          >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--color-primary)' }}>
             notifications_active
           </span>
-          <h2
-            style={{
-              fontFamily: 'var(--font-headline)',
-              fontWeight: 700,
-              fontSize: '1rem',
-              letterSpacing: '0.04em',
-              textTransform: 'uppercase',
-              color: 'var(--color-on-surface)',
-              margin: 0,
-            }}
-          >
-            Erinnerung!
-          </h2>
+          <span style={{
+            fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 600,
+            letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-primary)',
+          }}>
+            Erinnerung
+          </span>
+          {task.reminder_at && (
+            <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: 'var(--color-outline)', fontFamily: 'var(--font-body)' }}>
+              {formatLocalDateTime(task.reminder_at)}
+            </span>
+          )}
         </div>
 
-        {/* Task title */}
-        <p
+        {/* Task-Karte */}
+        <div style={{
+          background: 'var(--color-surface-container-high)',
+          border: '1px solid var(--color-outline-variant)',
+          borderRadius: '0.625rem', padding: '1rem', marginBottom: '1.25rem',
+        }}>
+          <p style={{
+            fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '1.05rem',
+            color: 'var(--color-on-surface)', margin: '0 0 0.5rem', lineHeight: 1.3,
+          }}>
+            {task.title}
+          </p>
+
+          {/* Badges */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem', marginBottom: task.description ? '0.625rem' : 0 }}>
+            <span style={{
+              padding: '0.1rem 0.5rem', borderRadius: '9999px', fontSize: '0.65rem', fontWeight: 600,
+              fontFamily: 'var(--font-body)', letterSpacing: '0.05em', textTransform: 'uppercase',
+              color: PRIORITY_COLOR[task.priority], background: 'rgba(255,255,255,0.06)',
+            }}>
+              {PRIORITY_LABEL[task.priority]}
+            </span>
+            {task.area && (
+              <span style={{
+                padding: '0.1rem 0.5rem', borderRadius: '9999px', fontSize: '0.65rem',
+                fontFamily: 'var(--font-body)', color: 'var(--color-secondary)', background: 'rgba(52,181,250,0.08)',
+              }}>
+                {task.area}
+              </span>
+            )}
+          </div>
+
+          {task.description && (
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)',
+              margin: 0, lineHeight: 1.5, wordBreak: 'break-word',
+              display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+            }}>
+              {task.description}
+            </p>
+          )}
+        </div>
+
+        {/* Aufgabe öffnen */}
+        <button
+          onClick={() => onOpen(task)}
           style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: '1.125rem',
-            color: 'var(--color-on-surface)',
-            marginTop: '1rem',
-            marginBottom: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem',
+            width: '100%', marginBottom: '1rem',
+            padding: '0.5rem 1rem', borderRadius: '0.5rem',
+            background: 'rgba(255,255,255,0.04)', border: '1px solid var(--color-outline-variant)',
+            color: 'var(--color-on-surface)', fontFamily: 'var(--font-body)',
+            fontWeight: 500, fontSize: '0.85rem', cursor: 'pointer',
           }}
         >
-          {task.title}
-        </p>
-
-        {/* Planned time */}
-        {task.reminder_at && (
-          <p
-            style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: '0.8rem',
-              color: 'var(--color-on-surface-variant)',
-              marginTop: '0.375rem',
-              marginBottom: 0,
-            }}
-          >
-            Geplant: {formatLocalDateTime(task.reminder_at)}
-          </p>
-        )}
+          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>open_in_new</span>
+          Aufgabe öffnen
+        </button>
 
         {/* Status-Auswahl */}
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--color-outline)', marginTop: '1.25rem', marginBottom: '0.5rem' }}>
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', color: 'var(--color-outline)', marginBottom: '0.5rem' }}>
           Status setzen:
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
@@ -129,17 +153,14 @@ export function ReminderPopup({ task, onStatusChange, onLater }: ReminderPopupPr
               key={status}
               onClick={() => onStatusChange(task, status)}
               style={{
-                padding: '0.5rem 0.75rem',
-                borderRadius: '9999px',
+                padding: '0.5rem 0.75rem', borderRadius: '9999px',
                 background: primary
                   ? 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))'
                   : 'rgba(255,255,255,0.06)',
                 border: primary ? 'none' : '1px solid var(--color-outline-variant)',
                 color: primary ? '#000' : 'var(--color-on-surface)',
-                fontFamily: 'var(--font-body)',
-                fontWeight: primary ? 700 : 500,
-                fontSize: '0.8rem',
-                cursor: 'pointer',
+                fontFamily: 'var(--font-body)', fontWeight: primary ? 700 : 500,
+                fontSize: '0.8rem', cursor: 'pointer',
               }}
             >
               {label}
@@ -147,21 +168,15 @@ export function ReminderPopup({ task, onStatusChange, onLater }: ReminderPopupPr
           ))}
         </div>
 
-        {/* Spaeter */}
+        {/* Später */}
         <button
           onClick={() => onLater(task)}
           style={{
-            marginTop: '0.75rem',
-            width: '100%',
-            padding: '0.4rem 1rem',
-            borderRadius: '9999px',
-            background: 'transparent',
+            marginTop: '0.75rem', width: '100%', padding: '0.4rem 1rem',
+            borderRadius: '9999px', background: 'transparent',
             border: '1px solid var(--color-outline-variant)',
-            color: 'var(--color-on-surface-variant)',
-            fontFamily: 'var(--font-body)',
-            fontWeight: 500,
-            fontSize: '0.8rem',
-            cursor: 'pointer',
+            color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)',
+            fontWeight: 500, fontSize: '0.8rem', cursor: 'pointer',
           }}
         >
           Später erinnern

@@ -313,6 +313,35 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
               />
             </div>
 
+            {/* Arbeitsmappe-Link — direkt unter dem Titel */}
+            {(task?.source_page_id || prefill?.source_page_id) && (
+              <div>
+                <label style={LABEL_STYLE}>Ursprung</label>
+                <button
+                  onClick={() => {
+                    const pageId = task?.source_page_id ?? prefill?.source_page_id;
+                    navigate('/arbeitsmappe', { state: { openPageId: pageId } });
+                    onClose();
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%',
+                    padding: '0.5rem 0.75rem',
+                    background: 'var(--color-surface-container-low)',
+                    border: '1px solid var(--color-outline-variant)',
+                    borderRadius: '0.5rem', cursor: 'pointer',
+                    color: 'var(--color-primary)', fontFamily: 'var(--font-body)',
+                    fontSize: '0.875rem', textAlign: 'left',
+                  }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '1rem', flexShrink: 0 }}>menu_book</span>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {task?.source_page_title ?? prefill?.source_page_title ?? `Seite #${task?.source_page_id ?? prefill?.source_page_id}`}
+                  </span>
+                  <span className="material-symbols-outlined" style={{ fontSize: '0.9rem', marginLeft: 'auto', flexShrink: 0, color: 'var(--color-on-surface-variant)' }}>open_in_new</span>
+                </button>
+              </div>
+            )}
+
             {/* Description */}
             <div>
               <label style={LABEL_STYLE}>Beschreibung</label>
@@ -515,45 +544,6 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
               />
             </div>
 
-            {/* Arbeitsmappe-Link — anzeigen wenn task oder prefill eine source_page_id haben */}
-            {(task?.source_page_id || prefill?.source_page_id) && (
-              <div>
-                <label style={LABEL_STYLE}>Ursprung</label>
-                <button
-                  onClick={() => {
-                    const pageId = task?.source_page_id ?? prefill?.source_page_id;
-                    navigate('/arbeitsmappe', { state: { openPageId: pageId } });
-                    onClose();
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    width: '100%',
-                    padding: '0.5rem 0.75rem',
-                    background: 'var(--color-surface-container-low)',
-                    border: '1px solid var(--color-outline-variant)',
-                    borderRadius: '0.5rem',
-                    cursor: 'pointer',
-                    color: 'var(--color-primary)',
-                    fontFamily: 'var(--font-body)',
-                    fontSize: '0.875rem',
-                    textAlign: 'left',
-                    transition: 'background 0.1s',
-                  }}
-                >
-                  <span className="material-symbols-outlined" style={{ fontSize: '1rem', flexShrink: 0 }}>
-                    menu_book
-                  </span>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {task?.source_page_title ?? prefill?.source_page_title ?? `Seite #${task?.source_page_id ?? prefill?.source_page_id}`}
-                  </span>
-                  <span className="material-symbols-outlined" style={{ fontSize: '0.9rem', marginLeft: 'auto', flexShrink: 0, color: 'var(--color-on-surface-variant)' }}>
-                    open_in_new
-                  </span>
-                </button>
-              </div>
-            )}
           </div>
 
           {/* Footer */}

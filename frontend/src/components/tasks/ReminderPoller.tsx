@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { fetchDueReminders, patchTaskStatus } from '../../api/tasks.api';
 import type { Task } from '../../api/tasks.api';
 import { ReminderPopup } from './ReminderPopup';
@@ -46,6 +47,7 @@ export function ReminderPoller() {
   }, [isAuthenticated, poll]);
 
   const current = queue[0] ?? null;
+  const navigate = useNavigate();
 
   const handleStatusChange = useCallback(async (task: Task, status: Task['status']) => {
     try {
@@ -57,11 +59,17 @@ export function ReminderPoller() {
     setQueue((prev) => prev.filter((t) => t.id !== task.id));
   }, []);
 
+  const handleOpen = useCallback((task: Task) => {
+    markDismissed(task);
+    setQueue((prev) => prev.filter((t) => t.id !== task.id));
+    navigate('/aufgaben', { state: { openTask: task } });
+  }, [navigate]);
+
   const handleLater = useCallback((task: Task) => {
     markDismissed(task);
     setQueue((prev) => prev.filter((t) => t.id !== task.id));
   }, []);
 
   if (!current) return null;
-  return <ReminderPopup task={current} onStatusChange={handleStatusChange} onLater={handleLater} />;
+  return <ReminderPopup task={current} onStatusChange={handleStatusChange} onOpen={handleOpen} onLater={handleLater} />;
 }
