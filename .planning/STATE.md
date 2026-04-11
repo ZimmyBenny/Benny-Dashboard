@@ -70,6 +70,9 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 | 260410-dtr | Zeiterfassung Export CSV+PDF und Projekt-Schnellstart | 2026-04-10 | e59656f | [260410-dtr-zeiterfassung-export-csv-pdf-und-projekt](.planning/quick/260410-dtr-zeiterfassung-export-csv-pdf-und-projekt/) |
 | 260410-ub6 | Aufgaben-Modul V1: Kanban-Board, CRUD-Backend, Slide-Over, Dashboard-Widget | 2026-04-10 | e176dfb | [260410-ub6-aufgaben-modul-v1-sqlite-tasks-tabelle-c](.planning/quick/260410-ub6-aufgaben-modul-v1-sqlite-tasks-tabelle-c/) |
 | 260411-i4e | Arbeitsmappe V1.2: Multi-Select Anhänge + Unterseiten (eine Ebene) | 2026-04-11 | 2e1be72 | [260411-i4e-arbeitsmappe-v1-2-multi-select-anh-nge-u](.planning/quick/260411-i4e-arbeitsmappe-v1-2-multi-select-anh-nge-u/) |
+| 260411-je1 | Arbeitsmappe → Aufgaben: Task-Erstellung mit source_page_id + Link zurück | 2026-04-11 | 228d406 | [260411-je1-arbeitsmappe-aufgaben-task-erstellung-mi](.planning/quick/260411-je1-arbeitsmappe-aufgaben-task-erstellung-mi/) |
+| 260411-jt9 | Aufgaben-Erinnerung: ReminderPoller + ReminderPopup + reminder_at in TaskSlideOver | 2026-04-11 | cce9c05 | [260411-jt9-aufgaben-erinnerung-reminderpoller-remin](.planning/quick/260411-jt9-aufgaben-erinnerung-reminderpoller-remin/) |
+| 260411-ki6 | Aufgaben-Archiv: archived-Status, Archivieren-Button (Erledigt-Tab), Archiv-Tab mit Suche | 2026-04-11 | a061c06 | [260411-ki6-aufgaben-archiv-archived-status-archivie](.planning/quick/260411-ki6-aufgaben-archiv-archived-status-archivie/) |
 
 ---
 *State initialized: 2026-04-07 | Last session: 2026-04-10*
