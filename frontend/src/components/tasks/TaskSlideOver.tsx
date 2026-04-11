@@ -54,6 +54,8 @@ interface FormData {
   due_date: string;
   start_date: string;
   reminder_at: string;
+  reminder_date: string;
+  reminder_time: string;
   tags: string;
   project_or_customer: string;
   notes: string;
@@ -62,11 +64,19 @@ interface FormData {
 }
 
 function taskToForm(task: Task | null): FormData {
+  let reminder_date = '';
+  let reminder_time = '';
+  if (task?.reminder_at) {
+    const local = toLocalInputValue(task.reminder_at); // "YYYY-MM-DDTHH:mm"
+    reminder_date = local.slice(0, 10);
+    reminder_time = local.slice(11, 16);
+  }
   if (!task) {
     return {
       title: '', description: '', status: 'open', priority: 'medium',
-      area: '', due_date: '', start_date: '', reminder_at: '', tags: '',
-      project_or_customer: '', notes: '', estimated_duration: '', status_note: '',
+      area: '', due_date: '', start_date: '', reminder_at: '',
+      reminder_date: '', reminder_time: '',
+      tags: '', project_or_customer: '', notes: '', estimated_duration: '', status_note: '',
     };
   }
   return {
@@ -78,6 +88,8 @@ function taskToForm(task: Task | null): FormData {
     due_date: task.due_date ?? '',
     start_date: task.start_date ?? '',
     reminder_at: task.reminder_at ? toLocalInputValue(task.reminder_at) : '',
+    reminder_date,
+    reminder_time,
     tags: task.tags ?? '',
     project_or_customer: task.project_or_customer ?? '',
     notes: task.notes ?? '',
@@ -131,8 +143,10 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete }: TaskS
         area: form.area || null,
         due_date: form.due_date || null,
         start_date: form.start_date || null,
-        reminder_at: toUtcIso(form.reminder_at),
-        has_reminder: form.reminder_at ? 1 : 0,
+        reminder_at: (form.reminder_date && form.reminder_time)
+          ? toUtcIso(`${form.reminder_date}T${form.reminder_time}`)
+          : null,
+        has_reminder: (form.reminder_date && form.reminder_time) ? 1 : 0,
         tags: form.tags || null,
         project_or_customer: form.project_or_customer || null,
         notes: form.notes || null,
@@ -360,17 +374,28 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete }: TaskS
             {/* Erinnerung */}
             <div>
               <label style={LABEL_STYLE}>Erinnerung am</label>
-              <input
-                className="task-input"
-                style={{ ...INPUT_STYLE, colorScheme: 'dark' }}
-                type="datetime-local"
-                value={form.reminder_at}
-                onChange={(e) => handleChange('reminder_at', e.target.value)}
-              />
-              {form.reminder_at && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                <input
+                  className="task-input"
+                  style={{ ...INPUT_STYLE, colorScheme: 'dark' }}
+                  type="date"
+                  value={form.reminder_date}
+                  onChange={(e) => handleChange('reminder_date', e.target.value)}
+                  placeholder="Datum"
+                />
+                <input
+                  className="task-input"
+                  style={{ ...INPUT_STYLE, colorScheme: 'dark' }}
+                  type="time"
+                  value={form.reminder_time}
+                  onChange={(e) => handleChange('reminder_time', e.target.value)}
+                  placeholder="Uhrzeit"
+                />
+              </div>
+              {(form.reminder_date || form.reminder_time) && (
                 <button
                   type="button"
-                  onClick={() => handleChange('reminder_at', '')}
+                  onClick={() => { handleChange('reminder_date', ''); handleChange('reminder_time', ''); }}
                   style={{ marginTop: '0.25rem', background: 'none', border: 'none', color: 'var(--color-outline)', fontSize: '0.7rem', cursor: 'pointer', padding: 0 }}
                 >
                   × Erinnerung entfernen
