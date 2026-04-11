@@ -68,7 +68,7 @@ router.get('/due-reminders', (_req, res) => {
     LEFT JOIN workbook_pages wp ON t.source_page_id = wp.id
     WHERE t.has_reminder = 1
       AND t.reminder_at IS NOT NULL
-      AND t.reminder_at <= datetime('now')
+      AND datetime(t.reminder_at) <= datetime('now')
       AND t.status NOT IN ('done', 'archived')
     ORDER BY t.reminder_at ASC
   `).all();

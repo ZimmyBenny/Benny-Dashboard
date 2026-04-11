@@ -125,6 +125,24 @@ export function TaskCard({ task, onClick, isDragging = false }: TaskCardProps) {
             {task.due_date}
           </span>
         )}
+
+        {/* Reminder bell */}
+        {task.has_reminder === 1 && task.reminder_at && (
+          <span
+            title={`Erinnerung: ${new Date(task.reminder_at.includes('T') ? task.reminder_at : task.reminder_at.replace(' ', 'T') + 'Z').toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })}`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.2rem',
+              fontFamily: 'var(--font-body)',
+              fontSize: '0.65rem',
+              color: 'var(--color-primary)',
+              letterSpacing: '0.03em',
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>notifications</span>
+          </span>
+        )}
       </div>
 
       {/* Tags */}
