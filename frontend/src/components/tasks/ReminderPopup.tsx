@@ -1,9 +1,28 @@
+import { useEffect } from 'react';
 import type { Task } from '../../api/tasks.api';
 
 interface ReminderPopupProps {
   task: Task;
-  onDone: (task: Task) => void | Promise<void>;
+  onStatusChange: (task: Task, status: Task['status']) => void | Promise<void>;
   onLater: (task: Task) => void;
+}
+
+function playNotificationSound() {
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.4);
+    gain.gain.setValueAtTime(0.35, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.6);
+    osc.onended = () => ctx.close();
+  } catch { /* browser blockt AudioContext ohne User-Interaktion — ignorieren */ }
 }
 
 function formatLocalDateTime(iso: string): string {
@@ -16,7 +35,16 @@ function formatLocalDateTime(iso: string): string {
   });
 }
 
-export function ReminderPopup({ task, onDone, onLater }: ReminderPopupProps) {
+const STATUS_OPTIONS: { status: Task['status']; label: string; primary?: boolean }[] = [
+  { status: 'open',        label: 'Offen' },
+  { status: 'in_progress', label: 'In Arbeit' },
+  { status: 'waiting',     label: 'Wartend' },
+  { status: 'done',        label: 'Erledigt', primary: true },
+];
+
+export function ReminderPopup({ task, onStatusChange, onLater }: ReminderPopupProps) {
+  useEffect(() => { playNotificationSound(); }, []);
+
   return (
     <div
       style={{
@@ -91,49 +119,53 @@ export function ReminderPopup({ task, onDone, onLater }: ReminderPopupProps) {
           </p>
         )}
 
-        {/* Buttons */}
-        <div
+        {/* Status-Auswahl */}
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--color-outline)', marginTop: '1.25rem', marginBottom: '0.5rem' }}>
+          Status setzen:
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+          {STATUS_OPTIONS.map(({ status, label, primary }) => (
+            <button
+              key={status}
+              onClick={() => onStatusChange(task, status)}
+              style={{
+                padding: '0.5rem 0.75rem',
+                borderRadius: '9999px',
+                background: primary
+                  ? 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))'
+                  : 'rgba(255,255,255,0.06)',
+                border: primary ? 'none' : '1px solid var(--color-outline-variant)',
+                color: primary ? '#000' : 'var(--color-on-surface)',
+                fontFamily: 'var(--font-body)',
+                fontWeight: primary ? 700 : 500,
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Spaeter */}
+        <button
+          onClick={() => onLater(task)}
           style={{
-            display: 'flex',
-            gap: '0.75rem',
-            marginTop: '1.5rem',
+            marginTop: '0.75rem',
+            width: '100%',
+            padding: '0.4rem 1rem',
+            borderRadius: '9999px',
+            background: 'transparent',
+            border: '1px solid var(--color-outline-variant)',
+            color: 'var(--color-on-surface-variant)',
+            fontFamily: 'var(--font-body)',
+            fontWeight: 500,
+            fontSize: '0.8rem',
+            cursor: 'pointer',
           }}
         >
-          <button
-            onClick={() => onLater(task)}
-            style={{
-              flex: 1,
-              padding: '0.5rem 1rem',
-              borderRadius: '9999px',
-              background: 'transparent',
-              border: '1px solid var(--color-outline-variant)',
-              color: 'var(--color-on-surface)',
-              fontFamily: 'var(--font-body)',
-              fontWeight: 600,
-              fontSize: '0.875rem',
-              cursor: 'pointer',
-            }}
-          >
-            Spaeter
-          </button>
-          <button
-            onClick={() => onDone(task)}
-            style={{
-              flex: 1,
-              padding: '0.5rem 1rem',
-              borderRadius: '9999px',
-              background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
-              border: 'none',
-              color: '#000',
-              fontFamily: 'var(--font-body)',
-              fontWeight: 700,
-              fontSize: '0.875rem',
-              cursor: 'pointer',
-            }}
-          >
-            Erledigt
-          </button>
-        </div>
+          Später erinnern
+        </button>
       </div>
     </div>
   );

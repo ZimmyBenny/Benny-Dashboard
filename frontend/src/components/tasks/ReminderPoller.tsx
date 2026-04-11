@@ -47,11 +47,11 @@ export function ReminderPoller() {
 
   const current = queue[0] ?? null;
 
-  const handleDone = useCallback(async (task: Task) => {
+  const handleStatusChange = useCallback(async (task: Task, status: Task['status']) => {
     try {
-      await patchTaskStatus(task.id, 'done', task.position);
+      await patchTaskStatus(task.id, status, task.position);
     } catch (err) {
-      console.error('[ReminderPoller] mark done failed', err);
+      console.error('[ReminderPoller] status change failed', err);
     }
     markDismissed(task);
     setQueue((prev) => prev.filter((t) => t.id !== task.id));
@@ -63,5 +63,5 @@ export function ReminderPoller() {
   }, []);
 
   if (!current) return null;
-  return <ReminderPopup task={current} onDone={handleDone} onLater={handleLater} />;
+  return <ReminderPopup task={current} onStatusChange={handleStatusChange} onLater={handleLater} />;
 }

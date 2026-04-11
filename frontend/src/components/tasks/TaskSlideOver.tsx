@@ -163,10 +163,14 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
     // Handles "1430", "14.30", "14:30 ", "9" → proper "HH:MM".
     const reminderTime = rawTime.trim() ? normalizeTime(rawTime) : '';
 
+    // If a time is set but no date → default to today (common case: same-day reminder).
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const effectiveDate = reminderDate || (reminderTime ? todayStr : '');
+
     // Allow date-only reminder: if a date is set but no time, default to 08:00.
-    const effectiveTime = reminderTime || (reminderDate ? '08:00' : '');
-    const hasReminder = !!(reminderDate && effectiveTime);
-    const reminderIso = hasReminder ? buildReminderIso(reminderDate, effectiveTime) : null;
+    const effectiveTime = reminderTime || (effectiveDate ? '08:00' : '');
+    const hasReminder = !!(effectiveDate && effectiveTime);
+    const reminderIso = hasReminder ? buildReminderIso(effectiveDate, effectiveTime) : null;
 
     setSaving(true);
     try {
@@ -416,6 +420,10 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
                   type="date"
                   value={form.reminder_date}
                   onChange={(e) => handleChange('reminder_date', e.target.value)}
+                  onInput={(e) => {
+                    const val = (e.target as HTMLInputElement).value;
+                    if (val) handleChange('reminder_date', val);
+                  }}
                   placeholder="Datum"
                 />
                 <input
