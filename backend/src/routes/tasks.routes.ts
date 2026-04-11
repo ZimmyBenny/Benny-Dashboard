@@ -13,7 +13,7 @@ router.get('/', (req, res) => {
     all_done?: string;
   };
 
-  let sql = `SELECT * FROM tasks WHERE 1=1`;
+  let sql = `SELECT t.*, wp.title AS source_page_title FROM tasks t LEFT JOIN workbook_pages wp ON t.source_page_id = wp.id WHERE 1=1`;
   const params: (string | number)[] = [];
 
   if (status) {
@@ -36,13 +36,26 @@ router.get('/', (req, res) => {
 
   // For done status: only last 20 unless all_done=true
   if (status === 'done' && all_done !== 'true') {
-    sql += ' ORDER BY completed_at DESC LIMIT 20';
+    sql += ' ORDER BY t.completed_at DESC LIMIT 20';
   } else {
-    sql += ' ORDER BY position ASC';
+    sql += ' ORDER BY t.position ASC';
   }
 
   const rows = db.prepare(sql).all(...params);
   res.json(rows);
+});
+
+// GET /api/tasks/:id
+router.get('/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const row = db.prepare(
+    `SELECT t.*, wp.title AS source_page_title
+     FROM tasks t
+     LEFT JOIN workbook_pages wp ON t.source_page_id = wp.id
+     WHERE t.id = ?`
+  ).get(id);
+  if (!row) { res.status(404).json({ error: 'Task nicht gefunden' }); return; }
+  res.json(row);
 });
 
 // GET /api/tasks/stats
@@ -66,7 +79,7 @@ router.post('/', (req, res) => {
     title, description, status, area, priority, due_date, tags,
     project_or_customer, notes, start_date, reminder_at, has_reminder,
     create_calendar_entry, calendar_event_id, calendar_sync_status,
-    is_all_day, estimated_duration, status_note,
+    is_all_day, estimated_duration, status_note, source_page_id,
   } = req.body as {
     title?: string;
     description?: string | null;
@@ -86,6 +99,7 @@ router.post('/', (req, res) => {
     is_all_day?: number;
     estimated_duration?: number | null;
     status_note?: string | null;
+    source_page_id?: number | null;
   };
 
   if (!title || !title.trim()) {
@@ -111,8 +125,8 @@ router.post('/', (req, res) => {
       title, description, status, area, priority, due_date, tags,
       project_or_customer, notes, start_date, reminder_at, has_reminder,
       create_calendar_entry, calendar_event_id, calendar_sync_status,
-      is_all_day, estimated_duration, status_note, position
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      is_all_day, estimated_duration, status_note, source_page_id, position
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     title.trim(),
     description ?? null,
@@ -132,10 +146,16 @@ router.post('/', (req, res) => {
     is_all_day ?? 0,
     estimated_duration ?? null,
     status_note ?? null,
+    source_page_id ?? null,
     position,
   );
 
-  const created = db.prepare('SELECT * FROM tasks WHERE id = ?').get(result.lastInsertRowid);
+  const created = db.prepare(
+    `SELECT t.*, wp.title AS source_page_title
+     FROM tasks t
+     LEFT JOIN workbook_pages wp ON t.source_page_id = wp.id
+     WHERE t.id = ?`
+  ).get(result.lastInsertRowid);
   res.status(201).json(created);
 });
 
@@ -153,7 +173,7 @@ router.put('/:id', (req, res) => {
     title, description, status, area, priority, due_date, tags,
     project_or_customer, notes, start_date, reminder_at, has_reminder,
     create_calendar_entry, calendar_event_id, calendar_sync_status,
-    is_all_day, estimated_duration, position, status_note,
+    is_all_day, estimated_duration, position, status_note, source_page_id,
   } = req.body as {
     title?: string;
     description?: string | null;
@@ -174,6 +194,7 @@ router.put('/:id', (req, res) => {
     estimated_duration?: number | null;
     position?: number;
     status_note?: string | null;
+    source_page_id?: number | null;
   };
 
   if (status_note && status_note.length > 500) {
@@ -195,7 +216,8 @@ router.put('/:id', (req, res) => {
         due_date = ?, tags = ?, project_or_customer = ?, notes = ?,
         start_date = ?, reminder_at = ?, has_reminder = ?, create_calendar_entry = ?,
         calendar_event_id = ?, calendar_sync_status = ?, is_all_day = ?,
-        estimated_duration = ?, status_note = ?, position = COALESCE(?, position),
+        estimated_duration = ?, status_note = ?, source_page_id = COALESCE(?, source_page_id),
+        position = COALESCE(?, position),
         completed_at = ${completedAtExpr},
         updated_at = datetime('now')
     WHERE id = ?
@@ -218,6 +240,7 @@ router.put('/:id', (req, res) => {
     is_all_day ?? 0,
     estimated_duration ?? null,
     status_note !== undefined ? (status_note ?? null) : (existing as Record<string, unknown>).status_note ?? null,
+    source_page_id !== undefined ? (source_page_id ?? null) : null,
     position ?? null,
     id,
   );
