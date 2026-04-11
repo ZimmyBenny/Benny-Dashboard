@@ -129,6 +129,10 @@ export async function toggleTemplate(id: number): Promise<Page> {
   return data;
 }
 
+export async function deletePage(id: number): Promise<void> {
+  await apiClient.delete(`/workbook/pages/${id}`);
+}
+
 // Templates
 export async function fetchTemplates(): Promise<Template[]> {
   const { data } = await apiClient.get<Template[]>('/workbook/templates');

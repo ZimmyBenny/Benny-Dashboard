@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Page } from '../../api/workbook.api';
+import { deletePage, type Page } from '../../api/workbook.api';
 
 interface PageListProps {
   pages: Page[];
@@ -21,8 +21,15 @@ function formatDate(dateStr: string): string {
   }
 }
 
-export function PageList({ pages, activeId, onSelect, onNew }: PageListProps) {
+export function PageList({ pages, activeId, onSelect, onNew, onReload }: PageListProps) {
   const [showPinned, setShowPinned] = useState(false);
+
+  async function handleDelete(e: React.MouseEvent, id: number, title: string) {
+    e.stopPropagation();
+    if (!window.confirm(`Seite "${title || 'Unbenannte Seite'}" wirklich löschen?`)) return;
+    await deletePage(id);
+    onReload();
+  }
 
   const filtered = showPinned ? pages.filter((p) => p.is_pinned === 1) : pages;
   const sorted = [...filtered].sort((a, b) => {
@@ -108,7 +115,7 @@ export function PageList({ pages, activeId, onSelect, onNew }: PageListProps) {
           </div>
         )}
         {sorted.map((page) => (
-          <button
+          <div
             key={page.id}
             onClick={() => onSelect(page.id)}
             style={{
@@ -116,20 +123,25 @@ export function PageList({ pages, activeId, onSelect, onNew }: PageListProps) {
               padding: '0.75rem 1rem',
               background: activeId === page.id ? 'rgba(204,151,255,0.08)' : 'transparent',
               borderLeft: activeId === page.id ? '3px solid var(--color-primary)' : '3px solid transparent',
-              border: 'none',
               cursor: 'pointer',
               textAlign: 'left',
               transition: 'background 0.15s',
+              boxSizing: 'border-box',
+              position: 'relative',
             }}
             onMouseEnter={(e) => {
               if (activeId !== page.id) {
-                (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.03)';
+                (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.03)';
               }
+              const btn = e.currentTarget.querySelector<HTMLButtonElement>('.page-delete-btn');
+              if (btn) btn.style.opacity = '1';
             }}
             onMouseLeave={(e) => {
               if (activeId !== page.id) {
-                (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+                (e.currentTarget as HTMLDivElement).style.background = 'transparent';
               }
+              const btn = e.currentTarget.querySelector<HTMLButtonElement>('.page-delete-btn');
+              if (btn) btn.style.opacity = '0';
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
@@ -156,6 +168,25 @@ export function PageList({ pages, activeId, onSelect, onNew }: PageListProps) {
                   push_pin
                 </span>
               )}
+              <button
+                className="page-delete-btn"
+                onClick={(e) => handleDelete(e, page.id, page.title)}
+                style={{
+                  opacity: 0,
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '0.1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  color: 'var(--color-error)',
+                  transition: 'opacity 0.15s',
+                  flexShrink: 0,
+                  marginLeft: '0.25rem',
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '0.9rem' }}>delete</span>
+              </button>
             </div>
             {page.excerpt && (
               <div
@@ -182,7 +213,7 @@ export function PageList({ pages, activeId, onSelect, onNew }: PageListProps) {
             >
               {formatDate(page.updated_at)}
             </div>
-          </button>
+          </div>
         ))}
       </div>
     </div>
