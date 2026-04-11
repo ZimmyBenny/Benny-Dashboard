@@ -57,7 +57,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
   const [taskModalOpen, setTaskModalOpen] = useState(false);
-  const [taskForm, setTaskForm] = useState({ title: '', area: '', priority: 'medium' as const });
+  const [taskForm, setTaskForm] = useState({ title: '', area: '', priority: 'medium' as const, due_date: '' });
   const [taskSaving, setTaskSaving] = useState(false);
 
   const saveTimerRef = useRef<number | null>(null);
@@ -293,7 +293,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         <div style={{ width: '1px', height: '1.2rem', background: 'var(--color-outline-variant)', margin: '0 0.2rem' }} />
         <button
           onClick={() => {
-            setTaskForm({ title: page.title, area: sectionName ?? '', priority: 'medium' });
+            setTaskForm({ title: page.title, area: sectionName ?? '', priority: 'medium', due_date: '' });
             setTaskModalOpen(true);
           }}
           title="Aufgabe aus dieser Seite erstellen"
@@ -593,21 +593,42 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
               />
             </div>
 
-            {/* Prioritaet */}
-            <div>
-              <label style={{ display: 'block', fontFamily: 'var(--font-body)', fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--color-outline)', marginBottom: '0.3rem' }}>
-                Prioritaet
-              </label>
-              <select
-                value={taskForm.priority}
-                onChange={(e) => setTaskForm((f) => ({ ...f, priority: e.target.value as 'low' | 'medium' | 'high' | 'urgent' }))}
-                style={{ width: '100%', background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline-variant)', borderRadius: '0.5rem', color: 'var(--color-on-surface)', fontFamily: 'var(--font-body)', fontSize: '0.875rem', padding: '0.5rem 0.75rem', outline: 'none', boxSizing: 'border-box' }}
-              >
-                <option value="low">Niedrig</option>
-                <option value="medium">Mittel</option>
-                <option value="high">Hoch</option>
-                <option value="urgent">Dringend</option>
-              </select>
+            {/* Prioritaet + Fällig nebeneinander */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div>
+                <label style={{ display: 'block', fontFamily: 'var(--font-body)', fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--color-outline)', marginBottom: '0.3rem' }}>
+                  Priorität
+                </label>
+                <select
+                  value={taskForm.priority}
+                  onChange={(e) => setTaskForm((f) => ({ ...f, priority: e.target.value as 'low' | 'medium' | 'high' | 'urgent' }))}
+                  style={{ width: '100%', background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline-variant)', borderRadius: '0.5rem', color: 'var(--color-on-surface)', fontFamily: 'var(--font-body)', fontSize: '0.875rem', padding: '0.5rem 0.75rem', outline: 'none', boxSizing: 'border-box' }}
+                >
+                  <option value="low">Niedrig</option>
+                  <option value="medium">Mittel</option>
+                  <option value="high">Hoch</option>
+                  <option value="urgent">Dringend</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontFamily: 'var(--font-body)', fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--color-outline)', marginBottom: '0.3rem' }}>
+                  Fällig am
+                </label>
+                <input
+                  type="date"
+                  value={taskForm.due_date}
+                  onChange={(e) => setTaskForm((f) => ({ ...f, due_date: e.target.value }))}
+                  style={{ width: '100%', background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline-variant)', borderRadius: '0.5rem', color: 'var(--color-on-surface)', fontFamily: 'var(--font-body)', fontSize: '0.875rem', padding: '0.5rem 0.75rem', outline: 'none', boxSizing: 'border-box', colorScheme: 'dark' }}
+                />
+              </div>
+            </div>
+
+            {/* Verknüpft mit */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem', borderRadius: '0.5rem', background: 'rgba(204,151,255,0.08)', border: '1px solid rgba(204,151,255,0.2)' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: 'var(--color-primary)', flexShrink: 0 }}>menu_book</span>
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)' }}>
+                Verknüpft mit <strong style={{ color: 'var(--color-on-surface)' }}>{page.title}</strong>
+              </span>
             </div>
 
             {/* Submit */}
@@ -621,6 +642,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
                     title: taskForm.title.trim(),
                     area: taskForm.area || null,
                     priority: taskForm.priority,
+                    due_date: taskForm.due_date || null,
                     source_page_id: page.id,
                   });
                   setTaskModalOpen(false);

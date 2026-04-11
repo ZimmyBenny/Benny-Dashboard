@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { exec } from 'child_process';
-import { copyFile, mkdir } from 'fs/promises';
+import { copyFile, mkdir, readdir, unlink } from 'fs/promises';
 import { promisify } from 'util';
 import path from 'path';
 import os from 'os';
@@ -55,7 +55,7 @@ router.post('/', async (_req, res) => {
     result.errors.push(`DB: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  // ── 3. Uploads → iCloud (nur kopieren, nie automatisch löschen) ──────────────
+  // ── 3. Uploads → iCloud (kopieren; Cleanup nach 7 Tagen Abwesenheit aus DB) ────
   try {
     const uploadsBackupDir = path.join(ICLOUD_BACKUP_DIR, 'uploads');
     await mkdir(uploadsBackupDir, { recursive: true });
@@ -63,8 +63,9 @@ router.post('/', async (_req, res) => {
     // Aktuelle Anhänge aus DB mit Originalnamen holen
     type AttRow = { id: number; file_name: string; storage_path: string };
     const attachments = db.prepare('SELECT id, file_name, storage_path FROM workbook_attachments').all() as AttRow[];
+    const validNames = new Set(attachments.map((a) => a.file_name));
 
-    // Neue/vorhandene Dateien ins Backup kopieren — nichts wird automatisch gelöscht
+    // Immer: neue/geänderte Dateien ins Backup kopieren
     await Promise.all(
       attachments.map(async (att) => {
         const src = path.join(UPLOADS_PATH, att.storage_path);
@@ -72,6 +73,33 @@ router.post('/', async (_req, res) => {
         try { await copyFile(src, dest); } catch { /* Datei fehlt lokal — überspringen */ }
       })
     );
+
+    // Backup-Dateien die nicht in DB sind: Abwesenheit tracken
+    const backupFiles = await readdir(uploadsBackupDir).catch(() => [] as string[]);
+    const now = new Date();
+    const GRACE_DAYS = 7;
+
+    for (const f of backupFiles) {
+      if (validNames.has(f)) {
+        // Wieder in DB vorhanden → aus Pending-Liste entfernen
+        db.prepare('DELETE FROM backup_pending_cleanup WHERE file_name = ?').run(f);
+      } else {
+        // Nicht in DB → Eintrag anlegen falls noch nicht vorhanden
+        db.prepare('INSERT OR IGNORE INTO backup_pending_cleanup (file_name, first_absent_at) VALUES (?, ?)').run(f, now.toISOString());
+      }
+    }
+
+    // Dateien löschen die seit mehr als 7 Tagen nicht mehr in der DB sind
+    type PendingRow = { file_name: string; first_absent_at: string };
+    const pending = db.prepare('SELECT file_name, first_absent_at FROM backup_pending_cleanup').all() as PendingRow[];
+    for (const p of pending) {
+      const absentSince = new Date(p.first_absent_at);
+      const daysSince = (now.getTime() - absentSince.getTime()) / (1000 * 60 * 60 * 24);
+      if (daysSince >= GRACE_DAYS) {
+        await unlink(path.join(uploadsBackupDir, p.file_name)).catch(() => {});
+        db.prepare('DELETE FROM backup_pending_cleanup WHERE file_name = ?').run(p.file_name);
+      }
+    }
 
     result.uploads = attachments.length > 0
       ? `Backups/uploads (${attachments.length} Datei${attachments.length === 1 ? '' : 'en'})`

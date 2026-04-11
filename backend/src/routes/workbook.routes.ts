@@ -271,7 +271,10 @@ router.patch('/pages/:id/template', (req: Request, res: Response) => {
 });
 
 router.delete('/pages/:id', (req: Request, res: Response) => {
-  db.prepare('DELETE FROM workbook_pages WHERE id = ?').run(Number(req.params.id));
+  const id = Number(req.params.id);
+  // FK ON DELETE SET NULL funktioniert nicht bei ALTER TABLE — manuell bereinigen
+  db.prepare('UPDATE tasks SET source_page_id = NULL WHERE source_page_id = ?').run(id);
+  db.prepare('DELETE FROM workbook_pages WHERE id = ?').run(id);
   res.status(204).end();
 });
 

@@ -15,8 +15,14 @@ function SidebarNavLink({
   collapsed: boolean;
   end?: boolean;
 }) {
+  const [hovered, setHovered] = useState(false);
+
   return (
-    <div className="relative group">
+    <div
+      className="relative group"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       <NavLink
         to={item.path}
         end={end}
@@ -24,8 +30,16 @@ function SidebarNavLink({
         style={({ isActive }) => ({
           padding: collapsed ? '0.5rem' : '0.5rem 0.75rem',
           justifyContent: collapsed ? 'center' : undefined,
-          color: isActive ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
-          backgroundColor: isActive ? 'var(--color-surface-container-high)' : 'transparent',
+          color: isActive
+            ? 'var(--color-primary)'
+            : hovered
+            ? 'var(--color-on-surface)'
+            : 'var(--color-on-surface-variant)',
+          backgroundColor: isActive
+            ? 'var(--color-surface-container-high)'
+            : hovered
+            ? 'rgba(255,255,255,0.07)'
+            : 'transparent',
           boxShadow: isActive ? 'inset 3px 0 0 var(--color-primary)' : 'none',
         })}
       >
@@ -39,11 +53,12 @@ function SidebarNavLink({
           <span style={{
             fontFamily: 'var(--font-body)',
             fontSize: '0.8125rem',
-            fontWeight: 500,
+            fontWeight: hovered ? 700 : 500,
             letterSpacing: '0.01em',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
+            transition: 'font-weight 0.1s',
           }}>
             {item.label}
           </span>
@@ -79,11 +94,37 @@ export function Sidebar() {
 
   type BackupState = 'idle' | 'loading' | 'success' | 'error';
   const [backupState, setBackupState] = useState<BackupState>('idle');
+  const [lastBackupAt, setLastBackupAt] = useState<Date | null>(() => {
+    const s = localStorage.getItem('lastBackupAt');
+    return s ? new Date(s) : null;
+  });
+
+  const [hoveredToggle, setHoveredToggle] = useState(false);
+  const [hoveredBackup, setHoveredBackup] = useState(false);
+  const [hoveredTheme, setHoveredTheme] = useState(false);
+  const [hoveredLogout, setHoveredLogout] = useState(false);
+
+  function formatLastBackup(date: Date): string {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffH = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMin = Math.floor(diffMs / (1000 * 60));
+    const isToday = date.toDateString() === now.toDateString();
+    if (diffMin < 1) return 'gerade eben';
+    if (diffMin < 60) return `vor ${diffMin} Min.`;
+    if (isToday) return `vor ${diffH} Std.`;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays === 1) return 'gestern';
+    return `vor ${diffDays} Tagen`;
+  }
 
   async function handleBackup() {
     setBackupState('loading');
     try {
       await apiClient.post('/backup');
+      const now = new Date();
+      setLastBackupAt(now);
+      localStorage.setItem('lastBackupAt', now.toISOString());
       setBackupState('success');
       setTimeout(() => setBackupState('idle'), 3000);
     } catch {
@@ -92,13 +133,21 @@ export function Sidebar() {
     }
   }
 
+  const btnBaseStyle = (hovered: boolean, extraColor?: string) => ({
+    color: extraColor ?? (hovered ? 'var(--color-on-surface)' : 'var(--color-on-surface-variant)'),
+    background: hovered ? 'rgba(255,255,255,0.07)' : 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+  });
+
   return (
     <aside
       className="flex flex-col h-screen flex-shrink-0 overflow-hidden transition-[width] duration-150 ease-out"
       style={{
         width: collapsed ? '52px' : '240px',
         backgroundColor: 'var(--color-surface-container)',
-        borderRight: '1px solid var(--color-surface-container-high)',
+        borderRight: '1px solid var(--color-outline-variant)',
+        boxShadow: '2px 0 12px rgba(0,0,0,0.35)',
       }}
     >
       {/* Brand mark */}
@@ -177,13 +226,13 @@ export function Sidebar() {
       <div className="p-2" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
         <button
           onClick={toggleSidebar}
+          onMouseEnter={() => setHoveredToggle(true)}
+          onMouseLeave={() => setHoveredToggle(false)}
           className="flex items-center gap-3 rounded-lg transition-all duration-150 w-full"
           style={{
             padding: collapsed ? '0.5rem' : '0.5rem 0.75rem',
             justifyContent: collapsed ? 'center' : undefined,
-            color: 'var(--color-on-surface-variant)',
-            background: 'transparent',
-            cursor: 'pointer',
+            ...btnBaseStyle(hoveredToggle),
           }}
           title={collapsed ? 'Sidebar ausklappen' : 'Sidebar einklappen'}
         >
@@ -194,7 +243,7 @@ export function Sidebar() {
             <span style={{
               fontFamily: 'var(--font-body)',
               fontSize: '0.8125rem',
-              fontWeight: 500,
+              fontWeight: hoveredToggle ? 700 : 500,
               letterSpacing: '0.01em',
             }}>
               Einklappen
@@ -205,38 +254,56 @@ export function Sidebar() {
 
       {/* Backup + Settings + Logout */}
       <div className="p-2" style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+
         {/* Backup Button */}
         <div className="relative group">
           <button
             onClick={handleBackup}
             disabled={backupState === 'loading'}
+            onMouseEnter={() => setHoveredBackup(true)}
+            onMouseLeave={() => setHoveredBackup(false)}
             className="flex items-center gap-3 rounded-lg transition-all duration-150 w-full"
             style={{
               padding: collapsed ? '0.5rem' : '0.5rem 0.75rem',
               justifyContent: collapsed ? 'center' : undefined,
-              color: backupState === 'success'
-                ? 'var(--color-secondary)'
-                : backupState === 'error'
-                  ? '#f87171'
-                  : 'var(--color-on-surface-variant)',
-              background: 'transparent',
               border: 'none',
               cursor: backupState === 'loading' ? 'default' : 'pointer',
               opacity: backupState === 'loading' ? 0.6 : 1,
+              color: backupState === 'success'
+                ? 'var(--color-secondary)'
+                : backupState === 'error'
+                ? '#f87171'
+                : hoveredBackup
+                ? 'var(--color-on-surface)'
+                : 'var(--color-on-surface-variant)',
+              background: hoveredBackup && backupState === 'idle' ? 'rgba(255,255,255,0.07)' : 'transparent',
             }}
           >
             <span className="material-symbols-outlined flex-shrink-0" style={{ fontSize: '20px' }}>
               {backupState === 'success' ? 'cloud_done' : backupState === 'error' ? 'cloud_off' : 'backup'}
             </span>
             {!collapsed && (
-              <span style={{
-                fontFamily: 'var(--font-body)',
-                fontSize: '0.8125rem',
-                fontWeight: 500,
-                letterSpacing: '0.01em',
-              }}>
-                {backupState === 'loading' ? 'Sichern…' : backupState === 'success' ? 'Gesichert!' : backupState === 'error' ? 'Fehler' : 'Backup'}
-              </span>
+              <>
+                <span style={{
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '0.8125rem',
+                  fontWeight: hoveredBackup ? 700 : 500,
+                  letterSpacing: '0.01em',
+                }}>
+                  {backupState === 'loading' ? 'Sichern…' : backupState === 'success' ? 'Gesichert!' : backupState === 'error' ? 'Fehler' : 'Backup'}
+                </span>
+                {lastBackupAt && backupState === 'idle' && (
+                  <span style={{
+                    fontFamily: 'var(--font-body)',
+                    fontSize: '0.625rem',
+                    color: 'var(--color-outline)',
+                    marginLeft: 'auto',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {formatLastBackup(lastBackupAt)}
+                  </span>
+                )}
+              </>
             )}
           </button>
           {collapsed && (
@@ -259,14 +326,13 @@ export function Sidebar() {
         <div className="relative group">
           <button
             onClick={toggleTheme}
+            onMouseEnter={() => setHoveredTheme(true)}
+            onMouseLeave={() => setHoveredTheme(false)}
             className="flex items-center gap-3 rounded-lg transition-all duration-150 w-full"
             style={{
               padding: collapsed ? '0.5rem' : '0.5rem 0.75rem',
               justifyContent: collapsed ? 'center' : undefined,
-              color: 'var(--color-on-surface-variant)',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
+              ...btnBaseStyle(hoveredTheme),
             }}
             title={theme === 'dark' ? 'Tagmodus' : 'Nachtmodus'}
           >
@@ -277,7 +343,7 @@ export function Sidebar() {
               <span style={{
                 fontFamily: 'var(--font-body)',
                 fontSize: '0.8125rem',
-                fontWeight: 500,
+                fontWeight: hoveredTheme ? 700 : 500,
                 letterSpacing: '0.01em',
               }}>
                 {theme === 'dark' ? 'Tagmodus' : 'Nachtmodus'}
@@ -301,17 +367,18 @@ export function Sidebar() {
         </div>
 
         <SidebarNavLink item={settingsItem} collapsed={collapsed} />
+
+        {/* Logout */}
         <div className="relative group">
           <button
             onClick={() => { logout(); navigate('/login'); }}
+            onMouseEnter={() => setHoveredLogout(true)}
+            onMouseLeave={() => setHoveredLogout(false)}
             className="flex items-center gap-3 rounded-lg transition-all duration-150 w-full"
             style={{
               padding: collapsed ? '0.5rem' : '0.5rem 0.75rem',
               justifyContent: collapsed ? 'center' : undefined,
-              color: 'var(--color-on-surface-variant)',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
+              ...btnBaseStyle(hoveredLogout),
             }}
           >
             <span className="material-symbols-outlined flex-shrink-0" style={{ fontSize: '20px' }}>
@@ -321,7 +388,7 @@ export function Sidebar() {
               <span style={{
                 fontFamily: 'var(--font-body)',
                 fontSize: '0.8125rem',
-                fontWeight: 500,
+                fontWeight: hoveredLogout ? 700 : 500,
                 letterSpacing: '0.01em',
               }}>
                 Abmelden
