@@ -251,13 +251,14 @@ export function CalendarPage() {
     } catch { /* ignorieren */ }
   }, []);
 
-  // Sync-Funktion
+  // Sync-Funktion — non-blocking: Backend antwortet sofort mit 202, Sync läuft ~90-140s im Hintergrund
   async function handleSync() {
     setSyncing(true); setSyncError(null);
     try {
-      await triggerSync();
+      await triggerSync(); // returns 202 immediately
       setLastSync(new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }));
-      await loadEvents();
+      // Events nach 5s neu laden (Sync braucht ~90-140s — weiteres Polling via Background-Sync)
+      setTimeout(() => loadEvents(), 5000);
     } catch (err) {
       setSyncError(String(err));
     } finally {

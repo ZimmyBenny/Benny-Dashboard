@@ -144,8 +144,9 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
     // React state (form.reminder_date / reminder_time) is kept in sync via onChange,
     // but native macOS date/time pickers can in some cases update the DOM without
     // triggering a React synthetic onChange. Reading the ref value here closes that gap.
-    const reminderDate = reminderDateRef.current?.value ?? form.reminder_date;
-    const reminderTime = reminderTimeRef.current?.value ?? form.reminder_time;
+    // Use || not ?? so empty string ("") also falls back to React state
+    const reminderDate = reminderDateRef.current?.value || form.reminder_date;
+    const reminderTime = reminderTimeRef.current?.value || form.reminder_time;
 
     // Allow date-only reminder: if a date is set but no time, default to 08:00.
     const effectiveTime = reminderTime || (reminderDate ? '08:00' : '');

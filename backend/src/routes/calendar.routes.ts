@@ -27,10 +27,11 @@ router.get('/events', (req, res) => {
   res.json(rows);
 });
 
-// POST /api/calendar/sync — on-demand Pull von Apple Calendar
-router.post('/sync', async (_req, res) => {
-  const result = await syncPull();
-  res.json({ ok: true, ...result });
+// POST /api/calendar/sync — on-demand Pull von Apple Calendar (non-blocking)
+// Sync braucht 90-140s — sofort 202 zurückgeben, Sync läuft im Hintergrund
+router.post('/sync', (_req, res) => {
+  res.status(202).json({ ok: true, status: 'started' });
+  syncPull().catch((err) => console.error('[sync] on-demand sync error:', err));
 });
 
 // GET /api/calendar/calendars — Kalender-Liste + optional neue Kalender erkennen
