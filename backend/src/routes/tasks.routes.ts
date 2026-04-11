@@ -45,19 +45,6 @@ router.get('/', (req, res) => {
   res.json(rows);
 });
 
-// GET /api/tasks/:id
-router.get('/:id', (req, res) => {
-  const id = Number(req.params.id);
-  const row = db.prepare(
-    `SELECT t.*, wp.title AS source_page_title
-     FROM tasks t
-     LEFT JOIN workbook_pages wp ON t.source_page_id = wp.id
-     WHERE t.id = ?`
-  ).get(id);
-  if (!row) { res.status(404).json({ error: 'Task nicht gefunden' }); return; }
-  res.json(row);
-});
-
 // GET /api/tasks/stats
 router.get('/stats', (_req, res) => {
   const stats = db.prepare(`
@@ -71,6 +58,34 @@ router.get('/stats', (_req, res) => {
     FROM tasks
   `).get();
   res.json(stats);
+});
+
+// GET /api/tasks/due-reminders
+router.get('/due-reminders', (_req, res) => {
+  const rows = db.prepare(`
+    SELECT t.*, wp.title AS source_page_title
+    FROM tasks t
+    LEFT JOIN workbook_pages wp ON t.source_page_id = wp.id
+    WHERE t.has_reminder = 1
+      AND t.reminder_at IS NOT NULL
+      AND t.reminder_at <= datetime('now')
+      AND t.status NOT IN ('done', 'archived')
+    ORDER BY t.reminder_at ASC
+  `).all();
+  res.json(rows);
+});
+
+// GET /api/tasks/:id
+router.get('/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const row = db.prepare(
+    `SELECT t.*, wp.title AS source_page_title
+     FROM tasks t
+     LEFT JOIN workbook_pages wp ON t.source_page_id = wp.id
+     WHERE t.id = ?`
+  ).get(id);
+  if (!row) { res.status(404).json({ error: 'Task nicht gefunden' }); return; }
+  res.json(row);
 });
 
 // POST /api/tasks

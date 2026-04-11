@@ -55,6 +55,9 @@ export const fetchTasks = (filters?: {
 export const fetchTaskStats = () =>
   apiClient.get<TaskStats>('/tasks/stats').then((r) => r.data);
 
+export const fetchDueReminders = () =>
+  apiClient.get<Task[]>('/tasks/due-reminders').then((r) => r.data);
+
 export const createTask = (data: Partial<Task> & { title: string }) =>
   apiClient.post<Task>('/tasks', data).then((r) => r.data);
 
