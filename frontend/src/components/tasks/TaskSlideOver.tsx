@@ -362,11 +362,20 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete }: TaskS
               <label style={LABEL_STYLE}>Erinnerung am</label>
               <input
                 className="task-input"
-                style={INPUT_STYLE}
+                style={{ ...INPUT_STYLE, colorScheme: 'dark' }}
                 type="datetime-local"
                 value={form.reminder_at}
                 onChange={(e) => handleChange('reminder_at', e.target.value)}
               />
+              {form.reminder_at && (
+                <button
+                  type="button"
+                  onClick={() => handleChange('reminder_at', '')}
+                  style={{ marginTop: '0.25rem', background: 'none', border: 'none', color: 'var(--color-outline)', fontSize: '0.7rem', cursor: 'pointer', padding: 0 }}
+                >
+                  × Erinnerung entfernen
+                </button>
+              )}
             </div>
 
             {/* Tags */}
