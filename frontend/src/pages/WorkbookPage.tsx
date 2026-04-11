@@ -48,6 +48,7 @@ export function WorkbookPage() {
 
   // Load active page when selection changes
   useEffect(() => {
+    setSaveStatus('idle');
     if (activePageId === null) { setActivePage(null); return; }
     fetchPage(activePageId).then((p) => {
       setActivePage(p);
@@ -72,11 +73,31 @@ export function WorkbookPage() {
 
   return (
     <>
+      <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)', overflow: 'hidden' }}>
+      {/* Page header */}
+      <div style={{
+        padding: '0.875rem 1.5rem',
+        borderBottom: '1px solid var(--color-outline-variant)',
+        background: 'var(--color-surface-container-low)',
+        display: 'flex',
+        alignItems: 'center',
+        flexShrink: 0,
+      }}>
+        <span className="gradient-text" style={{
+          fontFamily: 'var(--font-headline)',
+          fontWeight: 800,
+          fontSize: '1.5rem',
+          letterSpacing: '-0.01em',
+        }}>
+          Arbeitsmappe
+        </span>
+      </div>
+
       <div
         style={{
           display: 'grid',
           gridTemplateColumns: '240px 280px 1fr',
-          height: 'calc(100vh - 64px)',
+          flex: 1,
           overflow: 'hidden',
           background: 'var(--color-surface)',
         }}
@@ -97,6 +118,14 @@ export function WorkbookPage() {
           activeId={activePageId}
           onSelect={setActivePageId}
           onNew={() => setTemplateModalOpen(true)}
+          onNewChild={async (parentId: number) => {
+            const p = await createPage({
+              section_id: activeSectionId ?? undefined,
+              parent_id: parentId,
+              title: 'Unbenannte Unterseite',
+            });
+            setActivePageId(p.id);
+          }}
           onReload={() => {
             if (activeSectionId !== null) {
               fetchPages({ section_id: activeSectionId }).then(setPages).catch(() => {});
@@ -119,6 +148,7 @@ export function WorkbookPage() {
             onOpenPage={(id) => setActivePageId(id)}
           />
         )}
+      </div>
       </div>
 
       {/* Modals */}
@@ -144,10 +174,11 @@ export function WorkbookPage() {
       {templateModalOpen && (
         <TemplatePickerModal
           onClose={() => setTemplateModalOpen(false)}
-          onCreate={async (template_id) => {
+          onCreate={async (template_id, template_name) => {
             const p = await createPage({
               section_id: activeSectionId ?? undefined,
               template_id: template_id ?? undefined,
+              title: template_name,
             });
             setPages((ps) => [p, ...ps]);
             setActivePageId(p.id);
