@@ -11,13 +11,28 @@ export function ArchiveList({ onTaskClick, refreshKey = 0 }: ArchiveListProps) {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
+  const [allTasks, setAllTasks] = useState<Task[]>([]);
+
   useEffect(() => {
     setLoading(true);
-    fetchArchivedTasks(search || undefined)
-      .then(setTasks)
+    fetchArchivedTasks()
+      .then(setAllTasks)
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [search, refreshKey]);
+  }, [refreshKey]);
+
+  useEffect(() => {
+    if (!search.trim()) {
+      setTasks(allTasks);
+    } else {
+      const q = search.toLowerCase();
+      setTasks(allTasks.filter((t) =>
+        t.title.toLowerCase().includes(q) ||
+        (t.description ?? '').toLowerCase().includes(q) ||
+        (t.tags ?? '').toLowerCase().includes(q)
+      ));
+    }
+  }, [search, allTasks]);
 
   return (
     <div>
