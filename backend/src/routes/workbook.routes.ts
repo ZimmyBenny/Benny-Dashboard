@@ -3,6 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
+import PDFDocument from 'pdfkit';
 import db from '../db/connection';
 
 // ── Upload storage ─────────────────────────────────────────────────────────────
@@ -22,6 +23,127 @@ const storage = multer.diskStorage({
 const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } }); // 50 MB
 
 const router = Router();
+
+// ── Export ────────────────────────────────────────────────────────────────────
+
+router.get('/export', (req: Request, res: Response) => {
+  const format = ((req.query.format as string) || 'csv').toLowerCase();
+  const sectionId = req.query.section_id ? Number(req.query.section_id) : null;
+  const pageId = req.query.page_id ? Number(req.query.page_id) : null;
+
+  if (format !== 'csv' && format !== 'pdf') {
+    res.status(400).json({ error: 'format muss csv oder pdf sein' });
+    return;
+  }
+
+  // Seiten + Section-Name in einem JOIN laden (nur non-archived)
+  let sql = `
+    SELECT p.id, p.title, p.content_text, p.tags, p.created_at, p.updated_at,
+           s.name AS section_name
+    FROM workbook_pages p
+    LEFT JOIN workbook_sections s ON s.id = p.section_id
+    WHERE p.is_archived = 0
+  `;
+  const params: unknown[] = [];
+
+  if (pageId !== null) {
+    sql += ' AND p.id = ?';
+    params.push(pageId);
+  } else if (sectionId !== null) {
+    sql += ' AND p.section_id = ?';
+    params.push(sectionId);
+  }
+
+  sql += ' ORDER BY s.sort_order ASC, s.id ASC, p.is_pinned DESC, p.updated_at DESC';
+
+  const rows = db.prepare(sql).all(...params) as Array<{
+    id: number;
+    title: string;
+    content_text: string | null;
+    tags: string | null;
+    created_at: string;
+    updated_at: string;
+    section_name: string | null;
+  }>;
+
+  const ts = new Date().toISOString().slice(0, 10);
+  const baseName = `arbeitsmappe-export-${ts}`;
+
+  if (format === 'csv') {
+    // CSV RFC4180: Felder mit , " \n in doppelte Anfuehrungszeichen, inneres " verdoppeln.
+    const escape = (v: string | null | undefined): string => {
+      const s = (v ?? '').toString();
+      if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+      return s;
+    };
+    const header = ['Titel', 'Bereich', 'Erstellt', 'Aktualisiert', 'Tags', 'Inhalt'];
+    const lines = [header.join(',')];
+    for (const r of rows) {
+      lines.push([
+        escape(r.title),
+        escape(r.section_name ?? ''),
+        escape(r.created_at),
+        escape(r.updated_at),
+        escape(r.tags ?? ''),
+        escape(r.content_text ?? ''),
+      ].join(','));
+    }
+    // UTF-8 BOM, damit Excel Umlaute korrekt anzeigt
+    const csv = '\uFEFF' + lines.join('\r\n');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${baseName}.csv"`);
+    res.send(csv);
+    return;
+  }
+
+  // PDF
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${baseName}.pdf"`);
+
+  const doc = new PDFDocument({ size: 'A4', margin: 50, info: { Title: 'Arbeitsmappe Export' } });
+  doc.pipe(res);
+
+  // Titel + Meta
+  doc.fontSize(20).text('Arbeitsmappe \u2014 Export', { align: 'left' });
+  doc.moveDown(0.3);
+  doc.fontSize(10).fillColor('#666').text(`Erstellt: ${new Date().toLocaleString('de-DE')}`);
+  doc.moveDown(1);
+  doc.fillColor('black');
+
+  if (rows.length === 0) {
+    doc.fontSize(12).text('Keine Seiten im gewaehlten Filter.');
+    doc.end();
+    return;
+  }
+
+  let lastSection: string | null = null;
+  for (const r of rows) {
+    const section = r.section_name ?? 'Ohne Bereich';
+    if (section !== lastSection) {
+      doc.moveDown(0.5);
+      doc.fontSize(14).fillColor('#6200ea').text(section, { underline: true });
+      doc.fillColor('black');
+      doc.moveDown(0.3);
+      lastSection = section;
+    }
+
+    doc.fontSize(13).text(r.title, { continued: false });
+    const metaParts: string[] = [];
+    metaParts.push(`Erstellt: ${r.created_at.slice(0, 10)}`);
+    metaParts.push(`Aktualisiert: ${r.updated_at.slice(0, 10)}`);
+    if (r.tags && r.tags.trim()) metaParts.push(`Tags: ${r.tags}`);
+    doc.fontSize(9).fillColor('#888').text(metaParts.join('  |  '));
+    doc.fillColor('black');
+    doc.moveDown(0.3);
+
+    const body = (r.content_text ?? '').trim() || '(leer)';
+    doc.fontSize(11).text(body, { align: 'left' });
+    doc.moveDown(0.8);
+  }
+
+  doc.end();
+});
 
 // ── Helper: TipTap-JSON -> plain text ─────────────────────────────────────────
 type TipTapNode = {
