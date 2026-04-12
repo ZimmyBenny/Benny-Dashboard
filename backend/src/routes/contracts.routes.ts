@@ -65,10 +65,12 @@ router.get('/', (req, res) => {
     conditions.push(`expiration_date BETWEEN date('now') AND date('now', '+30 days')`);
     conditions.push(`status = 'aktiv'`);
     conditions.push(`is_archived = 0`);
+    conditions.push(`unbefristet = 0`);
   } else if (segment === 'overdue') {
     conditions.push(`expiration_date < date('now')`);
     conditions.push(`status = 'aktiv'`);
     conditions.push(`is_archived = 0`);
+    conditions.push(`unbefristet = 0`);
   } else if (segment === 'cancellable') {
     conditions.push(`cancellation_date >= date('now')`);
     conditions.push(`status = 'aktiv'`);
@@ -208,6 +210,8 @@ router.post('/', (req, res) => {
   const title = (body.title as string | undefined)?.trim();
   if (!title) return res.status(400).json({ error: 'Titel ist erforderlich' });
 
+  const unbefristetValue = body.unbefristet ? 1 : 0;
+
   const stmt = db.prepare(`
     INSERT INTO contracts_and_deadlines (
       title, item_type, area, status, priority,
@@ -216,7 +220,8 @@ router.post('/', (req, res) => {
       recurrence_type, cost_amount, currency, cost_interval,
       description, notes, tags,
       linked_contact_id, linked_task_id, linked_calendar_event_id,
-      is_archived
+      is_archived,
+      unbefristet, vertragsinhaber, kontoname
     ) VALUES (
       ?, ?, ?, ?, ?,
       ?, ?,
@@ -224,7 +229,8 @@ router.post('/', (req, res) => {
       ?, ?, ?, ?,
       ?, ?, ?,
       ?, ?, ?,
-      ?
+      ?,
+      ?, ?, ?
     )
   `);
 
@@ -237,7 +243,7 @@ router.post('/', (req, res) => {
     (body.provider_name as string | null) ?? null,
     (body.reference_number as string | null) ?? null,
     (body.start_date as string | null) ?? null,
-    (body.expiration_date as string | null) ?? null,
+    unbefristetValue === 1 ? null : ((body.expiration_date as string | null) ?? null),
     (body.cancellation_date as string | null) ?? null,
     (body.reminder_date as string | null) ?? null,
     (body.recurrence_type as string) || 'keine',
@@ -250,7 +256,10 @@ router.post('/', (req, res) => {
     (body.linked_contact_id as number | null) ?? null,
     (body.linked_task_id as number | null) ?? null,
     (body.linked_calendar_event_id as string | null) ?? null,
-    0
+    0,
+    unbefristetValue,
+    (body.vertragsinhaber as string | null) ?? null,
+    (body.kontoname as string | null) ?? null
   );
 
   const newId = result.lastInsertRowid as number;
@@ -272,6 +281,15 @@ router.put('/:id', (req, res) => {
   if (!existing) return res.status(404).json({ error: 'Nicht gefunden' });
 
   const body = req.body as Record<string, unknown>;
+
+  const newUnbefristet = body.unbefristet !== undefined
+    ? (body.unbefristet ? 1 : 0)
+    : (existing.unbefristet as number ?? 0);
+
+  // Wenn unbefristet gesetzt wird, expiration_date auf null erzwingen
+  const newExpirationDate = newUnbefristet === 1
+    ? null
+    : (body.expiration_date !== undefined ? ((body.expiration_date as string | null) ?? null) : (existing.expiration_date as string | null));
 
   db.prepare(`
     UPDATE contracts_and_deadlines SET
@@ -296,6 +314,9 @@ router.put('/:id', (req, res) => {
       linked_contact_id = ?,
       linked_task_id = ?,
       linked_calendar_event_id = ?,
+      unbefristet = ?,
+      vertragsinhaber = ?,
+      kontoname = ?,
       updated_at = datetime('now')
     WHERE id = ?
   `).run(
@@ -307,7 +328,7 @@ router.put('/:id', (req, res) => {
     body.provider_name !== undefined ? ((body.provider_name as string | null) ?? null) : (existing.provider_name as string | null),
     body.reference_number !== undefined ? ((body.reference_number as string | null) ?? null) : (existing.reference_number as string | null),
     body.start_date !== undefined ? ((body.start_date as string | null) ?? null) : (existing.start_date as string | null),
-    body.expiration_date !== undefined ? ((body.expiration_date as string | null) ?? null) : (existing.expiration_date as string | null),
+    newExpirationDate,
     body.cancellation_date !== undefined ? ((body.cancellation_date as string | null) ?? null) : (existing.cancellation_date as string | null),
     body.reminder_date !== undefined ? ((body.reminder_date as string | null) ?? null) : (existing.reminder_date as string | null),
     (body.recurrence_type as string) || (existing.recurrence_type as string) || 'keine',
@@ -320,6 +341,9 @@ router.put('/:id', (req, res) => {
     body.linked_contact_id !== undefined ? ((body.linked_contact_id as number | null) ?? null) : (existing.linked_contact_id as number | null),
     body.linked_task_id !== undefined ? ((body.linked_task_id as number | null) ?? null) : (existing.linked_task_id as number | null),
     body.linked_calendar_event_id !== undefined ? ((body.linked_calendar_event_id as string | null) ?? null) : (existing.linked_calendar_event_id as string | null),
+    newUnbefristet,
+    body.vertragsinhaber !== undefined ? ((body.vertragsinhaber as string | null) ?? null) : (existing.vertragsinhaber as string | null),
+    body.kontoname !== undefined ? ((body.kontoname as string | null) ?? null) : (existing.kontoname as string | null),
     id
   );
 
