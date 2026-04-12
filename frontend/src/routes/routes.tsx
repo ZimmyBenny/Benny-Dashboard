@@ -16,6 +16,7 @@ import { ContactsPage } from '../pages/ContactsPage';
 import { ContactDetailPage } from '../pages/ContactDetailPage';
 import { ContactFormPage } from '../pages/ContactFormPage';
 import { ContactImportPage } from '../pages/ContactImportPage';
+import { ContractsPage } from '../pages/ContractsPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -41,6 +42,7 @@ export const router = createBrowserRouter([
           { path: '/contacts/import',     element: <ContactImportPage /> },
           { path: '/contacts/:id',        element: <ContactDetailPage /> },
           { path: '/contacts/:id/edit',   element: <ContactFormPage /> },
+          { path: '/contracts',            element: <ContractsPage /> },
         ],
       },
     ],

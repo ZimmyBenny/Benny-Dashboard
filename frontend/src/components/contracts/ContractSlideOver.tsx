@@ -1,0 +1,567 @@
+import { useState, useEffect } from 'react';
+import type { Contract } from '../../api/contracts.api';
+
+// ---------------------------------------------------------------------------
+// Styles — exakt wie TaskSlideOver
+// ---------------------------------------------------------------------------
+
+const INPUT_STYLE: React.CSSProperties = {
+  width: '100%',
+  background: 'var(--color-surface-container-low)',
+  border: '1px solid var(--color-outline-variant)',
+  borderRadius: '0.5rem',
+  color: 'var(--color-on-surface)',
+  fontFamily: 'var(--font-body)',
+  fontSize: '0.875rem',
+  padding: '0.5rem 0.75rem',
+  outline: 'none',
+  boxSizing: 'border-box',
+};
+
+const LABEL_STYLE: React.CSSProperties = {
+  display: 'block',
+  fontFamily: 'var(--font-body)',
+  fontSize: '0.75rem',
+  letterSpacing: '0.06em',
+  textTransform: 'uppercase' as const,
+  color: 'var(--color-outline)',
+  marginBottom: '0.375rem',
+};
+
+// ---------------------------------------------------------------------------
+// FormData
+// ---------------------------------------------------------------------------
+
+interface FormData {
+  title: string;
+  item_type: string;
+  area: string;
+  status: string;
+  priority: string;
+  provider_name: string;
+  reference_number: string;
+  start_date: string;
+  expiration_date: string;
+  cancellation_date: string;
+  reminder_date: string;
+  cost_amount: string;
+  currency: string;
+  cost_interval: string;
+  recurrence_type: string;
+  description: string;
+  notes: string;
+  tags: string;
+}
+
+function contractToForm(contract: Contract | null): FormData {
+  if (!contract) {
+    return {
+      title: '',
+      item_type: 'Vertrag',
+      area: 'Privat',
+      status: 'aktiv',
+      priority: 'mittel',
+      provider_name: '',
+      reference_number: '',
+      start_date: '',
+      expiration_date: '',
+      cancellation_date: '',
+      reminder_date: '',
+      cost_amount: '',
+      currency: 'EUR',
+      cost_interval: '',
+      recurrence_type: 'keine',
+      description: '',
+      notes: '',
+      tags: '',
+    };
+  }
+  return {
+    title: contract.title,
+    item_type: contract.item_type,
+    area: contract.area,
+    status: contract.status,
+    priority: contract.priority,
+    provider_name: contract.provider_name ?? '',
+    reference_number: contract.reference_number ?? '',
+    start_date: contract.start_date ?? '',
+    expiration_date: contract.expiration_date ?? '',
+    cancellation_date: contract.cancellation_date ?? '',
+    reminder_date: contract.reminder_date ?? '',
+    cost_amount: contract.cost_amount != null ? String(contract.cost_amount) : '',
+    currency: contract.currency || 'EUR',
+    cost_interval: contract.cost_interval ?? '',
+    recurrence_type: contract.recurrence_type || 'keine',
+    description: contract.description ?? '',
+    notes: contract.notes ?? '',
+    tags: contract.tags ?? '',
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Props
+// ---------------------------------------------------------------------------
+
+interface ContractSlideOverProps {
+  isOpen: boolean;
+  onClose: () => void;
+  contract: Contract | null;
+  onSave: (data: Partial<Contract>) => Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
+// ContractSlideOver
+// ---------------------------------------------------------------------------
+
+export function ContractSlideOver({ isOpen, onClose, contract, onSave }: ContractSlideOverProps) {
+  const [form, setForm] = useState<FormData>(() => contractToForm(contract));
+  const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Set<string>>(new Set());
+
+  // Form zurücksetzen wenn contract oder isOpen wechselt
+  useEffect(() => {
+    setForm(contractToForm(contract));
+    setErrors(new Set());
+  }, [contract, isOpen]);
+
+  // Escape-Taste
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [isOpen, onClose]);
+
+  function handleChange(field: keyof FormData, value: string) {
+    setForm(prev => ({ ...prev, [field]: value }));
+    if (errors.has(field)) {
+      setErrors(prev => { const next = new Set(prev); next.delete(field); return next; });
+    }
+  }
+
+  async function handleSave() {
+    const required = ['title', 'item_type', 'area', 'status'];
+    const newErrors = new Set<string>();
+    for (const field of required) {
+      if (!form[field as keyof FormData]?.trim()) newErrors.add(field);
+    }
+    if (newErrors.size > 0) { setErrors(newErrors); return; }
+
+    setSaving(true);
+    try {
+      await onSave({
+        title: form.title.trim(),
+        item_type: form.item_type,
+        area: form.area,
+        status: form.status,
+        priority: form.priority,
+        provider_name: form.provider_name || null,
+        reference_number: form.reference_number || null,
+        start_date: form.start_date || null,
+        expiration_date: form.expiration_date || null,
+        cancellation_date: form.cancellation_date || null,
+        reminder_date: form.reminder_date || null,
+        cost_amount: form.cost_amount ? parseFloat(form.cost_amount) : null,
+        currency: form.currency || 'EUR',
+        cost_interval: form.cost_interval || null,
+        recurrence_type: form.recurrence_type || 'keine',
+        description: form.description || null,
+        notes: form.notes || null,
+        tags: form.tags || null,
+      });
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const errorBorder = '1px solid var(--color-error)';
+
+  const focusStyle = `
+    .contract-input:focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 2px rgba(204,151,255,0.15);
+    }
+  `;
+
+  return (
+    <>
+      <style>{focusStyle}</style>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 50, pointerEvents: isOpen ? 'auto' : 'none' }}>
+        {/* Overlay */}
+        <div
+          onClick={onClose}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            opacity: isOpen ? 1 : 0,
+            transition: 'opacity 300ms ease',
+            pointerEvents: isOpen ? 'auto' : 'none',
+          }}
+        />
+
+        {/* Panel — Slide von rechts */}
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            right: 0,
+            height: '100vh',
+            width: '480px',
+            maxWidth: '90vw',
+            background: 'var(--color-surface-container)',
+            borderLeft: '1px solid var(--color-surface-container-high)',
+            zIndex: 51,
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
+            transition: 'transform 300ms ease',
+          }}
+        >
+          {/* Header */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '1.25rem 1.5rem',
+            borderBottom: '1px solid var(--color-outline-variant)',
+            flexShrink: 0,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--color-primary)' }}>
+                {contract ? 'edit' : 'add_circle'}
+              </span>
+              <h2 style={{
+                fontFamily: 'var(--font-headline)',
+                fontWeight: 700,
+                fontSize: '1rem',
+                letterSpacing: '0.04em',
+                color: 'var(--color-on-surface)',
+              }}>
+                {contract ? 'Eintrag bearbeiten' : 'Neuer Eintrag'}
+              </h2>
+            </div>
+            <button
+              onClick={onClose}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--color-on-surface-variant)',
+                padding: '0.25rem',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span>
+            </button>
+          </div>
+
+          {/* Formular */}
+          <div style={{
+            flex: 1,
+            padding: '1.5rem',
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '1rem',
+            alignContent: 'start',
+          }}>
+
+            {/* Titel (full width) */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={LABEL_STYLE}>Titel *</label>
+              <input
+                className="contract-input"
+                style={{ ...INPUT_STYLE, border: errors.has('title') ? errorBorder : INPUT_STYLE.border }}
+                type="text"
+                value={form.title}
+                onChange={e => handleChange('title', e.target.value)}
+                placeholder="Eintragsbezeichnung..."
+                autoFocus
+              />
+            </div>
+
+            {/* Eintragstyp + Bereich */}
+            <div>
+              <label style={LABEL_STYLE}>Eintragstyp *</label>
+              <select
+                className="contract-input"
+                style={{ ...INPUT_STYLE, border: errors.has('item_type') ? errorBorder : INPUT_STYLE.border }}
+                value={form.item_type}
+                onChange={e => handleChange('item_type', e.target.value)}
+              >
+                {['Vertrag', 'Dokument', 'Frist', 'Versicherung', 'Mitgliedschaft', 'Garantie', 'Sonstiges'].map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={LABEL_STYLE}>Bereich *</label>
+              <select
+                className="contract-input"
+                style={{ ...INPUT_STYLE, border: errors.has('area') ? errorBorder : INPUT_STYLE.border }}
+                value={form.area}
+                onChange={e => handleChange('area', e.target.value)}
+              >
+                {['Privat', 'DJ', 'Amazon', 'Cashback', 'Finanzen', 'Sonstiges'].map(a => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Status + Priorität */}
+            <div>
+              <label style={LABEL_STYLE}>Status *</label>
+              <select
+                className="contract-input"
+                style={{ ...INPUT_STYLE, border: errors.has('status') ? errorBorder : INPUT_STYLE.border }}
+                value={form.status}
+                onChange={e => handleChange('status', e.target.value)}
+              >
+                <option value="aktiv">Aktiv</option>
+                <option value="in_pruefung">In Prüfung</option>
+                <option value="gekuendigt">Gekündigt</option>
+                <option value="abgelaufen">Abgelaufen</option>
+                <option value="archiviert">Archiviert</option>
+              </select>
+            </div>
+            <div>
+              <label style={LABEL_STYLE}>Priorität</label>
+              <select
+                className="contract-input"
+                style={INPUT_STYLE}
+                value={form.priority}
+                onChange={e => handleChange('priority', e.target.value)}
+              >
+                <option value="niedrig">Niedrig</option>
+                <option value="mittel">Mittel</option>
+                <option value="hoch">Hoch</option>
+                <option value="kritisch">Kritisch</option>
+              </select>
+            </div>
+
+            {/* Anbieter + Referenznummer */}
+            <div>
+              <label style={LABEL_STYLE}>Anbieter / Bezug</label>
+              <input
+                className="contract-input"
+                style={INPUT_STYLE}
+                type="text"
+                value={form.provider_name}
+                onChange={e => handleChange('provider_name', e.target.value)}
+                placeholder="z.B. Telekom, Allianz..."
+              />
+            </div>
+            <div>
+              <label style={LABEL_STYLE}>Referenznummer</label>
+              <input
+                className="contract-input"
+                style={INPUT_STYLE}
+                type="text"
+                value={form.reference_number}
+                onChange={e => handleChange('reference_number', e.target.value)}
+                placeholder="Vertragsnummer..."
+              />
+            </div>
+
+            {/* Startdatum + Ablaufdatum */}
+            <div>
+              <label style={LABEL_STYLE}>Startdatum</label>
+              <input
+                className="contract-input"
+                style={INPUT_STYLE}
+                type="date"
+                value={form.start_date}
+                onChange={e => handleChange('start_date', e.target.value)}
+              />
+            </div>
+            <div>
+              <label style={LABEL_STYLE}>Ablaufdatum</label>
+              <input
+                className="contract-input"
+                style={INPUT_STYLE}
+                type="date"
+                value={form.expiration_date}
+                onChange={e => handleChange('expiration_date', e.target.value)}
+              />
+            </div>
+
+            {/* Kündigungsdatum + Erinnerungsdatum */}
+            <div>
+              <label style={LABEL_STYLE}>Kündigungsdatum</label>
+              <input
+                className="contract-input"
+                style={INPUT_STYLE}
+                type="date"
+                value={form.cancellation_date}
+                onChange={e => handleChange('cancellation_date', e.target.value)}
+              />
+            </div>
+            <div>
+              <label style={LABEL_STYLE}>Erinnerungsdatum</label>
+              <input
+                className="contract-input"
+                style={INPUT_STYLE}
+                type="date"
+                value={form.reminder_date}
+                onChange={e => handleChange('reminder_date', e.target.value)}
+              />
+            </div>
+
+            {/* Kostenbetrag + Währung + Zahlungsintervall */}
+            <div>
+              <label style={LABEL_STYLE}>Kostenbetrag</label>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input
+                  className="contract-input"
+                  style={{ ...INPUT_STYLE, flex: 1 }}
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={form.cost_amount}
+                  onChange={e => handleChange('cost_amount', e.target.value)}
+                  placeholder="0,00"
+                />
+                <select
+                  className="contract-input"
+                  style={{ ...INPUT_STYLE, width: '80px', flexShrink: 0 }}
+                  value={form.currency}
+                  onChange={e => handleChange('currency', e.target.value)}
+                >
+                  <option value="EUR">EUR</option>
+                  <option value="USD">USD</option>
+                  <option value="GBP">GBP</option>
+                  <option value="CHF">CHF</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label style={LABEL_STYLE}>Zahlungsintervall</label>
+              <select
+                className="contract-input"
+                style={INPUT_STYLE}
+                value={form.cost_interval}
+                onChange={e => handleChange('cost_interval', e.target.value)}
+              >
+                <option value="">— kein Intervall —</option>
+                <option value="einmalig">Einmalig</option>
+                <option value="monatlich">Monatlich</option>
+                <option value="quartalsweise">Quartalsweise</option>
+                <option value="jaehrlich">Jährlich</option>
+              </select>
+            </div>
+
+            {/* Wiederholungstyp (full width) */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={LABEL_STYLE}>Wiederholungstyp</label>
+              <select
+                className="contract-input"
+                style={INPUT_STYLE}
+                value={form.recurrence_type}
+                onChange={e => handleChange('recurrence_type', e.target.value)}
+              >
+                <option value="keine">Keine</option>
+                <option value="monatlich">Monatlich</option>
+                <option value="jaehrlich">Jährlich</option>
+                <option value="custom">Benutzerdefiniert</option>
+              </select>
+            </div>
+
+            {/* Beschreibung (full width) */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={LABEL_STYLE}>Beschreibung</label>
+              <textarea
+                className="contract-input"
+                style={{ ...INPUT_STYLE, resize: 'vertical', minHeight: '72px' }}
+                value={form.description}
+                onChange={e => handleChange('description', e.target.value)}
+                rows={3}
+                placeholder="Optionale Beschreibung..."
+              />
+            </div>
+
+            {/* Notizen (full width) */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={LABEL_STYLE}>Notizen</label>
+              <textarea
+                className="contract-input"
+                style={{ ...INPUT_STYLE, resize: 'vertical', minHeight: '72px' }}
+                value={form.notes}
+                onChange={e => handleChange('notes', e.target.value)}
+                rows={3}
+                placeholder="Interne Notizen..."
+              />
+            </div>
+
+            {/* Tags (full width) */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={LABEL_STYLE}>Tags</label>
+              <input
+                className="contract-input"
+                style={INPUT_STYLE}
+                type="text"
+                value={form.tags}
+                onChange={e => handleChange('tags', e.target.value)}
+                placeholder="Komma-getrennt, z.B. Strom, Telekom"
+              />
+            </div>
+
+          </div>
+
+          {/* Footer */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            padding: '1rem 1.5rem',
+            borderTop: '1px solid var(--color-outline-variant)',
+            flexShrink: 0,
+            gap: '0.75rem',
+          }}>
+            <button
+              onClick={onClose}
+              style={{
+                background: 'transparent',
+                border: '1px solid var(--color-outline-variant)',
+                borderRadius: '9999px',
+                padding: '0.5rem 1.25rem',
+                color: 'var(--color-on-surface-variant)',
+                fontFamily: 'var(--font-body)',
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+              }}
+            >
+              Abbrechen
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              style={{
+                background: saving
+                  ? 'rgba(255,255,255,0.08)'
+                  : 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+                border: 'none',
+                borderRadius: '9999px',
+                padding: '0.5rem 1.25rem',
+                color: saving ? 'var(--color-on-surface-variant)' : '#000',
+                fontFamily: 'var(--font-body)',
+                fontWeight: 700,
+                fontSize: '0.8rem',
+                cursor: saving ? 'not-allowed' : 'pointer',
+                opacity: saving ? 0.7 : 1,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>save</span>
+              {saving ? 'Wird gespeichert...' : 'Speichern'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}

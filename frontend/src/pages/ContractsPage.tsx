@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { PageWrapper } from '../components/layout/PageWrapper';
-import { fetchContracts, archiveContract, type Contract } from '../api/contracts.api';
+import { fetchContracts, archiveContract, createContract, updateContract, type Contract } from '../api/contracts.api';
+import { ContractSlideOver } from '../components/contracts/ContractSlideOver';
 
 // ---------------------------------------------------------------------------
 // Konstanten
@@ -508,14 +509,21 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
         </div>
       )}
 
-      {/* SlideOver wird in Task 4 hier eingebunden */}
-      {/* Platzhalter: isSlideOverOpen={isSlideOverOpen} editingContract={editingContract} */}
-      {isSlideOverOpen && (
-        <div style={{ display: 'none' }}>
-          {/* SlideOver placeholder — wird in Task 4 verdrahtet */}
-          {String(editingContract?.id ?? 'new')}
-        </div>
-      )}
+      {/* SlideOver */}
+      <ContractSlideOver
+        isOpen={isSlideOverOpen}
+        onClose={() => setIsSlideOverOpen(false)}
+        contract={editingContract}
+        onSave={async (data) => {
+          if (editingContract) {
+            await updateContract(editingContract.id, data);
+          } else {
+            await createContract(data);
+          }
+          await loadContracts(0, false);
+          setOffset(0);
+        }}
+      />
     </PageWrapper>
   );
 }

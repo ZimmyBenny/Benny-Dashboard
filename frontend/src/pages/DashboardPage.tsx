@@ -5,6 +5,7 @@ import { useTimerStore } from '../store/timerStore';
 import { fetchVisibleQuickLinks, type QuickLink } from '../api/quickLinks.api';
 import { fetchTaskStats, createTask, type TaskStats, type Task } from '../api/tasks.api';
 import { TaskSlideOver } from '../components/tasks/TaskSlideOver';
+import { fetchContracts, type Contract } from '../api/contracts.api';
 
 function getGreeting(): { time: string; name: string } {
   const hour = new Date().getHours();
@@ -19,9 +20,10 @@ const modules = [
   { path: '/zeiterfassung', label: 'Zeiterfassung', icon: 'timer',                  description: 'Zeiten · Projekte · Export', isTimer: true as const },
   { path: '/tasks',         label: 'Aufgaben',       icon: 'task_alt',               description: 'Planen · Verfolgen · Erledigen', isTasks: true as const },
   { path: '/calendar',      label: 'Kalender',       icon: 'calendar_month',         description: 'Termine und Events im Überblick', isCalendar: true as const },
+  { path: '/contacts',      label: 'Kontakte',       icon: 'contacts',               description: 'Kunden · Partner · Lieferanten', isContacts: true as const },
+  { path: '/contracts',     label: 'Verträge',       icon: 'description',            description: 'Verträge · Fristen · Dokumente', isContracts: true as const },
   { path: '/dj',            label: 'DJ',             icon: 'headphones',             description: 'Gigs · Bookings · Zahlungen' },
   { path: '/finances',      label: 'Finanzen',       icon: 'account_balance_wallet', description: 'Einnahmen · Ausgaben · Budgets' },
-  { path: '/amazon',        label: 'Amazon',         icon: 'shopping_cart',          description: 'Bestellungen und Retouren' },
 ];
 
 function formatMs(ms: number): string {
@@ -62,6 +64,13 @@ export function DashboardPage() {
 
   useEffect(() => {
     fetchTaskStats().then(setTaskStats).catch(() => {});
+  }, []);
+
+  // Bald fällige Verträge
+  const [upcomingContracts, setUpcomingContracts] = useState<Contract[]>([]);
+
+  useEffect(() => {
+    fetchContracts({ segment: 'soon', limit: 5 }).then(r => setUpcomingContracts(r.data)).catch(() => {});
   }, []);
 
   // Neue Aufgabe SlideOver
@@ -330,6 +339,46 @@ export function DashboardPage() {
                 </div>
               )}
 
+              {'isContacts' in mod && (
+                <div style={{ marginTop: '0.875rem' }}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); navigate('/contacts/new'); }}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                      padding: '0.35rem 0.8rem',
+                      borderRadius: '9999px',
+                      background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+                      color: '#000', border: 'none', cursor: 'pointer',
+                      fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.7rem',
+                      letterSpacing: '0.03em',
+                    }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>add</span>
+                    Neuer Kontakt
+                  </button>
+                </div>
+              )}
+
+              {'isContracts' in mod && (
+                <div style={{ marginTop: '0.875rem' }}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); navigate('/contracts'); }}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                      padding: '0.35rem 0.8rem',
+                      borderRadius: '9999px',
+                      background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+                      color: '#000', border: 'none', cursor: 'pointer',
+                      fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.7rem',
+                      letterSpacing: '0.03em',
+                    }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>add</span>
+                    Neuer Eintrag
+                  </button>
+                </div>
+              )}
+
               {'isTimer' in mod && (
                 <div style={{ marginTop: '0.875rem' }}>
                   {timerActive ? (
@@ -373,6 +422,102 @@ export function DashboardPage() {
           </button>
         ))}
       </div>
+      {/* ── Bald fällig (Verträge & Fristen) ────────────── */}
+      <>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '2.5rem', marginBottom: '1.25rem' }}>
+          <p style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.65rem',
+            letterSpacing: '0.22em',
+            textTransform: 'uppercase',
+            color: 'var(--color-outline)',
+            whiteSpace: 'nowrap',
+          }}>
+            Bald fällig
+          </p>
+          <div style={{
+            flex: 1, height: '1px',
+            background: 'linear-gradient(90deg, var(--color-outline-variant) 0%, transparent 100%)',
+          }} />
+        </div>
+
+        {upcomingContracts.length === 0 ? (
+          <p style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.8rem',
+            color: 'var(--color-on-surface-variant)',
+          }}>
+            Keine Fristen in den nächsten 30 Tagen
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {upcomingContracts.map(c => {
+              const ITEM_TYPE_ICONS: Record<string, string> = {
+                Vertrag: 'description', Dokument: 'article', Frist: 'timer',
+                Versicherung: 'security', Mitgliedschaft: 'group', Garantie: 'verified', Sonstiges: 'more_horiz',
+              };
+              const icon = ITEM_TYPE_ICONS[c.item_type] || 'more_horiz';
+              const days = c.expiration_date
+                ? Math.round((new Date(c.expiration_date).setHours(0,0,0,0) - new Date().setHours(0,0,0,0)) / 86400000)
+                : null;
+              const badgeColor = days === null ? 'var(--color-outline)' : days <= 6 ? '#f87171' : days <= 30 ? '#fb923c' : '#4ade80';
+              const badgeText = days === null ? '' : days === 0 ? 'Heute' : days < 0 ? `${Math.abs(days)} Tage überfällig` : `in ${days} Tagen`;
+              const expFormatted = c.expiration_date
+                ? (() => { const d = new Date(c.expiration_date); return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`; })()
+                : '';
+              return (
+                <button
+                  key={c.id}
+                  className="module-card"
+                  onClick={() => navigate('/contracts')}
+                  style={{ textAlign: 'left', padding: '1rem 1.25rem', cursor: 'pointer' }}
+                >
+                  <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '1.25rem', color: 'var(--color-primary)', flexShrink: 0 }}>
+                      {icon}
+                    </span>
+                    <span style={{
+                      fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '0.85rem',
+                      color: 'var(--color-on-surface)', flex: 1, overflow: 'hidden',
+                      textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                      {c.title}
+                    </span>
+                    {badgeText && (
+                      <span style={{ fontSize: '0.72rem', color: badgeColor, fontFamily: 'var(--font-body)', flexShrink: 0 }}>
+                        {badgeText}
+                      </span>
+                    )}
+                    {expFormatted && (
+                      <span style={{ fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', flexShrink: 0 }}>
+                        {expFormatted}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <div style={{ marginTop: '1rem' }}>
+          <button
+            onClick={() => navigate('/contracts')}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+              padding: '0.4rem 1rem',
+              borderRadius: '9999px',
+              background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+              color: '#000', border: 'none', cursor: 'pointer',
+              fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.75rem',
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>add</span>
+            Neuer Eintrag
+          </button>
+        </div>
+      </>
+
       {/* ── Aufgaben-Übersicht ──────────────────────────── */}
       {taskStats !== null && (
         <>
