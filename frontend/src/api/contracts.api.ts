@@ -111,6 +111,31 @@ export async function deleteContractAttachment(contractId: number, attachmentId:
   await apiClient.delete(`/contracts/${contractId}/attachments/${attachmentId}`);
 }
 
-export function downloadContractAttachment(contractId: number, attachmentId: number): void {
-  window.open(`/api/contracts/${contractId}/attachments/${attachmentId}/download`);
+export async function openContractAttachment(contractId: number, attachmentId: number, fileName: string): Promise<void> {
+  const { data } = await apiClient.get(`/contracts/${contractId}/attachments/${attachmentId}/download`, {
+    responseType: 'blob',
+  });
+  const url = URL.createObjectURL(data);
+  const win = window.open(url, '_blank');
+  // Blob-URL nach kurzer Zeit freigeben
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  if (!win) {
+    // Fallback: direkter Download
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.click();
+  }
+}
+
+export async function downloadContractAttachment(contractId: number, attachmentId: number, fileName: string): Promise<void> {
+  const { data } = await apiClient.get(`/contracts/${contractId}/attachments/${attachmentId}/download`, {
+    responseType: 'blob',
+  });
+  const url = URL.createObjectURL(data);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
 }

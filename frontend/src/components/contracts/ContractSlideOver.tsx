@@ -5,6 +5,7 @@ import {
   uploadContractAttachment,
   deleteContractAttachment,
   downloadContractAttachment,
+  openContractAttachment,
 } from '../../api/contracts.api';
 
 // ---------------------------------------------------------------------------
@@ -703,21 +704,29 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave }: Contrac
                   borderBottom: '1px solid var(--color-outline-variant)',
                 }}>
                   <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--color-primary)', flexShrink: 0 }}>description</span>
-                  <span style={{
-                    flex: 1,
-                    fontSize: '0.8rem',
-                    color: 'var(--color-on-surface)',
-                    fontFamily: 'var(--font-body)',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}>{att.file_name}</span>
+                  <span
+                    onClick={() => openContractAttachment(contract!.id, att.id, att.file_name)}
+                    title="Öffnen"
+                    style={{
+                      flex: 1,
+                      fontSize: '0.8rem',
+                      color: 'var(--color-on-surface)',
+                      fontFamily: 'var(--font-body)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      cursor: 'pointer',
+                      textDecoration: 'underline dotted',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-primary)')}
+                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-on-surface)')}
+                  >{att.file_name}</span>
                   <span style={{ fontSize: '0.72rem', color: 'var(--color-outline)', fontFamily: 'var(--font-body)', flexShrink: 0 }}>
                     {formatFileSize(att.file_size)}
                   </span>
                   <button
                     type="button"
-                    onClick={() => downloadContractAttachment(contract!.id, att.id)}
+                    onClick={() => downloadContractAttachment(contract!.id, att.id, att.file_name)}
                     title="Herunterladen"
                     style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-outline)', padding: '0.15rem', display: 'flex', alignItems: 'center' }}
                     onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-primary)')}
