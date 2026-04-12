@@ -71,7 +71,7 @@ export function ContactDetailPage() {
   const navigate = useNavigate();
   const [contact, setContact] = useState<ContactDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'notes' | 'tasks' | 'activity'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'notes' | 'activity'>('overview');
   const [newNoteContent, setNewNoteContent] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
@@ -394,7 +394,6 @@ export function ContactDetailPage() {
         {[
           { id: 'overview' as const, label: 'Übersicht', icon: 'info' },
           { id: 'notes' as const, label: 'Notizen', icon: 'note' },
-          { id: 'tasks' as const, label: 'Aufgaben', icon: 'task_alt' },
           { id: 'activity' as const, label: 'Verlauf', icon: 'history' },
         ].map(tab => (
           <button
@@ -630,20 +629,6 @@ export function ContactDetailPage() {
                         </div>
                       );
                     })}
-                    {openTasks.length > 5 && (
-                      <button
-                        onClick={() => setActiveTab('tasks')}
-                        style={{
-                          display: 'block', width: '100%', textAlign: 'center',
-                          marginTop: '0.5rem', padding: '0.25rem',
-                          background: 'transparent', border: 'none',
-                          color: 'var(--color-primary)', fontFamily: 'var(--font-body)', fontSize: '0.8rem',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Alle {openTasks.length} Aufgaben anzeigen
-                      </button>
-                    )}
                   </div>
                 )}
 
@@ -752,40 +737,6 @@ export function ContactDetailPage() {
                 </>
               )}
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* Tab: Aufgaben */}
-      {activeTab === 'tasks' && (
-        <div>
-          {/* + Neue Aufgabe Button */}
-          <div style={{ marginBottom: '1rem', textAlign: 'right' }}>
-            <button
-              onClick={() => { setSelectedTask(null); setTaskSlideOpen(true); }}
-              style={btnSecondary}
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>add</span>
-              Neue Aufgabe
-            </button>
-          </div>
-
-          {tasksLoading && (
-            <div style={{ color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', padding: '1.5rem 0', textAlign: 'center', fontSize: '0.875rem' }}>
-              Lade...
-            </div>
-          )}
-          {!tasksLoading && contactTasks.length === 0 && (
-            <div style={{ color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', padding: '1.5rem 0', textAlign: 'center', fontSize: '0.875rem' }}>
-              Keine Aufgaben verknüpft.
-            </div>
-          )}
-          {contactTasks.map(task => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onClick={() => { setSelectedTask(task); setTaskSlideOpen(true); }}
-            />
           ))}
         </div>
       )}
