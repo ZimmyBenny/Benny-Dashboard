@@ -63,7 +63,7 @@ function loadContactDetail(id: number) {
 // GET /api/contacts — Liste mit Filtern
 // ---------------------------------------------------------------------------
 router.get('/', (req, res) => {
-  const { search, type, area, city, postal_code, country, tags, archived, page, limit } = req.query as Record<string, string | undefined>;
+  const { search, type, area, city, postal_code, country, tags, archived, page, limit, sort } = req.query as Record<string, string | undefined>;
 
   const pageNum = Math.max(1, parseInt(page ?? '1', 10));
   const limitNum = Math.min(200, Math.max(1, parseInt(limit ?? '50', 10)));
@@ -103,7 +103,9 @@ router.get('/', (req, res) => {
       p.phone AS primary_phone
     ${baseSql}
     ORDER BY
-      CASE WHEN c.contact_kind = 'organization' THEN COALESCE(c.organization_name, '') ELSE COALESCE(c.last_name, '') END ASC
+      ${sort === 'number'
+        ? `CAST(c.customer_number AS INTEGER) ASC`
+        : `CASE WHEN c.contact_kind = 'organization' THEN COALESCE(c.organization_name, '') ELSE COALESCE(c.last_name, '') END ASC`}
     LIMIT ? OFFSET ?
   `).all(...params, limitNum, offset);
 
@@ -461,6 +463,21 @@ router.get('/:id/export/pdf', (req, res) => {
   }
 
   doc.end();
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/contacts/:id/tasks — Alle Tasks eines Kontakts
+// ---------------------------------------------------------------------------
+router.get('/:id/tasks', (req, res) => {
+  const contactId = Number(req.params.id);
+  const rows = db.prepare(`
+    SELECT t.*, wp.title AS source_page_title
+    FROM tasks t
+    LEFT JOIN workbook_pages wp ON t.source_page_id = wp.id
+    WHERE t.contact_id = ?
+    ORDER BY CASE WHEN t.status = 'done' THEN 1 WHEN t.status = 'archived' THEN 2 ELSE 0 END, t.position ASC
+  `).all(contactId);
+  res.json(rows);
 });
 
 // ---------------------------------------------------------------------------
