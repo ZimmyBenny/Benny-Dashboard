@@ -401,15 +401,17 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
   return (
     <PageWrapper>
       {/* Seitentitel */}
-      <h1 style={{
+      <span className="gradient-text" style={{
         fontFamily: 'var(--font-headline)',
-        fontWeight: 700,
+        fontWeight: 800,
         fontSize: '1.5rem',
-        color: 'var(--color-on-surface)',
+        letterSpacing: '-0.01em',
+        display: 'block',
+        marginTop: '0.75rem',
         marginBottom: '1.25rem',
       }}>
         Verträge & Fristen
-      </h1>
+      </span>
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.75rem', marginBottom: '1.25rem' }}>
@@ -628,12 +630,20 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
 
               {/* Rechts: Datum + Fälligkeit + Kosten */}
               <div style={{ flexShrink: 0, textAlign: 'right' }}>
-                {contract.expiration_date && (
-                  <p style={{ fontSize: '0.8rem', color: 'var(--color-on-surface)', fontFamily: 'var(--font-body)', marginBottom: '0.15rem' }}>
-                    {formatDate(contract.expiration_date)}
+                {contract.unbefristet === 1 ? (
+                  <p style={{ fontSize: '0.8rem', color: 'var(--color-outline)', fontFamily: 'var(--font-body)', fontStyle: 'italic' }}>
+                    Unbefristet
                   </p>
+                ) : (
+                  <>
+                    {contract.expiration_date && (
+                      <p style={{ fontSize: '0.8rem', color: 'var(--color-on-surface)', fontFamily: 'var(--font-body)', marginBottom: '0.15rem' }}>
+                        {formatDate(contract.expiration_date)}
+                      </p>
+                    )}
+                    <ExpirationBadge expiration_date={contract.expiration_date} />
+                  </>
                 )}
-                <ExpirationBadge expiration_date={contract.expiration_date} />
                 {contract.cost_amount != null && (
                   <p style={{ fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', marginTop: '0.15rem' }}>
                     {contract.cost_amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {contract.currency}

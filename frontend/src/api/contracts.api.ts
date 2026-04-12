@@ -28,6 +28,9 @@ export interface Contract {
   linked_task_id: number | null;
   linked_calendar_event_id: string | null;
   is_archived: number;
+  unbefristet: number;          // 0 | 1
+  vertragsinhaber: string | null;
+  kontoname: string | null;
   created_at: string;
   updated_at: string;
 }

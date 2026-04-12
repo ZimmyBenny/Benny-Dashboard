@@ -54,6 +54,9 @@ interface FormData {
   currency: string;
   cost_interval: string;
   recurrence_type: string;
+  unbefristet: boolean;
+  vertragsinhaber: string;
+  kontoname: string;
   description: string;
   notes: string;
 }
@@ -83,6 +86,9 @@ function contractToForm(contract: Contract | null): FormData {
       currency: 'EUR',
       cost_interval: '',
       recurrence_type: 'keine',
+      unbefristet: false,
+      vertragsinhaber: '',
+      kontoname: '',
       description: '',
       notes: '',
     };
@@ -103,6 +109,9 @@ function contractToForm(contract: Contract | null): FormData {
     currency: contract.currency || 'EUR',
     cost_interval: contract.cost_interval ?? '',
     recurrence_type: contract.recurrence_type || 'keine',
+    unbefristet: contract.unbefristet === 1,
+    vertragsinhaber: contract.vertragsinhaber ?? '',
+    kontoname: contract.kontoname ?? '',
     description: contract.description ?? '',
     notes: contract.notes ?? '',
   };
@@ -241,13 +250,16 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave }: Contrac
         provider_name: form.provider_name || null,
         reference_number: form.reference_number || null,
         start_date: form.start_date || null,
-        expiration_date: form.expiration_date || null,
+        expiration_date: form.unbefristet ? null : (form.expiration_date || null),
         cancellation_date: form.cancellation_date || null,
         reminder_date: form.reminder_date || null,
         cost_amount: form.cost_amount ? parseFloat(form.cost_amount) : null,
         currency: form.currency || 'EUR',
         cost_interval: form.cost_interval || null,
         recurrence_type: form.recurrence_type || 'keine',
+        unbefristet: form.unbefristet ? 1 : 0,
+        vertragsinhaber: form.vertragsinhaber || null,
+        kontoname: form.kontoname || null,
         description: form.description || null,
         notes: form.notes || null,
       });
@@ -482,11 +494,27 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave }: Contrac
               <label style={LABEL_STYLE}>Ablaufdatum</label>
               <input
                 className="contract-input"
-                style={INPUT_STYLE}
+                style={{ ...INPUT_STYLE, opacity: form.unbefristet ? 0.4 : 1 }}
                 type="date"
-                value={form.expiration_date}
+                value={form.unbefristet ? '' : form.expiration_date}
+                disabled={form.unbefristet}
                 onChange={e => handleChange('expiration_date', e.target.value)}
               />
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.4rem', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={form.unbefristet}
+                  onChange={() => setForm(prev => ({
+                    ...prev,
+                    unbefristet: !prev.unbefristet,
+                    expiration_date: !prev.unbefristet ? '' : prev.expiration_date,
+                  }))}
+                  style={{ accentColor: 'var(--color-primary)', width: '14px', height: '14px', cursor: 'pointer' }}
+                />
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.78rem', color: 'var(--color-on-surface-variant)' }}>
+                  Unbefristet
+                </span>
+              </label>
             </div>
 
             {/* Kündigungsdatum + Erinnerungsdatum */}
@@ -568,6 +596,30 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave }: Contrac
                 <option value="jaehrlich">Jährlich</option>
                 <option value="custom">Benutzerdefiniert</option>
               </select>
+            </div>
+
+            {/* Vertragsinhaber + Kontoname */}
+            <div>
+              <label style={LABEL_STYLE}>Vertragsinhaber</label>
+              <input
+                className="contract-input"
+                style={INPUT_STYLE}
+                type="text"
+                value={form.vertragsinhaber}
+                onChange={e => handleChange('vertragsinhaber', e.target.value)}
+                placeholder="z.B. Max Mustermann, Firma GmbH..."
+              />
+            </div>
+            <div>
+              <label style={LABEL_STYLE}>Kontoname</label>
+              <input
+                className="contract-input"
+                style={INPUT_STYLE}
+                type="text"
+                value={form.kontoname}
+                onChange={e => handleChange('kontoname', e.target.value)}
+                placeholder="z.B. E-Mail, Benutzername..."
+              />
             </div>
 
             {/* Beschreibung (full width) */}
