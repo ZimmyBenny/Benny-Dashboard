@@ -236,9 +236,22 @@ router.delete('/sections/:id', (req: Request, res: Response) => {
 // ── Pages ─────────────────────────────────────────────────────────────────────
 
 router.get('/pages', (req: Request, res: Response) => {
-  const { section_id, pinned, archived, parent_id } = req.query as {
-    section_id?: string; pinned?: string; archived?: string; parent_id?: string;
+  const { section_id, pinned, archived, parent_id, contact_id } = req.query as {
+    section_id?: string; pinned?: string; archived?: string; parent_id?: string; contact_id?: string;
   };
+
+  // Spezialfall: contact_id Filter — JOIN mit section_name, kein parent_id IS NULL Filter
+  if (contact_id !== undefined) {
+    const sql = `
+      SELECT p.*, s.name AS section_name FROM workbook_pages p
+      LEFT JOIN workbook_sections s ON s.id = p.section_id
+      WHERE p.contact_id = ? AND p.is_archived = 0
+      ORDER BY p.updated_at DESC
+    `;
+    const rows = db.prepare(sql).all(Number(contact_id));
+    res.json(rows);
+    return;
+  }
 
   let sql = 'SELECT * FROM workbook_pages WHERE 1=1';
   const params: unknown[] = [];
@@ -271,13 +284,14 @@ router.get('/pages', (req: Request, res: Response) => {
 });
 
 router.post('/pages', (req: Request, res: Response) => {
-  const { section_id, title, template_id, tags, parent_id } = req.body as {
+  const { section_id, title, template_id, tags, parent_id, contact_id } = req.body as {
     section_id?: number;
     title?: string;
     template_id?: number;
     tags?: string;
     content?: unknown;
     parent_id?: number | null;
+    contact_id?: number | null;
   };
 
   let content = '{"type":"doc","content":[]}';
@@ -300,11 +314,12 @@ router.post('/pages', (req: Request, res: Response) => {
   }
 
   const result = db.prepare(
-    `INSERT INTO workbook_pages (workbook_id, section_id, parent_id, title, content, content_text, excerpt, tags, template_id)
-     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO workbook_pages (workbook_id, section_id, parent_id, contact_id, title, content, content_text, excerpt, tags, template_id)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     section_id ?? null,
     parent_id ?? null,
+    contact_id ?? null,
     title?.trim() || 'Unbenannte Seite',
     content,
     content_text,
@@ -325,11 +340,12 @@ router.get('/pages/:id', (req: Request, res: Response) => {
 
 router.put('/pages/:id', (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const { title, content, tags, section_id } = req.body as {
+  const { title, content, tags, section_id, contact_id } = req.body as {
     title?: string;
     content?: unknown;
     tags?: string;
     section_id?: number | null;
+    contact_id?: number | null;
     excerpt?: string;
   };
 
@@ -338,6 +354,7 @@ router.put('/pages/:id', (req: Request, res: Response) => {
 
   const newTitle = title !== undefined ? title.trim() || 'Unbenannte Seite' : (existing.title as string);
   const newSectionId = section_id !== undefined ? section_id : (existing.section_id as number | null);
+  const newContactId = contact_id !== undefined ? contact_id : (existing.contact_id as number | null);
   const newTags = tags !== undefined ? tags : (existing.tags as string | null);
 
   let newContent = existing.content as string;
@@ -353,13 +370,24 @@ router.put('/pages/:id', (req: Request, res: Response) => {
 
   db.prepare(
     `UPDATE workbook_pages
-     SET title = ?, content = ?, content_text = ?, excerpt = ?, tags = ?, section_id = ?,
+     SET title = ?, content = ?, content_text = ?, excerpt = ?, tags = ?, section_id = ?, contact_id = ?,
          updated_at = datetime('now'), updated_by = 'benny'
      WHERE id = ?`
-  ).run(newTitle, newContent, newContentText, newExcerpt, newTags, newSectionId, id);
+  ).run(newTitle, newContent, newContentText, newExcerpt, newTags, newSectionId, newContactId, id);
 
   const updated = db.prepare('SELECT * FROM workbook_pages WHERE id = ?').get(id);
   res.json(updated);
+});
+
+router.patch('/pages/:id/contact', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const { contact_id } = req.body as { contact_id: number | null };
+  db.prepare(
+    "UPDATE workbook_pages SET contact_id = ?, updated_at = datetime('now') WHERE id = ?"
+  ).run(contact_id ?? null, id);
+  const page = db.prepare('SELECT * FROM workbook_pages WHERE id = ?').get(id);
+  if (!page) { res.status(404).json({ error: 'Seite nicht gefunden' }); return; }
+  res.json(page);
 });
 
 router.patch('/pages/:id/pin', (req: Request, res: Response) => {
