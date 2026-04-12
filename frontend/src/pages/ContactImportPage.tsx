@@ -93,7 +93,6 @@ export function ContactImportPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [fileText, setFileText] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ rows: PreviewRow[]; totalCount: number } | null>(null);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ContactImportResult | null>(null);
@@ -111,7 +110,6 @@ export function ContactImportPage() {
     const reader = new FileReader();
     reader.onload = e => {
       const text = e.target?.result as string;
-      setFileText(text);
       const { rows, totalCount } = parsePreview(text);
       setPreview({ rows, totalCount });
     };
@@ -297,7 +295,7 @@ export function ContactImportPage() {
               </div>
             </div>
             <button
-              onClick={() => { setFile(null); setFileText(null); setPreview(null); }}
+              onClick={() => { setFile(null); setPreview(null); }}
               style={{
                 background: 'transparent', border: 'none', cursor: 'pointer',
                 color: 'var(--color-on-surface-variant)', display: 'inline-flex',
@@ -386,7 +384,7 @@ export function ContactImportPage() {
               )}
             </button>
             <button
-              onClick={() => { setFile(null); setFileText(null); setPreview(null); }}
+              onClick={() => { setFile(null); setPreview(null); }}
               style={{
                 background: 'rgba(255,255,255,0.06)', border: '1px solid var(--color-outline-variant)',
                 borderRadius: '0.5rem', color: 'var(--color-on-surface)',
