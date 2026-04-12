@@ -50,7 +50,6 @@ interface FormData {
   recurrence_type: string;
   description: string;
   notes: string;
-  tags: string;
 }
 
 function contractToForm(contract: Contract | null): FormData {
@@ -73,7 +72,6 @@ function contractToForm(contract: Contract | null): FormData {
       recurrence_type: 'keine',
       description: '',
       notes: '',
-      tags: '',
     };
   }
   return {
@@ -94,7 +92,6 @@ function contractToForm(contract: Contract | null): FormData {
     recurrence_type: contract.recurrence_type || 'keine',
     description: contract.description ?? '',
     notes: contract.notes ?? '',
-    tags: contract.tags ?? '',
   };
 }
 
@@ -167,7 +164,6 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave }: Contrac
         recurrence_type: form.recurrence_type || 'keine',
         description: form.description || null,
         notes: form.notes || null,
-        tags: form.tags || null,
       });
       onClose();
     } finally {
@@ -201,23 +197,27 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave }: Contrac
           }}
         />
 
-        {/* Panel — Slide von rechts */}
+        {/* Panel — zentriertes Floating Modal */}
         <div
           style={{
             position: 'fixed',
-            top: 0,
-            right: 0,
-            height: '100vh',
-            width: '480px',
-            maxWidth: '90vw',
+            top: '50%',
+            left: '50%',
+            transform: isOpen ? 'translate(-50%, -50%) scale(1)' : 'translate(-50%, -50%) scale(0.96)',
+            width: '560px',
+            maxWidth: '95vw',
+            maxHeight: '90vh',
             background: 'var(--color-surface-container)',
-            borderLeft: '1px solid var(--color-surface-container-high)',
+            border: '1px solid var(--color-surface-container-high)',
+            borderRadius: '1.25rem',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
             zIndex: 51,
             overflowY: 'auto',
             display: 'flex',
             flexDirection: 'column',
-            transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
-            transition: 'transform 300ms ease',
+            opacity: isOpen ? 1 : 0,
+            transition: 'opacity 200ms ease, transform 200ms ease',
+            pointerEvents: isOpen ? 'auto' : 'none',
           }}
         >
           {/* Header */}
@@ -492,19 +492,6 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave }: Contrac
                 onChange={e => handleChange('notes', e.target.value)}
                 rows={3}
                 placeholder="Interne Notizen..."
-              />
-            </div>
-
-            {/* Tags (full width) */}
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={LABEL_STYLE}>Tags</label>
-              <input
-                className="contract-input"
-                style={INPUT_STYLE}
-                type="text"
-                value={form.tags}
-                onChange={e => handleChange('tags', e.target.value)}
-                placeholder="Komma-getrennt, z.B. Strom, Telekom"
               />
             </div>
 
