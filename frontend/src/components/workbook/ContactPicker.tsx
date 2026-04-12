@@ -5,6 +5,7 @@ interface ContactPickerProps {
   contactId: number | null;
   contactName: string | null;
   onChange: (contactId: number | null, displayName: string | null) => void;
+  compact?: boolean; // toolbar mode: kleineres Badge, Dropdown rechts-ausgerichtet
 }
 
 function getDisplayName(c: Contact): string {
@@ -12,7 +13,7 @@ function getDisplayName(c: Contact): string {
   return [c.first_name, c.last_name].filter(Boolean).join(' ') || '(kein Name)';
 }
 
-export function ContactPicker({ contactId, contactName, onChange }: ContactPickerProps) {
+export function ContactPicker({ contactId, contactName, onChange, compact }: ContactPickerProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -100,7 +101,7 @@ export function ContactPicker({ contactId, contactName, onChange }: ContactPicke
           style={{
             position: 'absolute',
             top: 'calc(100% + 4px)',
-            left: 0,
+            ...(compact ? { right: 0 } : { left: 0 }),
             zIndex: 10,
             width: '280px',
             background: 'var(--color-surface-container-high)',

@@ -397,6 +397,19 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         {iconBtn(page.is_archived === 1, handleToggleArchive, 'archive', page.is_archived ? 'Archivierung aufheben' : 'Archivieren')}
         {iconBtn(page.is_template === 1, handleToggleTemplate, 'bookmark', page.is_template ? 'Vorlage entfernen' : 'Als Vorlage')}
 
+        {/* Kontakt-Zuordnung */}
+        <div style={{ width: '1px', height: '1.2rem', background: 'var(--color-outline-variant)', margin: '0 0.2rem' }} />
+        <ContactPicker
+          contactId={page.contact_id ?? null}
+          contactName={contactName}
+          compact
+          onChange={async (newContactId, newName) => {
+            setContactName(newName);
+            const updated = await updatePageContact(page.id, newContactId);
+            onPageUpdated(updated);
+          }}
+        />
+
         {/* + Aufgabe Button */}
         <div style={{ width: '1px', height: '1.2rem', background: 'var(--color-outline-variant)', margin: '0 0.2rem' }} />
         <button
@@ -482,18 +495,6 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
           }}
         />
 
-        {/* Kontakt-Verknuepfung */}
-        <div style={{ padding: '0.4rem 2rem 0' }}>
-          <ContactPicker
-            contactId={page.contact_id ?? null}
-            contactName={contactName}
-            onChange={async (newContactId, newName) => {
-              setContactName(newName);
-              const updated = await updatePageContact(page.id, newContactId);
-              onPageUpdated(updated);
-            }}
-          />
-        </div>
       </div>
 
       {/* Editor with drag-and-drop */}
