@@ -4,6 +4,7 @@ import { PageWrapper } from '../components/layout/PageWrapper';
 import {
   fetchContact,
   fetchContactTasks,
+  fetchContactTimeEntries,
   deleteContact,
   archiveContact,
   addNote,
@@ -15,6 +16,7 @@ import {
   type ContactNote,
 } from '../api/contacts.api';
 import { createTask, updateTask, deleteTask, type Task } from '../api/tasks.api';
+import type { TimeEntry } from '../api/zeiterfassung.api';
 import { TaskSlideOver } from '../components/tasks/TaskSlideOver';
 
 // ---------------------------------------------------------------------------
@@ -64,6 +66,21 @@ function formatDate(iso: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Dauer-Formatierung
+// ---------------------------------------------------------------------------
+function formatDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return `${h}:${String(m).padStart(2, '0')}`;
+}
+
+function formatDurationLong(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+// ---------------------------------------------------------------------------
 // ContactDetailPage
 // ---------------------------------------------------------------------------
 export function ContactDetailPage() {
@@ -71,7 +88,7 @@ export function ContactDetailPage() {
   const navigate = useNavigate();
   const [contact, setContact] = useState<ContactDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'notes' | 'activity'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'notes' | 'time' | 'activity'>('overview');
   const [newNoteContent, setNewNoteContent] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
@@ -83,6 +100,14 @@ export function ContactDetailPage() {
   const [tasksLoading, setTasksLoading] = useState(false);
   const [taskSlideOpen, setTaskSlideOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+
+  // Zeiterfassungs-Tab
+  const [contactTimeEntries, setContactTimeEntries] = useState<TimeEntry[]>([]);
+  const [timeEntriesLoading, setTimeEntriesLoading] = useState(false);
+  const [timeExpanded, setTimeExpanded] = useState<boolean>(() => {
+    try { return localStorage.getItem(`contact_detail_time_expanded_${id}`) !== 'false'; }
+    catch { return true; }
+  });
 
   async function load() {
     if (!id) return;
@@ -114,6 +139,23 @@ export function ContactDetailPage() {
 
   useEffect(() => {
     void loadTasks();
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function loadTimeEntries() {
+    if (!id) return;
+    setTimeEntriesLoading(true);
+    try {
+      const entries = await fetchContactTimeEntries(Number(id));
+      setContactTimeEntries(entries);
+    } catch (err) {
+      console.error('Zeiteintraege laden fehlgeschlagen', err);
+    } finally {
+      setTimeEntriesLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadTimeEntries();
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleDelete() {
@@ -394,6 +436,7 @@ export function ContactDetailPage() {
         {[
           { id: 'overview' as const, label: 'Übersicht', icon: 'info' },
           { id: 'notes' as const, label: 'Notizen', icon: 'note' },
+          { id: 'time' as const, label: 'Zeiterfassung', icon: 'timer' },
           { id: 'activity' as const, label: 'Verlauf', icon: 'history' },
         ].map(tab => (
           <button
@@ -650,6 +693,88 @@ export function ContactDetailPage() {
               </div>
             );
           })()}
+
+          {/* Zeiterfassungs-Karte (einklappbar) */}
+          {(() => {
+            const totalSeconds = contactTimeEntries.reduce((sum, e) => sum + e.duration_seconds, 0);
+            return (
+              <div style={cardStyle}>
+                {/* Header mit Toggle */}
+                <div
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
+                  onClick={() => {
+                    const next = !timeExpanded;
+                    setTimeExpanded(next);
+                    try { localStorage.setItem(`contact_detail_time_expanded_${id}`, String(next)); } catch {}
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: 'var(--color-primary)' }}>timer</span>
+                    <span style={labelStyle}>Zeiterfassung</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {totalSeconds > 0 && (
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center',
+                        padding: '0.15rem 0.5rem', borderRadius: '999px',
+                        background: 'var(--color-primary)', color: '#000',
+                        fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 700,
+                      }}>
+                        {formatDurationLong(totalSeconds)}
+                      </span>
+                    )}
+                    <span className="material-symbols-outlined" style={{
+                      fontSize: '1.1rem', color: 'var(--color-on-surface-variant)',
+                      transition: 'transform 150ms ease',
+                      transform: timeExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                    }}>
+                      expand_more
+                    </span>
+                  </div>
+                </div>
+
+                {/* Inhalt (einklappbar) */}
+                {timeExpanded && (
+                  <div style={{ marginTop: '0.75rem' }}>
+                    {timeEntriesLoading ? (
+                      <div style={{ color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.8rem', padding: '0.5rem 0' }}>
+                        Lade...
+                      </div>
+                    ) : contactTimeEntries.length === 0 ? (
+                      <div style={{ color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.8rem', padding: '0.25rem 0' }}>
+                        Keine Zeiterfassung vorhanden
+                      </div>
+                    ) : (
+                      <div>
+                        {contactTimeEntries.slice(0, 5).map(entry => (
+                          <div key={entry.id} style={{
+                            display: 'flex', alignItems: 'center', gap: '0.5rem',
+                            padding: '0.375rem 0',
+                            borderBottom: '1px solid rgba(255,255,255,0.05)',
+                          }}>
+                            <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', flexShrink: 0, width: '4.5rem' }}>
+                              {new Date(entry.date).toLocaleDateString('de-DE')}
+                            </span>
+                            <span style={{ flex: 1, minWidth: 0, fontFamily: 'var(--font-body)', fontSize: '0.85rem', color: 'var(--color-on-surface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {entry.title}
+                            </span>
+                            <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', flexShrink: 0 }}>
+                              {formatDuration(entry.duration_seconds)}
+                            </span>
+                            {(entry.project_name || entry.client_name) && (
+                              <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', color: 'var(--color-outline)', flexShrink: 0, maxWidth: '8rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {[entry.project_name, entry.client_name].filter(Boolean).join(' · ')}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -738,6 +863,62 @@ export function ContactDetailPage() {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Tab: Zeiterfassung */}
+      {activeTab === 'time' && (
+        <div>
+          {timeEntriesLoading ? (
+            <div style={{ ...cardStyle, color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.85rem' }}>
+              Lade Zeiteinträge...
+            </div>
+          ) : contactTimeEntries.length === 0 ? (
+            <div style={{ ...cardStyle, color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.85rem' }}>
+              Keine Zeiterfassung verknüpft
+            </div>
+          ) : (
+            <div style={cardStyle}>
+              {contactTimeEntries.map((entry, idx) => (
+                <div key={entry.id} style={{
+                  display: 'flex', alignItems: 'center', gap: '0.75rem',
+                  padding: '0.5rem 0',
+                  borderBottom: idx < contactTimeEntries.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                }}>
+                  <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)', flexShrink: 0, width: '5rem' }}>
+                    {new Date(entry.date).toLocaleDateString('de-DE')}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.85rem', color: 'var(--color-on-surface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {entry.title}
+                    </div>
+                    {(entry.project_name || entry.client_name) && (
+                      <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.72rem', color: 'var(--color-outline)', marginTop: '0.1rem' }}>
+                        {[entry.project_name, entry.client_name].filter(Boolean).join(' · ')}
+                      </div>
+                    )}
+                  </div>
+                  <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.85rem', color: 'var(--color-on-surface)', fontWeight: 600, flexShrink: 0 }}>
+                    {formatDuration(entry.duration_seconds)}
+                  </span>
+                </div>
+              ))}
+
+              {/* Gesamtstunden */}
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                marginTop: '0.75rem', paddingTop: '0.75rem',
+                borderTop: '1px solid var(--color-outline-variant)',
+              }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-on-surface)' }}>
+                  Gesamt
+                </span>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-primary)' }}>
+                  {formatDurationLong(contactTimeEntries.reduce((sum, e) => sum + e.duration_seconds, 0))}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
