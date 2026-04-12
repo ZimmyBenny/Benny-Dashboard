@@ -3,6 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
+import { execFile } from 'child_process';
 import db from '../db/connection';
 
 // ── Upload-Speicher ────────────────────────────────────────────────────────────
@@ -10,20 +11,26 @@ import db from '../db/connection';
 const VERTRAEGE_DIR = path.join(os.homedir(), '.local', 'share', 'benny-dashboard', 'vertraege');
 if (!fs.existsSync(VERTRAEGE_DIR)) fs.mkdirSync(VERTRAEGE_DIR, { recursive: true });
 
+function getContractTitleSlug(contractId: string): string {
+  const row = db.prepare('SELECT title FROM contracts_and_deadlines WHERE id = ?').get(Number(contractId)) as { title?: string } | undefined;
+  return (row?.title ?? 'unknown')
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .slice(0, 30);
+}
+
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, VERTRAEGE_DIR),
-  filename: (req, file, cb) => {
+  destination: (req, _file, cb) => {
     const contractId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    // Titel synchron aus DB laden
-    const row = db.prepare('SELECT title FROM contracts_and_deadlines WHERE id = ?').get(Number(contractId)) as { title?: string } | undefined;
-    const titleSlug = (row?.title ?? 'unknown')
-      .toLowerCase()
-      .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9-]/g, '')
-      .slice(0, 30);
+    const titleSlug = getContractTitleSlug(contractId);
+    const subDir = path.join(VERTRAEGE_DIR, `${contractId}_${titleSlug}`);
+    fs.mkdirSync(subDir, { recursive: true });
+    cb(null, subDir);
+  },
+  filename: (_req, file, cb) => {
     const timestamp = Date.now();
-    const originalName = file.originalname;
-    cb(null, `${contractId}_${titleSlug}_${timestamp}_${originalName}`);
+    cb(null, `${timestamp}_${file.originalname}`);
   },
 });
 
@@ -135,10 +142,12 @@ router.post('/:id/attachments', upload.single('file'), (req, res) => {
   // Multer liest Dateinamen als Latin-1 — in UTF-8 umwandeln
   const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
 
+  const relativePath = path.relative(VERTRAEGE_DIR, file.path);
+
   const result = db.prepare(
     `INSERT INTO contracts_and_deadlines_attachments (item_id, file_name, file_type, file_size, storage_path)
      VALUES (?, ?, ?, ?, ?)`
-  ).run(id, originalName, file.mimetype, file.size, file.filename);
+  ).run(id, originalName, file.mimetype, file.size, relativePath);
 
   db.prepare(
     `INSERT INTO contracts_and_deadlines_activity_log (item_id, event_type, message) VALUES (?, ?, ?)`
@@ -172,6 +181,27 @@ router.delete('/:id/attachments/:attachmentId', (req, res) => {
   ).run(id, 'attachment_removed', `Anhang entfernt: ${row.file_name}`);
 
   return res.status(204).send();
+});
+
+// ---------------------------------------------------------------------------
+// GET /:id/attachments/:attachmentId/reveal — Anhang im Finder anzeigen
+// ---------------------------------------------------------------------------
+router.get('/:id/attachments/:attachmentId/reveal', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const attachmentId = parseInt(req.params.attachmentId, 10);
+
+  const row = db.prepare(
+    'SELECT storage_path FROM contracts_and_deadlines_attachments WHERE id = ? AND item_id = ?'
+  ).get(attachmentId, id) as { storage_path: string } | undefined;
+  if (!row) return res.status(404).json({ error: 'Anhang nicht gefunden' });
+
+  const absolutePath = path.join(VERTRAEGE_DIR, row.storage_path);
+  if (!fs.existsSync(absolutePath)) return res.status(404).json({ error: 'Datei nicht gefunden' });
+
+  execFile('open', ['-R', absolutePath], (err) => {
+    if (err) return res.status(500).json({ error: 'Finder konnte nicht geöffnet werden' });
+    return res.json({ ok: true });
+  });
 });
 
 // ---------------------------------------------------------------------------
