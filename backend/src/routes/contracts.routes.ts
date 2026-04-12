@@ -1,5 +1,33 @@
 import { Router } from 'express';
+import multer from 'multer';
+import path from 'path';
+import os from 'os';
+import fs from 'fs';
 import db from '../db/connection';
+
+// ── Upload-Speicher ────────────────────────────────────────────────────────────
+
+const VERTRAEGE_DIR = path.join(os.homedir(), '.local', 'share', 'benny-dashboard', 'vertraege');
+if (!fs.existsSync(VERTRAEGE_DIR)) fs.mkdirSync(VERTRAEGE_DIR, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, VERTRAEGE_DIR),
+  filename: (req, file, cb) => {
+    const contractId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    // Titel synchron aus DB laden
+    const row = db.prepare('SELECT title FROM contracts_and_deadlines WHERE id = ?').get(Number(contractId)) as { title?: string } | undefined;
+    const titleSlug = (row?.title ?? 'unknown')
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
+      .slice(0, 30);
+    const timestamp = Date.now();
+    const originalName = file.originalname;
+    cb(null, `${contractId}_${titleSlug}_${timestamp}_${originalName}`);
+  },
+});
+
+const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
 const router = Router();
 
@@ -78,6 +106,88 @@ router.get('/', (req, res) => {
   ).all(...params, limitNum, offsetNum);
 
   res.json({ data: rows, total });
+});
+
+// ---------------------------------------------------------------------------
+// GET /:id/attachments — Anhänge-Liste
+// ---------------------------------------------------------------------------
+router.get('/:id/attachments', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const rows = db.prepare(
+    'SELECT * FROM contracts_and_deadlines_attachments WHERE item_id = ? ORDER BY uploaded_at ASC'
+  ).all(id);
+  return res.json(rows);
+});
+
+// ---------------------------------------------------------------------------
+// POST /:id/attachments — Anhang hochladen
+// ---------------------------------------------------------------------------
+router.post('/:id/attachments', upload.single('file'), (req, res) => {
+  const id = parseInt(String(req.params.id), 10);
+  const file = req.file;
+  if (!file) return res.status(400).json({ error: 'Keine Datei übermittelt' });
+
+  const existing = db.prepare('SELECT id FROM contracts_and_deadlines WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Vertrag nicht gefunden' });
+
+  // Multer liest Dateinamen als Latin-1 — in UTF-8 umwandeln
+  const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+
+  const result = db.prepare(
+    `INSERT INTO contracts_and_deadlines_attachments (item_id, file_name, file_type, file_size, storage_path)
+     VALUES (?, ?, ?, ?, ?)`
+  ).run(id, originalName, file.mimetype, file.size, file.filename);
+
+  db.prepare(
+    `INSERT INTO contracts_and_deadlines_activity_log (item_id, event_type, message) VALUES (?, ?, ?)`
+  ).run(id, 'attachment_added', `Anhang hinzugefügt: ${originalName}`);
+
+  const attachment = db.prepare(
+    'SELECT * FROM contracts_and_deadlines_attachments WHERE id = ?'
+  ).get(result.lastInsertRowid);
+  return res.status(201).json(attachment);
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /:id/attachments/:attachmentId — Anhang löschen
+// ---------------------------------------------------------------------------
+router.delete('/:id/attachments/:attachmentId', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const attachmentId = parseInt(req.params.attachmentId, 10);
+
+  const row = db.prepare(
+    'SELECT * FROM contracts_and_deadlines_attachments WHERE id = ? AND item_id = ?'
+  ).get(attachmentId, id) as { id: number; file_name: string; storage_path: string } | undefined;
+  if (!row) return res.status(404).json({ error: 'Anhang nicht gefunden' });
+
+  const filePath = path.join(VERTRAEGE_DIR, row.storage_path);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+  db.prepare('DELETE FROM contracts_and_deadlines_attachments WHERE id = ?').run(attachmentId);
+
+  db.prepare(
+    `INSERT INTO contracts_and_deadlines_activity_log (item_id, event_type, message) VALUES (?, ?, ?)`
+  ).run(id, 'attachment_removed', `Anhang entfernt: ${row.file_name}`);
+
+  return res.status(204).send();
+});
+
+// ---------------------------------------------------------------------------
+// GET /:id/attachments/:attachmentId/download — Anhang herunterladen
+// ---------------------------------------------------------------------------
+router.get('/:id/attachments/:attachmentId/download', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const attachmentId = parseInt(req.params.attachmentId, 10);
+
+  const row = db.prepare(
+    'SELECT * FROM contracts_and_deadlines_attachments WHERE id = ? AND item_id = ?'
+  ).get(attachmentId, id) as { file_name: string; storage_path: string } | undefined;
+  if (!row) return res.status(404).json({ error: 'Anhang nicht gefunden' });
+
+  const filePath = path.join(VERTRAEGE_DIR, row.storage_path);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Datei nicht gefunden' });
+
+  return res.download(filePath, row.file_name);
 });
 
 // ---------------------------------------------------------------------------
