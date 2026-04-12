@@ -466,6 +466,24 @@ router.get('/:id/export/pdf', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /api/contacts/:id/time-entries — Zeiteintraege eines Kontakts
+// ---------------------------------------------------------------------------
+router.get('/:id/time-entries', (req, res) => {
+  const contactId = Number(req.params.id);
+  const rows = db.prepare(`
+    SELECT te.*,
+      p.name AS project_name,
+      c.name AS client_name
+    FROM time_entries te
+    LEFT JOIN projects p ON p.id = te.project_id
+    LEFT JOIN clients  c ON c.id = te.client_id
+    WHERE te.contact_id = ?
+    ORDER BY te.date DESC, te.created_at DESC
+  `).all(contactId);
+  res.json(rows);
+});
+
+// ---------------------------------------------------------------------------
 // GET /api/contacts/:id/tasks — Alle Tasks eines Kontakts
 // ---------------------------------------------------------------------------
 router.get('/:id/tasks', (req, res) => {
@@ -477,6 +495,28 @@ router.get('/:id/tasks', (req, res) => {
     WHERE t.contact_id = ?
     ORDER BY CASE WHEN t.status = 'done' THEN 1 WHEN t.status = 'archived' THEN 2 ELSE 0 END, t.position ASC
   `).all(contactId);
+  res.json(rows);
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/contacts/:id/tasks — Aufgaben eines Kontakts
+// ---------------------------------------------------------------------------
+router.get('/:id/tasks', (req, res) => {
+  const id = Number(req.params.id);
+  const rows = db.prepare(`
+    SELECT t.*,
+      CASE WHEN c.contact_kind = 'organization' THEN c.organization_name
+           ELSE TRIM(COALESCE(c.first_name,'') || ' ' || COALESCE(c.last_name,''))
+      END AS contact_name
+    FROM tasks t
+    LEFT JOIN contacts c ON c.id = t.contact_id
+    WHERE t.contact_id = ? AND t.status != 'archived'
+    ORDER BY
+      CASE WHEN t.status = 'done' THEN 1 ELSE 0 END,
+      CASE WHEN t.due_date IS NULL THEN 1 ELSE 0 END,
+      t.due_date ASC,
+      t.created_at DESC
+  `).all(id);
   res.json(rows);
 });
 

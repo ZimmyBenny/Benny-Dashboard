@@ -1,5 +1,6 @@
 import apiClient from './client';
 import type { Task } from './tasks.api';
+import type { TimeEntry } from './zeiterfassung.api';
 
 export interface Contact {
   id: number;
@@ -206,6 +207,11 @@ export async function updateAppSettings(settings: Record<string, string>): Promi
 // Aufgaben eines Kontakts
 export async function fetchContactTasks(contactId: number): Promise<Task[]> {
   return apiClient.get<Task[]>(`/contacts/${contactId}/tasks`).then(r => r.data);
+}
+
+// Zeiteintraege eines Kontakts
+export async function fetchContactTimeEntries(contactId: number): Promise<TimeEntry[]> {
+  return apiClient.get<TimeEntry[]>(`/contacts/${contactId}/time-entries`).then(r => r.data);
 }
 
 // Hilfsfunktion: Blob-Download triggern
