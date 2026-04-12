@@ -24,6 +24,8 @@ export interface Task {
   status_note: string | null;
   source_page_id: number | null;
   source_page_title: string | null;
+  contact_id: number | null;
+  contact_name: string | null;
   created_at: string;
   updated_at: string;
 }

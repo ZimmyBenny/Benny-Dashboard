@@ -1,4 +1,5 @@
 import apiClient from './client';
+import type { Task } from './tasks.api';
 
 export interface Contact {
   id: number;
@@ -176,8 +177,10 @@ export async function deleteAddress(contactId: number, addrId: number): Promise<
 export async function importCsv(file: File): Promise<ContactImportResult> {
   const formData = new FormData();
   formData.append('file', file);
+  // Content-Type NICHT manuell setzen — axios setzt automatisch multipart/form-data
+  // inkl. korrektem boundary-Parameter. Manuelles Setzen entfernt den boundary → Multer-Fehler.
   return apiClient.post<ContactImportResult>('/contacts/import/csv', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+    headers: { 'Content-Type': undefined },
   }).then(r => r.data);
 }
 
@@ -198,6 +201,11 @@ export async function fetchAppSettings(): Promise<Record<string, string>> {
 
 export async function updateAppSettings(settings: Record<string, string>): Promise<Record<string, string>> {
   return apiClient.put<Record<string, string>>('/app-settings', settings).then(r => r.data);
+}
+
+// Aufgaben eines Kontakts
+export async function fetchContactTasks(contactId: number): Promise<Task[]> {
+  return apiClient.get<Task[]>(`/contacts/${contactId}/tasks`).then(r => r.data);
 }
 
 // Hilfsfunktion: Blob-Download triggern

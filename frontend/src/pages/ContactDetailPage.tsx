@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import {
   fetchContact,
+  fetchContactTasks,
   deleteContact,
   archiveContact,
   addNote,
@@ -13,6 +14,8 @@ import {
   type ContactDetail,
   type ContactNote,
 } from '../api/contacts.api';
+import { createTask, updateTask, deleteTask, type Task } from '../api/tasks.api';
+import { TaskSlideOver } from '../components/tasks/TaskSlideOver';
 
 // ---------------------------------------------------------------------------
 // Farben fuer Bereich-Badges
@@ -50,6 +53,10 @@ const EVENT_ICONS: Record<string, string> = {
   note_added: 'note_add',
   archived: 'archive',
   restored: 'unarchive',
+  task_linked: 'link',
+  task_completed: 'check_circle',
+  task_reopened: 'restart_alt',
+  task_unlinked: 'link_off',
 };
 
 function formatDate(iso: string): string {
@@ -64,12 +71,18 @@ export function ContactDetailPage() {
   const navigate = useNavigate();
   const [contact, setContact] = useState<ContactDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'notes' | 'activity'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'notes' | 'tasks' | 'activity'>('overview');
   const [newNoteContent, setNewNoteContent] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState('');
   const [pdfLoading, setPdfLoading] = useState(false);
+
+  // Aufgaben-Tab
+  const [contactTasks, setContactTasks] = useState<Task[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [taskSlideOpen, setTaskSlideOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   async function load() {
     if (!id) return;
@@ -85,6 +98,23 @@ export function ContactDetailPage() {
   }
 
   useEffect(() => { void load(); }, [id]);
+
+  async function loadTasks() {
+    if (!id) return;
+    setTasksLoading(true);
+    try {
+      const tasks = await fetchContactTasks(Number(id));
+      setContactTasks(tasks);
+    } catch (err) {
+      console.error('Aufgaben laden fehlgeschlagen', err);
+    } finally {
+      setTasksLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === 'tasks') void loadTasks();
+  }, [activeTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleDelete() {
     if (!contact) return;
@@ -252,7 +282,7 @@ export function ContactDetailPage() {
         }}
       >
         <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>arrow_back</span>
-        Zurueck zur Liste
+        Zurück zur Liste
       </Link>
 
       {/* Kopfbereich */}
@@ -354,7 +384,7 @@ export function ContactDetailPage() {
           </button>
           <button style={btnDanger} onClick={handleDelete}>
             <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>delete</span>
-            Loeschen
+            Löschen
           </button>
         </div>
       </div>
@@ -362,8 +392,9 @@ export function ContactDetailPage() {
       {/* Tab-Bar */}
       <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--color-outline-variant)' }}>
         {[
-          { id: 'overview' as const, label: 'Uebersicht', icon: 'info' },
+          { id: 'overview' as const, label: 'Übersicht', icon: 'info' },
           { id: 'notes' as const, label: 'Notizen', icon: 'note' },
+          { id: 'tasks' as const, label: 'Aufgaben', icon: 'task_alt' },
           { id: 'activity' as const, label: 'Verlauf', icon: 'history' },
         ].map(tab => (
           <button
@@ -392,6 +423,51 @@ export function ContactDetailPage() {
       {/* Tab: Uebersicht */}
       {activeTab === 'overview' && (
         <div>
+          {/* Ansprechpartner — nur bei Organisationen mit hinterlegter Person */}
+          {contact.contact_kind === 'organization' && (contact.first_name || contact.last_name) && (
+            <div style={{ ...cardStyle, borderLeft: '3px solid var(--color-primary)' }}>
+              <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-outline)', marginBottom: '0.75rem' }}>Ansprechpartner</div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+                {/* Avatar */}
+                <div style={{
+                  width: '40px', height: '40px', borderRadius: '50%', flexShrink: 0,
+                  background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '0.85rem', color: '#000',
+                }}>
+                  {[(contact.first_name ?? '').charAt(0), (contact.last_name ?? '').charAt(0)].join('').toUpperCase()}
+                </div>
+                <div style={{ flex: 1 }}>
+                  {/* Name */}
+                  <div style={{ fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '1rem', color: 'var(--color-on-surface)', marginBottom: '0.2rem' }}>
+                    {[contact.first_name, contact.last_name].filter(Boolean).join(' ')}
+                  </div>
+                  {/* Position */}
+                  {contact.position && (
+                    <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)', marginBottom: '0.5rem' }}>
+                      {contact.position}
+                    </div>
+                  )}
+                  {/* Kontaktdaten inline */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '0.375rem' }}>
+                    {contact.phones.map(p => (
+                      <a key={p.id} href={`tel:${p.phone}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', color: 'var(--color-primary)', fontFamily: 'var(--font-body)', fontSize: '0.85rem', textDecoration: 'none' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '0.95rem' }}>phone</span>
+                        {p.phone}
+                      </a>
+                    ))}
+                    {contact.emails.map(e => (
+                      <a key={e.id} href={`mailto:${e.email}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', color: 'var(--color-primary)', fontFamily: 'var(--font-body)', fontSize: '0.85rem', textDecoration: 'none' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '0.95rem' }}>email</span>
+                        {e.email}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Adressen */}
           {contact.addresses.length > 0 && (
             <div style={cardStyle}>
@@ -560,13 +636,47 @@ export function ContactDetailPage() {
                       </button>
                       <button style={btnDanger} onClick={() => handleDeleteNote(note)}>
                         <span className="material-symbols-outlined" style={{ fontSize: '0.9rem' }}>delete</span>
-                        Loeschen
+                        Löschen
                       </button>
                     </div>
                   </div>
                 </>
               )}
             </div>
+          ))}
+        </div>
+      )}
+
+      {/* Tab: Aufgaben */}
+      {activeTab === 'tasks' && (
+        <div>
+          {/* + Neue Aufgabe Button */}
+          <div style={{ marginBottom: '1rem', textAlign: 'right' }}>
+            <button
+              onClick={() => { setSelectedTask(null); setTaskSlideOpen(true); }}
+              style={btnSecondary}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>add</span>
+              Neue Aufgabe
+            </button>
+          </div>
+
+          {tasksLoading && (
+            <div style={{ color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', padding: '1.5rem 0', textAlign: 'center', fontSize: '0.875rem' }}>
+              Lade...
+            </div>
+          )}
+          {!tasksLoading && contactTasks.length === 0 && (
+            <div style={{ color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', padding: '1.5rem 0', textAlign: 'center', fontSize: '0.875rem' }}>
+              Keine Aufgaben verknüpft.
+            </div>
+          )}
+          {contactTasks.map(task => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              onClick={() => { setSelectedTask(task); setTaskSlideOpen(true); }}
+            />
           ))}
         </div>
       )}
@@ -600,7 +710,125 @@ export function ContactDetailPage() {
           ))}
         </div>
       )}
+      <TaskSlideOver
+        isOpen={taskSlideOpen}
+        onClose={() => { setTaskSlideOpen(false); setSelectedTask(null); }}
+        task={selectedTask}
+        onSave={async (data) => {
+          if (selectedTask) {
+            await updateTask(selectedTask.id, data);
+          } else {
+            await createTask({ ...data, contact_id: Number(id) });
+          }
+          void loadTasks();
+        }}
+        onDelete={async (taskId) => {
+          await deleteTask(taskId);
+          setTaskSlideOpen(false);
+          setSelectedTask(null);
+          void loadTasks();
+        }}
+        prefill={{ contact_id: Number(id), contact_name: name }}
+      />
     </PageWrapper>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// TaskCard — kompakte Aufgaben-Karte im Kontakt-Tab
+// ---------------------------------------------------------------------------
+const STATUS_ICONS: Record<string, string> = {
+  open: 'radio_button_unchecked',
+  in_progress: 'play_circle',
+  waiting: 'pending',
+  done: 'check_circle',
+  archived: 'archive',
+};
+
+const PRIORITY_COLORS: Record<string, string> = {
+  urgent: '#f87171',
+  high: '#fb923c',
+  medium: '#facc15',
+  low: 'rgba(255,255,255,0.3)',
+};
+
+const PRIORITY_LABELS: Record<string, string> = {
+  urgent: 'Dringend',
+  high: 'Hoch',
+  medium: 'Mittel',
+  low: 'Niedrig',
+};
+
+function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
+  const isOverdue = task.due_date && task.status !== 'done' && task.status !== 'archived'
+    && new Date(task.due_date) < new Date();
+
+  const cardStyle: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid var(--color-outline-variant)',
+    borderRadius: '0.5rem',
+    padding: '0.75rem 1rem',
+    marginBottom: '0.625rem',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '0.75rem',
+    transition: 'background 150ms ease',
+  };
+
+  return (
+    <div
+      style={cardStyle}
+      onClick={onClick}
+      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
+    >
+      <span
+        className="material-symbols-outlined"
+        style={{ fontSize: '1.1rem', color: task.status === 'done' ? '#22c55e' : 'var(--color-primary)', flexShrink: 0, marginTop: '0.1rem' }}
+      >
+        {STATUS_ICONS[task.status] ?? 'radio_button_unchecked'}
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: '0.9rem',
+          color: task.status === 'done' ? 'var(--color-on-surface-variant)' : 'var(--color-on-surface)',
+          textDecoration: task.status === 'done' ? 'line-through' : 'none',
+          marginBottom: '0.25rem',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}>
+          {task.title}
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          {task.due_date && (
+            <span style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: '0.72rem',
+              color: isOverdue ? '#f87171' : 'var(--color-on-surface-variant)',
+            }}>
+              {new Date(task.due_date).toLocaleDateString('de-DE')}
+              {isOverdue && ' (überfällig)'}
+            </span>
+          )}
+          <span style={{
+            display: 'inline-block',
+            padding: '0.1rem 0.45rem',
+            borderRadius: '999px',
+            fontSize: '0.68rem',
+            fontFamily: 'var(--font-body)',
+            fontWeight: 600,
+            background: PRIORITY_COLORS[task.priority] + '33',
+            color: PRIORITY_COLORS[task.priority],
+            border: `1px solid ${PRIORITY_COLORS[task.priority]}55`,
+          }}>
+            {PRIORITY_LABELS[task.priority]}
+          </span>
+        </div>
+      </div>
+    </div>
   );
 }
 

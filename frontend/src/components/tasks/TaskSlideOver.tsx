@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Task } from '../../api/tasks.api';
+import { fetchContacts, type Contact } from '../../api/contacts.api';
 
 // Convert UTC ISO (e.g. "2026-04-11 18:30:00" or "2026-04-11T18:30:00Z") to local datetime-local value "YYYY-MM-DDTHH:mm"
 function toLocalInputValue(iso: string): string {
@@ -75,9 +76,11 @@ interface FormData {
   notes: string;
   estimated_duration: string;
   status_note: string;
+  contact_id: number | null;
+  contact_name: string;
 }
 
-function taskToForm(task: Task | null, prefill?: { title?: string; area?: string }): FormData {
+function taskToForm(task: Task | null, prefill?: { title?: string; area?: string; contact_id?: number; contact_name?: string }): FormData {
   let reminder_date = '';
   let reminder_time = '';
   if (task?.reminder_at) {
@@ -91,6 +94,8 @@ function taskToForm(task: Task | null, prefill?: { title?: string; area?: string
       area: prefill?.area ?? '', due_date: '', start_date: '', reminder_at: '',
       reminder_date: '', reminder_time: '',
       tags: '', project_or_customer: '', notes: '', estimated_duration: '', status_note: '',
+      contact_id: prefill?.contact_id ?? null,
+      contact_name: prefill?.contact_name ?? '',
     };
   }
   return {
@@ -109,6 +114,8 @@ function taskToForm(task: Task | null, prefill?: { title?: string; area?: string
     notes: task.notes ?? '',
     estimated_duration: task.estimated_duration != null ? String(task.estimated_duration) : '',
     status_note: task.status_note ?? '',
+    contact_id: task.contact_id ?? null,
+    contact_name: task.contact_name ?? '',
   };
 }
 
@@ -118,7 +125,7 @@ interface TaskSlideOverProps {
   task: Task | null;
   onSave: (data: Partial<Task> & { title: string }) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
-  prefill?: { title?: string; area?: string; source_page_id?: number; source_page_title?: string };
+  prefill?: { title?: string; area?: string; source_page_id?: number; source_page_title?: string; contact_id?: number; contact_name?: string };
 }
 
 export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill }: TaskSlideOverProps) {
@@ -126,6 +133,11 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
   const [form, setForm] = useState<FormData>(() => taskToForm(task));
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Kontakt-Suche
+  const [contactSearch, setContactSearch] = useState('');
+  const [contactResults, setContactResults] = useState<Contact[]>([]);
+  const [contactDropdownOpen, setContactDropdownOpen] = useState(false);
 
   // Draggable modal position (null = zentriert via CSS, {x,y} = manuell verschoben)
   const [modalPos, setModalPos] = useState<{ x: number; y: number } | null>(null);
@@ -151,6 +163,25 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [isOpen, onClose]);
+
+  // Kontakt-Suche mit 300ms Debounce
+  useEffect(() => {
+    if (contactSearch.length < 2) {
+      setContactResults([]);
+      setContactDropdownOpen(false);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const result = await fetchContacts({ search: contactSearch, limit: 8 });
+        setContactResults(result.data);
+        setContactDropdownOpen(true);
+      } catch {
+        setContactResults([]);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [contactSearch]);
 
   // Drag-Handler für das Modal
   function handleHeaderMouseDown(e: React.MouseEvent) {
@@ -217,6 +248,7 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
         estimated_duration: form.estimated_duration ? Number(form.estimated_duration) : null,
         status_note: form.status_note || null,
         source_page_id: task?.source_page_id ?? prefill?.source_page_id ?? null,
+        contact_id: form.contact_id ?? null,
       });
       onClose();
     } finally {
@@ -440,7 +472,7 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
                 </select>
               </div>
               <div>
-                <label style={LABEL_STYLE}>Prioritaet</label>
+                <label style={LABEL_STYLE}>Priorität</label>
                 <select
                   className="task-input"
                   style={INPUT_STYLE}
@@ -469,18 +501,8 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
               </select>
             </div>
 
-            {/* Due date + Start date row */}
+            {/* Start date + Due date row */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div>
-                <label style={LABEL_STYLE}>Faelligkeitsdatum</label>
-                <input
-                  className="task-input"
-                  style={INPUT_STYLE}
-                  type="date"
-                  value={form.due_date}
-                  onChange={(e) => handleChange('due_date', e.target.value)}
-                />
-              </div>
               <div>
                 <label style={LABEL_STYLE}>Startdatum</label>
                 <input
@@ -489,6 +511,24 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
                   type="date"
                   value={form.start_date}
                   onChange={(e) => handleChange('start_date', e.target.value)}
+                />
+              </div>
+              <div>
+                <label style={LABEL_STYLE}>Fälligkeitsdatum</label>
+                <input
+                  className="task-input"
+                  style={INPUT_STYLE}
+                  type="date"
+                  value={form.due_date}
+                  onChange={(e) => {
+                    const newDueDate = e.target.value;
+                    handleChange('due_date', newDueDate);
+                    // Erinnerung automatisch auf Fälligkeitsdatum setzen,
+                    // wenn noch keine Erinnerung gesetzt ist
+                    if (newDueDate && !form.reminder_date) {
+                      handleChange('reminder_date', newDueDate);
+                    }
+                  }}
                 />
               </div>
             </div>
@@ -517,11 +557,20 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
                   type="text"
                   inputMode="numeric"
                   value={form.reminder_time}
-                  onChange={(e) => handleChange('reminder_time', e.target.value)}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    // Nur Ziffern + Doppelpunkt erlauben
+                    const digits = raw.replace(/[^\d]/g, '');
+                    // Live-Formatierung: nach 2 Ziffern automatisch ":" einfügen
+                    let formatted = digits;
+                    if (digits.length >= 3) {
+                      formatted = digits.slice(0, 2) + ':' + digits.slice(2, 4);
+                    }
+                    handleChange('reminder_time', formatted);
+                  }}
                   onBlur={(e) => {
                     const raw = e.target.value.trim();
                     if (!raw) return;
-                    // Normalize: "930" → "09:30", "9:3" → "09:03", "9:30" → "09:30"
                     const digits = raw.replace(/\D/g, '');
                     let h = '', m = '';
                     if (digits.length <= 2) { h = digits; m = '00'; }
@@ -546,19 +595,6 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
               )}
             </div>
 
-            {/* Tags */}
-            <div>
-              <label style={LABEL_STYLE}>Tags</label>
-              <input
-                className="task-input"
-                style={INPUT_STYLE}
-                type="text"
-                value={form.tags}
-                onChange={(e) => handleChange('tags', e.target.value)}
-                placeholder="z.B. design, dringend, review"
-              />
-            </div>
-
             {/* Project / Customer */}
             <div>
               <label style={LABEL_STYLE}>Projekt / Kunde</label>
@@ -572,18 +608,106 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
               />
             </div>
 
-            {/* Estimated duration */}
-            <div>
-              <label style={LABEL_STYLE}>Geschaetzte Dauer (Minuten)</label>
-              <input
-                className="task-input"
-                style={INPUT_STYLE}
-                type="number"
-                min="0"
-                value={form.estimated_duration}
-                onChange={(e) => handleChange('estimated_duration', e.target.value)}
-                placeholder="z.B. 60"
-              />
+            {/* Kontakt-Verknüpfung */}
+            <div style={{ position: 'relative' }}>
+              <label style={LABEL_STYLE}>Kontakt</label>
+              {form.contact_id ? (
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    background: 'rgba(204,151,255,0.15)',
+                    border: '1px solid rgba(204,151,255,0.3)',
+                    borderRadius: '999px',
+                    padding: '0.25rem 0.75rem',
+                    fontSize: '0.8rem',
+                    color: 'var(--color-primary)',
+                    fontFamily: 'var(--font-body)',
+                  }}>
+                    {form.contact_name || `Kontakt #${form.contact_id}`}
+                    <button
+                      type="button"
+                      onClick={() => setForm(prev => ({ ...prev, contact_id: null, contact_name: '' }))}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        marginLeft: '0.5rem',
+                        color: 'var(--color-primary)',
+                        padding: 0,
+                        lineHeight: 1,
+                        fontSize: '1rem',
+                      }}
+                    >×</button>
+                  </span>
+                </div>
+              ) : (
+                <input
+                  className="task-input"
+                  style={INPUT_STYLE}
+                  type="text"
+                  value={contactSearch}
+                  onChange={(e) => setContactSearch(e.target.value)}
+                  onBlur={() => setTimeout(() => setContactDropdownOpen(false), 150)}
+                  placeholder="Kontakt suchen..."
+                />
+              )}
+              {contactDropdownOpen && contactResults.length > 0 && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  zIndex: 60,
+                  background: 'var(--color-surface-container)',
+                  border: '1px solid var(--color-outline-variant)',
+                  borderRadius: '0.5rem',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                  marginTop: '0.25rem',
+                }}>
+                  {contactResults.map(contact => {
+                    const displayName = contact.contact_kind === 'person'
+                      ? [contact.first_name, contact.last_name].filter(Boolean).join(' ') || contact.organization_name || '—'
+                      : contact.organization_name || '—';
+                    return (
+                      <button
+                        key={contact.id}
+                        type="button"
+                        onMouseDown={() => {
+                          setForm(prev => ({ ...prev, contact_id: contact.id, contact_name: displayName }));
+                          setContactSearch('');
+                          setContactDropdownOpen(false);
+                          setContactResults([]);
+                        }}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '0.5rem 0.75rem',
+                          background: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontFamily: 'var(--font-body)',
+                          fontSize: '0.875rem',
+                          color: 'var(--color-on-surface)',
+                          borderBottom: '1px solid var(--color-outline-variant)',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <span>{displayName}</span>
+                        {contact.customer_number && (
+                          <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: 'var(--color-on-surface-variant)' }}>
+                            #{contact.customer_number}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
           </div>
@@ -625,32 +749,85 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
               <div />
             )}
 
-            <button
-              onClick={handleSave}
-              disabled={saving || !form.title.trim()}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.3rem',
-                padding: '0.5rem 1.5rem',
-                borderRadius: '9999px',
-                background: form.title.trim()
-                  ? 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))'
-                  : 'rgba(255,255,255,0.08)',
-                border: 'none',
-                color: form.title.trim() ? '#000' : 'var(--color-on-surface-variant)',
-                fontFamily: 'var(--font-body)',
-                fontWeight: 700,
-                fontSize: '0.8rem',
-                cursor: saving || !form.title.trim() ? 'not-allowed' : 'pointer',
-                opacity: saving ? 0.7 : 1,
-                transition: 'background 200ms ease',
-              }}
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>save</span>
-              {saving ? 'Wird gespeichert...' : 'Speichern'}
-            </button>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              {task && (
+                <button
+                  onClick={async () => {
+                    setSaving(true);
+                    try {
+                      await onSave({
+                        title: form.title.trim() || task.title,
+                        status: 'done',
+                        description: form.description || null,
+                        priority: form.priority,
+                        area: form.area || null,
+                        due_date: form.due_date || null,
+                        start_date: form.start_date || null,
+                        reminder_at: null,
+                        has_reminder: 0,
+                        tags: form.tags || null,
+                        project_or_customer: form.project_or_customer || null,
+                        notes: form.notes || null,
+                        estimated_duration: null,
+                        status_note: form.status_note || null,
+                        source_page_id: task.source_page_id ?? null,
+                        contact_id: form.contact_id ?? null,
+                      });
+                      onClose();
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                  disabled={saving}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.3rem',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '9999px',
+                    background: 'rgba(34,197,94,0.12)',
+                    border: '1px solid rgba(34,197,94,0.3)',
+                    color: '#22c55e',
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 600,
+                    fontSize: '0.8rem',
+                    cursor: saving ? 'not-allowed' : 'pointer',
+                    opacity: saving ? 0.6 : 1,
+                  }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>check_circle</span>
+                  Erledigt
+                </button>
+              )}
+
+              <button
+                onClick={handleSave}
+                disabled={saving || !form.title.trim()}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  padding: '0.5rem 1.5rem',
+                  borderRadius: '9999px',
+                  background: form.title.trim()
+                    ? 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))'
+                    : 'rgba(255,255,255,0.08)',
+                  border: 'none',
+                  color: form.title.trim() ? '#000' : 'var(--color-on-surface-variant)',
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 700,
+                  fontSize: '0.8rem',
+                  cursor: saving || !form.title.trim() ? 'not-allowed' : 'pointer',
+                  opacity: saving ? 0.7 : 1,
+                  transition: 'background 200ms ease',
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>save</span>
+                {saving ? 'Wird gespeichert...' : 'Speichern'}
+              </button>
+            </div>
           </div>
+
         </div>
       </div>
     </>
