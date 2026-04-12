@@ -1,0 +1,78 @@
+import apiClient from './client';
+
+// ---------------------------------------------------------------------------
+// Interfaces
+// ---------------------------------------------------------------------------
+
+export interface Contract {
+  id: number;
+  title: string;
+  item_type: string; // Vertrag|Dokument|Frist|Versicherung|Mitgliedschaft|Garantie|Sonstiges
+  area: string;
+  status: string; // aktiv|in_pruefung|gekuendigt|abgelaufen|archiviert
+  priority: string; // niedrig|mittel|hoch|kritisch
+  provider_name: string | null;
+  reference_number: string | null;
+  start_date: string | null;
+  expiration_date: string | null;
+  cancellation_date: string | null;
+  reminder_date: string | null;
+  recurrence_type: string;
+  cost_amount: number | null;
+  currency: string;
+  cost_interval: string | null;
+  description: string | null;
+  notes: string | null;
+  tags: string | null;
+  linked_contact_id: number | null;
+  linked_task_id: number | null;
+  linked_calendar_event_id: string | null;
+  is_archived: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ContractActivity {
+  id: number;
+  item_id: number;
+  event_type: string;
+  message: string;
+  created_at: string;
+}
+
+export interface ContractDetail extends Contract {
+  activity_log: ContractActivity[];
+}
+
+export interface ContractListResponse {
+  data: Contract[];
+  total: number;
+}
+
+// ---------------------------------------------------------------------------
+// API-Funktionen
+// ---------------------------------------------------------------------------
+
+export async function fetchContracts(params?: Record<string, string | number>): Promise<ContractListResponse> {
+  return apiClient.get<ContractListResponse>('/contracts', { params }).then(r => r.data);
+}
+
+export async function fetchContract(id: number): Promise<ContractDetail> {
+  return apiClient.get<ContractDetail>(`/contracts/${id}`).then(r => r.data);
+}
+
+export async function createContract(data: Partial<Contract>): Promise<ContractDetail> {
+  return apiClient.post<ContractDetail>('/contracts', data).then(r => r.data);
+}
+
+export async function updateContract(id: number, data: Partial<Contract>): Promise<ContractDetail> {
+  return apiClient.put<ContractDetail>(`/contracts/${id}`, data).then(r => r.data);
+}
+
+export async function archiveContract(id: number): Promise<ContractDetail> {
+  return apiClient.post<ContractDetail>(`/contracts/${id}/archive`).then(r => r.data);
+}
+
+export async function deleteContract(id: number): Promise<void> {
+  await apiClient.delete(`/contracts/${id}`);
+}
