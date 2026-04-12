@@ -111,20 +111,27 @@ export async function deleteContractAttachment(contractId: number, attachmentId:
   await apiClient.delete(`/contracts/${contractId}/attachments/${attachmentId}`);
 }
 
+const BROWSER_DISPLAYABLE = ['application/pdf', 'image/', 'text/plain', 'text/html', 'video/', 'audio/'];
+
 export async function openContractAttachment(contractId: number, attachmentId: number, fileName: string): Promise<void> {
   const { data } = await apiClient.get(`/contracts/${contractId}/attachments/${attachmentId}/download`, {
     responseType: 'blob',
   });
+  const canDisplay = BROWSER_DISPLAYABLE.some(t => (data as Blob).type.startsWith(t));
   const url = URL.createObjectURL(data);
-  const win = window.open(url, '_blank');
-  // Blob-URL nach kurzer Zeit freigeben
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
-  if (!win) {
-    // Fallback: direkter Download
+  if (canDisplay) {
+    const win = window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    if (!win) {
+      const a = document.createElement('a');
+      a.href = url; a.download = fileName; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    }
+  } else {
+    // Nicht im Browser anzeigbar (z.B. .docx) → Download → macOS öffnet mit Standardapp
     const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    a.click();
+    a.href = url; a.download = fileName; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
   }
 }
 
