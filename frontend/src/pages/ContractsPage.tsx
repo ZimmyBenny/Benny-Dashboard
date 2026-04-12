@@ -58,6 +58,55 @@ const EMPTY_STATE_MESSAGES: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------------------
+// CSV-Export
+// ---------------------------------------------------------------------------
+
+function escapeCSV(value: string | number | null | undefined): string {
+  const s = (value ?? '').toString();
+  if (/[;"'\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+function exportContractsCsv(contracts: Contract[]) {
+  const header = [
+    'Titel', 'Eintragstyp', 'Bereich', 'Status', 'Priorität', 'Anbieter', 'Referenznummer',
+    'Startdatum', 'Ablaufdatum', 'Kündigungsdatum', 'Erinnerungsdatum',
+    'Kostenbetrag', 'Währung', 'Zahlungsintervall', 'Wiederholungstyp',
+    'Beschreibung', 'Notizen',
+  ];
+  const lines = [header.join(';')];
+  for (const c of contracts) {
+    lines.push([
+      escapeCSV(c.title),
+      escapeCSV(c.item_type),
+      escapeCSV(c.area),
+      escapeCSV(c.status),
+      escapeCSV(c.priority),
+      escapeCSV(c.provider_name),
+      escapeCSV(c.reference_number),
+      escapeCSV(c.start_date),
+      escapeCSV(c.expiration_date),
+      escapeCSV(c.cancellation_date),
+      escapeCSV(c.reminder_date),
+      escapeCSV(c.cost_amount),
+      escapeCSV(c.currency),
+      escapeCSV(c.cost_interval),
+      escapeCSV(c.recurrence_type),
+      escapeCSV(c.description),
+      escapeCSV(c.notes),
+    ].join(';'));
+  }
+  const csv = '\uFEFF' + lines.join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `vertraege-fristen_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---------------------------------------------------------------------------
 // Hilfsfunktionen
 // ---------------------------------------------------------------------------
 
@@ -231,7 +280,28 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
   return (
     <PageWrapper>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: '1.25rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.75rem', marginBottom: '1.25rem' }}>
+        <button
+          onClick={() => exportContractsCsv(contracts)}
+          disabled={contracts.length === 0}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+            padding: '0.45rem 1.1rem',
+            borderRadius: '9999px',
+            background: 'rgba(255,255,255,0.06)',
+            border: '1px solid var(--color-outline-variant)',
+            color: 'var(--color-on-surface-variant)',
+            cursor: contracts.length === 0 ? 'not-allowed' : 'pointer',
+            fontFamily: 'var(--font-body)',
+            fontWeight: 600,
+            fontSize: '0.8rem',
+            letterSpacing: '0.03em',
+            opacity: contracts.length === 0 ? 0.5 : 1,
+          }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>download</span>
+          CSV-Export
+        </button>
         <button
           onClick={handleNewEntry}
           style={{
