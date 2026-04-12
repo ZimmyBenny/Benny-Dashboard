@@ -76,3 +76,35 @@ export async function archiveContract(id: number): Promise<ContractDetail> {
 export async function deleteContract(id: number): Promise<void> {
   await apiClient.delete(`/contracts/${id}`);
 }
+
+// ---------------------------------------------------------------------------
+// Anhänge
+// ---------------------------------------------------------------------------
+
+export interface ContractAttachment {
+  id: number;
+  item_id: number;
+  file_name: string;
+  file_type: string | null;
+  file_size: number | null;
+  storage_path: string;
+  uploaded_at: string;
+}
+
+export async function fetchContractAttachments(contractId: number): Promise<ContractAttachment[]> {
+  return apiClient.get<ContractAttachment[]>(`/contracts/${contractId}/attachments`).then(r => r.data);
+}
+
+export async function uploadContractAttachment(contractId: number, file: File): Promise<ContractAttachment> {
+  const formData = new FormData();
+  formData.append('file', file);
+  return apiClient.post<ContractAttachment>(`/contracts/${contractId}/attachments`, formData).then(r => r.data);
+}
+
+export async function deleteContractAttachment(contractId: number, attachmentId: number): Promise<void> {
+  await apiClient.delete(`/contracts/${contractId}/attachments/${attachmentId}`);
+}
+
+export function downloadContractAttachment(contractId: number, attachmentId: number): void {
+  window.open(`/api/contracts/${contractId}/attachments/${attachmentId}/download`);
+}

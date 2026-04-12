@@ -1,5 +1,11 @@
-import { useState, useEffect } from 'react';
-import type { Contract } from '../../api/contracts.api';
+import { useState, useEffect, useRef } from 'react';
+import type { Contract, ContractAttachment } from '../../api/contracts.api';
+import {
+  fetchContractAttachments,
+  uploadContractAttachment,
+  deleteContractAttachment,
+  downloadContractAttachment,
+} from '../../api/contracts.api';
 
 // ---------------------------------------------------------------------------
 // Styles — exakt wie TaskSlideOver
@@ -50,6 +56,13 @@ interface FormData {
   recurrence_type: string;
   description: string;
   notes: string;
+}
+
+function formatFileSize(bytes: number | null): string {
+  if (!bytes || bytes === 0) return '0 B';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function contractToForm(contract: Contract | null): FormData {
@@ -115,11 +128,25 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave }: Contrac
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Set<string>>(new Set());
 
+  // Anhänge
+  const [attachments, setAttachments] = useState<ContractAttachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Form zurücksetzen wenn contract oder isOpen wechselt
   useEffect(() => {
     setForm(contractToForm(contract));
     setErrors(new Set());
   }, [contract, isOpen]);
+
+  // Anhänge laden
+  useEffect(() => {
+    if (isOpen && contract?.id) {
+      fetchContractAttachments(contract.id).then(setAttachments).catch(() => setAttachments([]));
+    } else {
+      setAttachments([]);
+    }
+  }, [contract?.id, isOpen]);
 
   // Escape-Taste
   useEffect(() => {
@@ -128,6 +155,34 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave }: Contrac
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [isOpen, onClose]);
+
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !contract) return;
+    setUploading(true);
+    try {
+      await uploadContractAttachment(contract.id, file);
+      const updated = await fetchContractAttachments(contract.id);
+      setAttachments(updated);
+    } catch {
+      // ignore
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
+
+  async function handleDeleteAttachment(attId: number, attName: string) {
+    if (!contract) return;
+    if (!confirm(`Anhang "${attName}" wirklich löschen?`)) return;
+    try {
+      await deleteContractAttachment(contract.id, attId);
+      const updated = await fetchContractAttachments(contract.id);
+      setAttachments(updated);
+    } catch {
+      // ignore
+    }
+  }
 
   function handleChange(field: keyof FormData, value: string) {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -493,6 +548,97 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave }: Contrac
                 rows={3}
                 placeholder="Interne Notizen..."
               />
+            </div>
+
+            {/* Dokumente & Anhänge (full width) */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={LABEL_STYLE}>Dokumente & Anhänge</label>
+
+              {/* Hidden file input */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                accept="*/*"
+                onChange={handleFileSelect}
+              />
+
+              {/* Upload-Button */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading || !contract}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  padding: '0.35rem 0.9rem',
+                  borderRadius: '9999px',
+                  background: 'transparent',
+                  border: '1px solid var(--color-outline-variant)',
+                  color: uploading || !contract ? 'var(--color-outline)' : 'var(--color-on-surface-variant)',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '0.78rem',
+                  cursor: uploading || !contract ? 'not-allowed' : 'pointer',
+                  opacity: uploading || !contract ? 0.6 : 1,
+                  marginBottom: '0.5rem',
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>attach_file</span>
+                {uploading ? 'Wird hochgeladen...' : 'Datei hinzufügen'}
+              </button>
+
+              {/* Hinweis bei neuem Eintrag */}
+              {!contract && (
+                <p style={{ fontSize: '0.75rem', color: 'var(--color-outline)', fontFamily: 'var(--font-body)', marginTop: '0.25rem' }}>
+                  Erst speichern, dann Anhänge hinzufügen.
+                </p>
+              )}
+
+              {/* Anhänge-Liste */}
+              {attachments.map(att => (
+                <div key={att.id} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.4rem 0',
+                  borderBottom: '1px solid var(--color-outline-variant)',
+                }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--color-primary)', flexShrink: 0 }}>description</span>
+                  <span style={{
+                    flex: 1,
+                    fontSize: '0.8rem',
+                    color: 'var(--color-on-surface)',
+                    fontFamily: 'var(--font-body)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}>{att.file_name}</span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--color-outline)', fontFamily: 'var(--font-body)', flexShrink: 0 }}>
+                    {formatFileSize(att.file_size)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => downloadContractAttachment(contract!.id, att.id)}
+                    title="Herunterladen"
+                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-outline)', padding: '0.15rem', display: 'flex', alignItems: 'center' }}
+                    onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-primary)')}
+                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-outline)')}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>download</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteAttachment(att.id, att.file_name)}
+                    title="Löschen"
+                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-outline)', padding: '0.15rem', display: 'flex', alignItems: 'center' }}
+                    onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
+                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-outline)')}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>delete</span>
+                  </button>
+                </div>
+              ))}
             </div>
 
           </div>
