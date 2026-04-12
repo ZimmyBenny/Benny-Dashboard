@@ -14,6 +14,7 @@ const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 
 const DB_PATH = path.join(os.homedir(), '.local/share/benny-dashboard/dashboard.db');
 const UPLOADS_PATH = path.join(os.homedir(), '.local/share/benny-dashboard/uploads');
+const VERTRAEGE_PATH = path.join(os.homedir(), '.local/share/benny-dashboard/vertraege');
 
 const ICLOUD_BACKUP_DIR = path.join(
   os.homedir(),
@@ -22,10 +23,11 @@ const ICLOUD_BACKUP_DIR = path.join(
 );
 
 router.post('/', async (_req, res) => {
-  const result: { git: string | null; db: string | null; uploads: string | null; errors: string[] } = {
+  const result: { git: string | null; db: string | null; uploads: string | null; vertraege: string | null; errors: string[] } = {
     git: null,
     db: null,
     uploads: null,
+    vertraege: null,
     errors: [],
   };
 
@@ -106,6 +108,50 @@ router.post('/', async (_req, res) => {
       : 'Keine Anhänge vorhanden';
   } catch (err: unknown) {
     result.errors.push(`Uploads: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // ── 4. Vertrags-Anhänge → iCloud ──────────────────────────────────────────
+  try {
+    const vertraegeBackupDir = path.join(ICLOUD_BACKUP_DIR, 'vertraege');
+    await mkdir(vertraegeBackupDir, { recursive: true });
+
+    type VAttRow = { id: number; file_name: string; storage_path: string };
+    const vAttachments = db.prepare('SELECT id, file_name, storage_path FROM contracts_and_deadlines_attachments').all() as VAttRow[];
+    const validVNames = new Set(vAttachments.map((a) => a.file_name));
+
+    await Promise.all(
+      vAttachments.map(async (att) => {
+        const src = path.join(VERTRAEGE_PATH, att.storage_path);
+        const dest = path.join(vertraegeBackupDir, att.file_name);
+        try { await copyFile(src, dest); } catch { /* Datei fehlt lokal — überspringen */ }
+      })
+    );
+
+    // Backup-Dateien bereinigen die nicht mehr in DB sind (7 Tage Karenzzeit)
+    const vBackupFiles = await readdir(vertraegeBackupDir).catch(() => [] as string[]);
+    const now2 = new Date();
+    for (const f of vBackupFiles) {
+      if (validVNames.has(f)) {
+        db.prepare('DELETE FROM backup_pending_cleanup WHERE file_name = ?').run(`vertraege/${f}`);
+      } else {
+        db.prepare('INSERT OR IGNORE INTO backup_pending_cleanup (file_name, first_absent_at) VALUES (?, ?)').run(`vertraege/${f}`, now2.toISOString());
+      }
+    }
+    type PendingRow2 = { file_name: string; first_absent_at: string };
+    const pending2 = db.prepare("SELECT file_name, first_absent_at FROM backup_pending_cleanup WHERE file_name LIKE 'vertraege/%'").all() as PendingRow2[];
+    for (const p of pending2) {
+      const daysSince = (now2.getTime() - new Date(p.first_absent_at).getTime()) / (1000 * 60 * 60 * 24);
+      if (daysSince >= 7) {
+        await unlink(path.join(vertraegeBackupDir, p.file_name.replace('vertraege/', ''))).catch(() => {});
+        db.prepare('DELETE FROM backup_pending_cleanup WHERE file_name = ?').run(p.file_name);
+      }
+    }
+
+    result.vertraege = vAttachments.length > 0
+      ? `Backups/vertraege (${vAttachments.length} Datei${vAttachments.length === 1 ? '' : 'en'})`
+      : 'Keine Vertrags-Anhänge vorhanden';
+  } catch (err: unknown) {
+    result.errors.push(`Vertraege: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   const status = result.errors.length === 0 ? 200 : 207;
