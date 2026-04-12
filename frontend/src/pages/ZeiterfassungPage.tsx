@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { useTimerStore } from '../store/timerStore';
 import {
-  fetchClients, fetchProjects, fetchTimeEntries,
-  createClient, createProject, createTimeEntry, updateTimeEntry, deleteTimeEntry,
-  type Client, type Project, type TimeEntry,
+  fetchProjects, fetchTimeEntries,
+  createProject, createTimeEntry, updateTimeEntry, deleteTimeEntry,
+  type Project, type TimeEntry,
 } from '../api/zeiterfassung.api';
 import { fetchContacts, type Contact } from '../api/contacts.api';
 import { exportCsv, type ExportRow } from '../lib/exportCsv';
@@ -61,7 +61,6 @@ const labelStyle: React.CSSProperties = {
 
 interface QuickStartPreset {
   project_id: number | null;
-  client_id: number | null;
   title: string;
 }
 
@@ -69,36 +68,30 @@ interface QuickStartPreset {
 
 interface SavePanelProps {
   durationMs: number;
-  clients: Client[];
   projects: Project[];
   onSaved: () => void;
   onCancel: () => void;
   editEntry?: TimeEntry | null;
-  onClientsChange: (clients: Client[]) => void;
   onProjectsChange: (projects: Project[]) => void;
   sessionStartedAt?: number | null;
   preset?: QuickStartPreset | null;
 }
 
 function EntryPanel({
-  durationMs, clients, projects, onSaved, onCancel,
-  editEntry, onClientsChange, onProjectsChange,
+  durationMs, projects, onSaved, onCancel,
+  editEntry, onProjectsChange,
   sessionStartedAt, preset,
 }: SavePanelProps) {
   // Prioritaet: editEntry > preset > leer
   const defaultProjectId = editEntry?.project_id ?? preset?.project_id ?? '';
-  const defaultClientId = editEntry?.client_id ?? preset?.client_id ?? '';
   const defaultTitle = editEntry?.title ?? preset?.title ?? '';
 
   const [title, setTitle] = useState(defaultTitle);
   const [note, setNote] = useState(editEntry?.note ?? '');
   const [date, setDate] = useState(editEntry?.date ?? todayISO());
   const [projectId, setProjectId] = useState<number | ''>(defaultProjectId !== null ? (defaultProjectId as number | '') : '');
-  const [clientId, setClientId] = useState<number | ''>(defaultClientId !== null ? (defaultClientId as number | '') : '');
   const [newProjectName, setNewProjectName] = useState('');
-  const [newClientName, setNewClientName] = useState('');
   const [addingProject, setAddingProject] = useState(false);
-  const [addingClient, setAddingClient] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -125,25 +118,12 @@ function EntryPanel({
     ? editEntry.duration_seconds
     : Math.round(durationMs / 1000);
 
-  async function handleAddClient() {
-    if (!newClientName.trim()) return;
-    try {
-      const c = await createClient(newClientName.trim());
-      onClientsChange([...clients, c]);
-      setClientId(c.id);
-      setNewClientName('');
-      setAddingClient(false);
-    } catch {
-      setError('Kunde konnte nicht angelegt werden');
-    }
-  }
-
   async function handleAddProject() {
     if (!newProjectName.trim()) return;
     try {
       const p = await createProject({
         name: newProjectName.trim(),
-        client_id: clientId !== '' ? clientId : null,
+        client_id: null,
       });
       onProjectsChange([...projects, p]);
       setProjectId(p.id);
@@ -169,7 +149,6 @@ function EntryPanel({
 
       const payload = {
         project_id: projectId !== '' ? projectId : null,
-        client_id: clientId !== '' ? clientId : null,
         contact_id: contactId,
         title: title.trim(),
         note: note.trim() || null,
@@ -236,47 +215,6 @@ function EntryPanel({
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Was hast du gemacht?"
           />
-        </div>
-
-        {/* Kunde */}
-        <div>
-          <label style={labelStyle}>Kunde</label>
-          {addingClient ? (
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <input
-                style={{ ...inputStyle, flex: 1 }}
-                value={newClientName}
-                onChange={(e) => setNewClientName(e.target.value)}
-                placeholder="Kundenname"
-                onKeyDown={(e) => e.key === 'Enter' && handleAddClient()}
-                autoFocus
-              />
-              <button onClick={handleAddClient} style={{
-                padding: '0.625rem 0.75rem', borderRadius: '0.5rem', cursor: 'pointer',
-                background: 'var(--color-primary)', color: '#000', border: 'none', fontWeight: 600, fontSize: '0.8rem',
-              }}>OK</button>
-              <button onClick={() => setAddingClient(false)} style={{
-                padding: '0.625rem 0.75rem', borderRadius: '0.5rem', cursor: 'pointer',
-                background: 'rgba(255,255,255,0.06)', color: 'var(--color-on-surface)', border: 'none',
-              }}>✕</button>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <select
-                style={{ ...inputStyle, flex: 1 }}
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value !== '' ? Number(e.target.value) : '')}
-              >
-                <option value="">— Kein Kunde —</option>
-                {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-              <button onClick={() => setAddingClient(true)} title="Neuer Kunde" style={{
-                padding: '0.625rem 0.75rem', borderRadius: '0.5rem', cursor: 'pointer',
-                background: 'rgba(255,255,255,0.06)', color: 'var(--color-primary)', border: '1px solid var(--color-outline-variant)',
-                fontSize: '1rem', lineHeight: 1,
-              }}>+</button>
-            </div>
-          )}
         </div>
 
         {/* Projekt */}
@@ -459,22 +397,19 @@ function EntryPanel({
 
 interface EntryListProps {
   entries: TimeEntry[];
-  clients: Client[];
   projects: Project[];
   onEdit: (entry: TimeEntry) => void;
   onDelete: (id: number) => void;
   onQuickStart: (entry: TimeEntry) => void;
   filterProject: number | '';
-  filterClient: number | '';
   filterContact: number | '';
   setFilterProject: (v: number | '') => void;
-  setFilterClient: (v: number | '') => void;
   setFilterContact: (v: number | '') => void;
 }
 
 function EntryList({
-  entries, clients, projects, onEdit, onDelete, onQuickStart,
-  filterProject, filterClient, filterContact, setFilterProject, setFilterClient, setFilterContact,
+  entries, projects, onEdit, onDelete, onQuickStart,
+  filterProject, filterContact, setFilterProject, setFilterContact,
 }: EntryListProps) {
   // Unique Kontakte aus Einträgen für das Filter-Dropdown
   const contactOptions = Array.from(
@@ -487,7 +422,6 @@ function EntryList({
 
   const filtered = entries.filter((e) => {
     if (filterProject !== '' && e.project_id !== filterProject) return false;
-    if (filterClient !== '' && e.client_id !== filterClient) return false;
     if (filterContact !== '' && e.contact_id !== filterContact) return false;
     return true;
   });
@@ -504,14 +438,6 @@ function EntryList({
           <option value="">Alle Projekte</option>
           {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
-        <select
-          style={{ ...inputStyle, width: 'auto', minWidth: '160px' }}
-          value={filterClient}
-          onChange={(e) => setFilterClient(e.target.value !== '' ? Number(e.target.value) : '')}
-        >
-          <option value="">Alle Kunden</option>
-          {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
         {contactOptions.length > 0 && (
           <select
             style={{ ...inputStyle, width: 'auto', minWidth: '160px' }}
@@ -522,9 +448,9 @@ function EntryList({
             {contactOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         )}
-        {(filterProject !== '' || filterClient !== '' || filterContact !== '') && (
+        {(filterProject !== '' || filterContact !== '') && (
           <button
-            onClick={() => { setFilterProject(''); setFilterClient(''); setFilterContact(''); }}
+            onClick={() => { setFilterProject(''); setFilterContact(''); }}
             style={{
               padding: '0.625rem 0.875rem', borderRadius: '0.5rem', cursor: 'pointer',
               background: 'transparent', color: 'var(--color-outline)',
@@ -588,7 +514,7 @@ function EntryList({
                   fontFamily: 'var(--font-body)', fontSize: '0.75rem',
                   color: 'var(--color-on-surface-variant)', marginTop: '0.125rem',
                 }}>
-                  {[entry.project_name, entry.client_name, entry.contact_name].filter(Boolean).join(' · ') || '—'}
+                  {[entry.project_name, entry.contact_name].filter(Boolean).join(' · ') || '—'}
                 </p>
                 {(entry.start_time || entry.end_time) && (
                   <p style={{
@@ -662,26 +588,22 @@ export function ZeiterfassungPage() {
   const [sessionStart, setSessionStart] = useState<number | null>(null);
   const [quickStartPreset, setQuickStartPreset] = useState<QuickStartPreset | null>(null);
 
-  const [clients, setClients] = useState<Client[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [editEntry, setEditEntry] = useState<TimeEntry | null>(null);
   const [showPanel, setShowPanel] = useState(false);
   const [showEntries, setShowEntries] = useState(true);
   const [filterProject, setFilterProject] = useState<number | ''>('');
-  const [filterClient, setFilterClient] = useState<number | ''>('');
   const [filterContact, setFilterContact] = useState<number | ''>('');
 
   // Export-State
   const [exportDateFrom, setExportDateFrom] = useState('');
   const [exportDateTo, setExportDateTo] = useState('');
   const [exportProject, setExportProject] = useState<number | ''>('');
-  const [exportClient, setExportClient] = useState<number | ''>('');
 
   // Daten laden
   const loadAll = useCallback(async () => {
-    const [c, p, e] = await Promise.all([fetchClients(), fetchProjects(), fetchTimeEntries()]);
-    setClients(c);
+    const [p, e] = await Promise.all([fetchProjects(), fetchTimeEntries()]);
     setProjects(p);
     setEntries(e);
   }, []);
@@ -720,7 +642,6 @@ export function ZeiterfassungPage() {
     setEditEntry(null);
     setQuickStartPreset({
       project_id: entry.project_id,
-      client_id: entry.client_id,
       title: entry.title,
     });
   }
@@ -761,7 +682,6 @@ export function ZeiterfassungPage() {
         if (exportDateFrom && e.date < exportDateFrom) return false;
         if (exportDateTo && e.date > exportDateTo) return false;
         if (exportProject !== '' && e.project_id !== exportProject) return false;
-        if (exportClient !== '' && e.client_id !== exportClient) return false;
         return true;
       })
       .map((e) => ({
@@ -770,11 +690,11 @@ export function ZeiterfassungPage() {
         end_time: e.end_time,
         duration_seconds: e.duration_seconds,
         project_name: e.project_name ?? null,
-        client_name: e.client_name ?? null,
+        client_name: null,
         title: e.title,
         note: e.note,
       }));
-  }, [entries, exportDateFrom, exportDateTo, exportProject, exportClient]);
+  }, [entries, exportDateFrom, exportDateTo, exportProject]);
 
   const exportTotalSeconds = useMemo(
     () => exportEntries.reduce((s, e) => s + e.duration_seconds, 0),
@@ -792,10 +712,6 @@ export function ZeiterfassungPage() {
     if (exportProject !== '') {
       const p = projects.find((x) => x.id === exportProject);
       if (p) parts.push(`Projekt: ${p.name}`);
-    }
-    if (exportClient !== '') {
-      const c = clients.find((x) => x.id === exportClient);
-      if (c) parts.push(`Kunde: ${c.name}`);
     }
     if (exportDateFrom || exportDateTo) {
       const f = exportDateFrom
@@ -1030,12 +946,10 @@ export function ZeiterfassungPage() {
         <div style={{ marginBottom: '2rem' }}>
           <EntryPanel
             durationMs={stoppedMs ?? 0}
-            clients={clients}
             projects={projects}
             onSaved={handleSaved}
             onCancel={handleCancelSave}
             editEntry={editEntry}
-            onClientsChange={setClients}
             onProjectsChange={setProjects}
             sessionStartedAt={sessionStart}
             preset={quickStartPreset}
@@ -1083,16 +997,13 @@ export function ZeiterfassungPage() {
         {showEntries && (
           <EntryList
             entries={entries}
-            clients={clients}
             projects={projects}
             onEdit={(entry) => handleEdit(entry)}
             onDelete={handleDelete}
             onQuickStart={handleQuickStart}
             filterProject={filterProject}
-            filterClient={filterClient}
             filterContact={filterContact}
             setFilterProject={setFilterProject}
-            setFilterClient={setFilterClient}
             setFilterContact={setFilterContact}
           />
         )}
@@ -1163,22 +1074,11 @@ export function ZeiterfassungPage() {
               {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '160px', flex: 1 }}>
-            <label style={labelStyle}>Kunde</label>
-            <select
-              style={inputStyle}
-              value={exportClient}
-              onChange={(e) => setExportClient(e.target.value !== '' ? Number(e.target.value) : '')}
-            >
-              <option value="">Alle Kunden</option>
-              {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </div>
-          {(exportDateFrom || exportDateTo || exportProject !== '' || exportClient !== '') && (
+          {(exportDateFrom || exportDateTo || exportProject !== '') && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', justifyContent: 'flex-end' }}>
               <label style={{ ...labelStyle, visibility: 'hidden' }}>Reset</label>
               <button
-                onClick={() => { setExportDateFrom(''); setExportDateTo(''); setExportProject(''); setExportClient(''); }}
+                onClick={() => { setExportDateFrom(''); setExportDateTo(''); setExportProject(''); }}
                 style={{
                   padding: '0.625rem 0.875rem', borderRadius: '0.5rem', cursor: 'pointer',
                   background: 'transparent', color: 'var(--color-outline)',
