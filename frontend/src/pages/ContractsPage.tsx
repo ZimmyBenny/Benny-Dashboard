@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { PageWrapper } from '../components/layout/PageWrapper';
-import { fetchContracts, archiveContract, createContract, updateContract, type Contract } from '../api/contracts.api';
+import { fetchContracts, archiveContract, deleteContract, createContract, updateContract, type Contract } from '../api/contracts.api';
 import { ContractSlideOver } from '../components/contracts/ContractSlideOver';
 
 // ---------------------------------------------------------------------------
@@ -384,6 +384,16 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
     }
   }
 
+  async function handleDelete(contract: Contract) {
+    if (!confirm(`„${contract.title}" wirklich unwiderruflich löschen?`)) return;
+    try {
+      await deleteContract(contract.id);
+      loadContracts(0, false);
+    } catch {
+      // ignore
+    }
+  }
+
   function handleLoadMore() {
     const newOffset = offset + LIMIT;
     setOffset(newOffset);
@@ -703,6 +713,24 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
                     {contract.is_archived ? 'unarchive' : 'archive'}
                   </span>
                 </button>
+                <button
+                  onClick={() => handleDelete(contract)}
+                  title="Löschen"
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--color-outline)',
+                    padding: '0.25rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    transition: 'color 150ms ease',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
+                  onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-outline)')}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>delete</span>
+                </button>
               </div>
             </div>
           );
@@ -749,6 +777,10 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
           await loadContracts(0, false);
           setOffset(0);
         }}
+        onDelete={editingContract ? async () => {
+          await handleDelete(editingContract);
+          setIsSlideOverOpen(false);
+        } : undefined}
       />
     </PageWrapper>
   );

@@ -128,13 +128,14 @@ interface ContractSlideOverProps {
   onClose: () => void;
   contract: Contract | null;
   onSave: (data: Partial<Contract>) => Promise<void>;
+  onDelete?: () => void;
 }
 
 // ---------------------------------------------------------------------------
 // ContractSlideOver
 // ---------------------------------------------------------------------------
 
-export function ContractSlideOver({ isOpen, onClose, contract, onSave }: ContractSlideOverProps) {
+export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete }: ContractSlideOverProps) {
   const [form, setForm] = useState<FormData>(() => contractToForm(contract));
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Set<string>>(new Set());
@@ -765,12 +766,39 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave }: Contrac
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'flex-end',
+            justifyContent: 'space-between',
             padding: '1rem 1.5rem',
             borderTop: '1px solid var(--color-outline-variant)',
             flexShrink: 0,
             gap: '0.75rem',
           }}>
+            {contract && onDelete ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm(`„${contract.title}" wirklich unwiderruflich löschen?`)) {
+                    onDelete();
+                  }
+                }}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid rgba(248,113,113,0.3)',
+                  borderRadius: '9999px',
+                  padding: '0.5rem 1.25rem',
+                  color: '#f87171',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '0.35rem',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(248,113,113,0.08)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>delete</span>
+                Löschen
+              </button>
+            ) : <div />}
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
             <button
               onClick={onClose}
               style={{
@@ -810,6 +838,7 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave }: Contrac
               <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>save</span>
               {saving ? 'Wird gespeichert...' : 'Speichern'}
             </button>
+            </div>
           </div>
         </div>
       </div>
