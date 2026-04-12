@@ -101,7 +101,10 @@ export async function fetchContractAttachments(contractId: number): Promise<Cont
 export async function uploadContractAttachment(contractId: number, file: File): Promise<ContractAttachment> {
   const formData = new FormData();
   formData.append('file', file);
-  return apiClient.post<ContractAttachment>(`/contracts/${contractId}/attachments`, formData).then(r => r.data);
+  const { data } = await apiClient.post<ContractAttachment>(`/contracts/${contractId}/attachments`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
 }
 
 export async function deleteContractAttachment(contractId: number, attachmentId: number): Promise<void> {

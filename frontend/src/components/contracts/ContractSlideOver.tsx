@@ -204,8 +204,8 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave }: Contrac
       await uploadContractAttachment(contract.id, file);
       const updated = await fetchContractAttachments(contract.id);
       setAttachments(updated);
-    } catch {
-      // ignore
+    } catch (err) {
+      alert(`Upload fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
