@@ -1,0 +1,269 @@
+import { Router } from 'express';
+import db from '../db/connection';
+
+const router = Router();
+
+// ---------------------------------------------------------------------------
+// Hilfsfunktion: Detail laden (Eintrag + Activity Log)
+// ---------------------------------------------------------------------------
+function loadDetail(id: number) {
+  const item = db.prepare(`SELECT * FROM contracts_and_deadlines WHERE id = ?`).get(id);
+  if (!item) return null;
+  const activity_log = db.prepare(
+    `SELECT * FROM contracts_and_deadlines_activity_log WHERE item_id = ? ORDER BY created_at DESC LIMIT 50`
+  ).all(id);
+  return { ...(item as object), activity_log };
+}
+
+// ---------------------------------------------------------------------------
+// GET / — Liste mit Query-Params
+// ---------------------------------------------------------------------------
+router.get('/', (req, res) => {
+  const {
+    search, item_type, area, status, priority,
+    segment = 'all',
+    limit: limitStr = '50',
+    offset: offsetStr = '0',
+  } = req.query as Record<string, string | undefined>;
+
+  const limitNum = Math.min(200, Math.max(1, parseInt(limitStr ?? '50', 10)));
+  const offsetNum = Math.max(0, parseInt(offsetStr ?? '0', 10));
+
+  const conditions: string[] = [];
+  const params: (string | number)[] = [];
+
+  // Segment-Filter
+  if (segment === 'soon') {
+    conditions.push(`expiration_date BETWEEN date('now') AND date('now', '+30 days')`);
+    conditions.push(`status = 'aktiv'`);
+    conditions.push(`is_archived = 0`);
+  } else if (segment === 'overdue') {
+    conditions.push(`expiration_date < date('now')`);
+    conditions.push(`status = 'aktiv'`);
+    conditions.push(`is_archived = 0`);
+  } else if (segment === 'cancellable') {
+    conditions.push(`cancellation_date >= date('now')`);
+    conditions.push(`status = 'aktiv'`);
+    conditions.push(`is_archived = 0`);
+  } else if (segment === 'archive') {
+    conditions.push(`is_archived = 1`);
+  } else {
+    // 'all'
+    conditions.push(`is_archived = 0`);
+  }
+
+  // Optionale Zusatzfilter (nur wenn kein Segment-Status-Filter bereits gesetzt)
+  if (item_type) { conditions.push(`item_type = ?`); params.push(item_type); }
+  if (area) { conditions.push(`area = ?`); params.push(area); }
+  if (status && segment === 'all') { conditions.push(`status = ?`); params.push(status); }
+  if (priority) { conditions.push(`priority = ?`); params.push(priority); }
+
+  if (search) {
+    const like = `%${search}%`;
+    conditions.push(`(title LIKE ? OR provider_name LIKE ? OR reference_number LIKE ? OR tags LIKE ? OR description LIKE ? OR notes LIKE ?)`);
+    params.push(like, like, like, like, like, like);
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const totalRow = db.prepare(
+    `SELECT COUNT(*) AS total FROM contracts_and_deadlines ${where}`
+  ).get(...params) as { total: number };
+  const total = totalRow.total;
+
+  const rows = db.prepare(
+    `SELECT * FROM contracts_and_deadlines ${where}
+     ORDER BY expiration_date ASC NULLS LAST, created_at DESC
+     LIMIT ? OFFSET ?`
+  ).all(...params, limitNum, offsetNum);
+
+  res.json({ data: rows, total });
+});
+
+// ---------------------------------------------------------------------------
+// GET /:id — Detail
+// ---------------------------------------------------------------------------
+router.get('/:id', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const detail = loadDetail(id);
+  if (!detail) return res.status(404).json({ error: 'Nicht gefunden' });
+  return res.json(detail);
+});
+
+// ---------------------------------------------------------------------------
+// POST / — Erstellen
+// ---------------------------------------------------------------------------
+router.post('/', (req, res) => {
+  const body = req.body as Record<string, unknown>;
+  const title = (body.title as string | undefined)?.trim();
+  if (!title) return res.status(400).json({ error: 'Titel ist erforderlich' });
+
+  const stmt = db.prepare(`
+    INSERT INTO contracts_and_deadlines (
+      title, item_type, area, status, priority,
+      provider_name, reference_number,
+      start_date, expiration_date, cancellation_date, reminder_date,
+      recurrence_type, cost_amount, currency, cost_interval,
+      description, notes, tags,
+      linked_contact_id, linked_task_id, linked_calendar_event_id,
+      is_archived
+    ) VALUES (
+      ?, ?, ?, ?, ?,
+      ?, ?,
+      ?, ?, ?, ?,
+      ?, ?, ?, ?,
+      ?, ?, ?,
+      ?, ?, ?,
+      ?
+    )
+  `);
+
+  const result = stmt.run(
+    title,
+    (body.item_type as string) || 'Sonstiges',
+    (body.area as string) || 'Sonstiges',
+    (body.status as string) || 'aktiv',
+    (body.priority as string) || 'mittel',
+    (body.provider_name as string | null) ?? null,
+    (body.reference_number as string | null) ?? null,
+    (body.start_date as string | null) ?? null,
+    (body.expiration_date as string | null) ?? null,
+    (body.cancellation_date as string | null) ?? null,
+    (body.reminder_date as string | null) ?? null,
+    (body.recurrence_type as string) || 'keine',
+    (body.cost_amount as number | null) ?? null,
+    (body.currency as string) || 'EUR',
+    (body.cost_interval as string | null) ?? null,
+    (body.description as string | null) ?? null,
+    (body.notes as string | null) ?? null,
+    (body.tags as string | null) ?? null,
+    (body.linked_contact_id as number | null) ?? null,
+    (body.linked_task_id as number | null) ?? null,
+    (body.linked_calendar_event_id as string | null) ?? null,
+    0
+  );
+
+  const newId = result.lastInsertRowid as number;
+
+  db.prepare(
+    `INSERT INTO contracts_and_deadlines_activity_log (item_id, event_type, message) VALUES (?, ?, ?)`
+  ).run(newId, 'created', 'Eintrag erstellt');
+
+  const detail = loadDetail(newId);
+  return res.status(201).json(detail);
+});
+
+// ---------------------------------------------------------------------------
+// PUT /:id — Aktualisieren
+// ---------------------------------------------------------------------------
+router.put('/:id', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const existing = db.prepare(`SELECT * FROM contracts_and_deadlines WHERE id = ?`).get(id) as Record<string, unknown> | undefined;
+  if (!existing) return res.status(404).json({ error: 'Nicht gefunden' });
+
+  const body = req.body as Record<string, unknown>;
+
+  db.prepare(`
+    UPDATE contracts_and_deadlines SET
+      title = ?,
+      item_type = ?,
+      area = ?,
+      status = ?,
+      priority = ?,
+      provider_name = ?,
+      reference_number = ?,
+      start_date = ?,
+      expiration_date = ?,
+      cancellation_date = ?,
+      reminder_date = ?,
+      recurrence_type = ?,
+      cost_amount = ?,
+      currency = ?,
+      cost_interval = ?,
+      description = ?,
+      notes = ?,
+      tags = ?,
+      linked_contact_id = ?,
+      linked_task_id = ?,
+      linked_calendar_event_id = ?,
+      updated_at = datetime('now')
+    WHERE id = ?
+  `).run(
+    (body.title as string | undefined)?.trim() ?? (existing.title as string),
+    (body.item_type as string) || (existing.item_type as string),
+    (body.area as string) || (existing.area as string),
+    (body.status as string) || (existing.status as string),
+    (body.priority as string) || (existing.priority as string),
+    body.provider_name !== undefined ? ((body.provider_name as string | null) ?? null) : (existing.provider_name as string | null),
+    body.reference_number !== undefined ? ((body.reference_number as string | null) ?? null) : (existing.reference_number as string | null),
+    body.start_date !== undefined ? ((body.start_date as string | null) ?? null) : (existing.start_date as string | null),
+    body.expiration_date !== undefined ? ((body.expiration_date as string | null) ?? null) : (existing.expiration_date as string | null),
+    body.cancellation_date !== undefined ? ((body.cancellation_date as string | null) ?? null) : (existing.cancellation_date as string | null),
+    body.reminder_date !== undefined ? ((body.reminder_date as string | null) ?? null) : (existing.reminder_date as string | null),
+    (body.recurrence_type as string) || (existing.recurrence_type as string) || 'keine',
+    body.cost_amount !== undefined ? ((body.cost_amount as number | null) ?? null) : (existing.cost_amount as number | null),
+    (body.currency as string) || (existing.currency as string) || 'EUR',
+    body.cost_interval !== undefined ? ((body.cost_interval as string | null) ?? null) : (existing.cost_interval as string | null),
+    body.description !== undefined ? ((body.description as string | null) ?? null) : (existing.description as string | null),
+    body.notes !== undefined ? ((body.notes as string | null) ?? null) : (existing.notes as string | null),
+    body.tags !== undefined ? ((body.tags as string | null) ?? null) : (existing.tags as string | null),
+    body.linked_contact_id !== undefined ? ((body.linked_contact_id as number | null) ?? null) : (existing.linked_contact_id as number | null),
+    body.linked_task_id !== undefined ? ((body.linked_task_id as number | null) ?? null) : (existing.linked_task_id as number | null),
+    body.linked_calendar_event_id !== undefined ? ((body.linked_calendar_event_id as string | null) ?? null) : (existing.linked_calendar_event_id as string | null),
+    id
+  );
+
+  db.prepare(
+    `INSERT INTO contracts_and_deadlines_activity_log (item_id, event_type, message) VALUES (?, ?, ?)`
+  ).run(id, 'updated', 'Eintrag bearbeitet');
+
+  // Wenn Status sich geändert hat → zusätzlicher Log-Eintrag
+  const newStatus = (body.status as string) || (existing.status as string);
+  if (body.status && body.status !== existing.status) {
+    db.prepare(
+      `INSERT INTO contracts_and_deadlines_activity_log (item_id, event_type, message) VALUES (?, ?, ?)`
+    ).run(id, 'status_changed', `Status geändert: ${existing.status} → ${newStatus}`);
+  }
+
+  const detail = loadDetail(id);
+  return res.json(detail);
+});
+
+// ---------------------------------------------------------------------------
+// POST /:id/archive — Toggle Archiv
+// ---------------------------------------------------------------------------
+router.post('/:id/archive', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const existing = db.prepare(`SELECT * FROM contracts_and_deadlines WHERE id = ?`).get(id) as Record<string, unknown> | undefined;
+  if (!existing) return res.status(404).json({ error: 'Nicht gefunden' });
+
+  const currentArchived = existing.is_archived as number;
+  const newArchived = currentArchived === 0 ? 1 : 0;
+
+  db.prepare(
+    `UPDATE contracts_and_deadlines SET is_archived = ?, updated_at = datetime('now') WHERE id = ?`
+  ).run(newArchived, id);
+
+  const eventType = newArchived === 1 ? 'archived' : 'restored';
+  const message = newArchived === 1 ? 'Archiviert' : 'Wiederhergestellt';
+  db.prepare(
+    `INSERT INTO contracts_and_deadlines_activity_log (item_id, event_type, message) VALUES (?, ?, ?)`
+  ).run(id, eventType, message);
+
+  const detail = loadDetail(id);
+  return res.json(detail);
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /:id — Hard Delete
+// ---------------------------------------------------------------------------
+router.delete('/:id', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const existing = db.prepare(`SELECT id FROM contracts_and_deadlines WHERE id = ?`).get(id);
+  if (!existing) return res.status(404).json({ error: 'Nicht gefunden' });
+
+  db.prepare(`DELETE FROM contracts_and_deadlines WHERE id = ?`).run(id);
+  return res.status(204).send();
+});
+
+export default router;

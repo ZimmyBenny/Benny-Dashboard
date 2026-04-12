@@ -12,6 +12,7 @@ import tasksRoutes from './routes/tasks.routes';
 import calendarRoutes from './routes/calendar.routes';
 import workbookRoutes from './routes/workbook.routes';
 import contactsRoutes from './routes/contacts.routes';
+import contractsRoutes from './routes/contracts.routes';
 import appSettingsRoutes from './routes/appSettings.routes';
 import { verifyToken, type AuthenticatedRequest } from './middleware/auth';
 
@@ -48,6 +49,7 @@ export function createApp() {
   app.use('/api/calendar', calendarRoutes);
   app.use('/api/workbook', workbookRoutes);
   app.use('/api/contacts', contactsRoutes);
+  app.use('/api/contracts', contractsRoutes);
   app.use('/api/app-settings', appSettingsRoutes);
 
   // Temporary probe route to verify the guard end-to-end (kept; Plan 3 may remove)
