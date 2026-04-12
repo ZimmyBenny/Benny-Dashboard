@@ -9,8 +9,11 @@ import CharacterCount from '@tiptap/extension-character-count';
 import {
   updatePage, togglePin, toggleArchive, toggleTemplate,
   fetchAttachments, uploadAttachment, deleteAttachment, getAttachmentDownloadUrl,
+  updatePageContact,
   type Page, type Attachment,
 } from '../../api/workbook.api';
+import { fetchContact } from '../../api/contacts.api';
+import { ContactPicker } from './ContactPicker';
 import type { SaveStatus } from '../../pages/WorkbookPage';
 import { createTask, deleteTask } from '../../api/tasks.api';
 import type { Task } from '../../api/tasks.api';
@@ -58,10 +61,24 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const uploadingRef = useRef(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
   const [taskSlideOverOpen, setTaskSlideOverOpen] = useState(false);
   const [taskSlideOverPrefill, setTaskSlideOverPrefill] = useState<{ title?: string; area?: string; source_page_id?: number; source_page_title?: string } | undefined>();
+
+  const [contactName, setContactName] = useState<string | null>(null);
+
+  // Kontaktname laden wenn page.contact_id gesetzt
+  useEffect(() => {
+    if (!page.contact_id) { setContactName(null); return; }
+    fetchContact(page.contact_id).then((c) => {
+      const name = c.contact_kind === 'organization' && c.organization_name
+        ? c.organization_name
+        : [c.first_name, c.last_name].filter(Boolean).join(' ') || null;
+      setContactName(name);
+    }).catch(() => setContactName(null));
+  }, [page.contact_id]);
 
   const saveTimerRef = useRef<number | null>(null);
   const pendingSaveRef = useRef<Promise<void> | null>(null);
@@ -69,6 +86,8 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
   // Refs so onUpdate always reads the current title/tags without stale closure
   const titleRef = useRef(page.title);
   const tagsRef = useRef(page.tags ?? '');
+  // Ref to always-current editor instance (avoids stale closure in handleUploadFiles)
+  const editorRef = useRef<ReturnType<typeof useEditor>>(null);
 
   const doSave = useCallback(async (silent = false) => {
     const payload = latestPayloadRef.current;
@@ -105,7 +124,8 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
   }, [page.id]);
 
   async function handleUploadFiles(files: FileList | File[]) {
-    if (uploading) return;
+    if (uploadingRef.current) return;
+    uploadingRef.current = true;
     setUploading(true);
     try {
       for (const file of Array.from(files)) {
@@ -117,10 +137,11 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
           file.name.toLowerCase().endsWith('.eml') ||
           file.type === 'message/rfc822';
 
-        if (isEml && editor) {
+        const currentEditor = editorRef.current;
+        if (isEml && currentEditor) {
           try {
             const emlData = await parseEml(file);
-            editor
+            currentEditor
               .chain()
               .focus()
               .insertContent({
@@ -141,6 +162,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         }
       }
     } finally {
+      uploadingRef.current = false;
       setUploading(false);
     }
   }
@@ -160,7 +182,61 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     setSelectMode(false);
   }
 
+  // Extrahiert File-Objekte aus einem DragEvent — unterstützt sowohl
+  // normale Finder-Drops (dt.files/items) als auch Mail.app-Drops,
+  // bei denen die E-Mail als message/rfc822-String übergeben wird.
+  function extractDropFiles(dt: DataTransfer): File[] {
+    console.log('[drop] types:', Array.from(dt.types));
+    const files: File[] = [];
+
+    // 1) Normale Datei-Items (Finder, andere Browser-Drops)
+    if (dt.items && dt.items.length > 0) {
+      for (let i = 0; i < dt.items.length; i++) {
+        const item = dt.items[i];
+        if (item.kind === 'file') {
+          const f = item.getAsFile();
+          if (f) { console.log('[drop] file item:', f.name, f.type, f.size); files.push(f); }
+        }
+      }
+    }
+    if (files.length === 0 && dt.files.length > 0) {
+      for (let i = 0; i < dt.files.length; i++) files.push(dt.files[i]);
+    }
+
+    // 2) Mail.app: liefert E-Mail als message/rfc822 String-Item statt als File
+    if (files.length === 0 && dt.types.includes('message/rfc822')) {
+      const raw = dt.getData('message/rfc822');
+      if (raw) {
+        const subject = raw.match(/^Subject:\s*(.+)$/mi)?.[1]?.trim() ?? 'email';
+        const safeName = subject.replace(/[/\\:*?"<>|]/g, '').trim().slice(0, 60) || 'email';
+        const blob = new Blob([raw], { type: 'message/rfc822' });
+        const syntheticFile = new File([blob], `${safeName}.eml`, { type: 'message/rfc822' });
+        console.log('[drop] Mail.app string fallback → synthetic .eml:', syntheticFile.name);
+        files.push(syntheticFile);
+      }
+    }
+
+    return files;
+  }
+
   const editor = useEditor({
+    // Keep editorRef current so handleUploadFiles never reads a stale null closure
+    onCreate: ({ editor: ed }) => { editorRef.current = ed; },
+    onDestroy: () => { editorRef.current = null; },
+    editorProps: {
+      handleDrop: (_view, event) => {
+        const dt = event.dataTransfer;
+        if (!dt) return false;
+        const files = extractDropFiles(dt);
+        if (files.length > 0) {
+          event.preventDefault();
+          setDragOver(false);
+          handleUploadFiles(files);
+          return true;
+        }
+        return false;
+      },
+    },
     extensions: [
       StarterKit,
       TaskList,
@@ -405,6 +481,19 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
             boxSizing: 'border-box',
           }}
         />
+
+        {/* Kontakt-Verknuepfung */}
+        <div style={{ padding: '0.4rem 2rem 0' }}>
+          <ContactPicker
+            contactId={page.contact_id ?? null}
+            contactName={contactName}
+            onChange={async (newContactId, newName) => {
+              setContactName(newName);
+              const updated = await updatePageContact(page.id, newContactId);
+              onPageUpdated(updated);
+            }}
+          />
+        </div>
       </div>
 
       {/* Editor with drag-and-drop */}
@@ -413,31 +502,13 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false); }}
         onDrop={(e) => {
-          e.preventDefault();
           setDragOver(false);
-
-          // macOS Mail.app liefert .eml-Dateien über dataTransfer.items (type="message/rfc822"),
-          // nicht über dataTransfer.files (die sind leer). Beide Quellen prüfen.
-          const files: File[] = [];
-
-          if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-            for (let i = 0; i < e.dataTransfer.items.length; i++) {
-              const item = e.dataTransfer.items[i];
-              if (item.kind === 'file') {
-                const f = item.getAsFile();
-                if (f) files.push(f);
-              }
-            }
+          const files = extractDropFiles(e.dataTransfer);
+          if (files.length > 0) {
+            e.preventDefault(); // nur verhindern wenn wir selbst verarbeiten
+            handleUploadFiles(files);
           }
-
-          // Fallback: dataTransfer.files (normale Browser-Drops)
-          if (files.length === 0 && e.dataTransfer.files.length > 0) {
-            for (let i = 0; i < e.dataTransfer.files.length; i++) {
-              files.push(e.dataTransfer.files[i]);
-            }
-          }
-
-          if (files.length > 0) handleUploadFiles(files);
+          // kein preventDefault bei reinen Text-Drops → TipTap fügt Text normal ein
         }}
       >
         <EditorContent editor={editor} />

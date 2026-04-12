@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchTemplates, type Template } from '../../api/workbook.api';
+import { useDraggableModal } from '../../hooks/useDraggableModal';
 
 interface TemplatePickerModalProps {
   onClose: () => void;
@@ -10,6 +11,7 @@ export function TemplatePickerModal({ onClose, onCreate }: TemplatePickerModalPr
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const { onMouseDown, modalStyle, headerStyle } = useDraggableModal();
 
   useEffect(() => {
     fetchTemplates()
@@ -51,6 +53,7 @@ export function TemplatePickerModal({ onClose, onCreate }: TemplatePickerModalPr
       }}
     >
       <div
+        data-draggable-modal
         onClick={(e) => e.stopPropagation()}
         style={{
           width: 'min(600px, 92vw)',
@@ -62,16 +65,19 @@ export function TemplatePickerModal({ onClose, onCreate }: TemplatePickerModalPr
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
+          ...modalStyle,
         }}
       >
         {/* Header */}
         <div
+          onMouseDown={onMouseDown}
           style={{
             padding: '1.25rem 1.5rem',
             borderBottom: '1px solid var(--color-outline-variant)',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
+            ...headerStyle,
           }}
         >
           <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1rem', fontWeight: 700, color: 'var(--color-on-surface)', margin: 0 }}>

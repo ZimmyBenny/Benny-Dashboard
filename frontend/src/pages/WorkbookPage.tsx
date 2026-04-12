@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useDraggableModal } from '../hooks/useDraggableModal';
 import {
   fetchSections,
   fetchPages,
@@ -37,6 +38,9 @@ export function WorkbookPage() {
   const [exportPageId, setExportPageId] = useState<number | null>(null);
   const [exportPages, setExportPages] = useState<Page[]>([]);
   const [exporting, setExporting] = useState(false);
+  const exportDrag = useDraggableModal();
+  // Track whether a drag occurred to prevent backdrop-click closing on drag end
+  const exportDragOccurred = useRef(false);
 
   // Load sections on mount
   useEffect(() => {
@@ -245,7 +249,10 @@ export function WorkbookPage() {
 
       {exportDialogOpen && (
         <div
-          onClick={() => !exporting && setExportDialogOpen(false)}
+          onClick={() => {
+            if (exportDragOccurred.current) { exportDragOccurred.current = false; return; }
+            if (!exporting) setExportDialogOpen(false);
+          }}
           style={{
             position: 'fixed', inset: 0, zIndex: 1000,
             background: 'rgba(0,0,0,0.5)',
@@ -253,6 +260,7 @@ export function WorkbookPage() {
           }}
         >
           <div
+            data-draggable-modal
             onClick={(e) => e.stopPropagation()}
             style={{
               width: 'min(460px, 90vw)',
@@ -263,9 +271,15 @@ export function WorkbookPage() {
               padding: '1.25rem 1.5rem',
               boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
               display: 'flex', flexDirection: 'column', gap: '1rem',
+              ...exportDrag.modalStyle,
             }}
           >
-            <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>Arbeitsmappe exportieren</h2>
+            <h2
+              onMouseDown={(e) => { exportDragOccurred.current = true; exportDrag.onMouseDown(e); }}
+              style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, ...exportDrag.headerStyle }}
+            >
+              Arbeitsmappe exportieren
+            </h2>
 
             {/* Format */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>

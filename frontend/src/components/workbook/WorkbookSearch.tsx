@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { searchWorkbook, type SearchResult } from '../../api/workbook.api';
+import { useDraggableModal } from '../../hooks/useDraggableModal';
 
 interface WorkbookSearchProps {
   onClose: () => void;
@@ -11,6 +12,7 @@ export function WorkbookSearch({ onClose, onNavigate }: WorkbookSearchProps) {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const { onMouseDown, modalStyle, headerStyle } = useDraggableModal();
 
   // Debounced search
   useEffect(() => {
@@ -74,6 +76,7 @@ export function WorkbookSearch({ onClose, onNavigate }: WorkbookSearchProps) {
       }}
     >
       <div
+        data-draggable-modal
         className="workbook-search"
         onClick={(e) => e.stopPropagation()}
         style={{
@@ -86,16 +89,19 @@ export function WorkbookSearch({ onClose, onNavigate }: WorkbookSearchProps) {
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
+          ...modalStyle,
         }}
       >
-        {/* Search input */}
+        {/* Search input — drag handle */}
         <div
+          onMouseDown={onMouseDown}
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '0.75rem',
             padding: '1rem 1.25rem',
             borderBottom: '1px solid var(--color-outline-variant)',
+            ...headerStyle,
           }}
         >
           <span className="material-symbols-outlined" style={{ color: 'var(--color-on-surface-variant)', fontSize: '1.25rem', flexShrink: 0 }}>
@@ -105,6 +111,7 @@ export function WorkbookSearch({ onClose, onNavigate }: WorkbookSearchProps) {
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onMouseDown={(e) => e.stopPropagation()}
             placeholder="Seiten durchsuchen..."
             style={{
               flex: 1,
@@ -114,6 +121,7 @@ export function WorkbookSearch({ onClose, onNavigate }: WorkbookSearchProps) {
               color: 'var(--color-on-surface)',
               fontFamily: 'var(--font-body)',
               fontSize: '1rem',
+              cursor: 'text',
             }}
           />
           {loading && (

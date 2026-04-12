@@ -34,6 +34,7 @@ export interface Page {
   created_at: string;
   updated_at: string;
   parent_id?: number | null;
+  contact_id?: number | null;
 }
 
 export interface Template {
@@ -103,9 +104,20 @@ export async function createPage(data: {
   template_id?: number | null;
   tags?: string;
   parent_id?: number | null;
+  contact_id?: number | null;
 }): Promise<Page> {
   const { data: result } = await apiClient.post<Page>('/workbook/pages', data);
   return result;
+}
+
+export async function fetchPagesByContact(contactId: number): Promise<(Page & { section_name?: string })[]> {
+  const { data } = await apiClient.get<(Page & { section_name?: string })[]>('/workbook/pages', { params: { contact_id: String(contactId) } });
+  return data;
+}
+
+export async function updatePageContact(pageId: number, contactId: number | null): Promise<Page> {
+  const { data } = await apiClient.patch<Page>(`/workbook/pages/${pageId}/contact`, { contact_id: contactId });
+  return data;
 }
 
 export async function fetchPage(id: number): Promise<Page> {
