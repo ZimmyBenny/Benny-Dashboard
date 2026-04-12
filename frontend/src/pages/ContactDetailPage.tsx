@@ -18,6 +18,7 @@ import {
 import { createTask, updateTask, deleteTask, type Task } from '../api/tasks.api';
 import type { TimeEntry } from '../api/zeiterfassung.api';
 import { TaskSlideOver } from '../components/tasks/TaskSlideOver';
+import { fetchPagesByContact, type Page as WorkbookPage } from '../api/workbook.api';
 
 // ---------------------------------------------------------------------------
 // Farben fuer Bereich-Badges
@@ -88,7 +89,7 @@ export function ContactDetailPage() {
   const navigate = useNavigate();
   const [contact, setContact] = useState<ContactDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'notes' | 'time' | 'activity'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'notes' | 'workbook' | 'time' | 'activity'>('overview');
   const [newNoteContent, setNewNoteContent] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
@@ -108,6 +109,10 @@ export function ContactDetailPage() {
     try { return localStorage.getItem(`contact_detail_time_expanded_${id}`) !== 'false'; }
     catch { return true; }
   });
+
+  // Arbeitsmappe-Tab
+  const [workbookPages, setWorkbookPages] = useState<(WorkbookPage & { section_name?: string })[]>([]);
+  const [workbookLoading, setWorkbookLoading] = useState(false);
 
   async function load() {
     if (!id) return;
@@ -157,6 +162,15 @@ export function ContactDetailPage() {
   useEffect(() => {
     void loadTimeEntries();
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (activeTab !== 'workbook' || !id) return;
+    setWorkbookLoading(true);
+    fetchPagesByContact(Number(id))
+      .then(setWorkbookPages)
+      .catch(() => setWorkbookPages([]))
+      .finally(() => setWorkbookLoading(false));
+  }, [activeTab, id]);
 
   async function handleDelete() {
     if (!contact) return;
@@ -436,6 +450,7 @@ export function ContactDetailPage() {
         {[
           { id: 'overview' as const, label: 'Übersicht', icon: 'info' },
           { id: 'notes' as const, label: 'Notizen', icon: 'note' },
+          { id: 'workbook' as const, label: 'Arbeitsmappe', icon: 'menu_book' },
           { id: 'time' as const, label: 'Zeiterfassung', icon: 'timer' },
           { id: 'activity' as const, label: 'Verlauf', icon: 'history' },
         ].map(tab => (
@@ -917,6 +932,48 @@ export function ContactDetailPage() {
                   {formatDurationLong(contactTimeEntries.reduce((sum, e) => sum + e.duration_seconds, 0))}
                 </span>
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab: Arbeitsmappe */}
+      {activeTab === 'workbook' && (
+        <div>
+          {workbookLoading ? (
+            <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.9rem', fontFamily: 'var(--font-body)' }}>Laden...</p>
+          ) : workbookPages.length === 0 ? (
+            <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.9rem', fontFamily: 'var(--font-body)' }}>
+              Keine Arbeitsmappe-Seiten verknüpft
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {workbookPages.map((wp) => (
+                <button
+                  key={wp.id}
+                  onClick={() => navigate('/arbeitsmappe', { state: { openPageId: wp.id } })}
+                  style={{
+                    display: 'flex', flexDirection: 'column', gap: '0.2rem',
+                    padding: '0.75rem 1rem',
+                    background: 'var(--color-surface-container)',
+                    border: '1px solid var(--color-outline-variant)',
+                    borderRadius: '0.5rem',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    color: 'var(--color-on-surface)',
+                    fontFamily: 'var(--font-body)',
+                    transition: 'background 120ms ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-surface-container-high)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--color-surface-container)')}
+                >
+                  <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{wp.title}</span>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--color-on-surface-variant)', display: 'flex', gap: '0.75rem' }}>
+                    {wp.section_name && <span>{wp.section_name}</span>}
+                    <span>{new Date(wp.created_at).toLocaleDateString('de-DE')}</span>
+                  </span>
+                </button>
+              ))}
             </div>
           )}
         </div>
