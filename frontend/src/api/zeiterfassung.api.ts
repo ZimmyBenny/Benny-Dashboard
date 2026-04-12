@@ -20,8 +20,10 @@ export interface TimeEntry {
   id: number;
   project_id: number | null;
   client_id: number | null;
+  contact_id: number | null;
   project_name?: string;
   client_name?: string;
+  contact_name?: string;
   title: string;
   note: string | null;
   date: string;

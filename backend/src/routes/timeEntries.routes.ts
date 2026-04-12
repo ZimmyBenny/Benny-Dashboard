@@ -3,11 +3,12 @@ import db from '../db/connection';
 
 const router = Router();
 
-// GET /api/time-entries?project_id=&client_id=&date_from=&date_to=
+// GET /api/time-entries?project_id=&client_id=&contact_id=&date_from=&date_to=
 router.get('/', (req, res) => {
-  const { project_id, client_id, date_from, date_to } = req.query as {
+  const { project_id, client_id, contact_id, date_from, date_to } = req.query as {
     project_id?: string;
     client_id?: string;
+    contact_id?: string;
     date_from?: string;
     date_to?: string;
   };
@@ -16,10 +17,16 @@ router.get('/', (req, res) => {
     SELECT
       te.*,
       p.name  AS project_name,
-      c.name  AS client_name
+      c.name  AS client_name,
+      te.contact_id,
+      CASE WHEN ct.contact_kind = 'person'
+        THEN COALESCE(ct.first_name || ' ' || ct.last_name, ct.organization_name)
+        ELSE ct.organization_name
+      END AS contact_name
     FROM time_entries te
-    LEFT JOIN projects p ON p.id = te.project_id
-    LEFT JOIN clients  c ON c.id = te.client_id
+    LEFT JOIN projects p  ON p.id  = te.project_id
+    LEFT JOIN clients  c  ON c.id  = te.client_id
+    LEFT JOIN contacts ct ON ct.id = te.contact_id
     WHERE 1=1
   `;
   const params: (string | number)[] = [];
@@ -31,6 +38,10 @@ router.get('/', (req, res) => {
   if (client_id) {
     sql += ' AND te.client_id = ?';
     params.push(Number(client_id));
+  }
+  if (contact_id) {
+    sql += ' AND te.contact_id = ?';
+    params.push(Number(contact_id));
   }
   if (date_from) {
     sql += ' AND te.date >= ?';
@@ -48,9 +59,10 @@ router.get('/', (req, res) => {
 
 // POST /api/time-entries
 router.post('/', (req, res) => {
-  const { project_id, client_id, title, note, date, duration_seconds, start_time, end_time } = req.body as {
+  const { project_id, client_id, contact_id, title, note, date, duration_seconds, start_time, end_time } = req.body as {
     project_id?: number | null;
     client_id?: number | null;
+    contact_id?: number | null;
     title?: string;
     note?: string | null;
     date?: string;
@@ -73,11 +85,12 @@ router.post('/', (req, res) => {
   }
 
   const result = db.prepare(`
-    INSERT INTO time_entries (project_id, client_id, title, note, date, duration_seconds, start_time, end_time)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO time_entries (project_id, client_id, contact_id, title, note, date, duration_seconds, start_time, end_time)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     project_id ?? null,
     client_id ?? null,
+    contact_id ?? null,
     title.trim(),
     note ?? null,
     date,
@@ -87,10 +100,15 @@ router.post('/', (req, res) => {
   );
 
   const created = db.prepare(`
-    SELECT te.*, p.name AS project_name, c.name AS client_name
+    SELECT te.*, p.name AS project_name, c.name AS client_name,
+      CASE WHEN ct.contact_kind = 'person'
+        THEN COALESCE(ct.first_name || ' ' || ct.last_name, ct.organization_name)
+        ELSE ct.organization_name
+      END AS contact_name
     FROM time_entries te
-    LEFT JOIN projects p ON p.id = te.project_id
-    LEFT JOIN clients  c ON c.id = te.client_id
+    LEFT JOIN projects p  ON p.id  = te.project_id
+    LEFT JOIN clients  c  ON c.id  = te.client_id
+    LEFT JOIN contacts ct ON ct.id = te.contact_id
     WHERE te.id = ?
   `).get(result.lastInsertRowid);
 
@@ -100,9 +118,10 @@ router.post('/', (req, res) => {
 // PUT /api/time-entries/:id
 router.put('/:id', (req, res) => {
   const id = Number(req.params.id);
-  const { project_id, client_id, title, note, date, duration_seconds, start_time, end_time } = req.body as {
+  const { project_id, client_id, contact_id, title, note, date, duration_seconds, start_time, end_time } = req.body as {
     project_id?: number | null;
     client_id?: number | null;
+    contact_id?: number | null;
     title?: string;
     note?: string | null;
     date?: string;
@@ -119,12 +138,13 @@ router.put('/:id', (req, res) => {
 
   db.prepare(`
     UPDATE time_entries
-    SET project_id = ?, client_id = ?, title = ?, note = ?, date = ?, duration_seconds = ?,
+    SET project_id = ?, client_id = ?, contact_id = ?, title = ?, note = ?, date = ?, duration_seconds = ?,
         start_time = ?, end_time = ?
     WHERE id = ?
   `).run(
     project_id ?? null,
     client_id ?? null,
+    contact_id ?? null,
     title ?? '',
     note ?? null,
     date ?? '',
@@ -135,10 +155,15 @@ router.put('/:id', (req, res) => {
   );
 
   const updated = db.prepare(`
-    SELECT te.*, p.name AS project_name, c.name AS client_name
+    SELECT te.*, p.name AS project_name, c.name AS client_name,
+      CASE WHEN ct.contact_kind = 'person'
+        THEN COALESCE(ct.first_name || ' ' || ct.last_name, ct.organization_name)
+        ELSE ct.organization_name
+      END AS contact_name
     FROM time_entries te
-    LEFT JOIN projects p ON p.id = te.project_id
-    LEFT JOIN clients  c ON c.id = te.client_id
+    LEFT JOIN projects p  ON p.id  = te.project_id
+    LEFT JOIN clients  c  ON c.id  = te.client_id
+    LEFT JOIN contacts ct ON ct.id = te.contact_id
     WHERE te.id = ?
   `).get(id);
 
