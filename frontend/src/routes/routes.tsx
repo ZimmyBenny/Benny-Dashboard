@@ -12,6 +12,10 @@ import { KiAgentsPage } from '../pages/KiAgentsPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { ZeiterfassungPage } from '../pages/ZeiterfassungPage';
 import { WorkbookPage } from '../pages/WorkbookPage';
+import { ContactsPage } from '../pages/ContactsPage';
+import { ContactDetailPage } from '../pages/ContactDetailPage';
+import { ContactFormPage } from '../pages/ContactFormPage';
+import { ContactImportPage } from '../pages/ContactImportPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -31,6 +35,12 @@ export const router = createBrowserRouter([
           { path: '/amazon',         element: <AmazonPage /> },
           { path: '/ki-agenten',     element: <KiAgentsPage /> },
           { path: '/settings',       element: <SettingsPage /> },
+          // Kontakte — WICHTIG: /new und /import VOR /:id
+          { path: '/contacts',            element: <ContactsPage /> },
+          { path: '/contacts/new',        element: <ContactFormPage /> },
+          { path: '/contacts/import',     element: <ContactImportPage /> },
+          { path: '/contacts/:id',        element: <ContactDetailPage /> },
+          { path: '/contacts/:id/edit',   element: <ContactFormPage /> },
         ],
       },
     ],
