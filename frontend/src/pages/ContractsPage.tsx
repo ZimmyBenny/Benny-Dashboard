@@ -163,6 +163,127 @@ function ExpirationBadge({ expiration_date }: { expiration_date: string | null }
 // Styles
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Kostenübersicht
+// ---------------------------------------------------------------------------
+
+const AREA_CHART_COLORS: Record<string, string> = {
+  Privat: '#f472b6',
+  DJ: '#cc97ff',
+  Amazon: '#fb923c',
+  Cashback: '#4ade80',
+  Finanzen: '#60a5fa',
+  Sonstiges: '#6b7280',
+};
+
+function toMonthly(amount: number, interval: string | null): number {
+  switch (interval) {
+    case 'monatlich': return amount;
+    case 'quartalsweise': return amount / 3;
+    case 'jaehrlich': return amount / 12;
+    default: return 0; // einmalig oder leer
+  }
+}
+
+function toYearly(amount: number, interval: string | null): number {
+  switch (interval) {
+    case 'monatlich': return amount * 12;
+    case 'quartalsweise': return amount * 4;
+    case 'jaehrlich': return amount;
+    default: return 0;
+  }
+}
+
+function KostenUebersicht({ contracts }: { contracts: Contract[] }) {
+  const aktiv = contracts.filter(c => c.status === 'aktiv' && (c.cost_amount ?? 0) > 0);
+  if (aktiv.length === 0) return null;
+
+  // Summen pro Bereich
+  const byAreaMonthly: Record<string, number> = {};
+  const byAreaYearly: Record<string, number> = {};
+  let totalMonthly = 0;
+  let totalYearly = 0;
+
+  for (const c of aktiv) {
+    const area = c.area || 'Sonstiges';
+    const m = toMonthly(c.cost_amount!, c.cost_interval);
+    const y = toYearly(c.cost_amount!, c.cost_interval);
+    byAreaMonthly[area] = (byAreaMonthly[area] ?? 0) + m;
+    byAreaYearly[area] = (byAreaYearly[area] ?? 0) + y;
+    totalMonthly += m;
+    totalYearly += y;
+  }
+
+  if (totalMonthly === 0 && totalYearly === 0) return null;
+
+  const cardStyle: React.CSSProperties = {
+    background: 'var(--color-surface-container)',
+    border: '1px solid var(--color-surface-container-high)',
+    borderRadius: '0.875rem',
+    padding: '1.25rem',
+    flex: 1,
+    minWidth: 0,
+  };
+
+  function BarChart({ byArea, total }: { byArea: Record<string, number>; total: number }) {
+    const areas = Object.entries(byArea).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+    return (
+      <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+        {areas.map(([area, val]) => {
+          const pct = total > 0 ? (val / total) * 100 : 0;
+          const color = AREA_CHART_COLORS[area] ?? AREA_CHART_COLORS.Sonstiges;
+          return (
+            <div key={area}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.15rem' }}>
+                <span style={{ fontSize: '0.72rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)' }}>{area}</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)' }}>
+                  {val.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                </span>
+              </div>
+              <div style={{ height: '6px', borderRadius: '9999px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                <div style={{ width: `${pct}%`, height: '100%', borderRadius: '9999px', background: color, transition: 'width 400ms ease' }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: '1.5rem' }}>
+      <p style={{
+        fontFamily: 'var(--font-body)',
+        fontSize: '0.75rem',
+        letterSpacing: '0.06em',
+        textTransform: 'uppercase',
+        color: 'var(--color-outline)',
+        marginBottom: '0.75rem',
+      }}>Kostenübersicht</p>
+      <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+        {/* Monatlich */}
+        <div style={cardStyle}>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--color-outline)', marginBottom: '0.25rem' }}>Monatlich</p>
+          <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '1.5rem', color: 'var(--color-on-surface)' }}>
+            € {totalMonthly.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <span style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--color-outline)', marginLeft: '0.25rem' }}>/ Monat</span>
+          </p>
+          <BarChart byArea={byAreaMonthly} total={totalMonthly} />
+        </div>
+        {/* Jährlich */}
+        <div style={cardStyle}>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--color-outline)', marginBottom: '0.25rem' }}>Jährlich</p>
+          <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '1.5rem', color: 'var(--color-on-surface)' }}>
+            € {totalYearly.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <span style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--color-outline)', marginLeft: '0.25rem' }}>/ Jahr</span>
+          </p>
+          <BarChart byArea={byAreaYearly} total={totalYearly} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const INPUT_STYLE: React.CSSProperties = {
   width: '100%',
   background: 'var(--color-surface-container-low)',
@@ -589,6 +710,9 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
           </button>
         </div>
       )}
+
+      {/* Kostenübersicht */}
+      <KostenUebersicht contracts={contracts} />
 
       {/* SlideOver */}
       <ContractSlideOver
