@@ -7,7 +7,6 @@ export interface NavItem {
 export const navItems: NavItem[] = [
   { path: '/',                label: 'Dashboard',    icon: 'dashboard' },
   { path: '/zeiterfassung',   label: 'Zeiterfassung', icon: 'timer' },
-  { path: '/tasks',           label: 'Aufgaben',     icon: 'task_alt' },
   { path: '/arbeitsmappe',    label: 'Arbeitsmappe', icon: 'menu_book' },
   { path: '/calendar',        label: 'Kalender',     icon: 'calendar_month' },
   { path: '/dj',              label: 'DJ',           icon: 'headphones' },
