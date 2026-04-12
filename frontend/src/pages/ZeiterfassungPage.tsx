@@ -466,17 +466,29 @@ interface EntryListProps {
   onQuickStart: (entry: TimeEntry) => void;
   filterProject: number | '';
   filterClient: number | '';
+  filterContact: number | '';
   setFilterProject: (v: number | '') => void;
   setFilterClient: (v: number | '') => void;
+  setFilterContact: (v: number | '') => void;
 }
 
 function EntryList({
   entries, clients, projects, onEdit, onDelete, onQuickStart,
-  filterProject, filterClient, setFilterProject, setFilterClient,
+  filterProject, filterClient, filterContact, setFilterProject, setFilterClient, setFilterContact,
 }: EntryListProps) {
+  // Unique Kontakte aus Einträgen für das Filter-Dropdown
+  const contactOptions = Array.from(
+    new Map(
+      entries
+        .filter((e) => e.contact_id != null && e.contact_name)
+        .map((e) => [e.contact_id, { id: e.contact_id as number, name: e.contact_name as string }])
+    ).values()
+  ).sort((a, b) => a.name.localeCompare(b.name));
+
   const filtered = entries.filter((e) => {
     if (filterProject !== '' && e.project_id !== filterProject) return false;
     if (filterClient !== '' && e.client_id !== filterClient) return false;
+    if (filterContact !== '' && e.contact_id !== filterContact) return false;
     return true;
   });
 
@@ -500,9 +512,19 @@ function EntryList({
           <option value="">Alle Kunden</option>
           {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-        {(filterProject !== '' || filterClient !== '') && (
+        {contactOptions.length > 0 && (
+          <select
+            style={{ ...inputStyle, width: 'auto', minWidth: '160px' }}
+            value={filterContact}
+            onChange={(e) => setFilterContact(e.target.value !== '' ? Number(e.target.value) : '')}
+          >
+            <option value="">Alle Kontakte</option>
+            {contactOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        )}
+        {(filterProject !== '' || filterClient !== '' || filterContact !== '') && (
           <button
-            onClick={() => { setFilterProject(''); setFilterClient(''); }}
+            onClick={() => { setFilterProject(''); setFilterClient(''); setFilterContact(''); }}
             style={{
               padding: '0.625rem 0.875rem', borderRadius: '0.5rem', cursor: 'pointer',
               background: 'transparent', color: 'var(--color-outline)',
@@ -566,7 +588,7 @@ function EntryList({
                   fontFamily: 'var(--font-body)', fontSize: '0.75rem',
                   color: 'var(--color-on-surface-variant)', marginTop: '0.125rem',
                 }}>
-                  {[entry.project_name, entry.client_name].filter(Boolean).join(' · ') || '—'}
+                  {[entry.project_name, entry.client_name, entry.contact_name].filter(Boolean).join(' · ') || '—'}
                 </p>
                 {(entry.start_time || entry.end_time) && (
                   <p style={{
@@ -648,6 +670,7 @@ export function ZeiterfassungPage() {
   const [showEntries, setShowEntries] = useState(true);
   const [filterProject, setFilterProject] = useState<number | ''>('');
   const [filterClient, setFilterClient] = useState<number | ''>('');
+  const [filterContact, setFilterContact] = useState<number | ''>('');
 
   // Export-State
   const [exportDateFrom, setExportDateFrom] = useState('');
@@ -1067,8 +1090,10 @@ export function ZeiterfassungPage() {
             onQuickStart={handleQuickStart}
             filterProject={filterProject}
             filterClient={filterClient}
+            filterContact={filterContact}
             setFilterProject={setFilterProject}
             setFilterClient={setFilterClient}
+            setFilterContact={setFilterContact}
           />
         )}
       </div>
