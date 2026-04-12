@@ -362,7 +362,7 @@ export function DashboardPage() {
               {'isContracts' in mod && (
                 <div style={{ marginTop: '0.875rem' }}>
                   <button
-                    onClick={(e) => { e.stopPropagation(); navigate('/contracts'); }}
+                    onClick={(e) => { e.stopPropagation(); navigate('/contracts', { state: { openNew: true } }); }}
                     style={{
                       display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
                       padding: '0.35rem 0.8rem',

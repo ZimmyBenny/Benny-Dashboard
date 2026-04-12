@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { fetchContracts, archiveContract, createContract, updateContract, type Contract } from '../api/contracts.api';
 import { ContractSlideOver } from '../components/contracts/ContractSlideOver';
@@ -319,9 +320,19 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
   const [loading, setLoading] = useState(false);
   const [offset, setOffset] = useState(0);
 
-  // SlideOver state (verdrahtet in Task 4, hier als Platzhalter)
+  // SlideOver state
   const [isSlideOverOpen, setIsSlideOverOpen] = useState(false);
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
+
+  // Vom Dashboard: navigate('/contracts', { state: { openNew: true } })
+  const location = useLocation();
+  useEffect(() => {
+    if ((location.state as { openNew?: boolean } | null)?.openNew) {
+      setEditingContract(null);
+      setIsSlideOverOpen(true);
+      window.history.replaceState({}, '');
+    }
+  }, [location.state]);
 
   const LIMIT = 50;
 
