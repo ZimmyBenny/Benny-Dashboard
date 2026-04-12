@@ -113,8 +113,8 @@ export function ContactDetailPage() {
   }
 
   useEffect(() => {
-    if (activeTab === 'tasks') void loadTasks();
-  }, [activeTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
+    void loadTasks();
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleDelete() {
     if (!contact) return;
@@ -556,6 +556,115 @@ export function ContactDetailPage() {
               )}
             </div>
           )}
+
+          {/* Aufgaben-Karte */}
+          {(() => {
+            const openTasks = contactTasks.filter(t => t.status !== 'done' && t.status !== 'archived');
+            return (
+              <div style={cardStyle}>
+                {/* Header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: 'var(--color-primary)' }}>task_alt</span>
+                    <span style={labelStyle}>Offene Aufgaben</span>
+                  </div>
+                  {openTasks.length > 0 && (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      width: '1.4rem', height: '1.4rem', borderRadius: '50%',
+                      background: 'var(--color-primary)', color: '#000',
+                      fontFamily: 'var(--font-body)', fontSize: '0.72rem', fontWeight: 700,
+                    }}>
+                      {openTasks.length}
+                    </span>
+                  )}
+                </div>
+
+                {/* Inhalt */}
+                {tasksLoading ? (
+                  <div style={{ color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.8rem', padding: '0.5rem 0' }}>
+                    Lade...
+                  </div>
+                ) : openTasks.length === 0 ? (
+                  <div style={{ color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.8rem', padding: '0.25rem 0' }}>
+                    Keine offenen Aufgaben.
+                  </div>
+                ) : (
+                  <div>
+                    {openTasks.slice(0, 5).map(task => {
+                      const isOverdue = task.due_date && new Date(task.due_date) < new Date();
+                      return (
+                        <div
+                          key={task.id}
+                          onClick={() => { setSelectedTask(task); setTaskSlideOpen(true); }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '0.5rem',
+                            padding: '0.375rem 0',
+                            borderBottom: '1px solid rgba(255,255,255,0.05)',
+                            cursor: 'pointer',
+                          }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <span
+                            className="material-symbols-outlined"
+                            style={{ fontSize: '1rem', color: 'var(--color-primary)', flexShrink: 0 }}
+                          >
+                            {STATUS_ICONS[task.status] ?? 'radio_button_unchecked'}
+                          </span>
+                          <span style={{
+                            flex: 1, minWidth: 0,
+                            fontFamily: 'var(--font-body)', fontSize: '0.85rem', color: 'var(--color-on-surface)',
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>
+                            {task.title}
+                          </span>
+                          {task.due_date && (
+                            <span style={{
+                              fontFamily: 'var(--font-body)', fontSize: '0.72rem', flexShrink: 0,
+                              color: isOverdue ? '#f87171' : 'var(--color-on-surface-variant)',
+                            }}>
+                              {new Date(task.due_date).toLocaleDateString('de-DE')}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {openTasks.length > 5 && (
+                      <button
+                        onClick={() => setActiveTab('tasks')}
+                        style={{
+                          display: 'block', width: '100%', textAlign: 'center',
+                          marginTop: '0.5rem', padding: '0.25rem',
+                          background: 'transparent', border: 'none',
+                          color: 'var(--color-primary)', fontFamily: 'var(--font-body)', fontSize: '0.8rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Alle {openTasks.length} Aufgaben anzeigen
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Footer */}
+                <div style={{ marginTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.625rem' }}>
+                  <button
+                    onClick={() => { setSelectedTask(null); setTaskSlideOpen(true); }}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                      background: 'transparent', border: 'none',
+                      color: 'var(--color-primary)', fontFamily: 'var(--font-body)', fontSize: '0.8rem',
+                      cursor: 'pointer', padding: '0.25rem 0',
+                    }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '0.95rem' }}>add</span>
+                    Neue Aufgabe
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
