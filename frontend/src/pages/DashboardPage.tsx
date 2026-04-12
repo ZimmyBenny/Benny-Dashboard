@@ -500,22 +500,6 @@ export function DashboardPage() {
           </div>
         )}
 
-        <div style={{ marginTop: '1rem' }}>
-          <button
-            onClick={() => navigate('/contracts')}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
-              padding: '0.4rem 1rem',
-              borderRadius: '9999px',
-              background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
-              color: '#000', border: 'none', cursor: 'pointer',
-              fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.75rem',
-            }}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>add</span>
-            Neuer Eintrag
-          </button>
-        </div>
       </>
 
       {/* ── Aufgaben-Übersicht ──────────────────────────── */}
