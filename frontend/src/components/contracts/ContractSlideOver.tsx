@@ -133,6 +133,11 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave }: Contrac
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Drag-to-move
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const isDragging = useRef(false);
+  const dragStart = useRef({ x: 0, y: 0, px: 0, py: 0 });
+
   // Form zurücksetzen wenn contract oder isOpen wechselt
   useEffect(() => {
     setForm(contractToForm(contract));
@@ -147,6 +152,32 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave }: Contrac
       setAttachments([]);
     }
   }, [contract?.id, isOpen]);
+
+  // Pos zurücksetzen beim Schließen
+  useEffect(() => {
+    if (!isOpen) setPos(null);
+  }, [isOpen]);
+
+  // Globale Drag-Listener
+  useEffect(() => {
+    if (!isOpen) return;
+    function onMouseMove(e: MouseEvent) {
+      if (!isDragging.current) return;
+      setPos({
+        x: e.clientX - dragStart.current.x,
+        y: e.clientY - dragStart.current.y,
+      });
+    }
+    function onMouseUp() {
+      isDragging.current = false;
+    }
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [isOpen]);
 
   // Escape-Taste
   useEffect(() => {
@@ -252,13 +283,15 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave }: Contrac
           }}
         />
 
-        {/* Panel — zentriertes Floating Modal */}
+        {/* Panel — zentriertes Floating Modal (draggable) */}
         <div
+          data-modal-panel
           style={{
             position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: isOpen ? 'translate(-50%, -50%) scale(1)' : 'translate(-50%, -50%) scale(0.96)',
+            ...(pos === null
+              ? { top: '50%', left: '50%', transform: isOpen ? 'translate(-50%, -50%) scale(1)' : 'translate(-50%, -50%) scale(0.96)' }
+              : { top: pos.y + 'px', left: pos.x + 'px', transform: 'none' }
+            ),
             width: '560px',
             maxWidth: '95vw',
             maxHeight: '90vh',
@@ -271,19 +304,32 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave }: Contrac
             display: 'flex',
             flexDirection: 'column',
             opacity: isOpen ? 1 : 0,
-            transition: 'opacity 200ms ease, transform 200ms ease',
+            transition: pos === null ? 'opacity 200ms ease, transform 200ms ease' : 'opacity 200ms ease',
             pointerEvents: isOpen ? 'auto' : 'none',
           }}
         >
-          {/* Header */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '1.25rem 1.5rem',
-            borderBottom: '1px solid var(--color-outline-variant)',
-            flexShrink: 0,
-          }}>
+          {/* Header (drag handle) */}
+          <div
+            onMouseDown={(e) => {
+              isDragging.current = true;
+              const rect = (e.currentTarget.closest('[data-modal-panel]') as HTMLElement | null)?.getBoundingClientRect();
+              dragStart.current = {
+                x: e.clientX - (rect?.left ?? e.clientX),
+                y: e.clientY - (rect?.top ?? e.clientY),
+                px: rect?.left ?? 0,
+                py: rect?.top ?? 0,
+              };
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '1.25rem 1.5rem',
+              borderBottom: '1px solid var(--color-outline-variant)',
+              flexShrink: 0,
+              cursor: 'grab',
+              userSelect: 'none',
+            }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
               <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--color-primary)' }}>
                 {contract ? 'edit' : 'add_circle'}
