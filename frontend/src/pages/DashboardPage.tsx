@@ -21,8 +21,8 @@ const modules = [
   { path: '/tasks',         label: 'Aufgaben',       icon: 'task_alt',               description: 'Planen · Verfolgen · Erledigen', isTasks: true as const },
   { path: '/calendar',      label: 'Kalender',       icon: 'calendar_month',         description: 'Termine und Events im Überblick', isCalendar: true as const },
   { path: '/contacts',      label: 'Kontakte',       icon: 'contacts',               description: 'Kunden · Partner · Lieferanten', isContacts: true as const },
-  { path: '/contracts',     label: 'Verträge',       icon: 'description',            description: 'Verträge · Fristen · Dokumente', isContracts: true as const },
-  { path: '/dj',            label: 'DJ',             icon: 'headphones',             description: 'Gigs · Bookings · Zahlungen' },
+  { path: '/contracts',     label: 'Verträge & Fristen', icon: 'description',         description: 'Verträge · Fristen · Dokumente', isContracts: true as const },
+
   { path: '/finances',      label: 'Finanzen',       icon: 'account_balance_wallet', description: 'Einnahmen · Ausgaben · Budgets' },
 ];
 
