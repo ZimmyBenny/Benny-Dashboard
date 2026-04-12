@@ -6,6 +6,7 @@ import {
   createClient, createProject, createTimeEntry, updateTimeEntry, deleteTimeEntry,
   type Client, type Project, type TimeEntry,
 } from '../api/zeiterfassung.api';
+import { fetchContacts, type Contact } from '../api/contacts.api';
 import { exportCsv, type ExportRow } from '../lib/exportCsv';
 import { exportPdf } from '../lib/exportPdf';
 
@@ -101,6 +102,25 @@ function EntryPanel({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  // Kontakt-Picker
+  const [contactId, setContactId] = useState<number | null>(editEntry?.contact_id ?? null);
+  const [contactName, setContactName] = useState(editEntry?.contact_name ?? '');
+  const [contactSearch, setContactSearch] = useState('');
+  const [contactResults, setContactResults] = useState<Contact[]>([]);
+  const [contactDropdownOpen, setContactDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    if (contactSearch.length < 2) { setContactResults([]); setContactDropdownOpen(false); return; }
+    const timer = setTimeout(async () => {
+      try {
+        const result = await fetchContacts({ search: contactSearch, limit: 8 });
+        setContactResults(result.data);
+        setContactDropdownOpen(true);
+      } catch { setContactResults([]); }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [contactSearch]);
+
   const durationSeconds = editEntry
     ? editEntry.duration_seconds
     : Math.round(durationMs / 1000);
@@ -150,6 +170,7 @@ function EntryPanel({
       const payload = {
         project_id: projectId !== '' ? projectId : null,
         client_id: clientId !== '' ? clientId : null,
+        contact_id: contactId,
         title: title.trim(),
         note: note.trim() || null,
         date,
@@ -295,6 +316,80 @@ function EntryPanel({
                 background: 'rgba(255,255,255,0.06)', color: 'var(--color-primary)', border: '1px solid var(--color-outline-variant)',
                 fontSize: '1rem', lineHeight: 1,
               }}>+</button>
+            </div>
+          )}
+        </div>
+
+        {/* Kontakt */}
+        <div style={{ gridColumn: '1 / -1', position: 'relative' }}>
+          <label style={labelStyle}>Kontakt</label>
+          {contactId ? (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+              background: 'rgba(204,151,255,0.15)', border: '1px solid rgba(204,151,255,0.3)',
+              borderRadius: '999px', padding: '0.3rem 0.75rem',
+            }}>
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.85rem', color: 'var(--color-primary)' }}>
+                {contactName}
+              </span>
+              <button
+                type="button"
+                onClick={() => { setContactId(null); setContactName(''); setContactSearch(''); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)',
+                  display: 'flex', alignItems: 'center', padding: 0, fontSize: '1rem', lineHeight: 1 }}
+              >×</button>
+            </div>
+          ) : (
+            <div style={{ position: 'relative' }}>
+              <input
+                style={inputStyle}
+                value={contactSearch}
+                onChange={(e) => setContactSearch(e.target.value)}
+                onFocus={() => contactSearch.length >= 2 && contactResults.length > 0 && setContactDropdownOpen(true)}
+                onBlur={() => setTimeout(() => setContactDropdownOpen(false), 150)}
+                placeholder="Kontakt suchen…"
+              />
+              {contactDropdownOpen && contactResults.length > 0 && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                  background: 'rgba(18,28,50,0.98)', border: '1px solid var(--color-outline-variant)',
+                  borderRadius: '0.5rem', marginTop: '0.25rem',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.4)', overflow: 'hidden',
+                }}>
+                  {contactResults.map(ct => {
+                    const display = ct.contact_kind === 'person'
+                      ? [ct.first_name, ct.last_name].filter(Boolean).join(' ') || ct.organization_name || '—'
+                      : ct.organization_name || '—';
+                    return (
+                      <div
+                        key={ct.id}
+                        onMouseDown={() => {
+                          setContactId(ct.id);
+                          setContactName(display);
+                          setContactSearch('');
+                          setContactDropdownOpen(false);
+                        }}
+                        style={{
+                          padding: '0.625rem 0.875rem', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          gap: '0.5rem',
+                          borderBottom: '1px solid rgba(255,255,255,0.04)',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(204,151,255,0.1)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface)' }}>
+                          {display}
+                        </span>
+                        {ct.customer_number && (
+                          <span style={{ fontFamily: 'monospace', fontSize: '0.72rem', color: 'var(--color-on-surface-variant)' }}>
+                            #{ct.customer_number}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>
