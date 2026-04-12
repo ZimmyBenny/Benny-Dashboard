@@ -279,6 +279,17 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
 
   return (
     <PageWrapper>
+      {/* Seitentitel */}
+      <h1 style={{
+        fontFamily: 'var(--font-headline)',
+        fontWeight: 700,
+        fontSize: '1.5rem',
+        color: 'var(--color-on-surface)',
+        marginBottom: '1.25rem',
+      }}>
+        Verträge & Fristen
+      </h1>
+
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.75rem', marginBottom: '1.25rem' }}>
         <button
