@@ -139,3 +139,7 @@ export async function downloadContractAttachment(contractId: number, attachmentI
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
+
+export async function revealContractAttachment(contractId: number, attachmentId: number): Promise<void> {
+  await apiClient.get(`/contracts/${contractId}/attachments/${attachmentId}/reveal`);
+}

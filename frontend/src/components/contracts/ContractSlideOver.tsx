@@ -6,6 +6,7 @@ import {
   deleteContractAttachment,
   downloadContractAttachment,
   openContractAttachment,
+  revealContractAttachment,
 } from '../../api/contracts.api';
 
 // ---------------------------------------------------------------------------
@@ -724,6 +725,16 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave }: Contrac
                   <span style={{ fontSize: '0.72rem', color: 'var(--color-outline)', fontFamily: 'var(--font-body)', flexShrink: 0 }}>
                     {formatFileSize(att.file_size)}
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => revealContractAttachment(contract!.id, att.id)}
+                    title="Im Finder anzeigen"
+                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-outline)', padding: '0.15rem', display: 'flex', alignItems: 'center' }}
+                    onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-primary)')}
+                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-outline)')}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>folder_open</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => downloadContractAttachment(contract!.id, att.id, att.file_name)}
