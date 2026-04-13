@@ -73,7 +73,7 @@ function exportContractsCsv(contracts: Contract[]) {
   const header = [
     'Titel', 'Eintragstyp', 'Bereich', 'Status', 'Priorität', 'Anbieter', 'Referenznummer',
     'Startdatum', 'Ablaufdatum', 'Kündigungsdatum', 'Erinnerungsdatum',
-    'Kostenbetrag', 'Währung', 'Zahlungsintervall', 'Wiederholungstyp',
+    'Kostenbetrag', 'Währung', 'Zahlungsintervall',
     'Beschreibung', 'Notizen',
   ];
   const lines = [header.join(';')];
@@ -93,7 +93,6 @@ function exportContractsCsv(contracts: Contract[]) {
       escapeCSV(c.cost_amount),
       escapeCSV(c.currency),
       escapeCSV(c.cost_interval),
-      escapeCSV(c.recurrence_type),
       escapeCSV(c.description),
       escapeCSV(c.notes),
     ].join(';'));

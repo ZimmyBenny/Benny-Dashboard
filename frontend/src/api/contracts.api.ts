@@ -17,7 +17,7 @@ export interface Contract {
   expiration_date: string | null;
   cancellation_date: string | null;
   reminder_date: string | null;
-  recurrence_type: string;
+
   cost_amount: number | null;
   currency: string;
   cost_interval: string | null;

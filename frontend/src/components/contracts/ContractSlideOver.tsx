@@ -55,7 +55,6 @@ interface FormData {
   cost_amount: string;
   currency: string;
   cost_interval: string;
-  recurrence_type: string;
   unbefristet: boolean;
   vertragsinhaber: string;
   kontoname: string;
@@ -87,7 +86,6 @@ function contractToForm(contract: Contract | null): FormData {
       cost_amount: '',
       currency: 'EUR',
       cost_interval: '',
-      recurrence_type: 'keine',
       unbefristet: false,
       vertragsinhaber: '',
       kontoname: '',
@@ -110,7 +108,6 @@ function contractToForm(contract: Contract | null): FormData {
     cost_amount: contract.cost_amount != null ? String(contract.cost_amount) : '',
     currency: contract.currency || 'EUR',
     cost_interval: contract.cost_interval ?? '',
-    recurrence_type: contract.recurrence_type || 'keine',
     unbefristet: contract.unbefristet === 1,
     vertragsinhaber: contract.vertragsinhaber ?? '',
     kontoname: contract.kontoname ?? '',
@@ -127,7 +124,7 @@ interface ContractSlideOverProps {
   isOpen: boolean;
   onClose: () => void;
   contract: Contract | null;
-  onSave: (data: Partial<Contract>) => Promise<void>;
+  onSave: (data: Partial<Contract>) => Promise<Contract | void>;
   onDelete?: () => void;
 }
 
@@ -143,7 +140,12 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
   // Anhänge
   const [attachments, setAttachments] = useState<ContractAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragCounter = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Arbeits-Contract (entweder aus Props oder nach Auto-Speichern eines neuen Eintrags)
+  const [workingContract, setWorkingContract] = useState<Contract | null>(contract);
 
   // Drag-to-move
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
@@ -154,16 +156,17 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
   useEffect(() => {
     setForm(contractToForm(contract));
     setErrors(new Set());
+    setWorkingContract(contract);
   }, [contract, isOpen]);
 
   // Anhänge laden
   useEffect(() => {
-    if (isOpen && contract?.id) {
-      fetchContractAttachments(contract.id).then(setAttachments).catch(() => setAttachments([]));
+    if (isOpen && workingContract?.id) {
+      fetchContractAttachments(workingContract.id).then(setAttachments).catch(() => setAttachments([]));
     } else {
       setAttachments([]);
     }
-  }, [contract?.id, isOpen]);
+  }, [workingContract?.id, isOpen]);
 
   // Pos zurücksetzen beim Schließen
   useEffect(() => {
@@ -201,11 +204,12 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file || !contract) return;
+    const currentContract = workingContract;
+    if (!file || !currentContract) return;
     setUploading(true);
     try {
-      await uploadContractAttachment(contract.id, file);
-      const updated = await fetchContractAttachments(contract.id);
+      await uploadContractAttachment(currentContract.id, file);
+      const updated = await fetchContractAttachments(currentContract.id);
       setAttachments(updated);
     } catch (err) {
       alert(`Upload fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}`);
@@ -216,11 +220,11 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
   }
 
   async function handleDeleteAttachment(attId: number, attName: string) {
-    if (!contract) return;
+    if (!workingContract) return;
     if (!confirm(`Anhang "${attName}" wirklich löschen?`)) return;
     try {
-      await deleteContractAttachment(contract.id, attId);
-      const updated = await fetchContractAttachments(contract.id);
+      await deleteContractAttachment(workingContract.id, attId);
+      const updated = await fetchContractAttachments(workingContract.id);
       setAttachments(updated);
     } catch {
       // ignore
@@ -234,17 +238,17 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
     }
   }
 
-  async function handleSave() {
+  async function saveForm(keepOpen = false): Promise<Contract | null> {
     const required = ['title', 'item_type', 'area', 'status'];
     const newErrors = new Set<string>();
     for (const field of required) {
       if (!form[field as keyof FormData]?.trim()) newErrors.add(field);
     }
-    if (newErrors.size > 0) { setErrors(newErrors); return; }
+    if (newErrors.size > 0) { setErrors(newErrors); return null; }
 
     setSaving(true);
     try {
-      await onSave({
+      const saved = await onSave({
         title: form.title.trim(),
         item_type: form.item_type,
         area: form.area,
@@ -259,16 +263,61 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
         cost_amount: form.cost_amount ? parseFloat(form.cost_amount) : null,
         currency: form.currency || 'EUR',
         cost_interval: form.cost_interval || null,
-        recurrence_type: form.recurrence_type || 'keine',
         unbefristet: form.unbefristet ? 1 : 0,
         vertragsinhaber: form.vertragsinhaber || null,
         kontoname: form.kontoname || null,
         description: form.description || null,
         notes: form.notes || null,
       });
-      onClose();
+      if (!keepOpen) onClose();
+      return (saved as Contract) ?? null;
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSave() {
+    await saveForm(false);
+  }
+
+  async function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setIsDragOver(false);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+
+    let currentContract = workingContract;
+    if (!currentContract) {
+      const saved = await saveForm(true);
+      if (!saved) return;
+      currentContract = saved;
+      setWorkingContract(saved);
+    }
+
+    setUploading(true);
+    try {
+      for (const file of files) {
+        await uploadContractAttachment(currentContract.id, file);
+      }
+      const updated = await fetchContractAttachments(currentContract.id);
+      setAttachments(updated);
+    } catch (err) {
+      alert(`Upload fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleUploadClick() {
+    if (workingContract) {
+      fileInputRef.current?.click();
+    } else {
+      // Neuer Eintrag: erst speichern, dann Datei-Dialog öffnen
+      const saved = await saveForm(true);
+      if (saved) {
+        setWorkingContract(saved);
+        setTimeout(() => fileInputRef.current?.click(), 50);
+      }
     }
   }
 
@@ -287,7 +336,6 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
       <div style={{ position: 'fixed', inset: 0, zIndex: 50, pointerEvents: isOpen ? 'auto' : 'none' }}>
         {/* Overlay */}
         <div
-          onClick={onClose}
           style={{
             position: 'fixed',
             inset: 0,
@@ -585,22 +633,6 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
               </select>
             </div>
 
-            {/* Wiederholungstyp (full width) */}
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={LABEL_STYLE}>Wiederholungstyp</label>
-              <select
-                className="contract-input"
-                style={INPUT_STYLE}
-                value={form.recurrence_type}
-                onChange={e => handleChange('recurrence_type', e.target.value)}
-              >
-                <option value="keine">Keine</option>
-                <option value="monatlich">Monatlich</option>
-                <option value="jaehrlich">Jährlich</option>
-                <option value="custom">Benutzerdefiniert</option>
-              </select>
-            </div>
-
             {/* Vertragsinhaber + Kontoname */}
             <div>
               <label style={LABEL_STYLE}>Vertragsinhaber</label>
@@ -664,35 +696,61 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
                 onChange={handleFileSelect}
               />
 
-              {/* Upload-Button */}
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading || !contract}
+              {/* Drop Zone */}
+              <div
+                onDragEnter={e => { e.preventDefault(); dragCounter.current++; setIsDragOver(true); }}
+                onDragOver={e => { e.preventDefault(); }}
+                onDragLeave={() => { dragCounter.current--; if (dragCounter.current === 0) setIsDragOver(false); }}
+                onDrop={e => { dragCounter.current = 0; handleDrop(e); }}
                 style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.3rem',
-                  padding: '0.35rem 0.9rem',
-                  borderRadius: '9999px',
-                  background: 'transparent',
-                  border: '1px solid var(--color-outline-variant)',
-                  color: uploading || !contract ? 'var(--color-outline)' : 'var(--color-on-surface-variant)',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '0.78rem',
-                  cursor: uploading || !contract ? 'not-allowed' : 'pointer',
-                  opacity: uploading || !contract ? 0.6 : 1,
+                  border: isDragOver
+                    ? '2px dashed var(--color-primary)'
+                    : '2px dashed var(--color-outline-variant)',
+                  borderRadius: '0.625rem',
+                  padding: '0.75rem 1rem',
                   marginBottom: '0.5rem',
+                  background: isDragOver ? 'rgba(204,151,255,0.07)' : 'transparent',
+                  transition: 'border-color 0.15s, background 0.15s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
                 }}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>attach_file</span>
-                {uploading ? 'Wird hochgeladen...' : 'Datei hinzufügen'}
-              </button>
+                <span className="material-symbols-outlined" style={{
+                  fontSize: '20px',
+                  color: isDragOver ? 'var(--color-primary)' : 'var(--color-outline)',
+                  flexShrink: 0,
+                  transition: 'color 0.15s',
+                }}>
+                  {uploading ? 'hourglass_empty' : 'upload_file'}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: isDragOver ? 'var(--color-primary)' : 'var(--color-on-surface-variant)', transition: 'color 0.15s' }}>
+                    {uploading ? 'Wird hochgeladen…' : isDragOver ? 'Loslassen zum Hochladen' : 'Dateien hierher ziehen'}
+                  </p>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.72rem', color: 'var(--color-outline)', marginTop: '0.1rem' }}>
+                    oder{' '}
+                    <button
+                      type="button"
+                      onClick={handleUploadClick}
+                      disabled={uploading || saving}
+                      style={{
+                        background: 'none', border: 'none', padding: 0,
+                        color: (uploading || saving) ? 'var(--color-outline)' : 'var(--color-primary)',
+                        fontFamily: 'var(--font-body)', fontSize: '0.72rem',
+                        cursor: (uploading || saving) ? 'not-allowed' : 'pointer',
+                        textDecoration: 'underline',
+                      }}
+                    >
+                      Datei auswählen
+                    </button>
+                  </p>
+                </div>
+              </div>
 
-              {/* Hinweis bei neuem Eintrag */}
-              {!contract && (
-                <p style={{ fontSize: '0.75rem', color: 'var(--color-outline)', fontFamily: 'var(--font-body)', marginTop: '0.25rem' }}>
-                  Erst speichern, dann Anhänge hinzufügen.
+              {!workingContract && (
+                <p style={{ fontSize: '0.75rem', color: 'var(--color-outline)', fontFamily: 'var(--font-body)', marginBottom: '0.25rem' }}>
+                  Wird der Eintrag noch gespeichert, passiert das automatisch beim Upload.
                 </p>
               )}
 
@@ -707,7 +765,7 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
                 }}>
                   <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--color-primary)', flexShrink: 0 }}>description</span>
                   <span
-                    onClick={() => openContractAttachment(contract!.id, att.id, att.file_name)}
+                    onClick={() => openContractAttachment(workingContract!.id, att.id, att.file_name)}
                     title="Öffnen"
                     style={{
                       flex: 1,
@@ -728,7 +786,7 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
                   </span>
                   <button
                     type="button"
-                    onClick={() => revealContractAttachment(contract!.id, att.id)}
+                    onClick={() => revealContractAttachment(workingContract!.id, att.id)}
                     title="Im Finder anzeigen"
                     style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-outline)', padding: '0.15rem', display: 'flex', alignItems: 'center' }}
                     onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-primary)')}
@@ -738,7 +796,7 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
                   </button>
                   <button
                     type="button"
-                    onClick={() => downloadContractAttachment(contract!.id, att.id, att.file_name)}
+                    onClick={() => downloadContractAttachment(workingContract!.id, att.id, att.file_name)}
                     title="Herunterladen"
                     style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-outline)', padding: '0.15rem', display: 'flex', alignItems: 'center' }}
                     onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-primary)')}
