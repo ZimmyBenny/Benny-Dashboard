@@ -589,7 +589,102 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
         )}
 
         {(() => {
-          // Nach Bereich gruppieren (Reihenfolge: Privat, DJ, Amazon, Cashback, Finanzen, Sonstiges)
+          const renderRow = (contract: Contract, i: number, arr: Contract[]) => {
+            const statusStyle = STATUS_COLORS[contract.status] || { bg: 'rgba(107,114,128,0.15)', color: '#6b7280' };
+            const icon = ITEM_TYPE_ICONS[contract.item_type] || 'more_horiz';
+            return (
+              <div
+                key={contract.id}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.75rem',
+                  padding: '0.5rem 0.875rem',
+                  borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                  transition: 'background 100ms ease',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.025)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '15px', color: 'var(--color-outline)', flexShrink: 0 }}>
+                  {icon}
+                </span>
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
+                  <span style={{
+                    fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.875rem',
+                    color: 'var(--color-on-surface)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 1,
+                  }}>{contract.title}</span>
+                  {contract.provider_name && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-outline)', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                      {contract.provider_name}
+                    </span>
+                  )}
+                  <span style={{
+                    display: 'inline-block', padding: '0.1rem 0.45rem', borderRadius: '9999px',
+                    fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.04em', fontFamily: 'var(--font-body)',
+                    background: statusStyle.bg, color: statusStyle.color, flexShrink: 0, whiteSpace: 'nowrap',
+                  }}>{STATUS_LABELS[contract.status] || contract.status}</span>
+                  <span style={{
+                    width: '6px', height: '6px', borderRadius: '50%', display: 'inline-block',
+                    flexShrink: 0, background: PRIORITY_COLORS[contract.priority] || '#6b7280',
+                  }} title={contract.priority} />
+                </div>
+                <div style={{ flexShrink: 0, textAlign: 'right', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{ textAlign: 'right' }}>
+                    {contract.unbefristet === 1 ? (
+                      <span style={{ fontSize: '0.75rem', color: 'var(--color-outline)', fontFamily: 'var(--font-body)', fontStyle: 'italic' }}>Unbefristet</span>
+                    ) : contract.expiration_date ? (
+                      <div>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)' }}>
+                          {formatDate(contract.expiration_date)}
+                        </span>
+                        <span style={{ marginLeft: '0.35rem' }}>
+                          <ExpirationBadge expiration_date={contract.expiration_date} />
+                        </span>
+                      </div>
+                    ) : null}
+                    {contract.cost_amount != null && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)' }}>
+                        {contract.cost_amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {contract.currency}
+                        {contract.cost_interval ? `/${contract.cost_interval}` : ''}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.1rem', alignItems: 'center' }}>
+                    {[
+                      { icon: 'edit', title: 'Bearbeiten', onClick: () => handleEditEntry(contract), hoverColor: 'var(--color-primary)' },
+                      { icon: contract.is_archived ? 'unarchive' : 'archive', title: contract.is_archived ? 'Wiederherstellen' : 'Archivieren', onClick: () => handleArchive(contract.id), hoverColor: 'var(--color-primary)' },
+                      { icon: 'delete', title: 'Löschen', onClick: () => handleDelete(contract), hoverColor: '#f87171' },
+                    ].map(({ icon: ic, title, onClick, hoverColor }) => (
+                      <button key={ic} onClick={onClick} title={title} style={{
+                        background: 'transparent', border: 'none', cursor: 'pointer',
+                        color: 'var(--color-outline)', padding: '0.2rem', display: 'flex', alignItems: 'center',
+                      }}
+                        onMouseEnter={e => (e.currentTarget.style.color = hoverColor)}
+                        onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-outline)')}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>{ic}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          };
+
+          // Gesamt-Tab: flache Liste ohne Gruppen-Header
+          if (segment === 'gesamt') {
+            return (
+              <div style={{
+                background: 'var(--color-surface-container)',
+                border: '1px solid var(--color-surface-container-high)',
+                borderRadius: '0.75rem',
+                overflow: 'hidden',
+              }}>
+                {contracts.map((c, i) => renderRow(c, i, contracts))}
+              </div>
+            );
+          }
+
+          // Andere Tabs: nach Bereich gruppiert
           const ORDER = ['Privat', 'DJ', 'Amazon', 'Cashback', 'Finanzen', 'Sonstiges'];
           const grouped = new Map<string, Contract[]>();
           for (const c of contracts) {
@@ -606,121 +701,13 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
             const areaColor = AREA_COLORS[area] || AREA_COLORS.Sonstiges;
             return (
               <div key={area}>
-                {/* Gruppen-Header */}
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: '0.5rem',
-                  marginBottom: '0.375rem', paddingLeft: '0.25rem',
-                }}>
-                  <span style={{
-                    display: 'inline-block', width: '3px', height: '14px',
-                    borderRadius: '9999px', background: areaColor, flexShrink: 0,
-                  }} />
-                  <span style={{
-                    fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 700,
-                    letterSpacing: '0.06em', textTransform: 'uppercase' as const,
-                    color: areaColor,
-                  }}>{area}</span>
-                  <span style={{
-                    fontFamily: 'var(--font-body)', fontSize: '0.7rem',
-                    color: 'var(--color-outline)',
-                  }}>{items.length}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.375rem', paddingLeft: '0.25rem' }}>
+                  <span style={{ display: 'inline-block', width: '3px', height: '14px', borderRadius: '9999px', background: areaColor, flexShrink: 0 }} />
+                  <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' as const, color: areaColor }}>{area}</span>
+                  <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', color: 'var(--color-outline)' }}>{items.length}</span>
                 </div>
-
-                {/* Kompakte Zeilen */}
-                <div style={{
-                  background: 'var(--color-surface-container)',
-                  border: '1px solid var(--color-surface-container-high)',
-                  borderRadius: '0.75rem',
-                  overflow: 'hidden',
-                }}>
-                  {items.map((contract, i) => {
-                    const statusStyle = STATUS_COLORS[contract.status] || { bg: 'rgba(107,114,128,0.15)', color: '#6b7280' };
-                    const icon = ITEM_TYPE_ICONS[contract.item_type] || 'more_horiz';
-                    return (
-                      <div
-                        key={contract.id}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '0.75rem',
-                          padding: '0.5rem 0.875rem',
-                          borderBottom: i < items.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-                          transition: 'background 100ms ease',
-                        }}
-                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.025)')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                      >
-                        {/* Icon */}
-                        <span className="material-symbols-outlined" style={{ fontSize: '15px', color: 'var(--color-outline)', flexShrink: 0 }}>
-                          {icon}
-                        </span>
-
-                        {/* Titel + Provider + Chips */}
-                        <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
-                          <span style={{
-                            fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.875rem',
-                            color: 'var(--color-on-surface)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                            flexShrink: 1,
-                          }}>{contract.title}</span>
-                          {contract.provider_name && (
-                            <span style={{ fontSize: '0.75rem', color: 'var(--color-outline)', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                              {contract.provider_name}
-                            </span>
-                          )}
-                          <span style={{
-                            display: 'inline-block', padding: '0.1rem 0.45rem', borderRadius: '9999px',
-                            fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.04em', fontFamily: 'var(--font-body)',
-                            background: statusStyle.bg, color: statusStyle.color, flexShrink: 0, whiteSpace: 'nowrap',
-                          }}>{STATUS_LABELS[contract.status] || contract.status}</span>
-                          <span style={{
-                            width: '6px', height: '6px', borderRadius: '50%', display: 'inline-block',
-                            flexShrink: 0, background: PRIORITY_COLORS[contract.priority] || '#6b7280',
-                          }} title={contract.priority} />
-                        </div>
-
-                        {/* Datum + Kosten */}
-                        <div style={{ flexShrink: 0, textAlign: 'right', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                          <div style={{ textAlign: 'right' }}>
-                            {contract.unbefristet === 1 ? (
-                              <span style={{ fontSize: '0.75rem', color: 'var(--color-outline)', fontFamily: 'var(--font-body)', fontStyle: 'italic' }}>Unbefristet</span>
-                            ) : contract.expiration_date ? (
-                              <div>
-                                <span style={{ fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)' }}>
-                                  {formatDate(contract.expiration_date)}
-                                </span>
-                                <span style={{ marginLeft: '0.35rem' }}>
-                                  <ExpirationBadge expiration_date={contract.expiration_date} />
-                                </span>
-                              </div>
-                            ) : null}
-                            {contract.cost_amount != null && (
-                              <div style={{ fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)' }}>
-                                {contract.cost_amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {contract.currency}
-                                {contract.cost_interval ? `/${contract.cost_interval}` : ''}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Actions */}
-                          <div style={{ display: 'flex', gap: '0.1rem', alignItems: 'center' }}>
-                            {[
-                              { icon: 'edit', title: 'Bearbeiten', onClick: () => handleEditEntry(contract), hoverColor: 'var(--color-primary)' },
-                              { icon: contract.is_archived ? 'unarchive' : 'archive', title: contract.is_archived ? 'Wiederherstellen' : 'Archivieren', onClick: () => handleArchive(contract.id), hoverColor: 'var(--color-primary)' },
-                              { icon: 'delete', title: 'Löschen', onClick: () => handleDelete(contract), hoverColor: '#f87171' },
-                            ].map(({ icon: ic, title, onClick, hoverColor }) => (
-                              <button key={ic} onClick={onClick} title={title} style={{
-                                background: 'transparent', border: 'none', cursor: 'pointer',
-                                color: 'var(--color-outline)', padding: '0.2rem', display: 'flex', alignItems: 'center',
-                              }}
-                                onMouseEnter={e => (e.currentTarget.style.color = hoverColor)}
-                                onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-outline)')}
-                              >
-                                <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>{ic}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div style={{ background: 'var(--color-surface-container)', border: '1px solid var(--color-surface-container-high)', borderRadius: '0.75rem', overflow: 'hidden' }}>
+                  {items.map((c, i) => renderRow(c, i, items))}
                 </div>
               </div>
             );
