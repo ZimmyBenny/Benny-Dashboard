@@ -56,6 +56,7 @@ const EMPTY_STATE_MESSAGES: Record<string, string> = {
   overdue: 'Keine überfälligen Einträge',
   cancellable: 'Keine kündbaren Einträge',
   archive: 'Archiv ist leer',
+  gesamt: 'Noch keine Einträge vorhanden',
 };
 
 // ---------------------------------------------------------------------------
@@ -298,7 +299,7 @@ const INPUT_STYLE: React.CSSProperties = {
   boxSizing: 'border-box',
 };
 
-type Segment = 'all' | 'soon' | 'overdue' | 'cancellable' | 'archive';
+type Segment = 'all' | 'soon' | 'overdue' | 'cancellable' | 'archive' | 'gesamt';
 
 interface ContractsPageProps {
   onEdit?: (contract: Contract) => void;
@@ -350,7 +351,7 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
   }, [segment, debouncedSearch, filterType, filterArea, filterStatus]);
 
   const loadSegmentCounts = useCallback(async () => {
-    const keys: Segment[] = ['all', 'soon', 'overdue', 'cancellable', 'archive'];
+    const keys: Segment[] = ['all', 'soon', 'overdue', 'cancellable', 'archive', 'gesamt'];
     try {
       const results = await Promise.all(
         keys.map(seg => fetchContracts({ segment: seg, limit: 1, offset: 0 }))
@@ -433,6 +434,7 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
     { key: 'overdue', label: 'Überfällig' },
     { key: 'cancellable', label: 'Kündbar' },
     { key: 'archive', label: 'Archiv' },
+    { key: 'gesamt', label: 'Gesamt' },
   ];
 
   return (
@@ -749,8 +751,8 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
         </div>
       )}
 
-      {/* Kostenübersicht */}
-      <KostenUebersicht contracts={contracts} />
+      {/* Kostenübersicht — nicht im Gesamt-Tab */}
+      {segment !== 'gesamt' && <KostenUebersicht contracts={contracts} />}
 
       {/* SlideOver */}
       <ContractSlideOver

@@ -84,6 +84,8 @@ router.get('/', (req, res) => {
     conditions.push(`is_archived = 0`);
   } else if (segment === 'archive') {
     conditions.push(`is_archived = 1`);
+  } else if (segment === 'gesamt') {
+    // alle Einträge — kein is_archived-Filter
   } else {
     // 'all'
     conditions.push(`is_archived = 0`);
@@ -92,7 +94,7 @@ router.get('/', (req, res) => {
   // Optionale Zusatzfilter (nur wenn kein Segment-Status-Filter bereits gesetzt)
   if (item_type) { conditions.push(`item_type = ?`); params.push(item_type); }
   if (area) { conditions.push(`area = ?`); params.push(area); }
-  if (status && segment === 'all') { conditions.push(`status = ?`); params.push(status); }
+  if (status && (segment === 'all' || segment === 'gesamt')) { conditions.push(`status = ?`); params.push(status); }
   if (priority) { conditions.push(`priority = ?`); params.push(priority); }
 
   if (search) {
