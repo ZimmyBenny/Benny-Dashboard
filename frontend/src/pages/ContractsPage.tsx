@@ -150,7 +150,7 @@ function ExpirationBadge({ expiration_date }: { expiration_date: string | null }
 
   return (
     <span style={{
-      fontSize: '0.72rem',
+      fontSize: '0.75rem',
       color,
       fontWeight: bold ? 700 : 400,
       fontFamily: 'var(--font-body)',
@@ -319,6 +319,7 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [offset, setOffset] = useState(0);
+  const [segmentCounts, setSegmentCounts] = useState<Record<string, number>>({});
 
   // SlideOver state
   const [isSlideOverOpen, setIsSlideOverOpen] = useState(false);
@@ -348,6 +349,20 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
     setContracts([]);
   }, [segment, debouncedSearch, filterType, filterArea, filterStatus]);
 
+  const loadSegmentCounts = useCallback(async () => {
+    const keys: Segment[] = ['all', 'soon', 'overdue', 'cancellable', 'archive'];
+    try {
+      const results = await Promise.all(
+        keys.map(seg => fetchContracts({ segment: seg, limit: 1, offset: 0 }))
+      );
+      const counts: Record<string, number> = {};
+      keys.forEach((key, i) => { counts[key] = results[i].total; });
+      setSegmentCounts(counts);
+    } catch {
+      // ignore
+    }
+  }, []);
+
   const loadContracts = useCallback(async (currentOffset: number, append = false) => {
     setLoading(true);
     try {
@@ -364,12 +379,13 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
       const result = await fetchContracts(params);
       setContracts(prev => append ? [...prev, ...result.data] : result.data);
       setTotal(result.total);
+      loadSegmentCounts();
     } catch {
       // ignore
     } finally {
       setLoading(false);
     }
-  }, [segment, debouncedSearch, filterType, filterArea, filterStatus]);
+  }, [segment, debouncedSearch, filterType, filterArea, filterStatus, loadSegmentCounts]);
 
   useEffect(() => {
     loadContracts(0, false);
@@ -500,6 +516,17 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
             }}
           >
             {seg.label}
+            {(segmentCounts[seg.key] ?? 0) > 0 && (
+              <span style={{
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                marginLeft: '0.35rem',
+                color: segment === seg.key ? 'rgba(0,0,0,0.6)' : 'var(--color-outline)',
+                fontFamily: 'var(--font-body)',
+              }}>
+                {segmentCounts[seg.key]}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -547,194 +574,156 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
         </select>
       </div>
 
-      {/* Listenkarten */}
-      <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+      {/* Listenkarten — kompakt, nach Bereich gruppiert */}
+      <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
         {!loading && contracts.length === 0 && (
           <div style={{
-            textAlign: 'center',
-            padding: '3rem 1rem',
-            color: 'var(--color-on-surface-variant)',
-            fontFamily: 'var(--font-body)',
-            fontSize: '0.875rem',
+            textAlign: 'center', padding: '3rem 1rem',
+            color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.875rem',
           }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '2.5rem', color: 'var(--color-outline)', display: 'block', marginBottom: '0.75rem' }}>
-              inbox
-            </span>
+            <span className="material-symbols-outlined" style={{ fontSize: '2.5rem', color: 'var(--color-outline)', display: 'block', marginBottom: '0.75rem' }}>inbox</span>
             {EMPTY_STATE_MESSAGES[segment]}
           </div>
         )}
 
-        {contracts.map(contract => {
-          const areaColor = AREA_COLORS[contract.area] || AREA_COLORS.Sonstiges;
-          const statusStyle = STATUS_COLORS[contract.status] || { bg: 'rgba(107,114,128,0.15)', color: '#6b7280' };
-          const icon = ITEM_TYPE_ICONS[contract.item_type] || 'more_horiz';
+        {(() => {
+          // Nach Bereich gruppieren (Reihenfolge: Privat, DJ, Amazon, Cashback, Finanzen, Sonstiges)
+          const ORDER = ['Privat', 'DJ', 'Amazon', 'Cashback', 'Finanzen', 'Sonstiges'];
+          const grouped = new Map<string, Contract[]>();
+          for (const c of contracts) {
+            const key = c.area || 'Sonstiges';
+            if (!grouped.has(key)) grouped.set(key, []);
+            grouped.get(key)!.push(c);
+          }
+          const sortedGroups = Array.from(grouped.entries()).sort(([a], [b]) => {
+            const ai = ORDER.indexOf(a); const bi = ORDER.indexOf(b);
+            return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+          });
 
-          return (
-            <div
-              key={contract.id}
-              style={{
-                background: 'var(--color-surface-container)',
-                border: '1px solid var(--color-surface-container-high)',
-                borderRadius: '0.875rem',
-                padding: '1rem 1.25rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '1rem',
-              }}
-            >
-              {/* Icon */}
-              <div style={{ flexShrink: 0 }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '1.5rem', color: 'var(--color-primary)' }}>
-                  {icon}
-                </span>
-              </div>
-
-              {/* Mitte */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{
-                  fontFamily: 'var(--font-headline)',
-                  fontWeight: 700,
-                  fontSize: '0.9rem',
-                  color: 'var(--color-on-surface)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  marginBottom: '0.25rem',
+          return sortedGroups.map(([area, items]) => {
+            const areaColor = AREA_COLORS[area] || AREA_COLORS.Sonstiges;
+            return (
+              <div key={area}>
+                {/* Gruppen-Header */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '0.5rem',
+                  marginBottom: '0.375rem', paddingLeft: '0.25rem',
                 }}>
-                  {contract.title}
-                </p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  {contract.provider_name && (
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)' }}>
-                      {contract.provider_name}
-                    </span>
-                  )}
-                  {/* Status-Chip */}
                   <span style={{
-                    display: 'inline-block',
-                    padding: '0.15rem 0.5rem',
-                    borderRadius: '9999px',
-                    fontSize: '0.7rem',
-                    fontWeight: 600,
-                    letterSpacing: '0.04em',
-                    fontFamily: 'var(--font-body)',
-                    background: statusStyle.bg,
-                    color: statusStyle.color,
-                  }}>
-                    {STATUS_LABELS[contract.status] || contract.status}
-                  </span>
-                  {/* Bereich-Badge */}
+                    display: 'inline-block', width: '3px', height: '14px',
+                    borderRadius: '9999px', background: areaColor, flexShrink: 0,
+                  }} />
                   <span style={{
-                    display: 'inline-block',
-                    padding: '0.15rem 0.5rem',
-                    borderRadius: '9999px',
-                    fontSize: '0.7rem',
-                    fontWeight: 600,
-                    letterSpacing: '0.04em',
-                    fontFamily: 'var(--font-body)',
-                    background: areaColor === 'rgba(255,255,255,0.2)' ? areaColor : `${areaColor}26`,
+                    fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 700,
+                    letterSpacing: '0.06em', textTransform: 'uppercase' as const,
                     color: areaColor,
-                  }}>
-                    {contract.area}
-                  </span>
-                  {/* Priorität-Dot */}
+                  }}>{area}</span>
                   <span style={{
-                    width: '8px',
-                    height: '8px',
-                    borderRadius: '50%',
-                    display: 'inline-block',
-                    flexShrink: 0,
-                    background: PRIORITY_COLORS[contract.priority] || '#6b7280',
-                  }} title={contract.priority} />
+                    fontFamily: 'var(--font-body)', fontSize: '0.7rem',
+                    color: 'var(--color-outline)',
+                  }}>{items.length}</span>
+                </div>
+
+                {/* Kompakte Zeilen */}
+                <div style={{
+                  background: 'var(--color-surface-container)',
+                  border: '1px solid var(--color-surface-container-high)',
+                  borderRadius: '0.75rem',
+                  overflow: 'hidden',
+                }}>
+                  {items.map((contract, i) => {
+                    const statusStyle = STATUS_COLORS[contract.status] || { bg: 'rgba(107,114,128,0.15)', color: '#6b7280' };
+                    const icon = ITEM_TYPE_ICONS[contract.item_type] || 'more_horiz';
+                    return (
+                      <div
+                        key={contract.id}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.75rem',
+                          padding: '0.5rem 0.875rem',
+                          borderBottom: i < items.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                          transition: 'background 100ms ease',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.025)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        {/* Icon */}
+                        <span className="material-symbols-outlined" style={{ fontSize: '15px', color: 'var(--color-outline)', flexShrink: 0 }}>
+                          {icon}
+                        </span>
+
+                        {/* Titel + Provider + Chips */}
+                        <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
+                          <span style={{
+                            fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.875rem',
+                            color: 'var(--color-on-surface)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                            flexShrink: 1,
+                          }}>{contract.title}</span>
+                          {contract.provider_name && (
+                            <span style={{ fontSize: '0.75rem', color: 'var(--color-outline)', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                              {contract.provider_name}
+                            </span>
+                          )}
+                          <span style={{
+                            display: 'inline-block', padding: '0.1rem 0.45rem', borderRadius: '9999px',
+                            fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.04em', fontFamily: 'var(--font-body)',
+                            background: statusStyle.bg, color: statusStyle.color, flexShrink: 0, whiteSpace: 'nowrap',
+                          }}>{STATUS_LABELS[contract.status] || contract.status}</span>
+                          <span style={{
+                            width: '6px', height: '6px', borderRadius: '50%', display: 'inline-block',
+                            flexShrink: 0, background: PRIORITY_COLORS[contract.priority] || '#6b7280',
+                          }} title={contract.priority} />
+                        </div>
+
+                        {/* Datum + Kosten */}
+                        <div style={{ flexShrink: 0, textAlign: 'right', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <div style={{ textAlign: 'right' }}>
+                            {contract.unbefristet === 1 ? (
+                              <span style={{ fontSize: '0.75rem', color: 'var(--color-outline)', fontFamily: 'var(--font-body)', fontStyle: 'italic' }}>Unbefristet</span>
+                            ) : contract.expiration_date ? (
+                              <div>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)' }}>
+                                  {formatDate(contract.expiration_date)}
+                                </span>
+                                <span style={{ marginLeft: '0.35rem' }}>
+                                  <ExpirationBadge expiration_date={contract.expiration_date} />
+                                </span>
+                              </div>
+                            ) : null}
+                            {contract.cost_amount != null && (
+                              <div style={{ fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)' }}>
+                                {contract.cost_amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {contract.currency}
+                                {contract.cost_interval ? `/${contract.cost_interval}` : ''}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Actions */}
+                          <div style={{ display: 'flex', gap: '0.1rem', alignItems: 'center' }}>
+                            {[
+                              { icon: 'edit', title: 'Bearbeiten', onClick: () => handleEditEntry(contract), hoverColor: 'var(--color-primary)' },
+                              { icon: contract.is_archived ? 'unarchive' : 'archive', title: contract.is_archived ? 'Wiederherstellen' : 'Archivieren', onClick: () => handleArchive(contract.id), hoverColor: 'var(--color-primary)' },
+                              { icon: 'delete', title: 'Löschen', onClick: () => handleDelete(contract), hoverColor: '#f87171' },
+                            ].map(({ icon: ic, title, onClick, hoverColor }) => (
+                              <button key={ic} onClick={onClick} title={title} style={{
+                                background: 'transparent', border: 'none', cursor: 'pointer',
+                                color: 'var(--color-outline)', padding: '0.2rem', display: 'flex', alignItems: 'center',
+                              }}
+                                onMouseEnter={e => (e.currentTarget.style.color = hoverColor)}
+                                onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-outline)')}
+                              >
+                                <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>{ic}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-
-              {/* Rechts: Datum + Fälligkeit + Kosten */}
-              <div style={{ flexShrink: 0, textAlign: 'right' }}>
-                {contract.unbefristet === 1 ? (
-                  <p style={{ fontSize: '0.8rem', color: 'var(--color-outline)', fontFamily: 'var(--font-body)', fontStyle: 'italic' }}>
-                    Unbefristet
-                  </p>
-                ) : (
-                  <>
-                    {contract.expiration_date && (
-                      <p style={{ fontSize: '0.8rem', color: 'var(--color-on-surface)', fontFamily: 'var(--font-body)', marginBottom: '0.15rem' }}>
-                        {formatDate(contract.expiration_date)}
-                      </p>
-                    )}
-                    <ExpirationBadge expiration_date={contract.expiration_date} />
-                  </>
-                )}
-                {contract.cost_amount != null && (
-                  <p style={{ fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', marginTop: '0.15rem' }}>
-                    {contract.cost_amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {contract.currency}
-                    {contract.cost_interval ? `/${contract.cost_interval}` : ''}
-                  </p>
-                )}
-              </div>
-
-              {/* Actions */}
-              <div style={{ flexShrink: 0, display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <button
-                  onClick={() => handleEditEntry(contract)}
-                  title="Bearbeiten"
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: 'var(--color-outline)',
-                    padding: '0.25rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    transition: 'color 150ms ease',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-primary)')}
-                  onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-outline)')}
-                >
-                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>edit</span>
-                </button>
-                <button
-                  onClick={() => handleArchive(contract.id)}
-                  title={contract.is_archived ? 'Wiederherstellen' : 'Archivieren'}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: 'var(--color-outline)',
-                    padding: '0.25rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    transition: 'color 150ms ease',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-primary)')}
-                  onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-outline)')}
-                >
-                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
-                    {contract.is_archived ? 'unarchive' : 'archive'}
-                  </span>
-                </button>
-                <button
-                  onClick={() => handleDelete(contract)}
-                  title="Löschen"
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: 'var(--color-outline)',
-                    padding: '0.25rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    transition: 'color 150ms ease',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
-                  onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-outline)')}
-                >
-                  <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>delete</span>
-                </button>
-              </div>
-            </div>
-          );
-        })}
+            );
+          });
+        })()}
       </div>
 
       {/* Mehr laden */}
@@ -769,13 +758,16 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
         onClose={() => setIsSlideOverOpen(false)}
         contract={editingContract}
         onSave={async (data) => {
+          let saved;
           if (editingContract) {
-            await updateContract(editingContract.id, data);
+            saved = await updateContract(editingContract.id, data);
           } else {
-            await createContract(data);
+            saved = await createContract(data);
+            setEditingContract(saved);
           }
           await loadContracts(0, false);
           setOffset(0);
+          return saved;
         }}
         onDelete={editingContract ? async () => {
           await handleDelete(editingContract);
