@@ -112,7 +112,7 @@ router.get('/export', (req: Request, res: Response) => {
   doc.fillColor('black');
 
   if (rows.length === 0) {
-    doc.fontSize(12).text('Keine Seiten im gewaehlten Filter.');
+    doc.fontSize(12).text('Keine Seiten im gewählten Filter.');
     doc.end();
     return;
   }
@@ -200,6 +200,14 @@ router.post('/sections', (req: Request, res: Response) => {
   res.status(201).json(section);
 });
 
+router.put('/sections/reorder', (req: Request, res: Response) => {
+  const { ids } = req.body as { ids?: number[] };
+  if (!Array.isArray(ids)) { res.status(400).json({ error: 'ids muss ein Array sein' }); return; }
+  const stmt = db.prepare("UPDATE workbook_sections SET sort_order = ?, updated_at = datetime('now') WHERE id = ?");
+  db.transaction((orderedIds: number[]) => { orderedIds.forEach((id, i) => stmt.run(i + 1, id)); })(ids);
+  res.json({ ok: true });
+});
+
 router.put('/sections/:id', (req: Request, res: Response) => {
   const id = Number(req.params.id);
   const { name, icon, color } = req.body as { name?: string; icon?: string; color?: string };
@@ -277,7 +285,7 @@ router.get('/pages', (req: Request, res: Response) => {
     sql += ' AND parent_id IS NULL';
   }
 
-  sql += ' ORDER BY is_pinned DESC, updated_at DESC';
+  sql += ' ORDER BY sort_order ASC, is_pinned DESC, updated_at DESC';
 
   const rows = db.prepare(sql).all(...params);
   res.json(rows);
@@ -336,6 +344,14 @@ router.get('/pages/:id', (req: Request, res: Response) => {
   const page = db.prepare('SELECT * FROM workbook_pages WHERE id = ?').get(Number(req.params.id));
   if (!page) { res.status(404).json({ error: 'Seite nicht gefunden' }); return; }
   res.json(page);
+});
+
+router.put('/pages/reorder', (req: Request, res: Response) => {
+  const { ids } = req.body as { ids?: number[] };
+  if (!Array.isArray(ids)) { res.status(400).json({ error: 'ids muss ein Array sein' }); return; }
+  const stmt = db.prepare("UPDATE workbook_pages SET sort_order = ?, updated_at = datetime('now') WHERE id = ?");
+  db.transaction((orderedIds: number[]) => { orderedIds.forEach((id, i) => stmt.run(i + 1, id)); })(ids);
+  res.json({ ok: true });
 });
 
 router.put('/pages/:id', (req: Request, res: Response) => {

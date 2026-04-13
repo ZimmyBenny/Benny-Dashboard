@@ -288,7 +288,6 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
       >
         {/* Backdrop */}
         <div
-          onClick={onClose}
           style={{
             position: 'fixed',
             inset: 0,

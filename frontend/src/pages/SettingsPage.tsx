@@ -193,7 +193,7 @@ function SortableItem({
           {/* Delete */}
           <button
             type="button"
-            title="Loeschen"
+            title="Löschen"
             onClick={() => onDelete(link.id)}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -212,6 +212,76 @@ function SortableItem({
         </div>
       )}
     </div>
+  );
+}
+
+// ── AccordionHeader ───────────────────────────────────────────────────────────
+
+function AccordionHeader({
+  id, icon, title, subtitle, openSection, onToggle,
+}: {
+  id: string;
+  icon: string;
+  title: string;
+  subtitle?: string;
+  openSection: string | null;
+  onToggle: (id: string) => void;
+}) {
+  const isOpen = openSection === id;
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(id)}
+      style={{
+        width: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '1rem',
+        padding: '1rem 1.25rem',
+        background: 'transparent',
+        border: 'none',
+        cursor: 'pointer',
+        textAlign: 'left',
+      }}
+    >
+      <span style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        width: '36px', height: '36px', borderRadius: '10px', flexShrink: 0,
+        background: isOpen ? 'rgba(204,151,255,0.15)' : 'rgba(255,255,255,0.05)',
+        transition: 'background 0.2s',
+      }}>
+        <span className="material-symbols-outlined" style={{
+          fontSize: '20px',
+          color: isOpen ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
+          transition: 'color 0.2s',
+        }}>{icon}</span>
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{
+          fontFamily: 'var(--font-headline)',
+          fontSize: '0.9375rem',
+          fontWeight: 600,
+          color: isOpen ? 'var(--color-on-surface)' : 'var(--color-on-surface-variant)',
+          transition: 'color 0.2s',
+          lineHeight: 1.3,
+        }}>{title}</p>
+        {subtitle && (
+          <p style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.75rem',
+            color: 'var(--color-outline)',
+            marginTop: '0.1rem',
+          }}>{subtitle}</p>
+        )}
+      </div>
+      <span className="material-symbols-outlined" style={{
+        fontSize: '20px',
+        color: 'var(--color-outline)',
+        transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+        transition: 'transform 0.2s',
+        flexShrink: 0,
+      }}>expand_more</span>
+    </button>
   );
 }
 
@@ -239,6 +309,11 @@ export function SettingsPage() {
   const [newUrl, setNewUrl] = useState('');
   const [qlError, setQlError] = useState('');
 
+  const [openSection, setOpenSection] = useState<string | null>(null);
+  function toggleSection(id: string) {
+    setOpenSection(prev => prev === id ? null : id);
+  }
+
   const sensors = useSensors(useSensor(PointerSensor));
 
   useEffect(() => {
@@ -252,7 +327,7 @@ export function SettingsPage() {
     setPwSuccess('');
 
     if (newPassword !== confirmPassword) {
-      setPwError('Die neuen Passwoerter stimmen nicht ueberein.');
+      setPwError('Die neuen Passwörter stimmen nicht überein.');
       return;
     }
     if (newPassword.length < 8) {
@@ -270,9 +345,9 @@ export function SettingsPage() {
     } catch (err: unknown) {
       if (typeof err === 'object' && err !== null && 'response' in err) {
         const response = (err as { response?: { data?: { error?: string } } }).response;
-        setPwError(response?.data?.error ?? 'Passwort konnte nicht geaendert werden.');
+        setPwError(response?.data?.error ?? 'Passwort konnte nicht geändert werden.');
       } else {
-        setPwError('Passwort konnte nicht geaendert werden.');
+        setPwError('Passwort konnte nicht geändert werden.');
       }
     } finally {
       setIsSubmitting(false);
@@ -361,277 +436,155 @@ export function SettingsPage() {
     reorderQuickLinks(reordered.map(l => l.id)).catch(() => {});
   }
 
+  // Accordion header component (inline)
   return (
     <PageWrapper>
-      <h1
-        className="text-3xl font-bold mb-8"
-        style={{ fontFamily: 'var(--font-headline)', color: 'var(--color-on-surface)' }}
-      >
+      <h1 style={{
+        fontFamily: 'var(--font-headline)',
+        fontSize: '1.75rem',
+        fontWeight: 700,
+        marginBottom: '2rem',
+        letterSpacing: '-0.01em',
+        background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        backgroundClip: 'text',
+      }}>
         Einstellungen
       </h1>
 
-      <div className="space-y-6">
-        {/* App-Version */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        {/* Dashboard starten */}
         <Card>
-          <div className="p-6">
-            <h2
-              className="text-lg font-semibold mb-2"
-              style={{ fontFamily: 'var(--font-headline)', color: 'var(--color-on-surface)' }}
-            >
-              Ueber die App
-            </h2>
-            <p style={{ color: 'var(--color-on-surface-variant)' }}>
-              Benny Dashboard v{__APP_VERSION__}
-            </p>
-          </div>
+          <AccordionHeader openSection={openSection} onToggle={toggleSection} id="start" icon="rocket_launch" title="Dashboard starten" subtitle="Anleitung zum Starten & Neustarten" />
+          {openSection === 'start' && (
+            <div style={{ padding: '0 1.25rem 1.25rem' }}>
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {[
+                  { icon: 'mouse',    text: 'Doppelklick auf start.command im Finder — Terminal öffnet sich und alles startet automatisch.' },
+                  { icon: 'public',   text: 'Safari öffnet sich selbständig auf http://localhost:5173 — das Dashboard ist bereit.' },
+                  { icon: 'terminal', text: 'Terminal-Fenster offen lassen. Schließen beendet Frontend und Backend.' },
+                  { icon: 'sensors',  text: 'Die zwei Punkte unten in der Seitenleiste zeigen den Status: grün = alles läuft.' },
+                  { icon: 'refresh',  text: 'Hängt das Backend, einfach den ↺-Button daneben klicken — es startet automatisch neu.' },
+                  { icon: 'warning',  text: 'Bleibt die Ampel rot: start.command nie doppelt öffnen. Im Terminal kill $(lsof -ti :3001) eingeben — danach startet das Backend von selbst neu.' },
+                ].map(({ icon, text }, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '8px', flexShrink: 0, background: 'rgba(204,151,255,0.1)' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: '15px', color: 'var(--color-primary)' }}>{icon}</span>
+                    </span>
+                    <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface-variant)', lineHeight: 1.55, paddingTop: '0.2rem' }}>{text}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </Card>
 
         {/* Erscheinungsbild */}
         <Card>
-          <div className="p-6">
-            <h2
-              className="text-lg font-semibold mb-2"
-              style={{
-                fontFamily: 'var(--font-headline)',
-                color: 'var(--color-on-surface)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-              }}
-            >
-              <span className="material-symbols-outlined" style={{
-                fontSize: '1.25rem',
-                color: 'var(--color-primary)',
-              }}>palette</span>
-              Erscheinungsbild
-            </h2>
-            <p className="mb-4" style={{ color: 'var(--color-on-surface-variant)' }}>
-              Wechsel zwischen hellem und dunklem Design.
-            </p>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button
-                type="button"
-                onClick={() => setTheme('dark')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  padding: '0.5rem 1rem',
-                  borderRadius: '0.5rem',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '0.875rem',
-                  fontWeight: 500,
-                  background: theme === 'dark' ? 'var(--color-primary)' : 'var(--color-surface-container-high)',
-                  color: theme === 'dark' ? 'var(--color-on-primary)' : 'var(--color-on-surface-variant)',
-                  transition: 'background 150ms ease, color 150ms ease',
-                }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>dark_mode</span>
-                Dunkel
-              </button>
-              <button
-                type="button"
-                onClick={() => setTheme('light')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  padding: '0.5rem 1rem',
-                  borderRadius: '0.5rem',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '0.875rem',
-                  fontWeight: 500,
-                  background: theme === 'light' ? 'var(--color-primary)' : 'var(--color-surface-container-high)',
-                  color: theme === 'light' ? 'var(--color-on-primary)' : 'var(--color-on-surface-variant)',
-                  transition: 'background 150ms ease, color 150ms ease',
-                }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>light_mode</span>
-                Hell
-              </button>
+          <AccordionHeader openSection={openSection} onToggle={toggleSection} id="appearance" icon="palette" title="Erscheinungsbild" subtitle={`Aktuell: ${theme === 'dark' ? 'Dunkel' : 'Hell'}`} />
+          {openSection === 'appearance' && (
+            <div style={{ padding: '0 1.25rem 1.25rem' }}>
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '1rem', display: 'flex', gap: '0.75rem' }}>
+                {(['dark', 'light'] as const).map(t => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTheme(t)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '0.5rem',
+                      padding: '0.5rem 1rem', borderRadius: '0.5rem', border: 'none', cursor: 'pointer',
+                      fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 500,
+                      background: theme === t ? 'var(--color-primary)' : 'var(--color-surface-container-high)',
+                      color: theme === t ? 'var(--color-on-primary)' : 'var(--color-on-surface-variant)',
+                      transition: 'background 150ms ease, color 150ms ease',
+                    }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{t === 'dark' ? 'dark_mode' : 'light_mode'}</span>
+                    {t === 'dark' ? 'Dunkel' : 'Hell'}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </Card>
 
-        {/* Passwort aendern */}
+        {/* Passwort ändern */}
         <Card>
-          <div className="p-6">
-            <h2
-              className="text-lg font-semibold mb-4"
-              style={{ fontFamily: 'var(--font-headline)', color: 'var(--color-on-surface)' }}
-            >
-              Passwort aendern
-            </h2>
-            <form onSubmit={handleChangePassword} className="flex flex-col gap-4">
-              <Input
-                label="Aktuelles Passwort"
-                type="password"
-                value={oldPassword}
-                onChange={(e) => setOldPassword(e.target.value)}
-                autoComplete="current-password"
-                required
-              />
-              <Input
-                label="Neues Passwort"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                autoComplete="new-password"
-                required
-              />
-              <Input
-                label="Neues Passwort bestaetigen"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                autoComplete="new-password"
-                required
-              />
-              {pwError && (
-                <p className="text-sm" style={{ color: 'var(--color-error)' }}>
-                  {pwError}
-                </p>
-              )}
-              {pwSuccess && (
-                <p className="text-sm" style={{ color: 'var(--color-primary)' }}>
-                  {pwSuccess}
-                </p>
-              )}
-              <div>
-                <Button variant="primary" type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? 'Wird geaendert...' : 'Passwort aendern'}
-                </Button>
+          <AccordionHeader openSection={openSection} onToggle={toggleSection} id="password" icon="lock" title="Passwort ändern" />
+          {openSection === 'password' && (
+            <div style={{ padding: '0 1.25rem 1.25rem' }}>
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '1rem' }}>
+                <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <Input label="Aktuelles Passwort" type="password" value={oldPassword} onChange={e => setOldPassword(e.target.value)} autoComplete="current-password" required />
+                  <Input label="Neues Passwort" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} autoComplete="new-password" required />
+                  <Input label="Neues Passwort bestätigen" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} autoComplete="new-password" required />
+                  {pwError && <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-error)' }}>{pwError}</p>}
+                  {pwSuccess && <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-primary)' }}>{pwSuccess}</p>}
+                  <div>
+                    <Button variant="primary" type="submit" disabled={isSubmitting}>
+                      {isSubmitting ? 'Wird geändert…' : 'Passwort ändern'}
+                    </Button>
+                  </div>
+                </form>
               </div>
-            </form>
-          </div>
+            </div>
+          )}
         </Card>
 
         {/* Schnellzugriff */}
         <Card>
-          <div className="p-6">
-            <h2
-              className="text-lg font-semibold mb-4"
-              style={{
-                fontFamily: 'var(--font-headline)',
-                color: 'var(--color-on-surface)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-              }}
-            >
-              <span className="material-symbols-outlined" style={{
-                fontSize: '1.25rem',
-                color: 'var(--color-primary)',
-              }}>bolt</span>
-              Schnellzugriff
-            </h2>
-
-            {/* Sortierbare Liste */}
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={links.map(l => l.id)} strategy={verticalListSortingStrategy}>
-                {links.map(link => (
-                  <SortableItem
-                    key={link.id}
-                    link={link}
-                    editingId={editingId}
-                    editLabel={editLabel}
-                    editUrl={editUrl}
-                    onEditStart={handleEditStart}
-                    onEditLabelChange={setEditLabel}
-                    onEditUrlChange={setEditUrl}
-                    onEditSave={handleEditSave}
-                    onEditCancel={handleEditCancel}
-                    onToggleVisible={handleToggleVisible}
-                    onDelete={handleDelete}
-                  />
-                ))}
-              </SortableContext>
-            </DndContext>
-
-            {links.length === 0 && (
-              <p style={{
-                fontFamily: 'var(--font-body)',
-                fontSize: '0.875rem',
-                color: 'var(--color-on-surface-variant)',
-                textAlign: 'center',
-                padding: '1rem 0',
-              }}>
-                Noch keine Schnellzugriffe vorhanden.
-              </p>
-            )}
-
-            {qlError && (
-              <p className="text-sm mt-2" style={{ color: 'var(--color-error)' }}>
-                {qlError}
-              </p>
-            )}
-
-            {/* Neuen Link hinzufuegen */}
-            <form
-              onSubmit={handleAddLink}
-              style={{
-                marginTop: '1rem',
-                paddingTop: '1rem',
-                borderTop: '1px solid rgba(255,255,255,0.06)',
-              }}
-            >
-              <p style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 600,
-                fontSize: '0.8125rem',
-                color: 'var(--color-on-surface-variant)',
-                marginBottom: '0.75rem',
-              }}>
-                Neuen Link hinzufuegen
-              </p>
-              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                <div style={{ flex: '1 1 140px' }}>
-                  <Input
-                    label="Label"
-                    value={newLabel}
-                    onChange={e => setNewLabel(e.target.value)}
-                    placeholder="z.B. Google"
-                  />
-                </div>
-                <div style={{ flex: '2 1 220px' }}>
-                  <Input
-                    label="URL"
-                    value={newUrl}
-                    onChange={e => setNewUrl(e.target.value)}
-                    placeholder="https://..."
-                  />
-                </div>
-                <div style={{ flexShrink: 0, paddingBottom: '1px' }}>
-                  <Button variant="primary" type="submit">
-                    Hinzufuegen
-                  </Button>
-                </div>
+          <AccordionHeader openSection={openSection} onToggle={toggleSection} id="quicklinks" icon="bolt" title="Schnellzugriff" subtitle={`${links.length} Link${links.length !== 1 ? 's' : ''}`} />
+          {openSection === 'quicklinks' && (
+            <div style={{ padding: '0 1.25rem 1.25rem' }}>
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '1rem' }}>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={links.map(l => l.id)} strategy={verticalListSortingStrategy}>
+                    {links.map(link => (
+                      <SortableItem
+                        key={link.id}
+                        link={link}
+                        editingId={editingId}
+                        editLabel={editLabel}
+                        editUrl={editUrl}
+                        onEditStart={handleEditStart}
+                        onEditLabelChange={setEditLabel}
+                        onEditUrlChange={setEditUrl}
+                        onEditSave={handleEditSave}
+                        onEditCancel={handleEditCancel}
+                        onToggleVisible={handleToggleVisible}
+                        onDelete={handleDelete}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
+                {links.length === 0 && (
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface-variant)', textAlign: 'center', padding: '1rem 0' }}>
+                    Noch keine Schnellzugriffe vorhanden.
+                  </p>
+                )}
+                {qlError && <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-error)', marginTop: '0.5rem' }}>{qlError}</p>}
+                <form onSubmit={handleAddLink} style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)', marginBottom: '0.75rem' }}>
+                    Neuen Link hinzufügen
+                  </p>
+                  <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                    <div style={{ flex: '1 1 140px' }}>
+                      <Input label="Label" value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="z.B. Google" />
+                    </div>
+                    <div style={{ flex: '2 1 220px' }}>
+                      <Input label="URL" value={newUrl} onChange={e => setNewUrl(e.target.value)} placeholder="https://…" />
+                    </div>
+                    <div style={{ flexShrink: 0, paddingBottom: '1px' }}>
+                      <Button variant="primary" type="submit">Hinzufügen</Button>
+                    </div>
+                  </div>
+                </form>
               </div>
-            </form>
-          </div>
+            </div>
+          )}
         </Card>
 
-        {/* Session / Logout */}
-        <Card>
-          <div className="p-6">
-            <h2
-              className="text-lg font-semibold mb-2"
-              style={{ fontFamily: 'var(--font-headline)', color: 'var(--color-on-surface)' }}
-            >
-              Session
-            </h2>
-            <p className="mb-4" style={{ color: 'var(--color-on-surface-variant)' }}>
-              Aktive Session beenden und zum Login zurueckkehren.
-            </p>
-            <Button variant="secondary" type="button" onClick={handleLogout}>
-              Abmelden
-            </Button>
-          </div>
-        </Card>
       </div>
     </PageWrapper>
   );

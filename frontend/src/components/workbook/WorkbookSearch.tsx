@@ -62,7 +62,6 @@ export function WorkbookSearch({ onClose, onNavigate }: WorkbookSearchProps) {
 
   return (
     <div
-      onClick={onClose}
       style={{
         position: 'fixed',
         inset: 0,

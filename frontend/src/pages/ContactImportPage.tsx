@@ -133,9 +133,11 @@ export function ContactImportPage() {
     try {
       const res = await importCsv(file);
       setResult(res);
-    } catch (err) {
-      setImportError('Import fehlgeschlagen. Bitte Datei pruefen.');
-      console.error(err);
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } }; message?: string };
+      const msg = axiosErr?.response?.data?.error ?? axiosErr?.message ?? String(err);
+      setImportError(`Import fehlgeschlagen: ${msg}`);
+      console.error('[import]', err);
     } finally {
       setImporting(false);
     }
@@ -182,7 +184,7 @@ export function ContactImportPage() {
         fontSize: '0.85rem', textDecoration: 'none', marginBottom: '1.25rem',
       }}>
         <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>arrow_back</span>
-        Zurueck zur Kontaktliste
+        Zurück zur Kontaktliste
       </Link>
 
       {/* Header */}

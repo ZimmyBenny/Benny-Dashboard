@@ -1,10 +1,28 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useUiStore } from '../../store/uiStore';
 import { useAuthStore } from '../../store/authStore';
 import { navItems, settingsItem } from './navConfig';
 import type { NavItem } from './navConfig';
 import apiClient from '../../api/client';
+
+function loadNavOrder(): NavItem[] {
+  try {
+    const saved = localStorage.getItem('sidebarNavOrder');
+    if (saved) {
+      const order = JSON.parse(saved) as string[];
+      const itemMap = new Map(navItems.map(i => [i.path, i]));
+      const reordered = order.map(p => itemMap.get(p)).filter(Boolean) as NavItem[];
+      const missing = navItems.filter(i => !order.includes(i.path));
+      return [...reordered, ...missing];
+    }
+  } catch {}
+  return navItems;
+}
+
+function saveNavOrder(items: NavItem[]) {
+  localStorage.setItem('sidebarNavOrder', JSON.stringify(items.map(i => i.path)));
+}
 
 function SidebarNavLink({
   item,
@@ -92,6 +110,11 @@ export function Sidebar() {
   const logout = useAuthStore((state) => state.logout);
   const navigate = useNavigate();
 
+  const [orderedItems, setOrderedItems] = useState<NavItem[]>(loadNavOrder);
+  const [dragSource, setDragSource] = useState<number | null>(null);
+  const [dragOver, setDragOver] = useState<number | null>(null);
+  const dragSourceRef = useRef<number | null>(null);
+
   type BackupState = 'idle' | 'loading' | 'success' | 'error';
   const [backupState, setBackupState] = useState<BackupState>('idle');
   const [lastBackupAt, setLastBackupAt] = useState<Date | null>(() => {
@@ -104,6 +127,53 @@ export function Sidebar() {
   const [hoveredTheme, setHoveredTheme] = useState(false);
   const [hoveredLogout, setHoveredLogout] = useState(false);
 
+  // ── System-Status ──
+  type ServerStatus = 'ok' | 'error' | 'checking';
+  const [backendStatus, setBackendStatus] = useState<ServerStatus>('checking');
+  const [restarting, setRestarting] = useState(false);
+
+  useEffect(() => {
+    async function checkHealth() {
+      try {
+        const res = await fetch('http://localhost:3001/api/health', {
+          signal: AbortSignal.timeout(3000),
+        });
+        setBackendStatus(res.ok ? 'ok' : 'error');
+      } catch {
+        setBackendStatus('error');
+      }
+    }
+    checkHealth();
+    const iv = setInterval(checkHealth, 10_000);
+    return () => clearInterval(iv);
+  }, []);
+
+  async function handleRestartBackend() {
+    setRestarting(true);
+    setBackendStatus('checking');
+    try {
+      const token = useAuthStore.getState().token;
+      await fetch('http://localhost:3001/api/admin/restart', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(3000),
+      });
+    } catch { /* erwartet — der Server geht kurz offline */ }
+
+    // Warten bis Backend wieder antwortet (max 20s)
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 1000));
+      try {
+        const res = await fetch('http://localhost:3001/api/health', {
+          signal: AbortSignal.timeout(2000),
+        });
+        if (res.ok) { setBackendStatus('ok'); setRestarting(false); return; }
+      } catch { /* noch nicht bereit */ }
+    }
+    setBackendStatus('error');
+    setRestarting(false);
+  }
+
   function formatLastBackup(date: Date): string {
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
@@ -113,7 +183,7 @@ export function Sidebar() {
     if (diffMin < 1) return 'gerade eben';
     if (diffMin < 60) return `vor ${diffMin} Min.`;
     if (isToday) return `vor ${diffH} Std.`;
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffDays = Math.max(1, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
     if (diffDays === 1) return 'gestern';
     return `vor ${diffDays} Tagen`;
   }
@@ -212,13 +282,55 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex flex-col gap-0.5 p-2 flex-1" style={{ overflowY: 'auto' }}>
-        {navItems.map((item) => (
-          <SidebarNavLink
+        {orderedItems.map((item, index) => (
+          <div
             key={item.path}
-            item={item}
-            collapsed={collapsed}
-            end={item.path === '/'}
-          />
+            draggable
+            onDragStart={() => {
+              dragSourceRef.current = index;
+              setDragSource(index);
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (dragSourceRef.current !== index) setDragOver(index);
+            }}
+            onDragLeave={() => setDragOver(null)}
+            onDrop={() => {
+              const from = dragSourceRef.current;
+              if (from === null || from === index) {
+                setDragOver(null);
+                return;
+              }
+              const next = [...orderedItems];
+              const [moved] = next.splice(from, 1);
+              next.splice(index, 0, moved);
+              setOrderedItems(next);
+              saveNavOrder(next);
+              dragSourceRef.current = null;
+              setDragSource(null);
+              setDragOver(null);
+            }}
+            onDragEnd={() => {
+              dragSourceRef.current = null;
+              setDragSource(null);
+              setDragOver(null);
+            }}
+            style={{
+              opacity: dragSource === index ? 0.4 : 1,
+              borderRadius: '8px',
+              borderTop: dragOver === index
+                ? '2px solid var(--color-primary)'
+                : '2px solid transparent',
+              transition: 'opacity 0.15s, border-color 0.1s',
+              cursor: 'grab',
+            }}
+          >
+            <SidebarNavLink
+              item={item}
+              collapsed={collapsed}
+              end={item.path === '/'}
+            />
+          </div>
         ))}
       </nav>
 
@@ -253,7 +365,83 @@ export function Sidebar() {
       </div>
 
       {/* Backup + Settings + Logout */}
-      <div className="p-2" style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+      <div className="p-2" style={{ display: 'flex', flexDirection: 'column', gap: '2px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+
+        {/* System-Status */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          padding: collapsed ? '0.5rem' : '0.5rem 0.75rem',
+          justifyContent: collapsed ? 'center' : undefined,
+        }}>
+          <span
+            className="material-symbols-outlined flex-shrink-0"
+            style={{ fontSize: '20px', color: 'var(--color-on-surface-variant)' }}
+            title="System-Status"
+          >
+            sensors
+          </span>
+
+          {!collapsed && (
+            <>
+              <span style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: '0.8125rem',
+                fontWeight: 500,
+                letterSpacing: '0.01em',
+                color: 'var(--color-on-surface-variant)',
+                flex: 1,
+              }}>
+                System
+              </span>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <span title="Frontend läuft" style={{ width: 7, height: 7, borderRadius: '50%', display: 'inline-block', background: '#4ade80', boxShadow: '0 0 5px rgba(74,222,128,0.7)' }} />
+                <span
+                  title={backendStatus === 'ok' ? 'Backend läuft' : backendStatus === 'checking' ? 'Backend wird geprüft…' : 'Backend nicht erreichbar'}
+                  style={{
+                    width: 7, height: 7, borderRadius: '50%', display: 'inline-block',
+                    background: backendStatus === 'ok' ? '#4ade80' : backendStatus === 'checking' ? '#facc15' : '#f87171',
+                    boxShadow: backendStatus === 'ok' ? '0 0 5px rgba(74,222,128,0.7)' : backendStatus === 'checking' ? '0 0 5px rgba(250,204,21,0.7)' : '0 0 5px rgba(248,113,113,0.7)',
+                    transition: 'background 0.3s, box-shadow 0.3s',
+                  }}
+                />
+              </div>
+
+              <button
+                onClick={handleRestartBackend}
+                disabled={restarting}
+                title="Backend neu starten"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'transparent', border: 'none',
+                  cursor: restarting ? 'default' : 'pointer',
+                  color: 'var(--color-outline)',
+                  padding: '0.1rem',
+                  opacity: restarting ? 0.4 : 1,
+                  transition: 'opacity 0.15s',
+                  flexShrink: 0,
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '16px', animation: restarting ? 'spin 1s linear infinite' : 'none' }}>
+                  refresh
+                </span>
+              </button>
+            </>
+          )}
+
+          {collapsed && (
+            <div style={{ display: 'flex', gap: '0.2rem', alignItems: 'center' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 4px rgba(74,222,128,0.7)', display: 'inline-block' }} />
+              <span style={{
+                width: 6, height: 6, borderRadius: '50%', display: 'inline-block',
+                background: backendStatus === 'ok' ? '#4ade80' : backendStatus === 'checking' ? '#facc15' : '#f87171',
+                boxShadow: backendStatus === 'ok' ? '0 0 4px rgba(74,222,128,0.7)' : backendStatus === 'checking' ? '0 0 4px rgba(250,204,21,0.7)' : '0 0 4px rgba(248,113,113,0.7)',
+              }} />
+            </div>
+          )}
+        </div>
 
         {/* Backup Button */}
         <div className="relative group">

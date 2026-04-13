@@ -82,6 +82,14 @@ export async function deleteSection(id: number): Promise<void> {
   await apiClient.delete(`/workbook/sections/${id}`);
 }
 
+export async function reorderSections(ids: number[]): Promise<void> {
+  await apiClient.put('/workbook/sections/reorder', { ids });
+}
+
+export async function reorderPages(ids: number[]): Promise<void> {
+  await apiClient.put('/workbook/pages/reorder', { ids });
+}
+
 // Pages
 export async function fetchPages(params?: {
   section_id?: number;

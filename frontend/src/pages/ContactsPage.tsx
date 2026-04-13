@@ -61,6 +61,16 @@ export function ContactsPage() {
   const [exporting, setExporting] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const hasActiveFilters = search !== '' || type !== '' || area !== '' || showArchived;
+
+  function resetFilters() {
+    setSearch('');
+    setType('');
+    setArea('');
+    setShowArchived(false);
+    setPage(1);
+  }
+
   const load = useCallback(async (s: string, t: string, a: string, archived: boolean, p: number) => {
     setLoading(true);
     try {
@@ -77,7 +87,7 @@ export function ContactsPage() {
     }
   }, []);
 
-  // Initialer Load + bei Filter-/Page-Aenderung
+  // Initialer Load + bei Filter-/Page-Änderung
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
@@ -86,7 +96,7 @@ export function ContactsPage() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [search, type, area, showArchived, page, load]);
 
-  // Bei Filter-Aenderung: zurueck zu Seite 1
+  // Bei Filter-Änderung: zurück zu Seite 1
   useEffect(() => { setPage(1); }, [search, type, area, showArchived]);
 
   async function handleExportCsv() {
@@ -229,6 +239,23 @@ export function ContactsPage() {
           />
           Archiviert
         </label>
+
+{/* Filter zurücksetzen — immer sichtbar, deaktiviert wenn kein Filter gesetzt */}
+        <button
+          type="button"
+          onClick={resetFilters}
+          disabled={!hasActiveFilters}
+          style={{
+            ...btnSecondary,
+            color: hasActiveFilters ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
+            borderColor: hasActiveFilters ? 'var(--color-primary)' : 'var(--color-outline-variant)',
+            opacity: hasActiveFilters ? 1 : 0.45,
+            cursor: hasActiveFilters ? 'pointer' : 'default',
+          }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>filter_alt_off</span>
+          Filter zurücksetzen
+        </button>
 
         <div style={{ flex: 1 }} />
 

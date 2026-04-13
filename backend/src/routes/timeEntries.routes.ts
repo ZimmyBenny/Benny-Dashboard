@@ -179,7 +179,7 @@ router.delete('/:id', (req, res) => {
     return;
   }
   db.prepare('DELETE FROM time_entries WHERE id = ?').run(id);
-  res.json({ message: 'Eintrag geloescht' });
+  res.json({ message: 'Eintrag gelöscht' });
 });
 
 export default router;

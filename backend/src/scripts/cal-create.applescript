@@ -2,16 +2,21 @@
 -- Parameter via Env: CAL_NAME, EVT_TITLE, EVT_START_EPOCH, EVT_END_EPOCH, EVT_ALLDAY (true/false), EVT_LOCATION (optional)
 
 on run
-  set calName to (do shell script "echo $CAL_NAME")
-  set evtTitle to (do shell script "echo $EVT_TITLE")
-  set startEpoch to (do shell script "echo $EVT_START_EPOCH") as integer
-  set endEpoch to (do shell script "echo $EVT_END_EPOCH") as integer
-  set allDayStr to (do shell script "echo $EVT_ALLDAY")
-  set evtLocation to (do shell script "echo $EVT_LOCATION")
+  set calName to system attribute "CAL_NAME"
+  set evtTitle to system attribute "EVT_TITLE"
+  -- Epoch als String lassen (kein 'as integer' — deutsches macOS wuerde 1.744.395.660 formatieren und date -r wuerde fehlschlagen)
+  set startEpochStr to system attribute "EVT_START_EPOCH"
+  set endEpochStr to system attribute "EVT_END_EPOCH"
+  set allDayStr to system attribute "EVT_ALLDAY"
+  try
+    set evtLocation to system attribute "EVT_LOCATION"
+  on error
+    set evtLocation to ""
+  end try
 
   -- Epoch zu AppleScript-Datum via Shell (date -r = Epoch zu local time)
-  set startDateStr to do shell script "date -r " & startEpoch & " '+%m/%d/%Y %H:%M:%S'"
-  set endDateStr to do shell script "date -r " & endEpoch & " '+%m/%d/%Y %H:%M:%S'"
+  set startDateStr to do shell script "date -r " & startEpochStr & " '+%m/%d/%Y %H:%M:%S'"
+  set endDateStr to do shell script "date -r " & endEpochStr & " '+%m/%d/%Y %H:%M:%S'"
   set startDate to date startDateStr
   set endDate to date endDateStr
 
@@ -24,7 +29,6 @@ on run
     if evtLocation is not "" then
       set location of newEvent to evtLocation
     end if
-    -- UID auslesen (Zugriff erzwingt Commit in Calendar)
     set newUID to uid of newEvent
     return newUID
   end tell

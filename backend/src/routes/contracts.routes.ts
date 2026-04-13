@@ -86,6 +86,9 @@ router.get('/', (req, res) => {
     conditions.push(`is_archived = 1`);
   } else if (segment === 'gesamt') {
     // alle Einträge — kein is_archived-Filter
+  } else if (segment === 'unbefristet') {
+    conditions.push(`unbefristet = 1`);
+    conditions.push(`is_archived = 0`);
   } else {
     // 'all'
     conditions.push(`is_archived = 0`);

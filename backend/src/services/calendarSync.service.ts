@@ -6,6 +6,11 @@ const SCRIPTS_DIR = path.join(__dirname, '../scripts');
 const DAYS_BACK = process.env.CALENDAR_DAYS_BACK ?? '30';
 const DAYS_FORWARD = process.env.CALENDAR_DAYS_FORWARD ?? '90';
 
+// ── Sync-Mutex: verhindert gleichzeitige cal-read.applescript-Aufrufe ─────────
+// Calendar.app IPC vertraegt keine parallelen osascript-Prozesse — zweiter Aufruf
+// schlaegt sofort fehl. Nur ein syncPull() darf gleichzeitig laufen.
+let syncRunning = false;
+
 // ── execFile-Wrapper ───────────────────────────────────────────────────────────
 
 function runScript(scriptName: string, env: Record<string, string> = {}): Promise<string> {
@@ -23,10 +28,17 @@ function runScript(scriptName: string, env: Record<string, string> = {}): Promis
   });
 }
 
-// ── Hilfsfunktion: Epoch zu ISO UTC ───────────────────────────────────────────
+// ── Hilfsfunktion: Epoch zu ISO UTC (auf Minute gerundet) ─────────────────────
+// Migration 014: UNIQUE(apple_uid, start_at) mit Minuten-Normalisierung.
+// cal-read.applescript hat ±7s Timing-Jitter → Rundung auf Minute loest Duplikate.
 
 function epochToISO(epochSecs: number): string {
-  return new Date(epochSecs * 1000).toISOString();
+  // Auf naechste Minute runden (+30s → floor auf Minute)
+  const rounded = Math.floor((epochSecs + 30) / 60) * 60;
+  const d = new Date(rounded * 1000);
+  // Sekunden auf :00 forcieren (sicherheitshalber)
+  d.setSeconds(0, 0);
+  return d.toISOString().replace(/\.\d{3}Z$/, '.000Z');
 }
 
 // ── Kalender-Liste aus Apple Calendar ─────────────────────────────────────────
@@ -52,10 +64,14 @@ export async function detectNewCalendars(): Promise<string[]> {
   // Alle erkannten Kalender in known_calendars eintragen (inkl. neue)
   const insert = db.prepare('INSERT OR IGNORE INTO known_calendars (name) VALUES (?)');
   for (const cal of appleCalendars) insert.run(cal.name);
-  // Farben fuer alle Kalender aktualisieren
-  const updateColor = db.prepare('UPDATE known_calendars SET color = ? WHERE name = ? AND (color IS NULL OR color != ?)');
+  // Farben nur setzen wenn Apple eine echte Farbe liefert (nicht den Fallback #6366f1).
+  // So werden manuell gesetzte DB-Farben nicht beim naechsten Sync ueberschrieben.
+  const FALLBACK_COLOR = '#6366f1';
+  const updateColor = db.prepare('UPDATE known_calendars SET color = ? WHERE name = ? AND (color IS NULL OR color = ?)');
   for (const cal of appleCalendars) {
-    updateColor.run(cal.color, cal.name, cal.color);
+    if (cal.color !== FALLBACK_COLOR) {
+      updateColor.run(cal.color, cal.name, FALLBACK_COLOR);
+    }
   }
   return newOnes.map(c => c.name);
 }
@@ -83,10 +99,12 @@ async function resolveCalendarNames(): Promise<string> {
   // In known_calendars eintragen fuer naechstes Mal
   const insert = db.prepare('INSERT OR IGNORE INTO known_calendars (name) VALUES (?)');
   for (const cal of allCalendars) insert.run(cal.name);
-  // Farben aktualisieren
-  const updateColor = db.prepare('UPDATE known_calendars SET color = ? WHERE name = ? AND (color IS NULL OR color != ?)');
+  // Farben nur setzen wenn Apple eine echte Farbe liefert (nicht den Fallback)
+  const updateColor = db.prepare('UPDATE known_calendars SET color = ? WHERE name = ? AND (color IS NULL OR color = ?)');
   for (const cal of allCalendars) {
-    updateColor.run(cal.color, cal.name, cal.color);
+    if (cal.color !== '#6366f1') {
+      updateColor.run(cal.color, cal.name, '#6366f1');
+    }
   }
   return allCalendars.map(c => c.name).join(',');
 }
@@ -102,6 +120,19 @@ export interface SyncPullResult {
 }
 
 export async function syncPull(): Promise<SyncPullResult> {
+  if (syncRunning) {
+    console.log('[calendar] syncPull skipped — sync already in progress');
+    return { created: 0, updated: 0, skipped: 0, errors: 0, durationMs: 0 };
+  }
+  syncRunning = true;
+  try {
+    return await _syncPull();
+  } finally {
+    syncRunning = false;
+  }
+}
+
+async function _syncPull(): Promise<SyncPullResult> {
   const calNames = await resolveCalendarNames();
 
   if (!calNames.trim()) {
@@ -146,6 +177,7 @@ export async function syncPull(): Promise<SyncPullResult> {
     INSERT INTO calendar_events (apple_uid, start_at, end_at, title, is_all_day, calendar_name, apple_stamp, sync_status, last_synced_at, updated_at)
     VALUES (@uid, @start_at, @end_at, @title, @is_all_day, @calendar_name, @apple_stamp, 'synced', @now, @now)
     ON CONFLICT(apple_uid, start_at) DO UPDATE SET
+      start_at      = excluded.start_at,
       end_at        = excluded.end_at,
       title         = excluded.title,
       is_all_day    = excluded.is_all_day,
@@ -171,8 +203,9 @@ export async function syncPull(): Promise<SyncPullResult> {
   const txn = db.transaction(() => {
     for (const evt of events) {
       try {
+        const startISO = epochToISO(evt.startEpoch);
         const existing = db.prepare('SELECT id, apple_stamp FROM calendar_events WHERE apple_uid = ? AND start_at = ?')
-          .get(evt.uid, epochToISO(evt.startEpoch)) as { id: number; apple_stamp: string | null } | undefined;
+          .get(evt.uid, startISO) as { id: number; apple_stamp: string | null } | undefined;
 
         const stampISO = evt.stampEpoch > 0 ? epochToISO(evt.stampEpoch) : null;
 
@@ -184,7 +217,7 @@ export async function syncPull(): Promise<SyncPullResult> {
 
         upsert.run({
           uid: evt.uid,
-          start_at: epochToISO(evt.startEpoch),
+          start_at: startISO,
           end_at: epochToISO(evt.endEpoch),
           title: evt.title,
           is_all_day: evt.allDay ? 1 : 0,
@@ -210,10 +243,30 @@ export async function syncPull(): Promise<SyncPullResult> {
 
 // ── Full Sync: Pull + detectNewCalendars (fuer Hintergrund-Interval) ──────────
 
+// ── Retry pending_push Events -> Apple Calendar ───────────────────────────────
+
+async function retryPendingPushes(): Promise<void> {
+  const pending = db.prepare(
+    "SELECT id, title FROM calendar_events WHERE sync_status = 'pending_push'"
+  ).all() as Array<{ id: number; title: string }>;
+
+  for (const evt of pending) {
+    try {
+      await pushEvent(evt.id);
+      console.log(`[calendar] Retry push OK: "${evt.title}" (id=${evt.id})`);
+    } catch (err) {
+      console.warn(`[calendar] Retry push failed: "${evt.title}" (id=${evt.id}) —`, String(err).split('\n')[0]);
+    }
+  }
+}
+
+// ── Full Sync: Pull + detectNewCalendars (fuer Hintergrund-Interval) ──────────
+
 export async function fullSync(): Promise<void> {
   try {
     console.log('[calendar] Background sync starting...');
     await detectNewCalendars();
+    await retryPendingPushes();
     const result = await syncPull();
     console.log(`[calendar] Background sync done — created:${result.created} updated:${result.updated} skipped:${result.skipped} errors:${result.errors} (${result.durationMs}ms)`);
   } catch (err) {

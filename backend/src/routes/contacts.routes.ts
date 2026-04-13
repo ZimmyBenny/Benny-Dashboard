@@ -750,7 +750,7 @@ router.post('/:id/notes', (req, res) => {
   }
 
   const result = db.prepare(`INSERT INTO contact_notes (contact_id, content) VALUES (?, ?)`).run(id, content.trim());
-  db.prepare(`INSERT INTO contact_activity_log (contact_id, event_type, message) VALUES (?, 'note_added', 'Notiz hinzugefuegt')`).run(id);
+  db.prepare(`INSERT INTO contact_activity_log (contact_id, event_type, message) VALUES (?, 'note_added', 'Notiz hinzugefügt')`).run(id);
 
   const note = db.prepare(`SELECT * FROM contact_notes WHERE id = ?`).get(result.lastInsertRowid);
   res.status(201).json(note);

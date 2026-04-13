@@ -80,9 +80,22 @@ router.post('/events', async (req, res) => {
   `).run(title, start_at, end_at, is_all_day, calendar_name, location ?? null, notes ?? null);
 
   const newId = result.lastInsertRowid as number;
-  const { uid } = await pushEvent(newId);
-  const row = db.prepare('SELECT * FROM calendar_events WHERE id = ?').get(newId);
-  res.status(201).json({ ok: true, uid, event: row });
+
+  try {
+    const { uid } = await pushEvent(newId);
+    const row = db.prepare('SELECT * FROM calendar_events WHERE id = ?').get(newId);
+    res.status(201).json({ ok: true, uid, event: row });
+  } catch (pushErr) {
+    // Apple-Push fehlgeschlagen — Event in DB als pending_push belassen, Fehler melden
+    console.error('[calendar] pushEvent failed:', pushErr);
+    const row = db.prepare('SELECT * FROM calendar_events WHERE id = ?').get(newId);
+    res.status(201).json({
+      ok: true,
+      uid: null,
+      event: row,
+      warning: 'Event gespeichert, aber Apple Calendar-Sync fehlgeschlagen. Wird beim nächsten Sync übertragen.',
+    });
+  }
 });
 
 // PUT /api/calendar/events/:id — Event updaten

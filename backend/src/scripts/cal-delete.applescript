@@ -1,10 +1,9 @@
 -- Loescht Event per UID aus Apple Calendar
--- Sucht zuerst im bekannten Kalender (schneller), dann Fallback ueber alle
 -- Parameter via Env: EVT_UID, CAL_NAME (hint fuer schnellere Suche)
 
 on run
-  set targetUID to (do shell script "echo $EVT_UID")
-  set calName to (do shell script "echo $CAL_NAME")
+  set targetUID to system attribute "EVT_UID"
+  set calName to system attribute "CAL_NAME"
 
   tell application "Calendar"
     -- Bekannten Kalender zuerst (schneller)

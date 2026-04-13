@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchDueReminders, patchTaskStatus } from '../../api/tasks.api';
+import { fetchDueReminders, patchTaskStatus, updateTask } from '../../api/tasks.api';
 import type { Task } from '../../api/tasks.api';
 import { ReminderPopup } from './ReminderPopup';
 import { useAuthStore } from '../../store/authStore';
@@ -66,7 +66,17 @@ export function ReminderPoller() {
     navigate('/tasks', { state: { openTask: task } });
   }, [navigate]);
 
-  const handleLater = useCallback((task: Task) => {
+  const handleLater = useCallback(async (task: Task, snoozeUntil: Date) => {
+    try {
+      await updateTask(task.id, {
+        ...task,
+        reminder_at: snoozeUntil.toISOString(),
+        has_reminder: 1,
+      });
+      window.dispatchEvent(new CustomEvent('tasks-refresh'));
+    } catch (err) {
+      console.error('[ReminderPoller] snooze failed', err);
+    }
     markDismissed(task);
     setQueue((prev) => prev.filter((t) => t.id !== task.id));
   }, []);

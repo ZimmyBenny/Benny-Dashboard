@@ -40,7 +40,6 @@ export function TemplatePickerModal({ onClose, onCreate }: TemplatePickerModalPr
 
   return (
     <div
-      onClick={onClose}
       style={{
         position: 'fixed',
         inset: 0,

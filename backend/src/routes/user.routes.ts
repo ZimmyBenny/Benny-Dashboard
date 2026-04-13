@@ -40,7 +40,7 @@ router.post('/change-password', async (req: Request, res: Response) => {
   const newHash = await bcryptjs.hash(newPassword, 12);
   db.prepare('UPDATE user SET password_hash = ? WHERE id = 1').run(newHash);
 
-  res.json({ message: 'Passwort erfolgreich geaendert' });
+  res.json({ message: 'Passwort erfolgreich geändert' });
 });
 
 export default router;

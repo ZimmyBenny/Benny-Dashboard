@@ -57,6 +57,12 @@ export function createApp() {
     res.json({ ok: true, user: req.user });
   });
 
+  // Admin: Backend neu starten (process.exit → tsx watch / while-Loop startet neu)
+  app.post('/api/admin/restart', (_req, res) => {
+    res.json({ ok: true, message: 'Backend wird neu gestartet…' });
+    setTimeout(() => process.exit(0), 300);
+  });
+
   // Global error handler — MUST be last middleware
   app.use(errorHandler);
 

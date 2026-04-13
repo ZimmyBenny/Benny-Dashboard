@@ -15,6 +15,7 @@ const ITEM_TYPE_ICONS: Record<string, string> = {
   Versicherung: 'security',
   Mitgliedschaft: 'group',
   Garantie: 'verified',
+  Aktion: 'local_offer',
   Sonstiges: 'more_horiz',
 };
 
@@ -24,6 +25,7 @@ const AREA_COLORS: Record<string, string> = {
   Cashback: '#4ade80',
   Finanzen: '#60a5fa',
   Privat: '#f472b6',
+  Banken: '#38bdf8',
   Sonstiges: 'rgba(255,255,255,0.2)',
 };
 
@@ -57,6 +59,7 @@ const EMPTY_STATE_MESSAGES: Record<string, string> = {
   cancellable: 'Keine kündbaren Einträge',
   archive: 'Archiv ist leer',
   gesamt: 'Noch keine Einträge vorhanden',
+  unbefristet: 'Keine unbefristeten Einträge vorhanden',
 };
 
 // ---------------------------------------------------------------------------
@@ -174,6 +177,7 @@ const AREA_CHART_COLORS: Record<string, string> = {
   Amazon: '#fb923c',
   Cashback: '#4ade80',
   Finanzen: '#60a5fa',
+  Banken: '#38bdf8',
   Sonstiges: '#6b7280',
 };
 
@@ -298,7 +302,7 @@ const INPUT_STYLE: React.CSSProperties = {
   boxSizing: 'border-box',
 };
 
-type Segment = 'all' | 'soon' | 'overdue' | 'cancellable' | 'archive' | 'gesamt';
+type Segment = 'all' | 'soon' | 'overdue' | 'cancellable' | 'archive' | 'gesamt' | 'unbefristet';
 
 interface ContractsPageProps {
   onEdit?: (contract: Contract) => void;
@@ -350,7 +354,7 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
   }, [segment, debouncedSearch, filterType, filterArea, filterStatus]);
 
   const loadSegmentCounts = useCallback(async () => {
-    const keys: Segment[] = ['all', 'soon', 'overdue', 'cancellable', 'archive', 'gesamt'];
+    const keys: Segment[] = ['all', 'soon', 'overdue', 'cancellable', 'archive', 'gesamt', 'unbefristet'];
     try {
       const results = await Promise.all(
         keys.map(seg => fetchContracts({ segment: seg, limit: 1, offset: 0 }))
@@ -433,6 +437,7 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
     { key: 'overdue', label: 'Überfällig' },
     { key: 'cancellable', label: 'Kündbar' },
     { key: 'archive', label: 'Archiv' },
+    { key: 'unbefristet', label: 'Unbefristet' },
     { key: 'gesamt', label: 'Gesamt' },
   ];
 
@@ -547,7 +552,7 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
           onChange={e => setFilterType(e.target.value)}
         >
           <option value="">Alle Typen</option>
-          {['Vertrag', 'Dokument', 'Frist', 'Versicherung', 'Mitgliedschaft', 'Garantie', 'Sonstiges'].map(t => (
+          {['Vertrag', 'Dokument', 'Frist', 'Versicherung', 'Mitgliedschaft', 'Garantie', 'Aktion', 'Sonstiges'].map(t => (
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
@@ -557,7 +562,7 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
           onChange={e => setFilterArea(e.target.value)}
         >
           <option value="">Alle Bereiche</option>
-          {['Privat', 'DJ', 'Amazon', 'Cashback', 'Finanzen', 'Sonstiges'].map(a => (
+          {['Privat', 'DJ', 'Amazon', 'Cashback', 'Finanzen', 'Banken', 'Sonstiges'].map(a => (
             <option key={a} value={a}>{a}</option>
           ))}
         </select>
@@ -684,7 +689,7 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
           }
 
           // Andere Tabs: nach Bereich gruppiert
-          const ORDER = ['Privat', 'DJ', 'Amazon', 'Cashback', 'Finanzen', 'Sonstiges'];
+          const ORDER = ['Privat', 'DJ', 'Amazon', 'Cashback', 'Finanzen', 'Banken', 'Sonstiges'];
           const grouped = new Map<string, Contract[]>();
           for (const c of contracts) {
             const key = c.area || 'Sonstiges';

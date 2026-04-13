@@ -1,0 +1,1081 @@
+Return-Path: <0102019d80df6480-ff77bf4f-c053-4048-9708-1f2a0c82101e-000000@eu-west-1.amazonses.com>
+Authentication-Results:  kundenserver.de; dkim=pass header.i=@amazon.com
+Authentication-Results:  kundenserver.de; dkim=pass header.i=@amazonses.com
+Received: from c149-203.smtp-out.eu-west-1.amazonses.com ([76.223.149.203]) by
+ mx.kundenserver.de (mxeue003 [212.227.15.41]) with ESMTPS (Nemesis) id
+ 1M2hYN-1w9uWs3Ej9-00DgqW for <info@zimaproducts.de>; Sun, 12 Apr 2026
+ 10:46:57 +0200
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/simple;
+	s=sqndzsgiklyindvgxsvcqwgdzekmh2xh; d=amazon.com; t=1775983617;
+	h=Date:From:Reply-To:To:Message-ID:Subject:MIME-Version:Content-Type;
+	bh=oO8YIWQprYxHr/PGeb/ZqCOKFUEPCVnAWsLamo/sznw=;
+	b=txvLFCyknUiFraLkVRxxLq3S7bSX3WYQwroMbgotw7wTL6H2PVe6imD7dpBs5Jyo
+	dnqoR0YRNFvQs9Fr6nsO8SzlCww1OVqQhT+O+6bqiUpL02Ek5ovQ9h1y3atITdXdk72
+	M8J+1CAapiTPKl6kifOwPRxeKgeCK7Llu9uony3MFATWEnvbWB1uDWkSC+VLGZe0aqF
+	SDySsHR5WzV1VyU4B3YBf9YpIT+0U5mX/iZfdNdV2q4XOzb5Ml90oUcaxokqkuUwODB
+	k/Wa/GJcOsZeVpWa+WQGq7qb67CiUAEwyS+wfR/zQ8sTPjln8dr20aMLkJy/it0LuD1
+	cTI2HOkt6g==
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/simple;
+	s=shh3fegwg5fppqsuzphvschd53n6ihuv; d=amazonses.com; t=1775983617;
+	h=Date:From:Reply-To:To:Message-ID:Subject:MIME-Version:Content-Type:Feedback-ID;
+	bh=oO8YIWQprYxHr/PGeb/ZqCOKFUEPCVnAWsLamo/sznw=;
+	b=lgkLmX9NZA6Xtcq60F9PvCzR+F8P1ITGUaXd8YpwfKpOAGF0FZs5CwdJod4m4zT6
+	/QEgfjSnP0BjwbaekH6rZSg9gyoThva5J2yN108NsQ022W+NnZatKYUGK3P6Jmpf0e/
+	daKal+5Vo45gRY8Rvr9OZGU/dnU8ji0O4VYD6CmY=
+Date: Sun, 12 Apr 2026 08:46:57 +0000
+From: "Amazon Services <no-reply@amazon.com>" <donotreply@amazon.com>
+Reply-To: "Amazon Services <no-reply@amazon.com>" <donotreply@amazon.com>
+To: info@zimaproducts.de
+Message-ID: <0102019d80df6480-ff77bf4f-c053-4048-9708-1f2a0c82101e-000000@eu-west-1.amazonses.com>
+Subject: =?UTF-8?Q?=C2=A0Beschleunigen_und_vereinfachen_Si?=
+ =?UTF-8?Q?e_den_Versand_Ihres_Lagerbestands!?=
+MIME-Version: 1.0
+Content-Type: multipart/alternative; 
+	boundary="----=_Part_3270054_1307684389.1775983617138"
+Bounces-to: RTE+NE-null-b1cb1A08444418EKP1ESCYRS0@sellernotifications.amazon.com
+X-Space-Message-ID: 1618482759904011
+X-Marketplace-ID: A1PA6795UKMFR9
+X-Space-Notification-Type: ONBOARDING_NUDGE_WELCOME_FOLLOW_UP
+Feedback-ID: ::1.eu-west-1.QXQDwfZxBksRk8Fey1ctk1ELdO+bec9bLwquzardhBQ=:AmazonSES
+X-SES-Outgoing: 2026.04.12-76.223.149.203
+Envelope-To: <info@zimaproducts.de>
+UI-InboundReport: unknown:2;M01:P0:1vCfK2p3yjw=;lGTpCXDOvcdpolHc74DtE5i51kVb
+ 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
+ q6VSVnk04Dw3A==
+
+------=_Part_3270054_1307684389.1775983617138
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.=
+w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns=3D"http://www.w3.org/1999/xhtml" xmlns:v=3D"urn:schemas-microso=
+ft-com:vml" xmlns:o=3D"urn:schemas-microsoft-com:office:office" dir=3D"auto=
+">
+=09
+
+<!-- Email Header -->
+<head>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3DUTF-8">=
+=09
+<!-- Included header file, can be cloned and/or replaced. -->
+
+
+<!--[if gte mso 15]>
+<xml>
+=09<o:OfficeDocumentSettings>
+=09<o:AllowPNG/>
+=09<o:PixelsPerInch>96</o:PixelsPerInch>
+=09</o:OfficeDocumentSettings>
+</xml>
+<![endif]-->
+<meta charset=3D"UTF-8">
+<!--[if !mso]><!-->
+=09=09<meta http-equiv=3D"X-UA-Compatible" content=3D"IE=3Dedge">
+=09<!--<![endif]-->
+<meta name=3D"viewport" content=3D"width=3Ddevice-width, initial-scale=3D1"=
+>
+<title></title>
+<link href=3D"http://fonts.googleapis.com/css?family=3DLato:400,700" rel=3D=
+"stylesheet" type=3D"text/css">
+<style type=3D"text/css">
+=09
+@font-face {
+    font-family: 'Amazon Ember';
+    font-style: normal;
+    font-weight: 300;
+    src: local('Amazon Ember Light'), local('AmazonEmber-Light'), url(https=
+://m.media-amazon.com/images/G/01/nbus-common/woff/amazonember_lt_base.woff=
+2) format('woff2'), url(https://m.media-amazon.com/images/G/01/nbus-common/=
+woff/amazonember_lt_base.woff) format('woff');
+}
+@font-face {
+    font-family: 'Amazon Ember';
+    font-style: italic;
+    font-weight: 300;
+    src: local('Amazon Ember Light Italic'), local('AmazonEmber-LightItalic=
+'), url(https://m.media-amazon.com/images/G/01/nbus-common/woff/amazonember=
+_ltit_base.woff2) format('woff2'), url(https://m.media-amazon.com/images/G/=
+01/nbus-common/woff/amazonember_ltit_base.woff) format('woff');
+}
+@font-face {
+    font-family: 'Amazon Ember';
+    font-style: normal;
+    font-weight: 400;
+    src: local('Amazon Ember'), local('AmazonEmber'), url(https://m.media-a=
+mazon.com/images/G/01/nbus-common/woff/amazonember_rg_base.woff2) format('w=
+off2'), url(https://m.media-amazon.com/images/G/01/nbus-common/woff/amazone=
+mber_rg_base.woff) format('woff');
+}
+@font-face {
+    font-family: 'Amazon Ember';
+    font-style: italic;
+    font-weight: 400;
+    src: local('Amazon Ember Italic'), local('AmazonEmber-Italic'), url(htt=
+ps://m.media-amazon.com/images/G/01/nbus-common/woff/amazonember_rgit_base.=
+woff2) format('woff2'), url(https://m.media-amazon.com/images/G/01/nbus-com=
+mon/woff/amazonember_rgit_base.woff) format('woff');
+}
+@font-face {
+    font-family: 'Amazon Ember';
+    font-style: normal;
+    font-weight: 600;
+    src: local('Amazon Ember Medium'), local('AmazonEmber-Medium'), url(htt=
+ps://m.media-amazon.com/images/G/01/nbus-common/woff/amazonember_md_base.wo=
+ff2) format('woff2'), url(https://m.media-amazon.com/images/G/01/nbus-commo=
+n/woff/amazonember_md_base.woff) format('woff');
+}
+@font-face {
+    font-family: 'Amazon Ember';
+    font-style: italic;
+    font-weight: 600;
+    src: local('Amazon Ember Medium Italic'), local('AmazonEmber-MediumItal=
+ic'), url(https://m.media-amazon.com/images/G/01/nbus-common/woff/amazonemb=
+er_mdit_base.woff2) format('woff2'), url(https://m.media-amazon.com/images/=
+G/01/nbus-common/woff/amazonember_mdit_base.woff) format('woff');
+}
+@font-face {
+    font-family: 'Amazon Ember';
+    font-style: normal;
+    font-weight: 700;
+    src: local('Amazon Ember Bold'), local('AmazonEmber-Bold'), url(https:/=
+/m.media-amazon.com/images/G/01/nbus-common/woff/amazonember_bd_base.woff2)=
+ format('woff2'), url(https://m.media-amazon.com/images/G/01/nbus-common/wo=
+ff/amazonember_bd_base.woff) format('woff');
+}
+@font-face {
+    font-family: 'Amazon Ember';
+    font-style: italic;
+    font-weight: 700;
+    src: local('Amazon Ember Bold Italic'), local('AmazonEmber-BoldItalic')=
+, url(https://m.media-amazon.com/images/G/01/nbus-common/woff/amazonember_b=
+dit_base.woff2) format('woff2'), url(https://m.media-amazon.com/images/G/01=
+/nbus-common/woff/amazonember_bdit_base.woff) format('woff');
+}
+
+
+
+=09.nbus-survey{color: #FFF;font-family:'Amazon Ember';font-size:13px;line-=
+height:150%;text-align:center}
+=09.nbus-survey:visited{color: #FFF;font-family:'Amazon Ember';font-size:13=
+px;line-height:150%;text-align:center}
+=09.nbus-survey:hover{color: #FFF;font-family:'Amazon Ember';font-size:13px=
+;line-height:150%;text-align:center}
+=09.nbus-survey:focus{color: #FFF;font-family:'Amazon Ember';font-size:13px=
+;line-height:150%;text-align:center}
+=09.nbus-survey:active{color: #FFF;font-family:'Amazon Ember';font-size:13p=
+x;line-height:150%;text-align:center}
+=09
+=09one-column{border-spacing:0px;background-color:#FFFFFF;border:0px;paddin=
+g:0px;width:100%;column-count:1;}
+=09endrImageBlock{padding:0px;border-spacing:0px;min-width:100%;border-coll=
+apse:collapse;width:100%;border:0px;}
+=09endrImageBlockInner{padding:0px;}
+=09endrImageContentContainer{adding:0px;border-spacing:0px;min-width:100%;b=
+order-collapse:collapse;width:100%;border:0px;}
+=09endrTextContentContainer{min-width:100%;width:100%;border-collapse:colla=
+pse;background-color:#FFFFFF;border:0px;padding:0px;border-spacing:0px;}
+=09endrTextBlock{min-width:100%;border-collapse:collapse;background-color:#=
+ffffff;width:100%padding:0px;border-spacing:0px;border:0px;}
+=09preview-text{display:none;font-size:1px;line-height:1px;max-height:0px;m=
+ax-width:0px;opacity:0;overflow:hidden;mso-hide:all;font-family: 'Amazon Em=
+ber';}
+=09
+=09p{
+=09text-align: left;
+=09margin-top:10px;
+=09margin-bottom:10px;
+=09margin-right:0;
+=09margin-left:0;
+=09padding-top:0;
+=09padding-bottom:0;
+=09padding-right:0;
+=09padding-left:0;
+=09line-height:185%;
+=09}
+=09table{
+=09border-collapse:collapse;
+=09}
+=09h1,h2,h3,h4,h5,h6{
+=09display:block;
+=09margin:0;
+=09padding:0;
+=09}
+=09img,a img{
+=09border:0;
+=09height:auto;
+=09outline:none;
+=09text-decoration:none;
+=09}
+=09pre{
+=09height:100%;
+=09margin:0px;
+=09padding:0px;
+=09width:100%;
+=09font-family:'Amazon Ember';
+=09min-width:100%;
+=09white-space: pre-wrap;       /* Since CSS 2.1 */
+    white-space: -moz-pre-wrap;  /* Mozilla, since 1999 */
+    white-space: -pre-wrap;      /* Opera 4-6 */
+    white-space: -o-pre-wrap;    /* Opera 7 */
+    word-wrap: break-word;       /* Internet Explorer 5.5+ */
+=09}
+=09body,#bodyTable,#bodyCell{
+=09height:100%;
+=09margin:0px;
+=09padding:0px;
+=09width:100%;
+=09background-color:#e4e3e4;
+=09color:#999999
+=09font-family:'Amazon Ember';
+=09min-width:100%;
+=09}
+=09#outlook a{
+=09padding:0;
+=09}
+=09img{
+=09-ms-interpolation-mode:bicubic;
+=09}
+=09table{
+=09mso-table-lspace:0pt;
+=09mso-table-rspace:0pt;
+=09}
+=09.ReadMsgBody{
+=09width:100%;
+=09}
+=09.ExternalClass{
+=09width:100%;
+=09}
+=09p,a,li,td,blockquote{
+=09mso-line-height-rule:exactly;
+=09}
+=09a[href^=3Dtel],a[href^=3Dsms]{
+=09color:inherit;
+=09cursor:default;
+=09text-decoration:none;
+=09}
+=09p,a,li,td,body,table,blockquote{
+=09-ms-text-size-adjust:100%;
+=09-webkit-text-size-adjust:100%;
+=09}
+=09.ExternalClass,.ExternalClass p,.ExternalClass td,.ExternalClass div,.Ex=
+ternalClass span,.ExternalClass font{
+=09line-height:100%;
+=09}
+=09a[x-apple-data-detectors]{
+=09color:inherit !important;
+=09text-decoration:none !important;
+=09font-size:inherit !important;
+=09font-family:inherit !important;
+=09font-weight:inherit !important;
+=09line-height:inherit !important;
+=09}
+=09.templateContainer{
+=09max-width:600px !important;
+=09}
+=09.endrImage{
+=09vertical-align:bottom;
+=09}
+=09.endrTextContent{
+=09word-break:break-word;
+=09padding-top:15px;
+=09padding-bottom:10px;
+=09padding-right:18px;
+=09padding-left:18px;
+=09text-align: left;
+=09}
+=09.endrTextContent img{
+=09height:auto !important;
+=09}
+=09.endrDividerBlock{
+=09table-layout:fixed !important;
+=09}
+=09body { margin:0 !important; }
+=09div[style*=3D"margin: 16px 0"] { margin:0 !important; }
+
+=09body,#bodyTable{
+=09background-color:#e4e3e4;
+=09color:#999999;
+=09font-family: 'Amazon Ember';
+=09}
+=09
+=09.templateBlocks{
+=09background-color:#FFFFFF;
+=09border-top-width:0;
+=09border-bottom-width:0;
+=09padding-top:0;
+=09padding-bottom:0;
+=09font-size:15px;
+=09line-height:185%;
+=09text-align:left;
+=09background-color:#FFFFFF;
+=09}
+=09
+=09.templateQuoteBlocks{
+=09background-color:#F04D44;
+=09}
+=09
+=09#bodyCell{
+=09border-top:0;
+=09}
+
+=09h1{
+=09color:#455c64;
+=09font-family: 'Amazon Ember';
+=09font-size:30px;
+=09font-style:normal;
+=09font-weight:normal;
+=09line-height:120%;
+=09letter-spacing:normal;
+=09padding-top:2px;
+=09padding-bottom:2px;
+=09}
+
+=09a{
+=09color:#e74c3c;
+=09font-weight:normal;
+=09text-decoration:underline;
+=09}
+
+=09h2{
+=09color:#848484;
+=09font-family: 'Amazon Ember';
+=09font-size:15px;
+=09font-style:normal;
+=09font-weight:normal;
+=09line-height:145%;
+=09letter-spacing:1px;
+=09padding-top:5px;
+=09padding-bottom:4px;
+=09}
+
+=09h3{
+=09color:#455c64;
+=09font-family: 'Amazon Ember';
+=09font-size:20px;
+=09font-style:normal;
+=09font-weight:normal;
+=09line-height:140%;
+=09letter-spacing:normal;
+=09text-align:left;
+=09padding-top:2px;
+=09padding-bottom:2px;
+=09}
+
+=09h4{
+=09color:#666666;
+=09font-family: 'Amazon Ember';
+=09font-size:16px;
+=09font-style:normal;
+=09font-weight:normal;
+=09line-height:125%;
+=09letter-spacing:normal;
+=09text-align:left;
+=09padding-top:11px;
+=09padding-bottom:4px;
+=09}
+
+=09h5{
+=09color:#ffffff;
+=09font-family: 'Amazon Ember';
+=09font-size:20px;
+=09font-style:normal;
+=09font-weight:normal;
+=09line-height:135%;
+=09letter-spacing:normal;
+=09text-align:left;
+=09padding-top:11px;
+=09padding-right:20px;
+=09padding-bottom:8px;
+=09padding-left:20px;
+=09}
+
+=09h6{
+=09color:#ffffff;
+=09font-family: 'Amazon Ember';
+=09font-size:26px;
+=09font-style:normal;
+=09font-weight:normal;
+=09line-height:135%;
+=09letter-spacing:normal;
+=09text-align:right;
+=09padding-top:11px;
+=09padding-right:20px;
+=09padding-bottom:8px;
+=09padding-left:20px;
+=09}
+
+=09#templatePreheader{
+=09border-top:0;
+=09border-bottom:0;
+=09padding-top:4px;
+=09padding-bottom:12px;
+=09}
+
+=09#templatePreheader .endrTextContent,#templatePreheader .endrTextContent =
+p{
+=09color:#fbfbfb;
+=09font-family: 'Amazon Ember';
+=09font-size:12px;
+=09line-height:150%;
+=09text-align:center;
+=09}
+
+=09#templatePreheader .endrTextContent a,#templatePreheader .endrTextConten=
+t p a{
+=09color:#fbfbfb;
+=09font-weight:normal;
+=09text-decoration:underline;
+=09}
+
+=09#templateHeader{
+=09background-color:#303942;
+=09border-top:0px solid #e4e3e4;
+=09border-bottom:0;
+=09padding-top:0px;
+=09padding-bottom:0px;
+=09}
+
+=09#templateHeader .endrTextContent,#templateHeader .endrTextContent p{
+=09color:#ffffff;
+=09font-family: 'Amazon Ember';
+=09font-size:13px;
+=09line-height:100%;
+=09text-align:right;
+=09}
+
+=09#templateHeader .endrTextContent,#templateHeader .endrTextContent h1{
+=09color:#ffffff;
+=09font-family: 'Amazon Ember';
+=09font-size:20px;
+=09line-height:100%;
+=09text-align:right;
+=09}
+
+=09#templateHeader .endrTextContent a,#templateHeader .endrTextContent p a{
+=09color:#ffffff;
+=09font-weight:normal;
+=09text-decoration:none;
+=09}
+
+=09#templateSeparator{
+=09padding-top:8px;
+=09padding-bottom:8px;
+=09}
+
+=09.templateLowerBody{
+=09background-color:#455C64;
+=09border-bottom:0;
+=09padding-top:1px;
+=09padding-bottom:1px;
+=09}
+
+=09.templateLowerBody .endrTextContent,.templateLowerBody .endrTextContent =
+p{
+=09color:#ffffff;
+=09font-family: 'Amazon Ember';
+=09font-size:13px;
+=09line-height:150%;
+=09text-align:left;
+=09}
+
+=09.templateLowerBody .endrTextContent a,.templateLowerBody .endrTextConten=
+t p a{
+=09color:#ffffff;
+=09font-weight:normal;
+=09text-decoration:underline;
+=09}
+
+=09.templateLowerBody .endrTextContent h1 {
+=09color:#ffffff;
+=09font-weight:700;
+=09font-size:18px;
+=09}
+
+=09.templateSocial{
+=09background-color:#e4e3e4;
+=09padding-top:13px;
+=09padding-bottom:3px;
+=09}
+
+=09#templateFooter{
+=09border-top:0;
+=09border-bottom:0;
+=09padding-top:5px;
+=09padding-bottom:5px;
+=09}
+
+=09#templateFooter .endrTextContent,#templateFooter .endrTextContent p{
+=09color:#fbfbfb;
+=09font-family: 'Amazon Ember';
+=09font-size:12px;
+=09line-height:150%;
+=09text-align:center;
+=09}
+
+=09#templateFooter .endrTextContent a,#templateFooter .endrTextContent p a{
+=09color:#fbfbfb;
+=09font-weight:normal;
+=09text-decoration:underline;
+=09}
+=09
+=09@media only screen and (min-width:768px){
+=09.templateContainer{
+=09width:600px !important;
+=09}
+=09}=09
+=09
+=09@media only screen and (max-width: 480px){
+=09=09
+=09.bigimage .endrImageContent{
+=09padding-top:0px !important;
+
+=09}
+=09.templateContainer{
+=09width:100% !important;
+=09max-width:600px;
+=09}=09@media only screen and (max-width: 480px){
+=09body,table,td,p,a,li,blockquote{
+=09-webkit-text-size-adjust:none !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+=09body{
+=09width:100% !important;
+=09min-width:100% !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+=09#bodyCell{
+=09padding-top:10px !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+=09.columnWrapper{
+=09max-width:100% !important;
+=09width:100% !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+=09.endrImage{
+=09width:100% !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+=09.endrCaptionTopContent,.endrCaptionBottomContent,.endrTextContentContain=
+er,.endrBoxedTextContentContainer,.endrImageGroupContentContainer,.endrCapt=
+ionLeftTextContentContainer,.endrCaptionRightTextContentContainer,.endrCapt=
+ionLeftImageContentContainer,.endrCaptionRightImageContentContainer,.endrIm=
+ageCardLeftTextContentContainer,.endrImageCardRightTextContentContainer{
+=09max-width:100% !important;
+=09width:100% !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+=09.endrBoxedTextContentContainer{
+=09min-width:100% !important;
+=09}
+=09} @media only screen and (max-width: 480px){
+=09.column{
+=09width:100% !important;
+=09max-width:100% !important;
+=09}
+=09} @media only screen and (max-width: 480px){
+=09.endrImageGroupContent{
+=09padding:9px !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+=09.endrCaptionLeftContentOuter .endrTextContent,.endrCaptionRightContentOu=
+ter .endrTextContent{
+=09padding-top:9px !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+=09.endrImageCardTopImageContent,.endrCaptionBlockInner .endrCaptionTopCont=
+ent:last-child .endrTextContent{
+=09padding-top:18px !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+=09.endrImageCardBottomImageContent{
+=09padding-bottom:9px !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+=09.endrImageGroupBlockInner{
+=09padding-top:0 !important;
+=09padding-bottom:0 !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+=09.endrImageGroupBlockOuter{
+=09padding-top:9px !important;
+=09padding-bottom:9px !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+=09.endrTextContent,.endrBoxedTextContentColumn{
+=09padding-right:18px !important;
+=09padding-left:18px !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+=09.endrImageCardLeftImageContent,.endrImageCardRightImageContent{
+=09padding-right:18px !important;
+=09padding-bottom:0 !important;
+=09padding-left:18px !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+=09.mcpreview-image-uploader{
+=09display:none !important;
+=09width:100% !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+
+=09h1{
+=09font-size:22px !important;
+=09line-height:125% !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+
+=09h2{
+=09font-size:20px !important;
+=09line-height:125% !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+
+=09h3{
+=09font-size:18px !important;
+=09line-height:125% !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+
+=09h4{
+=09font-size:16px !important;
+=09line-height:150% !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+=09
+=09.endrBoxedTextContentContainer .endrTextContent,.endrBoxedTextContentCon=
+tainer .endrTextContent p{
+=09font-size:14px !important;
+=09line-height:150% !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+
+=09#templatePreheader{
+=09display:block !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+
+=09#templatePreheader .endrTextContent,#templatePreheader .endrTextContent =
+p{
+=09font-size:12px !important;
+=09line-height:150% !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+
+=09#templateHeader .endrTextContent,#templateHeader .endrTextContent p{
+=09font-size:16px !important;
+=09line-height:100% !important;
+=09text-align:center !important;
+=09}
+
+=09#templateHeader .endrTextContent, #templateHeader .endrTextContent h1{
+=09font-size:20px !important;
+=09line-height:100% !important;
+=09padding-bottom:10px !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+
+=09#templateUpperBody .endrTextContent,#templateUpperBody .endrTextContent =
+p{
+=09font-size:16px !important;
+=09line-height:150% !important;
+=09}
+=09
+=09}=09@media only screen and (max-width: 480px){
+
+=09#templateColumns .columnContainer .endrTextContent,#templateColumns .col=
+umnContainer .endrTextContent p{
+=09font-size:16px !important;
+=09line-height:150% !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+
+=09.templateLowerBody .endrTextContent,.templateLowerBody .endrTextContent =
+p{
+=09font-size:16px !important;
+=09line-height:150% !important;
+=09text-align:center !important;
+=09}
+=09}=09@media only screen and (max-width: 480px){
+
+=09#templateFooter .endrTextContent,#templateFooter .endrTextContent p{
+=09font-size:12px !important;
+=09line-height:150% !important;
+=09}
+=09}
+</style>
+
+<!--[if mso]>
+<style type=3D"text/css">
+body, table, td {font-family: 'Amazon Ember';}
+h1 {font-family: 'Amazon Ember';}
+h2 {font-family: 'Amazon Ember';}
+h3 {font-family: 'Amazon Ember';}
+h4 {font-family: 'Amazon Ember';}
+h5 {font-family: 'Amazon Ember';}
+h6 {font-family: 'Amazon Ember';}
+h7 {font-family: 'Amazon Ember';}
+p {font-family: 'Amazon Ember';}
+</style>
+<![endif]-->
+
+<!--[if gt mso 15]>
+<style type=3D"text/css" media=3D"all">
+/* Outlook 2016 Height Fix */
+table, tr, td {border-collapse: collapse;}
+tr {border-collapse: collapse; }
+body {background-color:#ffffff;}
+</style>
+<![endif]-->
+
+<!-- Title - Optional content - The title tag shows in email notifications =
+on mobile devices -->
+<title>
+&nbsp;Beschleunigen und vereinfachen Sie den Versand Ihres Lagerbestands!
+</title>=20
+</head>
+
+<!-- Email Body -->
+<body style=3D"body">
+<center class=3D"wrapper" style=3D"width:100%;table-layout:fixed;background=
+-color:#e4e3e4;">
+  <div class=3D"webkit" style=3D"max-width:600px;margin:0 auto;">
+      <table align=3D"center" border=3D"0" cellpadding=3D"0" cellspacing=3D=
+"0" height=3D"100%" width=3D"100%" id=3D"bodyTable" style=3D"border-collaps=
+e:collapse;height:100%;margin-top:0;margin-bottom:0;margin-right:0;margin-l=
+eft:0;padding-top:0;padding-bottom:0;padding-right:0;padding-left:0;width:1=
+00%;background-color:#e4e3e4;color:#5a5a5a;font-family:'Lato', Helvetica, A=
+rial, sans-serif;">
+        <tbody><tr>
+            <td align=3D"center" valign=3D"top" id=3D"bodyCell" style=3D"he=
+ight:100%;margin-top:0;margin-bottom:0;margin-right:0;margin-left:0;width:1=
+00%;padding-top:10px;padding-bottom:10px;border-top-width:0;">
+<!-- BEGIN TEMPLATE // -->
+<!--[if (gte mso 9)|(IE)]>
+<table align=3D"center" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" wi=
+dth=3D"600" style=3D"width:600px;border-collapse:collapse;" >
+=09<tr>
+=09<td align=3D"center" valign=3D"top" width=3D"600" style=3D"width:600px;"=
+ >
+=09=09<![endif]-->
+=09=09<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" class=3D"temp=
+lateContainer" style=3D"width:100%;max-width:600px;border-collapse:collapse=
+;" data-space-header>
+=09=09<tbody><tr>
+=09=09<td>
+<!-- Previewtext - Optional content - This text will appear in the inbox pr=
+eview, but not the email body. div class =3D "preview-text" -->
+<div data-spc-preview-text style=3D"display:none;font-size:1px;line-height:=
+1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;mso-hide:all;fon=
+t-family: 'Amazon Ember';">&nbsp;Beschleunigen und vereinfachen Sie den Ver=
+sand Ihres Lagerbestands!
+</div>
+
+<!-- Included header file(graphics)  -->
+<!-- BLOCK Logo Center -->
+ <table class=3D"one-column" border=3D"0" cellpadding=3D"0" cellspacing=3D"=
+0" width=3D"100%" style=3D"border-spacing:0;" data-space-sc-header>
+=09=09=09=09=09<tbody><tr valign=3D"top" style=3D"border-top-width:0;border=
+-bottom-width:0;font-size:14px;line-height:185%;text-align:left;">
+=09=09=09=09=09=09<td valign=3D"top" class=3D"templateLowerBody" style=3D"b=
+ackground-color:#2a323a;">
+                        =09<table border=3D"0" cellpadding=3D"0" cellspacin=
+g=3D"0" width=3D"100%" class=3D"endrTextBlock" style=3D"min-width:100%;bord=
+er-collapse:collapse;background-color:#2a323a;" bgcolor=3D"#2a323a">
+=09=09=09=09=09=09=09=09<tbody class=3D"endrTextBlockOuter">
+=09=09=09=09=09=09=09=09=09<tr>
+=09=09=09=09=09=09=09=09=09=09<td valign=3D"top" class=3D"endrTextBlockInne=
+r">
+=09=09=09=09=09=09=09=09=09=09=09<table align=3D"left" border=3D"0" cellpad=
+ding=3D"0" cellspacing=3D"0" width=3D"100%" class=3D"endrTextContentContain=
+er" style=3D"min-width:100%;border-collapse:collapse;" bgcolor=3D"#2a323a">
+=09=09=09=09=09=09=09=09=09=09=09<tbody>
+=09=09=09=09=09=09=09=09=09=09=09<tr>
+          <td class=3D"templateHeader" valign=3D"top" style=3D"padding: 20p=
+x 0; padding-left:40px">
+          <img align=3D"center" alt=3D"" src=3D"https://m.media-amazon.com/=
+images/G/01/SPACE/logo-selling_coach.png" width=3D"200" style=3D"max-width:=
+200px;padding-bottom:0;display:inline !important;vertical-align:bottom;bord=
+er-width:0;height:auto;outline-style:none;text-decoration:none;-ms-interpol=
+ation-mode:bicubic;">
+          </td>
+                        =09=09=09=09=09</tr>
+                                            </tbody>
+                                            </table>
+                                       </td>
+                                   </tr>
+                             </tbody>
+                             </table>
+=09=09=09=09=09=09</td>
+=09=09=09=09=09</tr>
+=09=09=09=09=09</tbody></table>
+<!-- ENDR Header  -->
+
+
+</td>
+</tr>
+</tbody></table>
+
+<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" class=3D"templateCo=
+ntainer" width=3D"100%" style=3D"width:100%;max-width:600px;border-collapse=
+:collapse;background-color:#ffffff;" bgcolor=3D"#ffffff">
+<tbody><tr>
+<td>
+<!-- General Block of text - modify/replace with your content -->
+<table class=3D"one-column">
+<tbody><tr valign=3D"top" class=3D"templateBlocks">
+=09<td valign=3D"top">
+=09=09<table class=3D"endrTextBlock">
+=09=09=09<tbody class=3D"endrTextBlockOuter">
+=09=09=09<tr>
+=09=09=09=09<td valign=3D"top" class=3D"endrTextBlockInner">
+=09=09=09=09<table align=3D"left" class=3D"endrTextContentContainer">
+=09=09=09=09=09<tbody>
+=09=09=09=09=09<tr>
+
+
+<td valign=3D"top" class=3D"endrTextContent" dir=3D"auto">
+<h1> </h1>
+<h2> </h2>
+<p style=3D"margin-top:10px;margin-bottom:10px;margin-right:0;margin-left:0=
+;padding-top:0;padding-bottom:0;padding-right:0;padding-left:0;line-height:=
+185%;" dir=3D"auto"></p><p>Guten Tag!</p> <p>Sie haben sich noch nicht f=C3=
+=BCr Amazon Global Logistics registriert. Wir bieten Optionen f=C3=BCr den =
+Luft- und Seetransport, um Ihren Lagerbestand mit Versand durch Amazon von =
+China direkt an Amazon-Logistikzentren in den USA und Europa zu versenden =
+=E2=80=93 ganz bequem buchbar in Seller Central.</p><p><b>Welche Vorteile b=
+ietet der Transport mit Amazon Global Logistics?</b></p><ul> <li>Vereinbare=
+n Sie die Abholung des Lagerbestands oder geben Sie Ihren Lagerbestand bei =
+einem Transportdienstleister ab.</li><li>Nachdem Ihre Sendung im Logistikze=
+ntrum eingegangen ist, wird Ihr Verk=C3=A4uferkonto mit den Kosten f=C3=BCr=
+ die Luft- und Seefracht belastet.</li><li>Verfolgen Sie Sendungen vom Ursp=
+rungsort bis zum Logistikzentrum. </li><li>Das Erstellen von Dokumenten f=
+=C3=BCr die grenz=C3=BCberschreitende Produktkonformit=C3=A4t geht ganz ein=
+fach.</li></ul><p>Erstellen Sie zun=C3=A4chst ein <a href=3D"https://seller=
+central.amazon.de/nms/redirect/17b01da2-8216-365b-b1a0-92ef8296b0ee?nt=3DON=
+BOARDING_NUDGE_WELCOME_FOLLOW_UP&amp;sk=3DWTf-FcrTbn-mrfCiep7KefMpc37unUYyg=
+8bIbeyJ2vFyOnZ9flKqsggpMJkNidqjE7KtQE896j9mo2AwwPVr5A&amp;n=3D1&amp;u=3DaHR=
+0cHM6Ly9zZWxsZXJjZW50cmFsLWV1cm9wZS5hbWF6b24uY29tL2dzc2FjY291bnRtYW5hZ2VtZW=
+50L2luZGV4Lmh0bWwjaW50cm8">Amazon Global Logistics-Profil</a> in Seller Cen=
+tral und bestimmen Sie einen eingetragenen Importeur f=C3=BCr die grenz=C3=
+=BCberschreitende Zollabfertigung. Erstellen Sie dann wie gewohnt =C3=BCber=
+ den Workflow <b>Lagerbestand senden/erg=C3=A4nzen</b> eine Sendung.</p> <a=
+ href=3D"https://sellercentral.amazon.de/nms/redirect/17b01da2-8216-365b-b1=
+a0-92ef8296b0ee?nt=3DONBOARDING_NUDGE_WELCOME_FOLLOW_UP&amp;sk=3DWTf-FcrTbn=
+-mrfCiep7KefMpc37unUYyg8bIbeyJ2vFyOnZ9flKqsggpMJkNidqjE7KtQE896j9mo2AwwPVr5=
+A&amp;n=3D1&amp;u=3DaHR0cHM6Ly9zZWxsZXJjZW50cmFsLWV1cm9wZS5hbWF6b24uY29tL2d=
+zc2FjY291bnRtYW5hZ2VtZW50L2luZGV4Lmh0bWwjaW50cm8">Erste Schritte</a><p> Wei=
+tere Informationen finden Sie unter <a href=3D"https://sellercentral.amazon=
+.de/nms/redirect/a3bee17a-de0f-34d4-9ce4-747eaad4fdb1?nt=3DONBOARDING_NUDGE=
+_WELCOME_FOLLOW_UP&amp;sk=3Dx6AeA_k2HQbxHN9xXd44iaq4E27hRIxo7ozyl4ropY9Bd4J=
+nW4D2H8YWhlNQoN2Ktc3OTIs4eG-SYWS8mX--Cg&amp;n=3D1&amp;u=3DaHR0cHM6Ly9zZWxsZ=
+XJjZW50cmFsLWV1cm9wZS5hbWF6b24uY29tL2dzc3BvcnRhbC9pbmRleC5odG1s">Amazon Glo=
+bal Logistics</a>. Laden Sie auch unsere <a href=3D"https://sellercentral.a=
+mazon.de/nms/redirect/b0730d0b-8112-3d17-b4b5-da9681b77166?nt=3DONBOARDING_=
+NUDGE_WELCOME_FOLLOW_UP&amp;sk=3D9-KsVuXH9m_O3S94rXgnDUNQE9yB5lb59_y85_7ydQ=
+o4gFhkxExHbRCCjdf0TUJz2rnii-AyCRLzamWhGnApJQ&amp;n=3D1&amp;u=3DaHR0cHM6Ly9t=
+Lm1lZGlhLWFtYXpvbi5jb20vaW1hZ2VzL0cvMDEvQUdML0dTUy9BR1NTT0dFTnBZTUlYVXF3Ykw=
+wNTA3djMucGRm">Schritt-f=C3=BCr-Schritt-Anleitung</a> herunter.</p><br>Ihr =
+Team von Amazon Global Logistics<br><p></p>
+</td>
+
+
+
+
+=09=09=09=09=09</tr>
+=09=09=09=09=09</tbody>
+=09=09=09=09</table>
+=09=09=09=09</td>
+=09=09=09</tr>
+=09=09=09</tbody>
+=09=09</table>
+=09</td>
+</tr>
+</tbody></table>
+
+<!-- Footer -->
+<!-- Included footer file, can be cloned and/or replaced. -->
+
+
+=09=09=09=09=09
+=09=09=09=09=09<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" clas=
+s=3D"templateContainer" width=3D"100%" style=3D"width:100%;max-width:600px;=
+border-collapse:collapse;" data-space-footer data-space-sc-footer>
+=09=09=09=09=09<tbody><tr>
+=09=09=09=09=09<td>
+=09=09=09=09
+=09=09=09=09=09<!-- BLOCK Footer About Us -->
+=09=09=09=09=09<table class=3D"one-column" border=3D"0" cellpadding=3D"0" c=
+ellspacing=3D"0" width=3D"100%" style=3D"border-spacing:0;" dir=3D"auto">
+=09=09=09=09=09<tbody><tr valign=3D"top" style=3D"border-top-width:0;border=
+-bottom-width:0;font-size:14px;line-height:185%;text-align:left;">
+=09=09=09=09=09=09<td valign=3D"top" class=3D"templateLowerBody" style=3D"b=
+ackground-color:#2a323a;">
+                        =09<table border=3D"0" cellpadding=3D"0" cellspacin=
+g=3D"0" width=3D"100%" class=3D"endrTextBlock" style=3D"min-width:100%;bord=
+er-collapse:collapse;background-color:#2a323a;" bgcolor=3D"#2a323a">
+=09=09=09=09=09=09=09=09<tbody class=3D"endrTextBlockOuter">
+=09=09=09=09=09=09=09=09=09<tr>
+=09=09=09=09=09=09=09=09=09=09<td valign=3D"top" class=3D"endrTextBlockInne=
+r">
+=09=09=09=09=09=09=09=09=09=09=09<center style=3D"margin-top: 20px;">
+                        =09<a style=3D"padding: 7px 24px; text-decoration: =
+none; background: #fff; border: 1px solid #EC937C; border-radius: 5px; colo=
+r: #7F1809; font-family: 'Amazon Ember'; font-size: 13px; font-weight: 600;=
+display: inline-block; margin-bottom: 10px" href=3D"https://sellercentral.a=
+mazon.de/notifications/feedback?deliveryId=3D1618482759904011&amp;communica=
+tionName=3DONBOARDING_NUDGE_WELCOME_FOLLOW_UP&amp;deliveryChannel=3DEMAIL">
+                    <img src=3D"https://m.media-amazon.com/images/G/01/spac=
+e/icon.png" style=3D"margin-right: 10px;vertical-align: middle;" width=3D"2=
+0" height=3D"20">Ein Problem mit dieser E-Mail melden
+                  </a>
+                        </center><p style=3D"text-align:center !important;m=
+argin-top:10px;margin-bottom:10px;margin-right:10px;margin-left:15px;paddin=
+g-top:0;padding-bottom:0;padding-right:0;padding-left:0;color:#ffffff;font-=
+family:'Amazon Ember';font-size:13px;line-height:150%;">Bei Fragen besuchen=
+ Sie: <a href=3D"https://sellercentral.amazon.de/nms/sellermobile/redirect/=
+4e7652c6-180f-3d4e-9184-bac56d20be8b?nt=3DONBOARDING_NUDGE_WELCOME_FOLLOW_U=
+P&amp;sk=3DcypoZqLY0QnK83085u2haRPAbYPGmq0fGLDQjoaLpVzsmvymVkVXJuFNB10pEFN3=
+nYypqlCgpHX3GKIx-Yyflg&amp;n=3D1&amp;u=3DaHR0cHM6Ly9zZWxsZXJjZW50cmFsLmFtYX=
+pvbi5kZQ" metric=3D"help" style=3D"text-decoration: none; color: #ffffff;">=
+Seller Central</a><br><br>
+=09=09=09=09=09=09=09=09=09=09=09    Zum =C3=84ndern Ihrer E-Mail-Einstellu=
+ngen, gehen Sie zu: <a href=3D"https://sellercentral.amazon.de/nms/redirect=
+/dd2704c0-fa91-3694-8e30-8375f262af64?nt=3DONBOARDING_NUDGE_WELCOME_FOLLOW_=
+UP&amp;sk=3DTVNMke3pjm0PpERYcd43F2Zjni6q3OC9WuXFB8IvKtacBsuQgatiQY5EHT_0svU=
+feP7Y-7NiUfZM5Xm2VSSeqg&amp;n=3D1&amp;u=3DaHR0cHM6Ly9zZWxsZXJjZW50cmFsLmFtY=
+Xpvbi5kZS9ub3RpZmljYXRpb25zL3ByZWZlcmVuY2VzL3JlZj1pZF9ub3RpZnByZWZfZG5hdl94=
+eF8" metric=3D"optout" style=3D"text-decoration: none; color: #ffffff;">Ben=
+achrichtigungseinstellungen</a><br><br>
+=09=09=09=09=09=09=09=09=09=09=09=09=09=09=09=09=09=09Copyright  2026 Amazo=
+n Inc. oder Tochtergesellschaften. Alle Rechte vorbehalten.<br>=20
+=09=09=09=09=09=09=09=09=09=09=09=09Amazon EU S.=C3=A0 r.l. <br>
+38 avenue John F. Kennedy, <br>
+L-1855 Luxemburg, <br>
+Handelsregisternummer Luxemburg: B-101818, <br> Gesellschaftskapital: 165.8=
+33 EUR, <br>
+Gewerbelizenznummer: 134248, <br>
+USt.-Identifikationsnummer Luxemburg: LU 20260743.<br></p><table align=3D"l=
+eft" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"100%" class=
+=3D"endrTextContentContainer" style=3D"min-width:100%;border-collapse:colla=
+pse;" bgcolor=3D"#2a323a">
+=09=09=09=09=09=09=09=09=09=09=09<tbody>
+=09=09=09=09=09=09=09=09=09=09=09<tr>
+                       =20
+                       =20
+                       =20
+=09=09=09=09=09=09=09=09=09=09=09
+                        =09=09=09=09=09</tr>
+                                            </tbody>
+                                            </table>
+                                       </td>
+                                   </tr>
+                             </tbody>
+                             </table>
+=09=09=09=09=09=09</td>
+=09=09=09=09=09</tr>
+=09=09=09=09=09</tbody></table>
+=09=09=09=09=09<!-- BLOCK Footer About Us -->
+=09=09=09=09=09</td>
+=09=09=09=09=09</tr>
+=09=09=09=09=09</tbody></table>
+=09=09=09=09=09
+=09=09=09=09=09<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" clas=
+s=3D"templateContainer" style=3D"width:100%;max-width:600px;border-collapse=
+:collapse;">
+=09=09=09=09=09<tbody><tr>
+=09=09=09=09=09<td>
+=09=09=09=09
+=09=09=09=09=09</td>
+=09=09=09=09=09</tr>
+=09=09=09=09=09</tbody></table>
+=09=09=09=09=09<!--[if (gte mso 9)|(IE)]>
+=09=09=09=09</td>
+=09=09=09=09</tr>
+=09=09=09</table>
+=09=09=09<![endif]-->
+=09=09=09<!-- // END TEMPLATE -->
+=09=09=09</td>
+=09=09</tr>
+=09=09</tbody></table><!-- Footer -->
+
+</td></tr></tbody></table></div></center><img src=3D"https://sellercentral.=
+amazon.de/nms/img/67792281-1595-383d-9d97-a4f900b906a7?sk=3Dkxczu9I4PjMdY4Z=
+_nmlHLDo5pW9AifJYBVQbL28RiE1LekDl1ACqbYqmbbA6Cb1AAol8ga2q6jLQXo5ZYDW-0g&amp=
+;n=3D1">
+<div id=3D"spc-watermark">
+  <p style=3D"font-size: 10px !important;padding-bottom: 10px !important;di=
+splay: table !important;margin: 5px auto 10px !important;text-align: center=
+ !important;color: #a2a2a2 !important;font-family: 'Amazon Ember' !importan=
+t;font-weight: 400 !important;">SPC-EUAmazon-1618482759904011</p>
+</div></body></html>
+------=_Part_3270054_1307684389.1775983617138--

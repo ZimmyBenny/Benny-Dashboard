@@ -456,7 +456,7 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
                 value={form.item_type}
                 onChange={e => handleChange('item_type', e.target.value)}
               >
-                {['Vertrag', 'Dokument', 'Frist', 'Versicherung', 'Mitgliedschaft', 'Garantie', 'Sonstiges'].map(t => (
+                {['Vertrag', 'Dokument', 'Frist', 'Versicherung', 'Mitgliedschaft', 'Garantie', 'Aktion', 'Sonstiges'].map(t => (
                   <option key={t} value={t}>{t}</option>
                 ))}
               </select>
@@ -469,7 +469,7 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
                 value={form.area}
                 onChange={e => handleChange('area', e.target.value)}
               >
-                {['Privat', 'DJ', 'Amazon', 'Cashback', 'Finanzen', 'Sonstiges'].map(a => (
+                {['Privat', 'DJ', 'Amazon', 'Cashback', 'Finanzen', 'Banken', 'Sonstiges'].map(a => (
                   <option key={a} value={a}>{a}</option>
                 ))}
               </select>

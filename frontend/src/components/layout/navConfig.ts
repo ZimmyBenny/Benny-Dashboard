@@ -13,7 +13,7 @@ export const navItems: NavItem[] = [
   { path: '/finances',        label: 'Finanzen',     icon: 'account_balance_wallet' },
   { path: '/amazon',          label: 'Amazon',       icon: 'shopping_cart' },
   { path: '/contacts',        label: 'Kontakte',     icon: 'contacts' },
-  { path: '/contracts',       label: 'Verträge',     icon: 'description' },
+  { path: '/contracts',       label: 'Verträge & Fristen', icon: 'description' },
   { path: '/ki-agenten',      label: 'KI Agenten',   icon: 'smart_toy' },
 ];
 

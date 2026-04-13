@@ -7,24 +7,14 @@ export function Header() {
 
   return (
     <header
-      className="flex items-center justify-between flex-shrink-0"
+      className="flex items-center justify-end flex-shrink-0"
       style={{
         height: '56px',
         padding: '0 1.5rem',
-        backgroundColor: 'var(--color-surface-container-low)',
-        borderBottom: '1px solid rgba(255,255,255,0.04)',
+        backgroundColor: 'var(--color-background)',
+        borderBottom: 'none',
       }}
     >
-      <span style={{
-        fontFamily: 'var(--font-body)',
-        fontSize: '0.7rem',
-        letterSpacing: '0.18em',
-        textTransform: 'uppercase',
-        color: 'var(--color-outline)',
-      }}>
-        Benny Dashboard
-      </span>
-
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         <span className="gradient-text" style={{
           fontFamily: 'var(--font-headline)',

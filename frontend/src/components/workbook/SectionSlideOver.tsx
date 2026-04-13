@@ -52,26 +52,27 @@ export function SectionSlideOver({ editSection, onClose, onSaved }: SectionSlide
     <>
       {/* Backdrop */}
       <div
-        onClick={onClose}
         style={{
           position: 'fixed',
           inset: 0,
           zIndex: 9000,
-          background: 'rgba(0,0,0,0.4)',
+          background: 'rgba(0,0,0,0.5)',
         }}
       />
 
-      {/* Panel */}
+      {/* Floating Modal */}
       <div
         style={{
           position: 'fixed',
-          top: 0,
-          right: 0,
-          bottom: 0,
-          width: '380px',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 'min(420px, 92vw)',
           zIndex: 9001,
-          background: 'var(--color-surface-container-high)',
-          borderLeft: '1px solid var(--color-outline-variant)',
+          background: 'var(--color-surface-container)',
+          border: '1px solid var(--color-outline-variant)',
+          borderRadius: '0.75rem',
+          boxShadow: '0 24px 80px rgba(0,0,0,0.45)',
           display: 'flex',
           flexDirection: 'column',
           padding: '1.5rem',
@@ -177,7 +178,7 @@ export function SectionSlideOver({ editSection, onClose, onSaved }: SectionSlide
         )}
 
         {/* Actions */}
-        <div style={{ display: 'flex', gap: '0.75rem', marginTop: 'auto' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
           <button
             onClick={onClose}
             style={{

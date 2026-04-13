@@ -211,7 +211,7 @@ export async function fetchContactTasks(contactId: number): Promise<Task[]> {
 
 // Zeiteintraege eines Kontakts
 export async function fetchContactTimeEntries(contactId: number): Promise<TimeEntry[]> {
-  return apiClient.get<TimeEntry[]>(`/contacts/${contactId}/time-entries`).then(r => r.data);
+  return apiClient.get<TimeEntry[]>('/time-entries', { params: { contact_id: contactId } }).then(r => r.data);
 }
 
 // Hilfsfunktion: Blob-Download triggern

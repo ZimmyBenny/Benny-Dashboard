@@ -461,7 +461,7 @@ router.delete('/:id', (req, res) => {
     return;
   }
   db.prepare('DELETE FROM tasks WHERE id = ?').run(id);
-  res.json({ message: 'Task geloescht' });
+  res.json({ message: 'Task gelöscht' });
 });
 
 export default router;

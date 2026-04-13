@@ -110,45 +110,41 @@ router.post('/', async (_req, res) => {
     result.errors.push(`Uploads: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  // ── 4. Vertrags-Anhänge → iCloud ──────────────────────────────────────────
+  // ── 4. Vertrags-Anhänge → iCloud (nach Kategorie sortiert) ───────────────
   try {
     const vertraegeBackupDir = path.join(ICLOUD_BACKUP_DIR, 'vertraege');
     await mkdir(vertraegeBackupDir, { recursive: true });
 
-    type VAttRow = { id: number; file_name: string; storage_path: string };
-    const vAttachments = db.prepare('SELECT id, file_name, storage_path FROM contracts_and_deadlines_attachments').all() as VAttRow[];
-    const validVNames = new Set(vAttachments.map((a) => a.file_name));
-
-    await Promise.all(
-      vAttachments.map(async (att) => {
-        const src = path.join(VERTRAEGE_PATH, att.storage_path);
-        const dest = path.join(vertraegeBackupDir, att.file_name);
-        try { await copyFile(src, dest); } catch { /* Datei fehlt lokal — überspringen */ }
-      })
-    );
-
-    // Backup-Dateien bereinigen die nicht mehr in DB sind (7 Tage Karenzzeit)
-    const vBackupFiles = await readdir(vertraegeBackupDir).catch(() => [] as string[]);
-    const now2 = new Date();
-    for (const f of vBackupFiles) {
-      if (validVNames.has(f)) {
-        db.prepare('DELETE FROM backup_pending_cleanup WHERE file_name = ?').run(`vertraege/${f}`);
-      } else {
-        db.prepare('INSERT OR IGNORE INTO backup_pending_cleanup (file_name, first_absent_at) VALUES (?, ?)').run(`vertraege/${f}`, now2.toISOString());
-      }
+    function safeFolder(s: string): string {
+      return (s ?? 'Sonstiges').replace(/[/\\:*?"<>|]/g, '_').trim() || 'Sonstiges';
     }
-    type PendingRow2 = { file_name: string; first_absent_at: string };
-    const pending2 = db.prepare("SELECT file_name, first_absent_at FROM backup_pending_cleanup WHERE file_name LIKE 'vertraege/%'").all() as PendingRow2[];
-    for (const p of pending2) {
-      const daysSince = (now2.getTime() - new Date(p.first_absent_at).getTime()) / (1000 * 60 * 60 * 24);
-      if (daysSince >= 7) {
-        await unlink(path.join(vertraegeBackupDir, p.file_name.replace('vertraege/', ''))).catch(() => {});
-        db.prepare('DELETE FROM backup_pending_cleanup WHERE file_name = ?').run(p.file_name);
-      }
+    function toSlug(s: string): string {
+      return s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').slice(0, 30);
+    }
+
+    type VAttRow = {
+      id: number; file_name: string; storage_path: string;
+      area: string; contract_id: number; contract_title: string;
+    };
+    const vAttachments = db.prepare(`
+      SELECT a.id, a.file_name, a.storage_path,
+             c.area, c.id AS contract_id, c.title AS contract_title
+      FROM contracts_and_deadlines_attachments a
+      JOIN contracts_and_deadlines c ON c.id = a.item_id
+    `).all() as VAttRow[];
+
+    for (const att of vAttachments) {
+      const areaFolder  = safeFolder(att.area);
+      const contractDir = `${att.contract_id}_${toSlug(att.contract_title)}`;
+      const destDir = path.join(vertraegeBackupDir, areaFolder, contractDir);
+      await mkdir(destDir, { recursive: true });
+      const src  = path.join(VERTRAEGE_PATH, att.storage_path);
+      const dest = path.join(destDir, att.file_name);
+      try { await copyFile(src, dest); } catch { /* Datei fehlt lokal — überspringen */ }
     }
 
     result.vertraege = vAttachments.length > 0
-      ? `Backups/vertraege (${vAttachments.length} Datei${vAttachments.length === 1 ? '' : 'en'})`
+      ? `Backups/vertraege (${vAttachments.length} Datei${vAttachments.length === 1 ? '' : 'en'}, nach Kategorie sortiert)`
       : 'Keine Vertrags-Anhänge vorhanden';
   } catch (err: unknown) {
     result.errors.push(`Vertraege: ${err instanceof Error ? err.message : String(err)}`);

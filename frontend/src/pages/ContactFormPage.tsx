@@ -320,7 +320,7 @@ export function ContactFormPage() {
       }
       navigate(`/contacts/${result.id}`);
     } catch (err) {
-      setError('Speichern fehlgeschlagen. Bitte pruefen und erneut versuchen.');
+      setError('Speichern fehlgeschlagen. Bitte prüfen und erneut versuchen.');
       console.error(err);
     } finally {
       setSaving(false);
@@ -501,7 +501,7 @@ export function ContactFormPage() {
                       }}
                       style={{ accentColor: 'var(--color-primary)' }}
                     />
-                    Primaer
+                    Primär
                   </label>
                   {addresses.length > 1 && (
                     <button style={btnDangerSmall} onClick={() => setAddresses(prev => prev.filter((_, idx) => idx !== i))}>
@@ -523,7 +523,7 @@ export function ContactFormPage() {
           ))}
           <button style={btnAdd} onClick={() => setAddresses(prev => [...prev, emptyAddress()])}>
             <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>add</span>
-            Adresse hinzufuegen
+            Adresse hinzufügen
           </button>
         </div>
       )}
@@ -546,7 +546,7 @@ export function ContactFormPage() {
                   <input type="checkbox" checked={email.is_primary === 1}
                     onChange={e => setEmails(prev => prev.map((em, idx) => idx === i ? { ...em, is_primary: e.target.checked ? 1 : 0 } : em))}
                     style={{ accentColor: 'var(--color-primary)' }} />
-                  Primaer
+                  Primär
                 </label>
                 {emails.length > 1 && (
                   <button style={btnDangerSmall} onClick={() => setEmails(prev => prev.filter((_, idx) => idx !== i))}>
@@ -557,7 +557,7 @@ export function ContactFormPage() {
             ))}
             <button style={btnAdd} onClick={() => setEmails(prev => [...prev, emptyEmail()])}>
               <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>add</span>
-              E-Mail hinzufuegen
+              E-Mail hinzufügen
             </button>
           </div>
 
@@ -576,7 +576,7 @@ export function ContactFormPage() {
                   <input type="checkbox" checked={phone.is_primary === 1}
                     onChange={e => setPhones(prev => prev.map((p, idx) => idx === i ? { ...p, is_primary: e.target.checked ? 1 : 0 } : p))}
                     style={{ accentColor: 'var(--color-primary)' }} />
-                  Primaer
+                  Primär
                 </label>
                 {phones.length > 1 && (
                   <button style={btnDangerSmall} onClick={() => setPhones(prev => prev.filter((_, idx) => idx !== i))}>
@@ -587,7 +587,7 @@ export function ContactFormPage() {
             ))}
             <button style={btnAdd} onClick={() => setPhones(prev => [...prev, emptyPhone()])}>
               <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>add</span>
-              Telefon hinzufuegen
+              Telefon hinzufügen
             </button>
           </div>
 
@@ -609,7 +609,7 @@ export function ContactFormPage() {
             ))}
             <button style={btnAdd} onClick={() => setWebsites(prev => [...prev, emptyWebsite()])}>
               <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>add</span>
-              Webseite hinzufuegen
+              Webseite hinzufügen
             </button>
           </div>
         </div>
@@ -674,7 +674,7 @@ export function ContactFormPage() {
           }}
         >
           <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>save</span>
-          {saving ? 'Speichern...' : (isEdit ? 'Aenderungen speichern' : 'Kontakt erstellen')}
+          {saving ? 'Speichern...' : (isEdit ? 'Änderungen speichern' : 'Kontakt erstellen')}
         </button>
         <Link to={backPath} style={{ ...btnSecondary, textDecoration: 'none' }}>
           Abbrechen

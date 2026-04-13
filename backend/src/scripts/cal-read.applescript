@@ -37,28 +37,53 @@ on run
 
     repeat with cal in calendars
       if calNamesStr contains (name of cal) then
+        set calNameStr to name of cal as text
+        set isBirthdayCal to (calNameStr is "Geburtstage" or calNameStr is "Birthdays")
         try
-          set matchingEvents to (every event of cal whose start date >= startRange and start date <= endRange)
-          repeat with evt in matchingEvents
-            set evtUID to uid of evt
-            set evtAllDay to allday event of evt
-
-            -- Epoch berechnen: relativ zu "jetzt" (kein locale-abhaengiges Referenzdatum)
-            set startEpoch to (((start date of evt) - theNow) + nowEpoch) as integer
-            set endEpoch to (((end date of evt) - theNow) + nowEpoch) as integer
-            set stampEpoch to 0
-            try
-              set stampEpoch to (((stamp date of evt) - theNow) + nowEpoch) as integer
-            end try
-
-            -- Titel und Kalender-Name JSON-sicher escapen:
-            -- Backslash zuerst (damit er nicht doppelt ersetzt wird), dann " und Steuerzeichen
-            set evtTitle to do shell script "printf '%s' " & quoted form of ((summary of evt) as text) & " | sed 's/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g' | tr -d '\\r' | tr '\\n' ' ' | tr '\\t' ' '"
-            set evtCalEscaped to do shell script "printf '%s' " & quoted form of ((name of cal) as text) & " | sed 's/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g'"
-
-            set jsonEntry to "{\"uid\":\"" & evtUID & "\",\"title\":\"" & evtTitle & "\",\"startEpoch\":" & startEpoch & ",\"endEpoch\":" & endEpoch & ",\"stampEpoch\":" & stampEpoch & ",\"allDay\":" & (evtAllDay as text) & ",\"cal\":\"" & evtCalEscaped & "\"}"
-            set end of jsonParts to jsonEntry
-          end repeat
+          -- Geburtstage-Kalender: Originaldaten sind historisch (z.B. 2016).
+          -- Wir holen alle Events und projizieren das Datum auf das aktuelle Jahr.
+          if isBirthdayCal then
+            set allCalEvents to every event of cal
+            repeat with evt in allCalEvents
+              try
+                set origStart to start date of evt
+                -- Geburtstag auf aktuelles und naechstes Jahr projizieren
+                repeat with yearOffset from 0 to 1
+                  set checkDate to origStart
+                  set year of checkDate to (year of theNow) + yearOffset
+                  if checkDate >= startRange and checkDate <= endRange then
+                    set evtUID to uid of evt
+                    set yearSuffix to ((year of theNow) + yearOffset) as text
+                    set uniqueUID to evtUID & "-bday-" & yearSuffix
+                    set startEpoch to (((checkDate) - theNow) + nowEpoch) as integer
+                    set endDate to checkDate + (1 * days)
+                    set endEpoch to (((endDate) - theNow) + nowEpoch) as integer
+                    -- Einfaches Escaping ohne Shell (Geburtstagsnamen enthalten selten " oder \)
+                    set rawTitle to (summary of evt) as text
+                    set jsonEntry to "{\"uid\":\"" & uniqueUID & "\",\"title\":\"" & rawTitle & "\",\"startEpoch\":" & startEpoch & ",\"endEpoch\":" & endEpoch & ",\"stampEpoch\":0,\"allDay\":true,\"cal\":\"" & calNameStr & "\"}"
+                    set end of jsonParts to jsonEntry
+                  end if
+                end repeat
+              end try
+            end repeat
+          else
+            -- Normaler Kalender: whose-Clause fuer Performance
+            set matchingEvents to (every event of cal whose start date >= startRange and start date <= endRange)
+            repeat with evt in matchingEvents
+              set evtUID to uid of evt
+              set evtAllDay to allday event of evt
+              set startEpoch to (((start date of evt) - theNow) + nowEpoch) as integer
+              set endEpoch to (((end date of evt) - theNow) + nowEpoch) as integer
+              set stampEpoch to 0
+              try
+                set stampEpoch to (((stamp date of evt) - theNow) + nowEpoch) as integer
+              end try
+              set evtTitle to do shell script "printf '%s' " & quoted form of ((summary of evt) as text) & " | sed 's/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g' | tr -d '\\r' | tr '\\n' ' ' | tr '\\t' ' '"
+              set evtCalEscaped to do shell script "printf '%s' " & quoted form of (calNameStr) & " | sed 's/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g'"
+              set jsonEntry to "{\"uid\":\"" & evtUID & "\",\"title\":\"" & evtTitle & "\",\"startEpoch\":" & startEpoch & ",\"endEpoch\":" & endEpoch & ",\"stampEpoch\":" & stampEpoch & ",\"allDay\":" & (evtAllDay as text) & ",\"cal\":\"" & evtCalEscaped & "\"}"
+              set end of jsonParts to jsonEntry
+            end repeat
+          end if
         end try
       end if
     end repeat

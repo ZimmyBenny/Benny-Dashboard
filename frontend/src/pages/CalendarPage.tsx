@@ -92,6 +92,14 @@ function EventForm({ calendars, initialDate, editEvent, onSaved, onDeleted, onCl
   const [isAllDay, setIsAllDay]   = useState(editEvent ? !!editEvent.is_all_day : false);
   const [calName, setCalName]     = useState(editEvent?.calendar_name ?? calendars[0]?.name ?? '');
   const [location, setLocation]   = useState(editEvent?.location ?? '');
+
+  // Wenn calendars nachgeladen werden und noch kein Kalender ausgewaehlt ist, ersten Kalender setzen
+  useEffect(() => {
+    if (!editEvent && !calName && calendars.length > 0) {
+      const firstEnabled = calendars.find(c => c.enabled);
+      if (firstEnabled) setCalName(firstEnabled.name);
+    }
+  }, [calendars, calName, editEvent]);
   const [notes, setNotes]         = useState(editEvent?.notes ?? '');
   const [saving, setSaving]       = useState(false);
   const [error, setError]         = useState<string | null>(null);
@@ -164,7 +172,7 @@ function EventForm({ calendars, initialDate, editEvent, onSaved, onDeleted, onCl
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 50, pointerEvents: 'auto' }}>
       {/* Backdrop */}
-      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)' }} onClick={onClose} />
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)' }} />
       {/* Modal */}
       <div
         data-modal
@@ -323,9 +331,9 @@ function MonthView({ viewYear, viewMonth, today, selectedDate, eventsByDate, cal
       </div>
 
       {/* Gitter + Tagesdetail */}
-      <div style={{ display: 'flex', gap: '1.25rem', flex: 1, minHeight: 0 }}>
+      <div style={{ display: 'flex', gap: '1.25rem', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {/* Kalender-Gitter */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
             {WEEKDAYS.map(d => (
               <div key={d} style={{
@@ -352,23 +360,33 @@ function MonthView({ viewYear, viewMonth, today, selectedDate, eventsByDate, cal
                     background: isSelected
                       ? 'rgba(204,151,255,0.12)'
                       : isToday
-                      ? 'rgba(255,255,255,0.04)'
+                      ? 'rgba(139,92,246,0.08)'
                       : 'rgba(255,255,255,0.02)',
-                    border: isToday
-                      ? '2px solid var(--color-primary)'
-                      : isSelected
+                    border: isSelected
                       ? '1px solid var(--color-primary)'
                       : '1px solid transparent',
                     opacity: isCurrentMonth ? 1 : 0.35,
                   }}
                 >
-                  <span style={{
-                    fontFamily: 'var(--font-body)', fontSize: '0.8rem',
-                    color: isToday ? 'var(--color-primary)' : 'var(--color-on-surface)',
-                    fontWeight: isToday ? 700 : 400,
-                  }}>
-                    {day.getDate()}
-                  </span>
+                  {isToday ? (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      width: '26px', height: '26px', borderRadius: '50%',
+                      background: 'var(--color-primary)',
+                      boxShadow: '0 0 14px 4px rgba(139,92,246,0.55)',
+                      fontFamily: 'var(--font-body)', fontSize: '0.8rem',
+                      color: '#fff', fontWeight: 700,
+                    }}>
+                      {day.getDate()}
+                    </span>
+                  ) : (
+                    <span style={{
+                      fontFamily: 'var(--font-body)', fontSize: '0.8rem',
+                      color: 'var(--color-on-surface)', fontWeight: 400,
+                    }}>
+                      {day.getDate()}
+                    </span>
+                  )}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', marginTop: '2px' }}>
                     {dayEvents.slice(0, 3).map(evt => {
                       const color = calendarColor(evt.calendar_name, calendars);
@@ -828,7 +846,11 @@ export function CalendarPage() {
   }
 
   useEffect(() => {
-    loadCalendars(true);
+    // Zuerst schnell die DB-Kalender laden (kein AppleScript) → sofort verfuegbar fuer das Form-Select
+    loadCalendars(false).then(() => {
+      // Dann im Hintergrund nach neuen Kalendern suchen (AppleScript, ~90s)
+      loadCalendars(true);
+    });
     handleSync();
     pollRef.current = setInterval(() => { loadCalendars(true); loadEvents(); }, 60_000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };

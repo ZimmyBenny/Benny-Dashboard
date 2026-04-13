@@ -58,7 +58,7 @@ export function AppShell() {
       <Sidebar />
       <div className="flex flex-col flex-1 min-w-0" style={{ position: 'relative', zIndex: 1 }}>
         <Header />
-        <main className="flex-1 overflow-hidden">
+        <main className="flex flex-col flex-1 min-h-0 overflow-hidden">
           <Outlet />
         </main>
       </div>

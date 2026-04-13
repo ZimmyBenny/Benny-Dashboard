@@ -33,8 +33,11 @@ export function runMigrations(): void {
     }
 
     const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-    db.exec(sql);
-    db.prepare('INSERT INTO _migrations (name) VALUES (?)').run(file);
+    // Transaktion: Migration komplett oder gar nicht (verhindert Halb-Migrationen)
+    db.transaction(() => {
+      db.exec(sql);
+      db.prepare('INSERT INTO _migrations (name) VALUES (?)').run(file);
+    })();
     console.log(`[migrate] Applied ${file}`);
     appliedCount++;
   }
