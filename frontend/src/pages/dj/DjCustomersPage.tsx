@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageWrapper } from '../../components/layout/PageWrapper';
-import { fetchDjCustomers, searchDjCustomers, type DjCustomer } from '../../api/dj.api';
-import { setContactArea } from '../../api/contacts.api';
+import { fetchDjCustomers, type DjCustomer } from '../../api/dj.api';
 
 // ---------------------------------------------------------------------------
 // KPI-Karte
@@ -42,15 +41,7 @@ export function DjCustomersPage() {
   // Suche (clientseitig)
   const [search, setSearch] = useState('');
 
-  // Kontakt-Picker
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [pickerQuery, setPickerQuery] = useState('');
-  const [pickerResults, setPickerResults] = useState<DjCustomer[]>([]);
-  const [pickerLoading, setPickerLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
-
-  const pickerRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ---------------------------------------------------------------------------
   // Laden
@@ -69,68 +60,6 @@ export function DjCustomersPage() {
   }
 
   useEffect(() => { void loadCustomers(); }, []);
-
-  // ---------------------------------------------------------------------------
-  // Picker: Außerhalb-Klick + Escape schließen
-  // ---------------------------------------------------------------------------
-  useEffect(() => {
-    if (!pickerOpen) return;
-    function onMouseDown(e: MouseEvent) {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-        setPickerOpen(false);
-      }
-    }
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setPickerOpen(false);
-    }
-    document.addEventListener('mousedown', onMouseDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', onMouseDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [pickerOpen]);
-
-  // ---------------------------------------------------------------------------
-  // Picker: Suche debounced
-  // ---------------------------------------------------------------------------
-  useEffect(() => {
-    if (!pickerOpen) return;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (pickerQuery.trim().length < 2) {
-      setPickerResults([]);
-      return;
-    }
-    debounceRef.current = setTimeout(async () => {
-      setPickerLoading(true);
-      try {
-        const results = await searchDjCustomers(pickerQuery.trim());
-        setPickerResults(results);
-      } catch {
-        setPickerResults([]);
-      } finally {
-        setPickerLoading(false);
-      }
-    }, 300);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [pickerQuery, pickerOpen]);
-
-  // ---------------------------------------------------------------------------
-  // Picker: Kontakt als DJ-Kunde markieren
-  // ---------------------------------------------------------------------------
-  async function handleMarkAsDjCustomer(customer: DjCustomer) {
-    try {
-      await setContactArea(customer.id, 'DJ');
-      setPickerOpen(false);
-      setPickerQuery('');
-      setPickerResults([]);
-      await loadCustomers();
-      setSuccessMsg('Kontakt als DJ-Kunde markiert');
-      setTimeout(() => setSuccessMsg(''), 2500);
-    } catch {
-      // Fehler still ignorieren — Benutzer sieht keine Änderung
-    }
-  }
 
   // ---------------------------------------------------------------------------
   // Gefilterte Liste (clientseitig)
