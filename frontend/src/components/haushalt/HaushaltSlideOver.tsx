@@ -17,7 +17,7 @@ function todayIso(): string {
 
 type WizardStep = 'typ' | 'datum' | 'betrag' | 'kategorie' | 'monat' | 'wer_bezahlt' | 'aufteilung';
 
-const SCHRITTE_AUSGABE: WizardStep[] = ['typ', 'datum', 'betrag', 'kategorie', 'wer_bezahlt', 'aufteilung'];
+const SCHRITTE_AUSGABE: WizardStep[] = ['typ', 'datum', 'kategorie', 'betrag', 'wer_bezahlt', 'aufteilung'];
 const SCHRITTE_MIETE_TYP: WizardStep[] = ['typ', 'monat'];
 const SCHRITTE_GELDÜBERGABE: WizardStep[] = ['typ', 'datum', 'betrag', 'wer_bezahlt'];
 
