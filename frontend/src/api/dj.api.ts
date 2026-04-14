@@ -357,3 +357,44 @@ export const fetchDjSettings = () =>
 
 export const updateDjSetting = (key: string, value: unknown) =>
   apiClient.patch(`/dj/settings/${key}`, value).then(r => r.data);
+
+// ── Settings-Typen ─────────────────────────────────────────────────────────────
+
+export interface DjCompanySettings {
+  name: string;
+  street: string;
+  zip: string;
+  city: string;
+  country: string;
+  phone: string;
+  email: string;
+  website: string;
+  tax_id: string;
+  bank_name: string;
+  iban: string;
+  bic: string;
+}
+
+export interface DjTaxSettings {
+  vat_rate: number;
+  small_business: boolean;
+}
+
+export interface DjPaymentTermsSettings {
+  days: number;
+  note: string;
+}
+
+export interface DjNumberSequence {
+  id: number;
+  prefix: string;
+  entity_type: string;
+  current_value: number;
+  format: string;
+}
+
+export const fetchDjSettingByKey = <T>(key: string): Promise<T> =>
+  apiClient.get(`/dj/settings/${key}`).then(r => r.data);
+
+export const fetchDjSequences = (): Promise<DjNumberSequence[]> =>
+  apiClient.get('/dj/settings/sequences/all').then(r => r.data);
