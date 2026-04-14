@@ -170,6 +170,19 @@ export interface DjExpense {
   created_at: string;
 }
 
+export interface DjPayment {
+  id: number;
+  invoice_id: number;
+  payment_date: string;
+  amount: number;
+  method: string | null;
+  reference: string | null;
+  invoice_number: string | null;
+  total_gross: number;
+  customer_name: string | null;
+  customer_org: string | null;
+}
+
 export interface DjTrip {
   source: 'event' | 'manual';
   id: number | null;        // null = Event-basiert, nicht löschbar
@@ -308,6 +321,9 @@ export const deleteDjExpense = (id: number): Promise<void> =>
 // Buchhaltung
 export const fetchDjAccountingSummary = (year?: number) =>
   apiClient.get('/dj/accounting/summary', { params: { year } }).then(r => r.data);
+
+export const fetchDjAccountingPayments = (year?: number): Promise<DjPayment[]> =>
+  apiClient.get('/dj/accounting/payments', { params: { year } }).then(r => r.data);
 
 export const fetchDjTrips = (year?: number): Promise<DjTrip[]> =>
   apiClient.get('/dj/accounting/trips', { params: { year } }).then(r => r.data);
