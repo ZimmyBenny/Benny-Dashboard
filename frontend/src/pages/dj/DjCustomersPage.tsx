@@ -1,33 +1,535 @@
-import { PageWrapper } from '../../components/layout/PageWrapper';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { PageWrapper } from '../../components/layout/PageWrapper';
+import { fetchDjCustomers, searchDjCustomers, type DjCustomer } from '../../api/dj.api';
+import { setContactArea } from '../../api/contacts.api';
 
+// ---------------------------------------------------------------------------
+// KPI-Karte
+// ---------------------------------------------------------------------------
+function KpiCard({ label, value, icon }: { label: string; value: number; icon: string }) {
+  return (
+    <div style={{
+      background: 'var(--color-surface-container)',
+      borderRadius: '0.75rem',
+      padding: '1.25rem 1.5rem',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '0.25rem',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+        <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', color: 'var(--color-primary)' }}>{icon}</span>
+        <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)' }}>{label}</span>
+      </div>
+      <span style={{ fontFamily: 'var(--font-headline)', fontSize: '1.75rem', fontWeight: 700, color: 'var(--color-primary)', lineHeight: 1 }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// DjCustomersPage
+// ---------------------------------------------------------------------------
 export function DjCustomersPage() {
   const navigate = useNavigate();
+
+  // Hauptliste
+  const [customers, setCustomers] = useState<DjCustomer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Suche (clientseitig)
+  const [search, setSearch] = useState('');
+
+  // Kontakt-Picker
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerQuery, setPickerQuery] = useState('');
+  const [pickerResults, setPickerResults] = useState<DjCustomer[]>([]);
+  const [pickerLoading, setPickerLoading] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
+
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ---------------------------------------------------------------------------
+  // Laden
+  // ---------------------------------------------------------------------------
+  async function loadCustomers() {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchDjCustomers();
+      setCustomers(data);
+    } catch {
+      setError('Fehler beim Laden der Kunden');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { void loadCustomers(); }, []);
+
+  // ---------------------------------------------------------------------------
+  // Picker: Außerhalb-Klick + Escape schließen
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (!pickerOpen) return;
+    function onMouseDown(e: MouseEvent) {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setPickerOpen(false);
+      }
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setPickerOpen(false);
+    }
+    document.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [pickerOpen]);
+
+  // ---------------------------------------------------------------------------
+  // Picker: Suche debounced
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (!pickerOpen) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (pickerQuery.trim().length < 2) {
+      setPickerResults([]);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      setPickerLoading(true);
+      try {
+        const results = await searchDjCustomers(pickerQuery.trim());
+        setPickerResults(results);
+      } catch {
+        setPickerResults([]);
+      } finally {
+        setPickerLoading(false);
+      }
+    }, 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [pickerQuery, pickerOpen]);
+
+  // ---------------------------------------------------------------------------
+  // Picker: Kontakt als DJ-Kunde markieren
+  // ---------------------------------------------------------------------------
+  async function handleMarkAsDjCustomer(customer: DjCustomer) {
+    try {
+      await setContactArea(customer.id, 'DJ');
+      setPickerOpen(false);
+      setPickerQuery('');
+      setPickerResults([]);
+      await loadCustomers();
+      setSuccessMsg('Kontakt als DJ-Kunde markiert');
+      setTimeout(() => setSuccessMsg(''), 2500);
+    } catch {
+      // Fehler still ignorieren — Benutzer sieht keine Änderung
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Gefilterte Liste (clientseitig)
+  // ---------------------------------------------------------------------------
+  const filtered = customers.filter(c => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    const name = [c.first_name, c.last_name, c.organization_name].filter(Boolean).join(' ').toLowerCase();
+    return (
+      name.includes(q) ||
+      (c.email ?? '').toLowerCase().includes(q) ||
+      (c.city ?? '').toLowerCase().includes(q)
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // KPI-Werte (clientseitig berechnet)
+  // ---------------------------------------------------------------------------
+  const kpiTotal = customers.length;
+  const kpiWithEvents = customers.filter(c => (c.event_count ?? 0) > 0).length;
+  const kpiWithoutEvents = customers.filter(c => (c.event_count ?? 0) === 0).length;
+
+  // ---------------------------------------------------------------------------
+  // Hilfsfunktion: Anzeigename
+  // ---------------------------------------------------------------------------
+  function displayName(c: DjCustomer): string {
+    const personal = [c.first_name, c.last_name].filter(Boolean).join(' ');
+    return personal || c.organization_name || '—';
+  }
+
+  // ---------------------------------------------------------------------------
+  // Styles
+  // ---------------------------------------------------------------------------
+  const inputStyle: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.06)',
+    border: '1px solid var(--color-outline-variant)',
+    borderRadius: '0.5rem',
+    color: 'var(--color-on-surface)',
+    padding: '0.5rem 0.875rem',
+    fontFamily: 'var(--font-body)',
+    fontSize: '0.875rem',
+    outline: 'none',
+  };
+
+  const btnSecondary: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.06)',
+    border: '1px solid var(--color-outline-variant)',
+    borderRadius: '0.5rem',
+    color: 'var(--color-on-surface)',
+    padding: '0.5rem 1rem',
+    cursor: 'pointer',
+    fontFamily: 'var(--font-body)',
+    fontSize: '0.875rem',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.375rem',
+    whiteSpace: 'nowrap' as const,
+  };
+
+  const btnPrimary: React.CSSProperties = {
+    background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+    border: 'none',
+    borderRadius: '0.5rem',
+    color: '#000',
+    padding: '0.5rem 1.25rem',
+    cursor: 'pointer',
+    fontFamily: 'var(--font-body)',
+    fontSize: '0.875rem',
+    fontWeight: 600,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.375rem',
+    whiteSpace: 'nowrap' as const,
+  };
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
   return (
     <PageWrapper>
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2.5rem 2rem' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '2.5rem' }}>
-          <div>
-            <h1 style={{ fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '1.75rem', color: 'var(--color-on-surface)', marginBottom: '0.25rem' }}>Kunden</h1>
-            <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.875rem' }}>
-              Kontakte mit Bereich „DJ" — direkt aus dem Kontakte-Modul
-            </p>
-          </div>
-          <button
-            onClick={() => navigate('/contacts/new')}
-            style={{ background: 'var(--color-primary-container)', color: 'var(--color-on-primary-container)', border: 'none', borderRadius: '0.75rem', padding: '0.625rem 1.25rem', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.375rem' }}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>person_add</span>
-            Neuer Kontakt
-          </button>
-        </div>
-        <div style={{ background: 'var(--color-surface-container)', borderRadius: '0.75rem', padding: '3rem', textAlign: 'center' }}>
-          <span className="material-symbols-outlined" style={{ fontSize: '3rem', color: 'var(--color-primary)', display: 'block', marginBottom: '1rem' }}>group</span>
-          <p style={{ color: 'var(--color-on-surface-variant)' }}>
-            Kundenliste (Kontakte mit Bereich „DJ") mit Events, Umsatz und Verknüpfungen folgt in Phase 2.
-          </p>
-        </div>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.75rem' }}>
+        <span className="material-symbols-outlined" style={{ fontSize: '1.5rem', color: 'var(--color-primary)' }}>group</span>
+        <h1 style={{
+          fontFamily: 'var(--font-headline)',
+          fontWeight: 800,
+          fontSize: 'clamp(1.5rem, 3vw, 2rem)',
+          letterSpacing: '-0.02em',
+          color: 'var(--color-on-surface)',
+        }}>
+          Kunden
+        </h1>
+        <span style={{ color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.875rem', marginLeft: '0.25rem' }}>
+          Kontakte mit Bereich „DJ"
+        </span>
       </div>
+
+      {/* KPI-Karten */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.75rem' }}>
+        <KpiCard label="Gesamt-Kunden" value={kpiTotal} icon="group" />
+        <KpiCard label="Mit Events" value={kpiWithEvents} icon="event" />
+        <KpiCard label="Ohne Events" value={kpiWithoutEvents} icon="person_off" />
+      </div>
+
+      {/* Erfolgs-Meldung */}
+      {successMsg && (
+        <div style={{
+          background: 'rgba(74,222,128,0.15)',
+          border: '1px solid rgba(74,222,128,0.4)',
+          borderRadius: '0.5rem',
+          padding: '0.625rem 1rem',
+          marginBottom: '1rem',
+          color: '#4ade80',
+          fontFamily: 'var(--font-body)',
+          fontSize: '0.875rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+        }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>check_circle</span>
+          {successMsg}
+        </div>
+      )}
+
+      {/* Aktionsleiste */}
+      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1.25rem', alignItems: 'center' }}>
+        {/* Suchfeld */}
+        <div style={{ position: 'relative', flex: '1 1 220px', minWidth: '180px' }}>
+          <span className="material-symbols-outlined" style={{
+            position: 'absolute', left: '0.625rem', top: '50%', transform: 'translateY(-50%)',
+            fontSize: '1rem', color: 'var(--color-on-surface-variant)', pointerEvents: 'none',
+          }}>search</span>
+          <input
+            type="text"
+            placeholder="DJ-Kunden suchen..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ ...inputStyle, width: '100%', paddingLeft: '2rem', boxSizing: 'border-box' }}
+          />
+        </div>
+
+        <div style={{ flex: 1 }} />
+
+        {/* Kontakt-Picker Button */}
+        <div style={{ position: 'relative' }} ref={pickerRef}>
+          <button
+            type="button"
+            style={btnSecondary}
+            onClick={() => { setPickerOpen(v => !v); setPickerQuery(''); setPickerResults([]); }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>person_add</span>
+            Als DJ-Kunde markieren
+          </button>
+
+          {/* Picker-Overlay */}
+          {pickerOpen && (
+            <div style={{
+              position: 'absolute',
+              zIndex: 100,
+              top: '100%',
+              right: 0,
+              marginTop: '0.5rem',
+              background: 'var(--color-surface-container)',
+              border: '1px solid var(--color-outline-variant)',
+              borderRadius: '0.75rem',
+              padding: '0.75rem',
+              width: '320px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+            }}>
+              <input
+                type="text"
+                autoFocus
+                placeholder="Kontakt suchen..."
+                value={pickerQuery}
+                onChange={e => setPickerQuery(e.target.value)}
+                style={{ ...inputStyle, width: '100%', boxSizing: 'border-box', marginBottom: '0.5rem' }}
+              />
+              {pickerQuery.trim().length < 2 && (
+                <p style={{ color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.8rem', margin: '0.25rem 0' }}>
+                  Mind. 2 Zeichen eingeben...
+                </p>
+              )}
+              {pickerLoading && (
+                <p style={{ color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.8rem', margin: '0.25rem 0' }}>
+                  Suche...
+                </p>
+              )}
+              {!pickerLoading && pickerResults.length > 0 && (
+                <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
+                  {pickerResults.map(r => {
+                    const name = displayName(r);
+                    const isDj = r.area === 'DJ';
+                    return (
+                      <button
+                        key={r.id}
+                        type="button"
+                        disabled={isDj}
+                        onClick={() => void handleMarkAsDjCustomer(r)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.625rem',
+                          width: '100%',
+                          background: 'none',
+                          border: 'none',
+                          borderRadius: '0.5rem',
+                          padding: '0.5rem 0.625rem',
+                          cursor: isDj ? 'default' : 'pointer',
+                          textAlign: 'left',
+                          color: isDj ? 'var(--color-on-surface-variant)' : 'var(--color-on-surface)',
+                          fontFamily: 'var(--font-body)',
+                          fontSize: '0.875rem',
+                          opacity: isDj ? 0.6 : 1,
+                          transition: 'background 120ms',
+                        }}
+                        onMouseEnter={e => { if (!isDj) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.07)'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: 'var(--color-primary)', flexShrink: 0 }}>
+                          {r.contact_kind === 'organization' ? 'apartment' : 'person'}
+                        </span>
+                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {name}
+                          {r.organization_name && r.contact_kind !== 'organization' && (
+                            <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.75rem', marginLeft: '0.375rem' }}>
+                              {r.organization_name}
+                            </span>
+                          )}
+                        </span>
+                        {isDj && (
+                          <span style={{ fontSize: '0.7rem', color: 'var(--color-primary)', flexShrink: 0 }}>DJ</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {!pickerLoading && pickerQuery.trim().length >= 2 && pickerResults.length === 0 && (
+                <p style={{ color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.8rem', margin: '0.25rem 0' }}>
+                  Keine Kontakte gefunden.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Neuer Kontakt */}
+        <button type="button" style={btnPrimary} onClick={() => navigate('/contacts/new')}>
+          <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>add</span>
+          Neuer Kontakt
+        </button>
+      </div>
+
+      {/* Hauptinhalt */}
+      {loading && (
+        <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)' }}>
+          Lade...
+        </div>
+      )}
+
+      {!loading && error && (
+        <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)' }}>
+          {error}
+        </div>
+      )}
+
+      {!loading && !error && (
+        <div style={{ background: 'var(--color-surface-container)', borderRadius: '0.75rem', overflow: 'hidden' }}>
+          {filtered.length === 0 ? (
+            <div style={{ padding: '3rem', textAlign: 'center' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '3rem', color: 'var(--color-on-surface-variant)', display: 'block', marginBottom: '1rem' }}>
+                group_off
+              </span>
+              <p style={{ color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.9rem' }}>
+                {search.trim() ? 'Keine DJ-Kunden für diesen Suchbegriff gefunden.' : 'Noch keine DJ-Kunden vorhanden.'}
+              </p>
+              {search.trim() && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  style={{ ...btnSecondary, marginTop: '1rem' }}
+                >
+                  Filter zurücksetzen
+                </button>
+              )}
+            </div>
+          ) : (
+            <div>
+              {filtered.map((c, idx) => {
+                const name = displayName(c);
+                const isOrg = c.contact_kind === 'organization';
+                const showOrg = !isOrg && c.organization_name;
+                const eventCount = c.event_count ?? 0;
+
+                return (
+                  <div
+                    key={c.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => navigate(`/contacts/${c.id}`)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') navigate(`/contacts/${c.id}`); }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '1rem',
+                      padding: '0.875rem 1.25rem',
+                      cursor: 'pointer',
+                      borderTop: idx === 0 ? 'none' : '1px solid var(--color-outline-variant)',
+                      transition: 'background 120ms',
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.07)'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                  >
+                    {/* Icon */}
+                    <span className="material-symbols-outlined" style={{ fontSize: '1.25rem', color: 'var(--color-primary)', flexShrink: 0 }}>
+                      {isOrg ? 'apartment' : 'person'}
+                    </span>
+
+                    {/* Name + Firma */}
+                    <div style={{ flex: '1 1 180px', minWidth: 0 }}>
+                      <div style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.9rem', color: 'var(--color-on-surface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {name}
+                      </div>
+                      {showOrg && (
+                        <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.775rem', color: 'var(--color-on-surface-variant)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {c.organization_name}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Email */}
+                    <div style={{ flex: '1 1 160px', minWidth: 0, display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                      {c.email ? (
+                        <>
+                          <span className="material-symbols-outlined" style={{ fontSize: '0.9rem', color: 'var(--color-on-surface-variant)', flexShrink: 0 }}>mail</span>
+                          <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.825rem', color: 'var(--color-on-surface-variant)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {c.email}
+                          </span>
+                        </>
+                      ) : (
+                        <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.8rem', fontFamily: 'var(--font-body)', opacity: 0.4 }}>—</span>
+                      )}
+                    </div>
+
+                    {/* Telefon */}
+                    <div style={{ flex: '0 0 140px', minWidth: 0, display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                      {c.phone ? (
+                        <>
+                          <span className="material-symbols-outlined" style={{ fontSize: '0.9rem', color: 'var(--color-on-surface-variant)', flexShrink: 0 }}>call</span>
+                          <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.825rem', color: 'var(--color-on-surface-variant)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {c.phone}
+                          </span>
+                        </>
+                      ) : (
+                        <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.8rem', fontFamily: 'var(--font-body)', opacity: 0.4 }}>—</span>
+                      )}
+                    </div>
+
+                    {/* Ort */}
+                    <div style={{ flex: '0 0 120px', minWidth: 0, display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                      {c.city ? (
+                        <>
+                          <span className="material-symbols-outlined" style={{ fontSize: '0.9rem', color: 'var(--color-on-surface-variant)', flexShrink: 0 }}>location_on</span>
+                          <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.825rem', color: 'var(--color-on-surface-variant)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {c.city}
+                          </span>
+                        </>
+                      ) : (
+                        <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.8rem', fontFamily: 'var(--font-body)', opacity: 0.4 }}>—</span>
+                      )}
+                    </div>
+
+                    {/* Event-Badge */}
+                    <div style={{ flex: '0 0 90px', textAlign: 'right' }}>
+                      <span style={{
+                        display: 'inline-block',
+                        padding: '0.2rem 0.625rem',
+                        borderRadius: '999px',
+                        fontFamily: 'var(--font-body)',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        background: eventCount > 0 ? 'rgba(var(--color-primary-rgb, 204,151,255),0.18)' : 'rgba(255,255,255,0.06)',
+                        color: eventCount > 0 ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
+                      }}>
+                        {eventCount} {eventCount === 1 ? 'Event' : 'Events'}
+                      </span>
+                    </div>
+
+                    {/* Chevron */}
+                    <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: 'var(--color-on-surface-variant)', flexShrink: 0, opacity: 0.5 }}>
+                      chevron_right
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </PageWrapper>
   );
 }
