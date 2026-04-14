@@ -3,6 +3,7 @@ import type { Task } from '../../api/tasks.api';
 
 interface ReminderPopupProps {
   task: Task;
+  queueLength: number;
   onStatusChange: (task: Task, status: Task['status']) => void | Promise<void>;
   onOpen: (task: Task) => void;
   onLater: (task: Task, snoozeUntil: Date) => void;
@@ -70,7 +71,7 @@ const SNOOZE_OPTIONS = [
   { label: '1 Tag',         hours: 24 },
 ];
 
-export function ReminderPopup({ task, onStatusChange, onOpen, onLater }: ReminderPopupProps) {
+export function ReminderPopup({ task, queueLength, onStatusChange, onOpen, onLater }: ReminderPopupProps) {
   useEffect(() => { playNotificationSound(); }, []);
 
   const [showSnooze, setShowSnooze] = useState(false);
@@ -143,6 +144,15 @@ export function ReminderPopup({ task, onStatusChange, onOpen, onLater }: Reminde
           }}>
             Erinnerung
           </span>
+          {queueLength > 1 && (
+            <span style={{
+              fontSize: '0.65rem', fontFamily: 'var(--font-body)', fontWeight: 500,
+              background: 'rgba(255,255,255,0.08)', color: 'var(--color-outline)',
+              padding: '0.1rem 0.45rem', borderRadius: '9999px',
+            }}>
+              1 von {queueLength}
+            </span>
+          )}
           {task.reminder_at && (
             <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: 'var(--color-outline)', fontFamily: 'var(--font-body)' }}>
               {formatLocalDateTime(task.reminder_at)}

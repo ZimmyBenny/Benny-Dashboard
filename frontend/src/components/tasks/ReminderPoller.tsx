@@ -82,5 +82,5 @@ export function ReminderPoller() {
   }, []);
 
   if (!current) return null;
-  return <ReminderPopup task={current} onStatusChange={handleStatusChange} onOpen={handleOpen} onLater={handleLater} />;
+  return <ReminderPopup key={current.id} task={current} queueLength={queue.length} onStatusChange={handleStatusChange} onOpen={handleOpen} onLater={handleLater} />;
 }
