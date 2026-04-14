@@ -24,8 +24,8 @@ router.get('/', (_req, res) => {
       c.id, c.contact_kind, c.salutation, c.first_name, c.last_name,
       c.organization_name, c.customer_number, c.area,
       (SELECT city FROM contact_addresses WHERE contact_id = c.id AND is_primary = 1 LIMIT 1) AS city,
-      (SELECT value FROM contact_emails WHERE contact_id = c.id AND is_primary = 1 LIMIT 1) AS email,
-      (SELECT value FROM contact_phones WHERE contact_id = c.id AND is_primary = 1 LIMIT 1) AS phone,
+      (SELECT email FROM contact_emails WHERE contact_id = c.id AND is_primary = 1 LIMIT 1) AS email,
+      (SELECT phone FROM contact_phones WHERE contact_id = c.id AND is_primary = 1 LIMIT 1) AS phone,
       (SELECT COUNT(*) FROM dj_events WHERE customer_id = c.id AND deleted_at IS NULL) AS event_count
     FROM contacts c
     WHERE c.area = 'DJ' AND (c.is_archived = 0 OR c.is_archived IS NULL)
@@ -45,7 +45,7 @@ router.get('/search', (req, res) => {
       c.id, c.contact_kind, c.salutation, c.first_name, c.last_name,
       c.organization_name, c.customer_number, c.area,
       (SELECT city FROM contact_addresses WHERE contact_id = c.id AND is_primary = 1 LIMIT 1) AS city,
-      (SELECT value FROM contact_emails WHERE contact_id = c.id AND is_primary = 1 LIMIT 1) AS email
+      (SELECT email FROM contact_emails WHERE contact_id = c.id AND is_primary = 1 LIMIT 1) AS email
     FROM contacts c
     WHERE (c.is_archived = 0 OR c.is_archived IS NULL)
       AND (
