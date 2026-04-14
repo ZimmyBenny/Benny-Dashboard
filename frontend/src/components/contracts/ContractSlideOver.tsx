@@ -58,6 +58,11 @@ interface FormData {
   unbefristet: boolean;
   vertragsinhaber: string;
   kontoname: string;
+  split_count: string;
+  split_amount: string;
+  is_business: boolean;
+  amount_type: string;
+  vat_rate: string;
   description: string;
   notes: string;
 }
@@ -89,6 +94,11 @@ function contractToForm(contract: Contract | null): FormData {
       unbefristet: false,
       vertragsinhaber: '',
       kontoname: '',
+      split_count: '1',
+      split_amount: '',
+      is_business: false,
+      amount_type: 'brutto',
+      vat_rate: '19',
       description: '',
       notes: '',
     };
@@ -111,6 +121,11 @@ function contractToForm(contract: Contract | null): FormData {
     unbefristet: contract.unbefristet === 1,
     vertragsinhaber: contract.vertragsinhaber ?? '',
     kontoname: contract.kontoname ?? '',
+    split_count: String(contract.split_count ?? 1),
+    split_amount: contract.split_amount != null ? String(contract.split_amount) : '',
+    is_business: contract.is_business === 1,
+    amount_type: contract.amount_type || 'brutto',
+    vat_rate: String(contract.vat_rate ?? 19),
     description: contract.description ?? '',
     notes: contract.notes ?? '',
   };
@@ -266,6 +281,11 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
         unbefristet: form.unbefristet ? 1 : 0,
         vertragsinhaber: form.vertragsinhaber || null,
         kontoname: form.kontoname || null,
+        split_count: Number(form.split_count) || 1,
+        split_amount: form.split_amount ? parseFloat(form.split_amount) : null,
+        is_business: form.is_business ? 1 : 0,
+        amount_type: form.amount_type || 'brutto',
+        vat_rate: Number(form.vat_rate) || 19,
         description: form.description || null,
         notes: form.notes || null,
       });
@@ -675,6 +695,118 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
                 onChange={e => handleChange('kontoname', e.target.value)}
                 placeholder="z.B. E-Mail, Benutzername..."
               />
+            </div>
+
+            {/* Kostenaufteilung (nur wenn cost_amount > 0) */}
+            {Number(form.cost_amount) > 0 && (
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={LABEL_STYLE}>Kostenaufteilung</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label style={{ ...LABEL_STYLE, marginBottom: '0.25rem' }}>Anzahl Personen</label>
+                    <input
+                      className="contract-input"
+                      style={INPUT_STYLE}
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={form.split_count}
+                      onChange={e => {
+                        handleChange('split_count', e.target.value);
+                        setForm(prev => ({ ...prev, split_count: e.target.value, split_amount: '' }));
+                      }}
+                    />
+                  </div>
+                  {Number(form.split_count) > 1 && (
+                    <div>
+                      <label style={{ ...LABEL_STYLE, marginBottom: '0.25rem' }}>Mein Anteil (EUR)</label>
+                      <input
+                        className="contract-input"
+                        style={INPUT_STYLE}
+                        type="number"
+                        step="0.01"
+                        value={form.split_amount}
+                        placeholder={(Number(form.cost_amount) / Number(form.split_count)).toFixed(2)}
+                        onChange={e => handleChange('split_amount', e.target.value)}
+                      />
+                      <p style={{ fontSize: '0.72rem', color: 'var(--color-outline)', fontFamily: 'var(--font-body)', marginTop: '0.25rem' }}>
+                        Leer lassen für automatische Berechnung
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Geschäftliche Ausgabe */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={form.is_business}
+                  onChange={() => setForm(prev => ({ ...prev, is_business: !prev.is_business }))}
+                  style={{ accentColor: 'var(--color-primary)', width: '14px', height: '14px' }}
+                />
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface)' }}>
+                  Geschäftliche Ausgabe
+                </span>
+              </label>
+              {form.is_business && (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.75rem' }}>
+                    <div>
+                      <label style={LABEL_STYLE}>Betrag ist</label>
+                      <select
+                        className="contract-input"
+                        style={INPUT_STYLE}
+                        value={form.amount_type}
+                        onChange={e => handleChange('amount_type', e.target.value)}
+                      >
+                        <option value="brutto">Brutto</option>
+                        <option value="netto">Netto</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={LABEL_STYLE}>MwSt.</label>
+                      <select
+                        className="contract-input"
+                        style={INPUT_STYLE}
+                        value={form.vat_rate}
+                        onChange={e => handleChange('vat_rate', e.target.value)}
+                      >
+                        <option value="19">19%</option>
+                        <option value="7">7%</option>
+                      </select>
+                    </div>
+                  </div>
+                  {(() => {
+                    const effectiveAmt = form.split_amount
+                      ? parseFloat(form.split_amount)
+                      : (Number(form.split_count) > 1
+                          ? Number(form.cost_amount) / Number(form.split_count)
+                          : Number(form.cost_amount));
+                    const vatRate = Number(form.vat_rate) / 100;
+                    if (!effectiveAmt || isNaN(effectiveAmt)) return null;
+                    if (form.amount_type === 'brutto') {
+                      const netto = effectiveAmt / (1 + vatRate);
+                      const mwst = effectiveAmt - netto;
+                      return (
+                        <p style={{ fontSize: '0.78rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', marginTop: '0.5rem' }}>
+                          Netto: {netto.toFixed(2)} EUR | MwSt.: {mwst.toFixed(2)} EUR
+                        </p>
+                      );
+                    } else {
+                      const brutto = effectiveAmt * (1 + vatRate);
+                      const mwst = brutto - effectiveAmt;
+                      return (
+                        <p style={{ fontSize: '0.78rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', marginTop: '0.5rem' }}>
+                          Brutto: {brutto.toFixed(2)} EUR | MwSt.: {mwst.toFixed(2)} EUR
+                        </p>
+                      );
+                    }
+                  })()}
+                </>
+              )}
             </div>
 
             {/* Beschreibung (full width) */}

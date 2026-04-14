@@ -31,6 +31,11 @@ export interface Contract {
   unbefristet: number;          // 0 | 1
   vertragsinhaber: string | null;
   kontoname: string | null;
+  split_count: number;
+  split_amount: number | null;
+  is_business: number;
+  amount_type: string;
+  vat_rate: number;
   created_at: string;
   updated_at: string;
 }
