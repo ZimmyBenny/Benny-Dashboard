@@ -232,7 +232,7 @@ function EntryPanel({
               />
               <button onClick={handleAddProject} style={{
                 padding: '0.625rem 0.75rem', borderRadius: '0.5rem', cursor: 'pointer',
-                background: 'var(--color-primary)', color: '#000', border: 'none', fontWeight: 600, fontSize: '0.8rem',
+                background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dim) 100%)', color: '#000', border: 'none', fontWeight: 600, fontSize: '0.8rem',
               }}>OK</button>
               <button onClick={() => setAddingProject(false)} style={{
                 padding: '0.625rem 0.75rem', borderRadius: '0.5rem', cursor: 'pointer',

@@ -495,7 +495,7 @@ export function SettingsPage() {
                       display: 'flex', alignItems: 'center', gap: '0.5rem',
                       padding: '0.5rem 1rem', borderRadius: '0.5rem', border: 'none', cursor: 'pointer',
                       fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 500,
-                      background: theme === t ? 'var(--color-primary)' : 'var(--color-surface-container-high)',
+                      background: theme === t ? 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dim) 100%)' : 'var(--color-surface-container-high)',
                       color: theme === t ? 'var(--color-on-primary)' : 'var(--color-on-surface-variant)',
                       transition: 'background 150ms ease, color 150ms ease',
                     }}

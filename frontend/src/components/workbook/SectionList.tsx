@@ -146,7 +146,7 @@ export function SectionList({ sections, activeId, onSelect, onNew, onReload }: S
             style={{
               display: 'flex', alignItems: 'center', gap: '0.25rem',
               padding: '0.3rem 0.6rem',
-              background: 'var(--color-primary)', color: 'var(--color-on-primary)',
+              background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dim) 100%)', color: 'var(--color-on-primary)',
               border: 'none', borderRadius: '0.35rem', cursor: 'pointer',
               fontFamily: 'var(--font-body)', fontSize: '0.8rem', fontWeight: 600,
             }}

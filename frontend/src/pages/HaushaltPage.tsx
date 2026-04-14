@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import {
   fetchEintraege,
   fetchSaldo,
   fetchAbrechnungen,
   fetchAbrechnungEintraege,
+  fetchMieteEintraege,
   deleteEintrag,
+  deleteAbrechnung,
   type HaushaltEintrag,
   type HaushaltSaldo,
   type HaushaltAbrechnung,
@@ -50,14 +53,36 @@ const KATEGORIE_TEXT: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------------------
+// Miete-Hilfsfunktionen
+// ---------------------------------------------------------------------------
+
+function formatMietmonat(monat: string): string {
+  if (!monat) return 'Miete';
+  const [year, month] = monat.split('-');
+  const monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  return `Miete ${monthNames[parseInt(month, 10) - 1]} ${year}`;
+}
+
+function letzteMonateIso(anzahl: number): string[] {
+  const monate: string[] = [];
+  const heute = new Date();
+  for (let i = 0; i < anzahl; i++) {
+    const d = new Date(heute.getFullYear(), heute.getMonth() - i, 1);
+    monate.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  }
+  return monate;
+}
+
+// ---------------------------------------------------------------------------
 // Segment-Tabs
 // ---------------------------------------------------------------------------
 
-type Tab = 'offen' | 'abrechnungen';
+type Tab = 'offen' | 'abrechnungen' | 'miete';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'offen', label: 'Offen' },
   { key: 'abrechnungen', label: 'Abrechnungen' },
+  { key: 'miete', label: 'Miete bezahlt' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -186,6 +211,7 @@ function EintragZeile({
 // ---------------------------------------------------------------------------
 
 export function HaushaltPage() {
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState<Tab>('offen');
 
   // Offene Eintraege
@@ -199,10 +225,22 @@ export function HaushaltPage() {
   const [expandedAbrechnung, setExpandedAbrechnung] = useState<number | null>(null);
   const [abrechnungEintraege, setAbrechnungEintraege] = useState<Record<number, HaushaltEintrag[]>>({});
 
+  // Miete-Tab
+  const [mieteEintraege, setMieteEintraege] = useState<HaushaltEintrag[]>([]);
+  const [loadingMiete, setLoadingMiete] = useState(false);
+
   // Modals
   const [slideOverOpen, setSlideOverOpen] = useState(false);
   const [editEintrag, setEditEintrag] = useState<HaushaltEintrag | undefined>();
   const [abrechnungsModalOpen, setAbrechnungsModalOpen] = useState(false);
+
+  // Auto-öffnen wenn vom Dashboard per state: { openNew: true } navigiert
+  useEffect(() => {
+    if ((location.state as { openNew?: boolean } | null)?.openNew) {
+      setEditEintrag(undefined);
+      setSlideOverOpen(true);
+    }
+  }, [location.state]);
 
   // ---------------------------------------------------------------------------
   // Datenladen
@@ -243,6 +281,24 @@ export function HaushaltPage() {
     }
   }, [activeTab, ladeAbrechnungen]);
 
+  const ladeMiete = useCallback(async () => {
+    setLoadingMiete(true);
+    try {
+      const data = await fetchMieteEintraege();
+      setMieteEintraege(data);
+    } catch (err) {
+      console.error('Fehler beim Laden der Miete-Einträge:', err);
+    } finally {
+      setLoadingMiete(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'miete') {
+      ladeMiete();
+    }
+  }, [activeTab, ladeMiete]);
+
   // ---------------------------------------------------------------------------
   // Abrechnung aufklappen → Eintraege laden
   // ---------------------------------------------------------------------------
@@ -277,34 +333,47 @@ export function HaushaltPage() {
     }
   }
 
+  async function handleDeleteAbrechnung(ab: { id: number; titel: string }) {
+    if (!window.confirm(`Abrechnung "${ab.titel}" wirklich löschen? Die Einträge werden wieder als offen markiert.`)) return;
+    try {
+      await deleteAbrechnung(ab.id);
+      await Promise.all([ladeAbrechnungen(), ladeOffeneDaten()]);
+      setExpandedAbrechnung(null);
+    } catch (err) {
+      console.error('Fehler beim Löschen der Abrechnung:', err);
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Saldo-Banner
   // ---------------------------------------------------------------------------
 
   function SaldoBanner() {
-    const positiv = saldo.saldo > 0;
     const neutral = saldo.saldo === 0;
+    // saldo > 0 → Julia schuldet Benny (Julia → Benny)
+    // saldo < 0 → Benny schuldet Julia (Benny → Julia)
+    const juliaSculdet = saldo.saldo > 0;
 
     let bg: string;
     let color: string;
-    let text: string;
-    let icon: string;
+    let hauptzeile: string;
+    let richtung: string | null;
 
     if (neutral) {
       bg = 'var(--color-surface-container)';
       color = 'var(--color-outline)';
-      text = 'Ausgeglichen';
-      icon = 'balance';
-    } else if (positiv) {
-      bg = 'rgba(var(--color-primary-rgb,100,255,218),0.12)';
+      hauptzeile = 'Ausgeglichen';
+      richtung = null;
+    } else if (juliaSculdet) {
+      bg = 'rgba(100,255,218,0.08)';
       color = 'var(--color-primary)';
-      text = `Du bekommst ${formatBetrag(Math.abs(saldo.saldo))} EUR`;
-      icon = 'account_balance_wallet';
+      hauptzeile = `${formatBetrag(Math.abs(saldo.saldo))} € offen`;
+      richtung = 'Julia → Benny';
     } else {
-      bg = 'rgba(251,146,60,0.12)';
+      bg = 'rgba(251,146,60,0.1)';
       color = '#fb923c';
-      text = `Du schuldest Julia ${formatBetrag(Math.abs(saldo.saldo))} EUR`;
-      icon = 'payments';
+      hauptzeile = `${formatBetrag(Math.abs(saldo.saldo))} € offen`;
+      richtung = 'Benny → Julia';
     }
 
     return (
@@ -319,11 +388,16 @@ export function HaushaltPage() {
         marginBottom: '1rem',
       }}>
         <span className="material-symbols-outlined" style={{ fontSize: '1.75rem', color }}>
-          {icon}
+          {neutral ? 'balance' : juliaSculdet ? 'account_balance_wallet' : 'payments'}
         </span>
-        <div>
-          <div style={{ fontSize: '1.1rem', fontWeight: 700, color, fontFamily: 'var(--font-display)' }}>
-            {text}
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: '1.05rem', fontWeight: 700, color, fontFamily: 'var(--font-display)' }}>
+            {hauptzeile}
+            {richtung && (
+              <span style={{ marginLeft: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>
+                — {richtung}
+              </span>
+            )}
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--color-outline)', marginTop: '0.15rem' }}>
             {saldo.offene_eintraege} offene {saldo.offene_eintraege === 1 ? 'Eintrag' : 'Einträge'}
@@ -339,6 +413,17 @@ export function HaushaltPage() {
 
   return (
     <PageWrapper>
+      {/* Seitentitel */}
+      <h1 className="gradient-text" style={{
+        fontFamily: 'var(--font-headline)',
+        fontSize: '1.5rem',
+        fontWeight: 800,
+        marginBottom: '1.25rem',
+        letterSpacing: '-0.01em',
+      }}>
+        Haushalt
+      </h1>
+
       {/* Segment-Tabs */}
       <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--color-surface-container)', borderRadius: '0.5rem', padding: '0.25rem', marginBottom: '1.25rem', width: 'fit-content' }}>
         {TABS.map(tab => (
@@ -349,7 +434,7 @@ export function HaushaltPage() {
               padding: '0.4rem 1rem',
               borderRadius: '0.375rem',
               border: 'none',
-              background: activeTab === tab.key ? 'var(--color-primary)' : 'transparent',
+              background: activeTab === tab.key ? 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dim) 100%)' : 'transparent',
               color: activeTab === tab.key ? 'var(--color-on-primary)' : 'var(--color-outline)',
               fontFamily: 'var(--font-body)',
               fontSize: '0.875rem',
@@ -379,7 +464,7 @@ export function HaushaltPage() {
                 padding: '0.5rem 1rem',
                 borderRadius: '0.5rem',
                 border: 'none',
-                background: 'var(--color-primary)',
+                background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dim) 100%)',
                 color: 'var(--color-on-primary)',
                 fontFamily: 'var(--font-body)',
                 fontSize: '0.875rem',
@@ -527,6 +612,23 @@ export function HaushaltPage() {
                       <span className="material-symbols-outlined" style={{ color: 'var(--color-outline)', fontSize: '1rem' }}>
                         {expanded ? 'expand_less' : 'expand_more'}
                       </span>
+                      <button
+                        onClick={e => { e.stopPropagation(); handleDeleteAbrechnung(ab); }}
+                        title="Abrechnung löschen"
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: 'var(--color-outline)',
+                          padding: '0.25rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          flexShrink: 0,
+                          marginLeft: '0.25rem',
+                        }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>delete</span>
+                      </button>
                     </div>
 
                     {/* Expandiert: Eintraege */}
@@ -566,11 +668,85 @@ export function HaushaltPage() {
         </div>
       )}
 
+      {/* ── Tab: Miete bezahlt ── */}
+      {activeTab === 'miete' && (
+        <div>
+          <div style={{ marginBottom: '1rem', fontSize: '0.8rem', color: 'var(--color-outline)' }}>
+            Letzte 12 Monate — 100 € · Benny → Julia
+          </div>
+          {loadingMiete ? (
+            <div style={{ color: 'var(--color-outline)', fontSize: '0.875rem', padding: '2rem 0', textAlign: 'center' }}>
+              Wird geladen…
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {letzteMonateIso(12).map(monat => {
+                const bezeichnung = formatMietmonat(monat);
+                const bezahlt = mieteEintraege.some(e => e.beschreibung === bezeichnung);
+                const [year, month] = monat.split('-');
+                const monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+                const label = `${monthNames[parseInt(month, 10) - 1]} ${year}`;
+                return (
+                  <div
+                    key={monat}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.75rem',
+                      padding: '0.75rem 1rem',
+                      borderRadius: '0.5rem',
+                      background: bezahlt ? 'rgba(45,212,191,0.06)' : 'var(--color-surface-container)',
+                      border: `1px solid ${bezahlt ? '#2dd4bf' : 'var(--color-outline-variant)'}`,
+                    }}
+                  >
+                    <span
+                      className="material-symbols-outlined"
+                      style={{ fontSize: '1.25rem', color: bezahlt ? '#2dd4bf' : 'var(--color-outline)', flexShrink: 0 }}
+                    >
+                      {bezahlt ? 'check_circle' : 'radio_button_unchecked'}
+                    </span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '0.9rem', fontWeight: bezahlt ? 600 : 400, color: bezahlt ? '#2dd4bf' : 'var(--color-on-surface)' }}>
+                        {label}
+                      </div>
+                      {bezahlt && (
+                        <div style={{ fontSize: '0.75rem', color: 'var(--color-outline)', marginTop: '0.1rem' }}>
+                          {formatDatum(mieteEintraege.find(e => e.beschreibung === bezeichnung)?.datum ?? '')}
+                        </div>
+                      )}
+                    </div>
+                    <span style={{ fontSize: '0.875rem', fontWeight: 700, color: bezahlt ? '#2dd4bf' : 'var(--color-outline)', flexShrink: 0 }}>
+                      {bezahlt ? '100,00 EUR' : '—'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Neuen Miete-Eintrag direkt erfassen */}
+          <div style={{ marginTop: '1.25rem' }}>
+            <button
+              onClick={() => { setEditEintrag(undefined); setSlideOverOpen(true); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.375rem',
+                padding: '0.5rem 1rem', borderRadius: '0.5rem', border: 'none',
+                background: '#2dd4bf', color: '#0f172a',
+                fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>add</span>
+              Miete eintragen
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* SlideOver */}
       <HaushaltSlideOver
         open={slideOverOpen}
         onClose={() => setSlideOverOpen(false)}
-        onSaved={ladeOffeneDaten}
+        onSaved={() => { ladeOffeneDaten(); ladeMiete(); }}
         eintrag={editEintrag}
       />
 

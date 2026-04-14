@@ -201,7 +201,7 @@ export function SectionSlideOver({ editSection, onClose, onSaved }: SectionSlide
             style={{
               flex: 1,
               padding: '0.65rem',
-              background: 'var(--color-primary)',
+              background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dim) 100%)',
               border: 'none',
               borderRadius: '0.4rem',
               color: 'var(--color-on-primary)',

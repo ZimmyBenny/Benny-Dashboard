@@ -339,7 +339,7 @@ export function AbrechnungsModal({ open, onClose, onCreated, saldo, eintraege }:
                 padding: '0.625rem',
                 borderRadius: '0.5rem',
                 border: 'none',
-                background: (saving || !titel.trim()) ? 'var(--color-outline)' : 'var(--color-primary)',
+                background: (saving || !titel.trim()) ? 'var(--color-outline)' : 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dim) 100%)',
                 color: 'var(--color-on-primary)',
                 fontFamily: 'var(--font-body)',
                 fontSize: '0.875rem',

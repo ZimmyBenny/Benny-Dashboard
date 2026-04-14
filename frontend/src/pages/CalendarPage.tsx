@@ -261,7 +261,7 @@ function EventForm({ calendars, initialDate, editEvent, onSaved, onDeleted, onCl
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
             <button type="submit" disabled={saving} style={{
               flex: 1, padding: '0.625rem 1rem', borderRadius: '0.5rem', border: 'none',
-              background: 'var(--color-primary)', color: '#fff', fontFamily: 'var(--font-body)',
+              background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dim) 100%)', color: '#fff', fontFamily: 'var(--font-body)',
               fontSize: '0.875rem', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1,
             }}>
               {saving ? 'Speichere…' : editEvent ? 'Speichern' : 'Erstellen'}
@@ -963,7 +963,7 @@ export function CalendarPage() {
                 <button key={v} onClick={() => setViewMode(v)} style={{
                   padding: '0.375rem 1rem', borderRadius: '9999px', border: 'none', cursor: 'pointer',
                   fontFamily: 'var(--font-body)', fontSize: '0.8rem', fontWeight: viewMode === v ? 700 : 500,
-                  background: viewMode === v ? 'var(--color-primary)' : 'transparent',
+                  background: viewMode === v ? 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dim) 100%)' : 'transparent',
                   color: viewMode === v ? '#000' : 'var(--color-on-surface-variant)',
                   boxShadow: viewMode === v ? '0 0 14px rgba(204,151,255,0.55)' : 'none',
                   transition: 'all 0.15s',
@@ -997,7 +997,7 @@ export function CalendarPage() {
             <button onClick={handleSync} disabled={syncing} style={{
               display: 'flex', alignItems: 'center', gap: '0.375rem',
               padding: '0.5rem 1rem', borderRadius: '0.5rem', border: 'none',
-              background: 'var(--color-primary)', color: '#fff',
+              background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dim) 100%)', color: '#fff',
               fontFamily: 'var(--font-body)', fontSize: '0.85rem',
               cursor: syncing ? 'not-allowed' : 'pointer', opacity: syncing ? 0.7 : 1,
             }}>

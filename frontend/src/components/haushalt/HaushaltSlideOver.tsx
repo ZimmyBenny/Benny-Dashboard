@@ -1,33 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import type { HaushaltEintrag } from '../../api/haushalt.api';
 import { createEintrag, updateEintrag } from '../../api/haushalt.api';
-
-// ---------------------------------------------------------------------------
-// Styles (gleiche Muster wie ContractSlideOver)
-// ---------------------------------------------------------------------------
-
-const INPUT_STYLE: React.CSSProperties = {
-  width: '100%',
-  background: 'var(--color-surface-container-low)',
-  border: '1px solid var(--color-outline-variant)',
-  borderRadius: '0.5rem',
-  color: 'var(--color-on-surface)',
-  fontFamily: 'var(--font-body)',
-  fontSize: '0.875rem',
-  padding: '0.5rem 0.75rem',
-  outline: 'none',
-  boxSizing: 'border-box' as const,
-};
-
-const LABEL_STYLE: React.CSSProperties = {
-  display: 'block',
-  fontFamily: 'var(--font-body)',
-  fontSize: '0.75rem',
-  letterSpacing: '0.06em',
-  textTransform: 'uppercase' as const,
-  color: 'var(--color-outline)',
-  marginBottom: '0.375rem',
-};
+import { useDraggableModal } from '../../hooks/useDraggableModal';
 
 // ---------------------------------------------------------------------------
 // Hilfsfunktionen
@@ -38,22 +12,52 @@ function todayIso(): string {
 }
 
 // ---------------------------------------------------------------------------
-// FormState
+// Wizard-Schritte & FormState
 // ---------------------------------------------------------------------------
+
+type WizardStep = 'typ' | 'datum' | 'betrag' | 'kategorie' | 'monat' | 'wer_bezahlt' | 'aufteilung';
+
+const SCHRITTE_AUSGABE: WizardStep[] = ['typ', 'datum', 'betrag', 'kategorie', 'wer_bezahlt', 'aufteilung'];
+const SCHRITTE_MIETE_TYP: WizardStep[] = ['typ', 'monat'];
+const SCHRITTE_GELDÜBERGABE: WizardStep[] = ['typ', 'datum', 'betrag', 'wer_bezahlt'];
+
+function currentMonthIso(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function formatMietmonat(monat: string): string {
+  if (!monat) return 'Miete';
+  const [year, month] = monat.split('-');
+  const monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  return `Miete ${monthNames[parseInt(month, 10) - 1]} ${year}`;
+}
+
+const KATEGORIEN = ['Einkäufe', 'Kind', 'Haushalt', 'Freizeit', 'Urlaub', 'Nebenkosten', 'Sonstiges'];
+
+const KAT_FARBEN: Record<string, string> = {
+  'Einkäufe': '#60a5fa',
+  'Kind': '#f472b6',
+  'Haushalt': '#4ade80',
+  'Freizeit': '#fb923c',
+  'Urlaub': '#a78bfa',
+  'Nebenkosten': '#f87171',
+  'Miete': '#2dd4bf',
+  'Sonstiges': '#9ca3af',
+};
+
+type AufteilungModus = '50_50' | 'benny_alles' | 'julia_alles' | 'andere';
 
 interface FormState {
   datum: string;
   betrag: string;
-  beschreibung: string;
   kategorie: string;
+  sonstigesText: string; // Freitext wenn Kategorie = "Sonstiges"
+  mietmonat: string;     // ISO "YYYY-MM" wenn Kategorie = "Miete"
   bezahlt_von: 'benny' | 'julia';
   eintrag_typ: 'ausgabe' | 'geldübergabe';
-  andereProzent: boolean;
-  aufteilung_prozent: number;
-  zahlungsart: string;
-  zeitraumAktiv: boolean;
-  zeitraum_von: string;
-  zeitraum_bis: string;
+  aufteilung_modus: AufteilungModus;
+  aufteilung_prozent: number; // Bennys Anteil
 }
 
 function eintragToForm(eintrag?: HaushaltEintrag): FormState {
@@ -61,32 +65,38 @@ function eintragToForm(eintrag?: HaushaltEintrag): FormState {
     return {
       datum: todayIso(),
       betrag: '',
-      beschreibung: '',
       kategorie: 'Haushalt',
+      sonstigesText: '',
+      mietmonat: currentMonthIso(),
       bezahlt_von: 'benny',
       eintrag_typ: 'ausgabe',
-      andereProzent: false,
+      aufteilung_modus: '50_50',
       aufteilung_prozent: 50,
-      zahlungsart: '',
-      zeitraumAktiv: false,
-      zeitraum_von: '',
-      zeitraum_bis: '',
     };
   }
+  let aufteilung_modus: AufteilungModus = '50_50';
+  if (eintrag.aufteilung_prozent === 100) aufteilung_modus = 'benny_alles';
+  else if (eintrag.aufteilung_prozent === 0) aufteilung_modus = 'julia_alles';
+  else if (eintrag.aufteilung_prozent !== 50) aufteilung_modus = 'andere';
+
   return {
     datum: eintrag.datum,
     betrag: String(eintrag.betrag),
-    beschreibung: eintrag.beschreibung,
     kategorie: eintrag.kategorie,
+    sonstigesText: eintrag.kategorie === 'Sonstiges' ? eintrag.beschreibung : '',
+    mietmonat: currentMonthIso(),
     bezahlt_von: eintrag.bezahlt_von,
     eintrag_typ: eintrag.eintrag_typ,
-    andereProzent: eintrag.aufteilung_prozent !== 50,
+    aufteilung_modus,
     aufteilung_prozent: eintrag.aufteilung_prozent,
-    zahlungsart: eintrag.zahlungsart ?? '',
-    zeitraumAktiv: !!(eintrag.zeitraum_von || eintrag.zeitraum_bis),
-    zeitraum_von: eintrag.zeitraum_von ?? '',
-    zeitraum_bis: eintrag.zeitraum_bis ?? '',
   };
+}
+
+function aufteilungZuProzent(modus: AufteilungModus, custom: number): number {
+  if (modus === '50_50') return 50;
+  if (modus === 'benny_alles') return 100;
+  if (modus === 'julia_alles') return 0;
+  return custom;
 }
 
 // ---------------------------------------------------------------------------
@@ -101,52 +111,86 @@ interface HaushaltSlideOverProps {
 }
 
 // ---------------------------------------------------------------------------
-// HaushaltSlideOver
+// ModalContent — wird nur bei open=true gemountet (setzt Drag-State zurück)
 // ---------------------------------------------------------------------------
 
-export function HaushaltSlideOver({ open, onClose, onSaved, eintrag }: HaushaltSlideOverProps) {
+function ModalContent({
+  onClose,
+  onSaved,
+  eintrag,
+}: Omit<HaushaltSlideOverProps, 'open'>) {
+  const isEditMode = !!eintrag;
   const [form, setForm] = useState<FormState>(() => eintragToForm(eintrag));
+  const [schritt, setSchritt] = useState<WizardStep>('typ');
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    setForm(eintragToForm(eintrag));
-    setErrors(new Set());
-  }, [eintrag, open]);
+  const { onMouseDown, modalStyle, headerStyle } = useDraggableModal();
+
+  const isMieteTyp = form.eintrag_typ === 'geldübergabe' && form.kategorie === 'Miete';
+  const schritte = isMieteTyp
+    ? SCHRITTE_MIETE_TYP
+    : form.eintrag_typ === 'geldübergabe'
+    ? SCHRITTE_GELDÜBERGABE
+    : SCHRITTE_AUSGABE;
+  const schrittIdx = schritte.indexOf(schritt);
+  const istLetzterSchritt = schrittIdx === schritte.length - 1;
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm(prev => ({ ...prev, [key]: value }));
   }
 
-  const betragNum = parseFloat(form.betrag);
-  const juliaAnteil = form.andereProzent
-    ? (isNaN(betragNum) ? 0 : betragNum * (100 - form.aufteilung_prozent) / 100)
-    : (isNaN(betragNum) ? 0 : betragNum * 0.5);
-  const bennyAnteil = isNaN(betragNum) ? 0 : betragNum - juliaAnteil;
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function validateSchritt(): boolean {
     const errs = new Set<string>();
-    if (!form.datum) errs.add('datum');
-    if (!form.betrag || isNaN(parseFloat(form.betrag)) || parseFloat(form.betrag) <= 0) errs.add('betrag');
-    if (!form.beschreibung.trim()) errs.add('beschreibung');
-    if (errs.size > 0) { setErrors(errs); return; }
+    if (schritt === 'datum' && !form.datum) errs.add('datum');
+    if (schritt === 'betrag') {
+      if (!form.betrag || isNaN(parseFloat(form.betrag)) || parseFloat(form.betrag) <= 0) errs.add('betrag');
+    }
+    if (schritt === 'kategorie' && form.kategorie === 'Sonstiges' && !form.sonstigesText.trim()) {
+      errs.add('sonstiges');
+    }
+    setErrors(errs);
+    return errs.size === 0;
+  }
 
+  function weiter() {
+    if (!validateSchritt()) return;
+    const nextIdx = schrittIdx + 1;
+    if (nextIdx < schritte.length) setSchritt(schritte[nextIdx]);
+  }
+
+  function zurueck() {
+    const prevIdx = schrittIdx - 1;
+    if (prevIdx >= 0) {
+      setSchritt(schritte[prevIdx]);
+      setErrors(new Set());
+    }
+  }
+
+  async function handleSave() {
+    if (!validateSchritt()) return;
     setSaving(true);
     try {
+      const prozent = aufteilungZuProzent(form.aufteilung_modus, form.aufteilung_prozent);
+      const beschreibung = isMieteTyp
+        ? formatMietmonat(form.mietmonat)
+        : form.eintrag_typ === 'geldübergabe'
+        ? 'Geldübergabe'
+        : form.kategorie === 'Sonstiges'
+        ? form.sonstigesText.trim()
+        : form.kategorie;
       const payload: Partial<HaushaltEintrag> = {
-        datum: form.datum,
-        betrag: parseFloat(form.betrag),
-        beschreibung: form.beschreibung.trim(),
-        kategorie: form.kategorie as HaushaltEintrag['kategorie'],
-        bezahlt_von: form.bezahlt_von,
+        datum: isMieteTyp ? todayIso() : form.datum,
+        betrag: isMieteTyp ? 100 : parseFloat(form.betrag),
+        beschreibung,
+        kategorie: (isMieteTyp ? 'Miete' : form.eintrag_typ === 'geldübergabe' ? 'Sonstiges' : form.kategorie) as HaushaltEintrag['kategorie'],
+        bezahlt_von: isMieteTyp ? 'benny' : form.bezahlt_von,
         eintrag_typ: form.eintrag_typ,
-        aufteilung_prozent: form.andereProzent ? form.aufteilung_prozent : 50,
-        zahlungsart: form.zahlungsart || null,
-        zeitraum_von: form.zeitraumAktiv && form.zeitraum_von ? form.zeitraum_von : null,
-        zeitraum_bis: form.zeitraumAktiv && form.zeitraum_bis ? form.zeitraum_bis : null,
+        aufteilung_prozent: form.eintrag_typ === 'geldübergabe' ? 100 : prozent,
+        zahlungsart: null,
+        zeitraum_von: null,
+        zeitraum_bis: null,
       };
-
       if (eintrag) {
         await updateEintrag(eintrag.id, payload);
       } else {
@@ -161,91 +205,191 @@ export function HaushaltSlideOver({ open, onClose, onSaved, eintrag }: HaushaltS
     }
   }
 
-  const isEditMode = !!eintrag;
+  const betragNum = parseFloat(form.betrag);
+  const prozent = aufteilungZuProzent(form.aufteilung_modus, form.aufteilung_prozent);
+  const bennyAnteil = isNaN(betragNum) ? 0 : (betragNum * prozent) / 100;
+  const juliaAnteil = isNaN(betragNum) ? 0 : betragNum - bennyAnteil;
+
+  const BTN: React.CSSProperties = {
+    fontFamily: 'var(--font-body)',
+    fontSize: '0.875rem',
+    borderRadius: '0.625rem',
+    cursor: 'pointer',
+    transition: 'all 0.15s',
+  };
 
   return (
-    <>
-      {/* Backdrop */}
-      {open && (
-        <div
-          onClick={onClose}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            zIndex: 40,
-          }}
-        />
-      )}
-
-      {/* SlideOver Panel */}
+    <div
+      data-draggable-modal
+      style={{
+        position: 'fixed',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: '400px',
+        maxWidth: 'calc(100vw - 2rem)',
+        background: 'var(--color-surface)',
+        border: '1px solid var(--color-outline-variant)',
+        borderRadius: '1rem',
+        zIndex: 50,
+        boxShadow: '0 25px 50px rgba(0,0,0,0.5)',
+        overflow: 'hidden',
+        ...modalStyle,
+      }}
+    >
+      {/* Header (verschiebbar) */}
       <div
+        onMouseDown={onMouseDown}
         style={{
-          position: 'fixed',
-          top: 0,
-          right: 0,
-          bottom: 0,
-          width: '420px',
-          maxWidth: '100vw',
-          background: 'var(--color-surface)',
-          borderLeft: '1px solid var(--color-outline-variant)',
-          zIndex: 50,
+          padding: '0.875rem 1.25rem',
+          borderBottom: '1px solid var(--color-outline-variant)',
           display: 'flex',
-          flexDirection: 'column',
-          transform: open ? 'translateX(0)' : 'translateX(100%)',
-          transition: 'transform 0.25s ease',
-          overflowY: 'auto',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          background: 'var(--color-surface-container)',
+          ...headerStyle,
         }}
       >
-        {/* Header */}
-        <div
-          style={{
-            padding: '1rem 1.25rem',
-            borderBottom: '1px solid var(--color-outline-variant)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            background: 'var(--color-surface-container)',
-            flexShrink: 0,
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: '1rem', fontFamily: 'var(--font-display)', color: 'var(--color-on-surface)' }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: '0.95rem', fontFamily: 'var(--font-display)', color: 'var(--color-on-surface)' }}>
             {isEditMode ? 'Eintrag bearbeiten' : 'Neuer Eintrag'}
           </h2>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--color-outline)',
-              cursor: 'pointer',
-              padding: '0.25rem',
-              display: 'flex',
-              alignItems: 'center',
-            }}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: '1.25rem' }}>close</span>
-          </button>
+          {/* Schritt-Fortschrittsbalken */}
+          <div style={{ display: 'flex', gap: '0.25rem', marginTop: '0.375rem' }}>
+            {schritte.map((s, i) => (
+              <div
+                key={s}
+                style={{
+                  width: '1.25rem',
+                  height: '3px',
+                  borderRadius: '9999px',
+                  background: i <= schrittIdx ? 'var(--color-primary)' : 'var(--color-outline-variant)',
+                  transition: 'background 0.2s',
+                }}
+              />
+            ))}
+          </div>
         </div>
+        <button
+          onMouseDown={e => e.stopPropagation()}
+          onClick={onClose}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--color-outline)',
+            cursor: 'pointer',
+            padding: '0.25rem',
+            display: 'flex',
+            alignItems: 'center',
+          }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '1.25rem' }}>close</span>
+        </button>
+      </div>
 
-        {/* Formular */}
-        <form onSubmit={handleSubmit} style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem', flex: 1 }}>
+      {/* Schritt-Inhalt */}
+      <div style={{ padding: '1.5rem 1.25rem', minHeight: '220px' }}>
 
-          {/* Datum */}
+        {/* ── Schritt 1: Typ ── */}
+        {schritt === 'typ' && (
           <div>
-            <label style={LABEL_STYLE}>Datum</label>
+            <p style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-outline)', marginBottom: '1rem', marginTop: 0 }}>
+              Was möchtest du eintragen?
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {/* Ausgabe */}
+              {(() => {
+                const aktiv = form.eintrag_typ === 'ausgabe';
+                const farbe = 'var(--color-primary)';
+                return (
+                  <button
+                    onClick={() => setForm(prev => ({ ...prev, eintrag_typ: 'ausgabe', kategorie: prev.kategorie === 'Miete' ? 'Haushalt' : prev.kategorie }))}
+                    style={{ ...BTN, padding: '1.1rem 1rem', border: `2px solid ${aktiv ? farbe : 'var(--color-outline-variant)'}`, background: aktiv ? 'rgba(100,255,218,0.08)' : 'var(--color-surface-container)', color: 'var(--color-on-surface)', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '1rem' }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '1.5rem', color: aktiv ? farbe : 'var(--color-outline)', flexShrink: 0 }}>receipt</span>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>Ausgabe</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--color-outline)', marginTop: '0.15rem' }}>Einkauf, Rechnung, geteilte Kosten</div>
+                    </div>
+                  </button>
+                );
+              })()}
+
+              {/* Geldübergabe */}
+              {(() => {
+                const aktiv = form.eintrag_typ === 'geldübergabe' && form.kategorie !== 'Miete';
+                const farbe = 'var(--color-secondary)';
+                return (
+                  <button
+                    onClick={() => setForm(prev => ({ ...prev, eintrag_typ: 'geldübergabe', kategorie: prev.kategorie === 'Miete' ? 'Haushalt' : prev.kategorie }))}
+                    style={{ ...BTN, padding: '1.1rem 1rem', border: `2px solid ${aktiv ? farbe : 'var(--color-outline-variant)'}`, background: aktiv ? 'rgba(130,170,255,0.08)' : 'var(--color-surface-container)', color: 'var(--color-on-surface)', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '1rem' }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '1.5rem', color: aktiv ? farbe : 'var(--color-outline)', flexShrink: 0 }}>swap_horiz</span>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>Geldübergabe</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--color-outline)', marginTop: '0.15rem' }}>Ausgleich, direkte Zahlung</div>
+                    </div>
+                  </button>
+                );
+              })()}
+
+              {/* Miete */}
+              {(() => {
+                const aktiv = form.kategorie === 'Miete';
+                const farbe = '#2dd4bf';
+                return (
+                  <button
+                    onClick={() => setForm(prev => ({ ...prev, eintrag_typ: 'geldübergabe', kategorie: 'Miete', bezahlt_von: 'benny' }))}
+                    style={{ ...BTN, padding: '1.1rem 1rem', border: `2px solid ${aktiv ? farbe : 'var(--color-outline-variant)'}`, background: aktiv ? 'rgba(45,212,191,0.08)' : 'var(--color-surface-container)', color: 'var(--color-on-surface)', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '1rem' }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '1.5rem', color: aktiv ? farbe : 'var(--color-outline)', flexShrink: 0 }}>home</span>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>Miete</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--color-outline)', marginTop: '0.15rem' }}>100 € · Benny → Julia</div>
+                    </div>
+                  </button>
+                );
+              })()}
+            </div>
+          </div>
+        )}
+
+        {/* ── Schritt 2: Datum ── */}
+        {schritt === 'datum' && (
+          <div>
+            <p style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-outline)', marginBottom: '1rem', marginTop: 0 }}>
+              Wann?
+            </p>
             <input
               type="date"
               value={form.datum}
               onChange={e => set('datum', e.target.value)}
-              style={{ ...INPUT_STYLE, borderColor: errors.has('datum') ? 'var(--color-error)' : undefined }}
+              autoFocus
+              style={{
+                width: '100%',
+                background: 'var(--color-surface-container-low)',
+                border: `1px solid ${errors.has('datum') ? 'var(--color-error)' : 'var(--color-outline-variant)'}`,
+                borderRadius: '0.5rem',
+                color: 'var(--color-on-surface)',
+                fontFamily: 'var(--font-body)',
+                fontSize: '1rem',
+                padding: '0.75rem',
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
             />
-            {errors.has('datum') && <p style={{ color: 'var(--color-error)', fontSize: '0.75rem', marginTop: '0.25rem' }}>Datum ist erforderlich</p>}
+            {errors.has('datum') && (
+              <p style={{ color: 'var(--color-error)', fontSize: '0.75rem', marginTop: '0.25rem' }}>Datum ist erforderlich</p>
+            )}
           </div>
+        )}
 
-          {/* Betrag */}
+        {/* ── Schritt 3: Betrag ── */}
+        {schritt === 'betrag' && (
           <div>
-            <label style={LABEL_STYLE}>Betrag (EUR)</label>
+            <p style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-outline)', marginBottom: '0.625rem', marginTop: 0 }}>
+              Betrag (EUR)
+            </p>
             <input
               type="number"
               step="0.01"
@@ -253,87 +397,143 @@ export function HaushaltSlideOver({ open, onClose, onSaved, eintrag }: HaushaltS
               placeholder="0,00"
               value={form.betrag}
               onChange={e => set('betrag', e.target.value)}
-              style={{ ...INPUT_STYLE, borderColor: errors.has('betrag') ? 'var(--color-error)' : undefined }}
+              autoFocus
+              style={{
+                width: '100%',
+                background: 'var(--color-surface-container-low)',
+                border: `1px solid ${errors.has('betrag') ? 'var(--color-error)' : 'var(--color-outline-variant)'}`,
+                borderRadius: '0.5rem',
+                color: 'var(--color-on-surface)',
+                fontFamily: 'var(--font-display)',
+                fontSize: '1.5rem',
+                padding: '0.625rem 0.75rem',
+                outline: 'none',
+                boxSizing: 'border-box',
+                textAlign: 'right',
+              }}
             />
-            {errors.has('betrag') && <p style={{ color: 'var(--color-error)', fontSize: '0.75rem', marginTop: '0.25rem' }}>Gültiger Betrag erforderlich</p>}
+            {errors.has('betrag') && (
+              <p style={{ color: 'var(--color-error)', fontSize: '0.75rem', marginTop: '0.25rem' }}>Gültiger Betrag erforderlich</p>
+            )}
           </div>
+        )}
 
-          {/* Beschreibung */}
+        {/* ── Schritt 4: Kategorie ── */}
+        {schritt === 'kategorie' && (
           <div>
-            <label style={LABEL_STYLE}>Beschreibung</label>
-            <input
-              type="text"
-              placeholder="Was wurde bezahlt?"
-              value={form.beschreibung}
-              onChange={e => set('beschreibung', e.target.value)}
-              style={{ ...INPUT_STYLE, borderColor: errors.has('beschreibung') ? 'var(--color-error)' : undefined }}
-            />
-            {errors.has('beschreibung') && <p style={{ color: 'var(--color-error)', fontSize: '0.75rem', marginTop: '0.25rem' }}>Beschreibung ist erforderlich</p>}
-          </div>
-
-          {/* Kategorie */}
-          <div>
-            <label style={LABEL_STYLE}>Kategorie</label>
-            <select
-              value={form.kategorie}
-              onChange={e => set('kategorie', e.target.value)}
-              style={INPUT_STYLE}
-            >
-              {['Einkäufe', 'Kind', 'Haushalt', 'Freizeit', 'Urlaub', 'Nebenkosten', 'Miete', 'Sonstiges'].map(k => (
-                <option key={k} value={k}>{k}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Wer hat bezahlt */}
-          <div>
-            <label style={LABEL_STYLE}>Wer hat bezahlt?</label>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              {(['benny', 'julia'] as const).map(p => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => set('bezahlt_von', p)}
+            <p style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-outline)', marginBottom: '1rem', marginTop: 0 }}>
+              Kategorie
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+              {KATEGORIEN.map(kat => {
+                const farbe = KAT_FARBEN[kat] ?? '#9ca3af';
+                const aktiv = form.kategorie === kat;
+                return (
+                  <button
+                    key={kat}
+                    onClick={() => {
+                      set('kategorie', kat);
+                      if (kat === 'Miete') set('bezahlt_von', 'benny');
+                    }}
+                    style={{
+                      ...BTN,
+                      padding: '0.75rem 0.5rem',
+                      border: `2px solid ${aktiv ? farbe : 'var(--color-outline-variant)'}`,
+                      background: aktiv ? `${farbe}18` : 'var(--color-surface-container)',
+                      color: aktiv ? farbe : 'var(--color-on-surface)',
+                      fontWeight: aktiv ? 600 : 400,
+                    }}
+                  >
+                    {kat}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Freitext bei "Sonstiges" */}
+            {form.kategorie === 'Sonstiges' && (
+              <div style={{ marginTop: '0.875rem' }}>
+                <input
+                  type="text"
+                  placeholder="Was wurde bezahlt?"
+                  value={form.sonstigesText}
+                  onChange={e => set('sonstigesText', e.target.value)}
+                  autoFocus
                   style={{
-                    flex: 1,
-                    padding: '0.5rem',
+                    width: '100%',
+                    background: 'var(--color-surface-container-low)',
+                    border: `1px solid ${errors.has('sonstiges') ? 'var(--color-error)' : 'var(--color-outline-variant)'}`,
                     borderRadius: '0.5rem',
-                    border: '1px solid',
-                    borderColor: form.bezahlt_von === p ? 'var(--color-primary)' : 'var(--color-outline-variant)',
-                    background: form.bezahlt_von === p ? 'var(--color-primary)' : 'var(--color-surface-container-low)',
-                    color: form.bezahlt_von === p ? 'var(--color-on-primary)' : 'var(--color-on-surface)',
+                    color: 'var(--color-on-surface)',
                     fontFamily: 'var(--font-body)',
                     fontSize: '0.875rem',
-                    cursor: 'pointer',
-                    textTransform: 'capitalize',
+                    padding: '0.625rem 0.75rem',
+                    outline: 'none',
+                    boxSizing: 'border-box',
                   }}
-                >
-                  {p === 'benny' ? 'Benny' : 'Julia'}
-                </button>
-              ))}
-            </div>
+                />
+                {errors.has('sonstiges') && (
+                  <p style={{ color: 'var(--color-error)', fontSize: '0.75rem', marginTop: '0.25rem' }}>Bitte kurz beschreiben</p>
+                )}
+              </div>
+            )}
           </div>
+        )}
 
-          {/* Typ */}
+        {/* ── Schritt Monat (nur bei Miete) ── */}
+        {schritt === 'monat' && (
           <div>
-            <label style={LABEL_STYLE}>Typ</label>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              {([['ausgabe', 'Ausgabe'], ['geldübergabe', 'Geldübergabe']] as const).map(([val, label]) => (
+            <p style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-outline)', marginBottom: '1rem', marginTop: 0 }}>
+              Für welchen Monat?
+            </p>
+            <input
+              type="month"
+              value={form.mietmonat}
+              onChange={e => set('mietmonat', e.target.value)}
+              autoFocus
+              style={{
+                width: '100%',
+                background: 'var(--color-surface-container-low)',
+                border: '1px solid var(--color-outline-variant)',
+                borderRadius: '0.5rem',
+                color: 'var(--color-on-surface)',
+                fontFamily: 'var(--font-body)',
+                fontSize: '1rem',
+                padding: '0.75rem',
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
+            />
+            {form.mietmonat && (
+              <p style={{ fontSize: '0.8rem', color: 'var(--color-primary)', marginTop: '0.625rem', fontWeight: 600 }}>
+                {formatMietmonat(form.mietmonat)}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* ── Schritt 5: Wer hat bezahlt ── */}
+        {schritt === 'wer_bezahlt' && (
+          <div>
+            <p style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-outline)', marginBottom: '1rem', marginTop: 0 }}>
+              {form.eintrag_typ === 'geldübergabe' ? 'Wer hat übergeben?' : 'Wer hat bezahlt?'}
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              {([
+                ['benny', 'Benny', 'var(--color-primary)', 'rgba(100,255,218,0.08)'],
+                ['julia', 'Julia', '#a78bfa', 'rgba(167,139,250,0.08)'],
+              ] as const).map(([val, label, farbe, bg]) => (
                 <button
                   key={val}
-                  type="button"
-                  onClick={() => set('eintrag_typ', val)}
+                  onClick={() => set('bezahlt_von', val)}
                   style={{
+                    ...BTN,
                     flex: 1,
-                    padding: '0.5rem',
-                    borderRadius: '0.5rem',
-                    border: '1px solid',
-                    borderColor: form.eintrag_typ === val ? 'var(--color-secondary)' : 'var(--color-outline-variant)',
-                    background: form.eintrag_typ === val ? 'var(--color-secondary-container)' : 'var(--color-surface-container-low)',
-                    color: form.eintrag_typ === val ? 'var(--color-on-secondary-container)' : 'var(--color-on-surface)',
-                    fontFamily: 'var(--font-body)',
-                    fontSize: '0.875rem',
-                    cursor: 'pointer',
+                    padding: '1.25rem 0.75rem',
+                    border: `2px solid ${form.bezahlt_von === val ? farbe : 'var(--color-outline-variant)'}`,
+                    background: form.bezahlt_von === val ? bg : 'var(--color-surface-container)',
+                    color: form.bezahlt_von === val ? farbe : 'var(--color-on-surface)',
+                    fontWeight: 600,
+                    fontSize: '1rem',
                   }}
                 >
                   {label}
@@ -341,136 +541,144 @@ export function HaushaltSlideOver({ open, onClose, onSaved, eintrag }: HaushaltS
               ))}
             </div>
           </div>
+        )}
 
-          {/* Aufteilung */}
+        {/* ── Schritt 6: Aufteilung ── */}
+        {schritt === 'aufteilung' && (
           <div>
-            <label style={{ ...LABEL_STYLE, display: 'flex', alignItems: 'center', gap: '0.5rem', textTransform: 'none', fontSize: '0.875rem', cursor: 'pointer', marginBottom: 0 }}>
-              <input
-                type="checkbox"
-                checked={form.andereProzent}
-                onChange={e => set('andereProzent', e.target.checked)}
-                style={{ cursor: 'pointer' }}
-              />
-              Andere Aufteilung (Standard: 50/50)
-            </label>
-            {form.andereProzent && (
-              <div style={{ marginTop: '0.75rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.375rem' }}>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-outline)' }}>Bennys Anteil</span>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 600 }}>{form.aufteilung_prozent}%</span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={form.aufteilung_prozent}
-                  onChange={e => set('aufteilung_prozent', Number(e.target.value))}
-                  style={{ width: '100%', accentColor: 'var(--color-primary)' }}
-                />
-                {!isNaN(betragNum) && betragNum > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.375rem' }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)' }}>
-                      Benny: {bennyAnteil.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR
-                    </span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-secondary)' }}>
-                      Julia: {juliaAnteil.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR
-                    </span>
+            <p style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-outline)', marginBottom: '1rem', marginTop: 0 }}>
+              Aufteilung
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {([
+                ['50_50', '50 / 50', 'Zu gleichen Teilen'],
+                ['benny_alles', 'Benny trägt alles', '100 % Benny'],
+                ['julia_alles', 'Julia trägt alles', '100 % Julia'],
+                ['andere', 'Andere Aufteilung', 'Prozentsatz wählen'],
+              ] as const).map(([modus, label, sub]) => (
+                <button
+                  key={modus}
+                  onClick={() => set('aufteilung_modus', modus)}
+                  style={{
+                    ...BTN,
+                    padding: '0.875rem 1rem',
+                    border: `2px solid ${form.aufteilung_modus === modus ? 'var(--color-primary)' : 'var(--color-outline-variant)'}`,
+                    background: form.aufteilung_modus === modus ? 'rgba(100,255,218,0.08)' : 'var(--color-surface-container)',
+                    color: 'var(--color-on-surface)',
+                    textAlign: 'left',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  <span style={{ fontWeight: form.aufteilung_modus === modus ? 600 : 400, fontSize: '0.9rem' }}>{label}</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--color-outline)' }}>{sub}</span>
+                </button>
+              ))}
+
+              {/* Eigener Prozentsatz */}
+              {form.aufteilung_modus === 'andere' && (
+                <div style={{ marginTop: '0.25rem', padding: '0.875rem', background: 'var(--color-surface-container-low)', borderRadius: '0.5rem', border: '1px solid var(--color-outline-variant)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.375rem' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--color-outline)' }}>Bennys Anteil</span>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--color-primary)', fontWeight: 600 }}>{form.aufteilung_prozent} %</span>
                   </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Zahlungsart */}
-          <div>
-            <label style={LABEL_STYLE}>Zahlungsart (optional)</label>
-            <select
-              value={form.zahlungsart}
-              onChange={e => set('zahlungsart', e.target.value)}
-              style={INPUT_STYLE}
-            >
-              <option value="">— keine Angabe —</option>
-              <option value="cash">Cash</option>
-              <option value="überweisung">Überweisung</option>
-              <option value="offen">Offen</option>
-            </select>
-          </div>
-
-          {/* Zeitraum */}
-          <div>
-            <label style={{ ...LABEL_STYLE, display: 'flex', alignItems: 'center', gap: '0.5rem', textTransform: 'none', fontSize: '0.875rem', cursor: 'pointer', marginBottom: 0 }}>
-              <input
-                type="checkbox"
-                checked={form.zeitraumAktiv}
-                onChange={e => set('zeitraumAktiv', e.target.checked)}
-                style={{ cursor: 'pointer' }}
-              />
-              Zeitraum angeben
-            </label>
-            {form.zeitraumAktiv && (
-              <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.75rem' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={LABEL_STYLE}>Von</label>
                   <input
-                    type="date"
-                    value={form.zeitraum_von}
-                    onChange={e => set('zeitraum_von', e.target.value)}
-                    style={INPUT_STYLE}
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={5}
+                    value={form.aufteilung_prozent}
+                    onChange={e => set('aufteilung_prozent', Number(e.target.value))}
+                    style={{ width: '100%', accentColor: 'var(--color-primary)', margin: '0.25rem 0' }}
                   />
+                  {!isNaN(betragNum) && betragNum > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.25rem' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)' }}>
+                        Benny: {bennyAnteil.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                      </span>
+                      <span style={{ fontSize: '0.75rem', color: '#a78bfa' }}>
+                        Julia: {juliaAnteil.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <div style={{ flex: 1 }}>
-                  <label style={LABEL_STYLE}>Bis</label>
-                  <input
-                    type="date"
-                    value={form.zeitraum_bis}
-                    onChange={e => set('zeitraum_bis', e.target.value)}
-                    style={INPUT_STYLE}
-                  />
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-
-          {/* Aktions-Buttons */}
-          <div style={{ marginTop: 'auto', display: 'flex', gap: '0.75rem', paddingTop: '1rem' }}>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                flex: 1,
-                padding: '0.625rem',
-                borderRadius: '0.5rem',
-                border: '1px solid var(--color-outline-variant)',
-                background: 'transparent',
-                color: 'var(--color-on-surface)',
-                fontFamily: 'var(--font-body)',
-                fontSize: '0.875rem',
-                cursor: 'pointer',
-              }}
-            >
-              Abbrechen
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              style={{
-                flex: 2,
-                padding: '0.625rem',
-                borderRadius: '0.5rem',
-                border: 'none',
-                background: saving ? 'var(--color-outline)' : 'var(--color-primary)',
-                color: 'var(--color-on-primary)',
-                fontFamily: 'var(--font-body)',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                cursor: saving ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {saving ? 'Wird gespeichert…' : (isEditMode ? 'Änderungen speichern' : 'Eintrag erstellen')}
-            </button>
-          </div>
-        </form>
+        )}
       </div>
+
+      {/* Footer: Navigation */}
+      <div style={{
+        padding: '0.875rem 1.25rem',
+        borderTop: '1px solid var(--color-outline-variant)',
+        display: 'flex',
+        gap: '0.75rem',
+        background: 'var(--color-surface-container)',
+      }}>
+        <button
+          onClick={schrittIdx > 0 ? zurueck : onClose}
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.875rem',
+            padding: '0.625rem 1rem',
+            borderRadius: '0.5rem',
+            border: '1px solid var(--color-outline-variant)',
+            background: 'transparent',
+            color: 'var(--color-on-surface)',
+            cursor: 'pointer',
+          }}
+        >
+          {schrittIdx > 0 ? 'Zurück' : 'Abbrechen'}
+        </button>
+
+        <button
+          onClick={istLetzterSchritt ? handleSave : weiter}
+          disabled={saving}
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            flex: 1,
+            padding: '0.625rem',
+            borderRadius: '0.5rem',
+            border: 'none',
+            background: saving ? 'var(--color-outline)' : 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dim) 100%)',
+            color: 'var(--color-on-primary)',
+            cursor: saving ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {saving
+            ? 'Wird gespeichert…'
+            : istLetzterSchritt
+            ? (isEditMode ? 'Änderungen speichern' : 'Eintrag erstellen')
+            : 'Weiter'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// HaushaltSlideOver (Public API — unverändert für HaushaltPage)
+// ---------------------------------------------------------------------------
+
+export function HaushaltSlideOver({ open, onClose, onSaved, eintrag }: HaushaltSlideOverProps) {
+  if (!open) return null;
+  return (
+    <>
+      {/* Halbtransparenter Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.4)',
+          zIndex: 40,
+        }}
+      />
+      <ModalContent onClose={onClose} onSaved={onSaved} eintrag={eintrag} />
     </>
   );
 }
