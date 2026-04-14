@@ -533,24 +533,34 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
             {/* Startdatum + Ablaufdatum */}
             <div>
               <label style={LABEL_STYLE}>Startdatum</label>
-              <input
-                className="contract-input"
-                style={INPUT_STYLE}
-                type="date"
-                value={form.start_date}
-                onChange={e => handleChange('start_date', e.target.value)}
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                  className="contract-input"
+                  style={{ ...INPUT_STYLE, color: form.start_date ? 'var(--color-on-surface)' : 'transparent' }}
+                  type="date"
+                  value={form.start_date}
+                  onChange={e => handleChange('start_date', e.target.value)}
+                />
+                {!form.start_date && (
+                  <span style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-outline)', fontSize: '0.875rem', pointerEvents: 'none' }}>–</span>
+                )}
+              </div>
             </div>
             <div>
               <label style={LABEL_STYLE}>Ablaufdatum</label>
-              <input
-                className="contract-input"
-                style={{ ...INPUT_STYLE, opacity: form.unbefristet ? 0.4 : 1 }}
-                type="date"
-                value={form.unbefristet ? '' : form.expiration_date}
-                disabled={form.unbefristet}
-                onChange={e => handleChange('expiration_date', e.target.value)}
-              />
+              <div style={{ position: 'relative', opacity: form.unbefristet ? 0.4 : 1 }}>
+                <input
+                  className="contract-input"
+                  style={{ ...INPUT_STYLE, color: (!form.unbefristet && form.expiration_date) ? 'var(--color-on-surface)' : 'transparent' }}
+                  type="date"
+                  value={form.unbefristet ? '' : form.expiration_date}
+                  disabled={form.unbefristet}
+                  onChange={e => handleChange('expiration_date', e.target.value)}
+                />
+                {(!form.unbefristet && !form.expiration_date) && (
+                  <span style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-outline)', fontSize: '0.875rem', pointerEvents: 'none' }}>–</span>
+                )}
+              </div>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.4rem', cursor: 'pointer' }}>
                 <input
                   type="checkbox"
@@ -571,23 +581,33 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
             {/* Kündigungsdatum + Erinnerungsdatum */}
             <div>
               <label style={LABEL_STYLE}>Kündigungsdatum</label>
-              <input
-                className="contract-input"
-                style={INPUT_STYLE}
-                type="date"
-                value={form.cancellation_date}
-                onChange={e => handleChange('cancellation_date', e.target.value)}
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                  className="contract-input"
+                  style={{ ...INPUT_STYLE, color: form.cancellation_date ? 'var(--color-on-surface)' : 'transparent' }}
+                  type="date"
+                  value={form.cancellation_date}
+                  onChange={e => handleChange('cancellation_date', e.target.value)}
+                />
+                {!form.cancellation_date && (
+                  <span style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-outline)', fontSize: '0.875rem', pointerEvents: 'none' }}>–</span>
+                )}
+              </div>
             </div>
             <div>
               <label style={LABEL_STYLE}>Erinnerungsdatum</label>
-              <input
-                className="contract-input"
-                style={INPUT_STYLE}
-                type="date"
-                value={form.reminder_date}
-                onChange={e => handleChange('reminder_date', e.target.value)}
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                  className="contract-input"
+                  style={{ ...INPUT_STYLE, color: form.reminder_date ? 'var(--color-on-surface)' : 'transparent' }}
+                  type="date"
+                  value={form.reminder_date}
+                  onChange={e => handleChange('reminder_date', e.target.value)}
+                />
+                {!form.reminder_date && (
+                  <span style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-outline)', fontSize: '0.875rem', pointerEvents: 'none' }}>–</span>
+                )}
+              </div>
             </div>
 
             {/* Kostenbetrag + Währung + Zahlungsintervall */}
