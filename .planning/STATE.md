@@ -75,9 +75,10 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 | 260411-kc4 | Arbeitsmappe Export CSV+PDF mit Filter (Bereich/Seite/alles) | 2026-04-11 | 34f9206 | [260411-kc4-arbeitsmappe-export-csv-und-pdf-mit-filt](.planning/quick/260411-kc4-arbeitsmappe-export-csv-und-pdf-mit-filt/) |
 | 260411-ki6 | Aufgaben-Archiv: archived-Status, Archivieren-Button (Erledigt-Tab), Archiv-Tab mit Suche | 2026-04-11 | a061c06 | [260411-ki6-aufgaben-archiv-archived-status-archivie](.planning/quick/260411-ki6-aufgaben-archiv-archived-status-archivie/) |
 | 260414-chg | Fix migrate.ts PRAGMA foreign_keys außerhalb Transaktion | 2026-04-14 | 65d0801 | [260414-chg-fix-migrate-ts-pragma-foreign-keys-au-er](.planning/quick/260414-chg-fix-migrate-ts-pragma-foreign-keys-au-er/) |
+| 260414-cpd | Automatisches DB-Backup vor Migrationen in migrate.ts | 2026-04-14 | 6edfe32 | [260414-cpd-automatisches-db-backup-vor-migrationen-](.planning/quick/260414-cpd-automatisches-db-backup-vor-migrationen-/) |
 
 ---
-*State initialized: 2026-04-07 | Last activity: 2026-04-14 - Completed quick task 260414-chg: Fix migrate.ts PRAGMA foreign_keys außerhalb Transaktion*
+*State initialized: 2026-04-07 | Last activity: 2026-04-14 - Completed quick task 260414-cpd: Automatisches DB-Backup vor Migrationen*
 | 2026-04-10 | fast | TaskCard onClick → SlideOver fix (PointerSensor distance constraint) | ✅ |
 | 2026-04-10 | fast | TaskSlideOver Backdrop-Klick schließt Panel nicht mehr | ✅ |
 | 2026-04-10 | 260410-v3q | Status-Notiz beim Drag (DragPrompt + DB-Migration + KanbanBoard-Pause) | ✅ |
