@@ -140,6 +140,11 @@ export async function deleteContact(id: number): Promise<void> {
   await apiClient.delete(`/contacts/${id}`);
 }
 
+// Setzt nur das area-Feld eines Kontakts via PUT (Backend hat kein PATCH /contacts/:id)
+export async function setContactArea(id: number, area: string): Promise<Contact> {
+  return apiClient.put<Contact>(`/contacts/${id}`, { area }).then(r => r.data);
+}
+
 export async function archiveContact(id: number, archived: boolean): Promise<void> {
   await apiClient.post(`/contacts/${id}/archive`, { archived });
 }
