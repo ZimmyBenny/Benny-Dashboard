@@ -36,7 +36,7 @@ interface LocalItem {
 export function DjQuoteDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const isNew = id === 'new';
+  const isNew = !id || id === 'new';
 
   // Formularfelder
   const [customerId, setCustomerId] = useState<number | null>(null);
