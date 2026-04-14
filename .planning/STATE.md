@@ -79,6 +79,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 | 260414-cs9 | Systemweite Datensicherheit createBackup-Utility und CLAUDE.md Regel | 2026-04-14 | 690dc77 | [260414-cs9-systemweite-datensicherheit-createbackup](.planning/quick/260414-cs9-systemweite-datensicherheit-createbackup/) |
 | 260414-d5g | Haushalt-Modul Gemeinsame Ausgaben Benny und Julia | 2026-04-14 | cd1eb4c | [260414-d5g-haushalt-modul-gemeinsame-ausgaben-benny](.planning/quick/260414-d5g-haushalt-modul-gemeinsame-ausgaben-benny/) |
 | 260414-ug7 | DJ-Kunden-Seite: Tabelle, KPIs, Suche, Kontakt-Picker | 2026-04-14 | 24b05fd | [260414-ug7-dj-kunden-seite-implementieren-djcustome](.planning/quick/260414-ug7-dj-kunden-seite-implementieren-djcustome/) |
+| 260414-ulb | DJ-Leistungen & Pakete Seite: Tabs, Tabelle, Toggle, Slide-Overs, KPIs | 2026-04-14 | 453bd71 | [260414-ulb-dj-leistungen-pakete-seite-implementiere](.planning/quick/260414-ulb-dj-leistungen-pakete-seite-implementiere/) |
 
 ---
 *State initialized: 2026-04-07 | Last activity: 2026-04-14 - Completed quick task 260414-d5g: Haushalt-Modul Gemeinsame Ausgaben Benny & Julia*

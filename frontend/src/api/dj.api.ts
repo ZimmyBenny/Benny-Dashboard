@@ -139,6 +139,23 @@ export interface DjInvoice {
   items?: DjInvoiceItem[];
 }
 
+export interface StatusHistoryEntry {
+  id: number;
+  event_id: number;
+  from_status: string | null;
+  to_status: string;
+  comment: string | null;
+  created_at: string;
+}
+
+export interface DjEventDetail extends DjEvent {
+  statusHistory: StatusHistoryEntry[];
+  customer: DjCustomer | null;
+  location: object | null;
+  quotes: DjQuote[];
+  invoices: DjInvoice[];
+}
+
 export interface DjExpense {
   id: number;
   expense_date: string;
@@ -183,7 +200,7 @@ export const searchDjCustomers = (q: string): Promise<DjCustomer[]> =>
 export const fetchDjEvents = (params?: { year?: number; status?: string; event_type?: string; q?: string }): Promise<DjEvent[]> =>
   apiClient.get('/dj/events', { params }).then(r => r.data);
 
-export const fetchDjEvent = (id: number): Promise<DjEvent> =>
+export const fetchDjEvent = (id: number): Promise<DjEventDetail> =>
   apiClient.get(`/dj/events/${id}`).then(r => r.data);
 
 export const createDjEvent = (data: Partial<DjEvent>): Promise<DjEvent> =>
