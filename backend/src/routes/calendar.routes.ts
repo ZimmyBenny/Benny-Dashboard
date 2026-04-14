@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import db from '../db/connection';
 import {
-  getAllCalendars, syncRange, createEvent, deleteEvent, fullSync,
+  getAllCalendars, syncRange, createEvent, updateEvent, deleteEvent, fullSync,
 } from '../services/calendarSwift.service';
 
 const router = Router();
@@ -62,7 +62,7 @@ router.get('/events', async (req, res) => {
 router.post('/events', async (req, res) => {
   const {
     title, start_at, end_at, calendar_id,
-    is_all_day = false, location, notes,
+    is_all_day = false, location, notes, alarm_minutes,
   } = req.body as {
     title: string;
     start_at: string;
@@ -71,13 +71,14 @@ router.post('/events', async (req, res) => {
     is_all_day?: boolean;
     location?: string;
     notes?: string;
+    alarm_minutes?: number;
   };
 
   if (!title || !start_at || !end_at || !calendar_id) {
     return res.status(400).json({ error: 'title, start_at, end_at, calendar_id required' });
   }
 
-  const event = await createEvent({ title, start_at, end_at, calendar_id, is_all_day, location, notes });
+  const event = await createEvent({ title, start_at, end_at, calendar_id, is_all_day, location, notes, alarm_minutes });
   res.status(201).json({ ok: true, event });
 });
 
@@ -94,6 +95,33 @@ router.post('/sync', async (req, res) => {
 
   await fullSync();
   res.json({ ok: true, message: 'Sync abgeschlossen' });
+});
+
+// PATCH /api/calendar/events/:id — Event aktualisieren (id = SQLite integer id)
+router.patch('/events/:id', async (req, res) => {
+  const dbId = Number(req.params.id);
+  if (!Number.isInteger(dbId)) {
+    return res.status(400).json({ error: 'id must be an integer' });
+  }
+
+  const row = db.prepare('SELECT apple_uid FROM calendar_events WHERE id = ?').get(dbId) as { apple_uid: string } | undefined;
+  if (!row) {
+    return res.status(404).json({ error: 'Event not found' });
+  }
+
+  const { title, start_at, end_at, calendar_id, is_all_day, location, notes, alarm_minutes } = req.body as {
+    title?: string;
+    start_at?: string;
+    end_at?: string;
+    calendar_id?: string;
+    is_all_day?: boolean;
+    location?: string | null;
+    notes?: string | null;
+    alarm_minutes?: number | null;
+  };
+
+  const event = await updateEvent(row.apple_uid, { title, start_at, end_at, calendar_id, is_all_day, location, notes, alarm_minutes });
+  res.json({ ok: true, event });
 });
 
 // DELETE /api/calendar/events/:id — Event loeschen (id = apple_uid / eventIdentifier)

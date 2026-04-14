@@ -138,7 +138,6 @@ func runRead(subArgs: [String]) {
 
     let predicate = store.predicateForEvents(withStart: fromDate, end: toDate, calendars: nil)
     let events = store.events(matching: predicate)
-      .filter { !$0.hasRecurrenceRules }
 
     var result: [[String: Any]] = []
     for evt in events {
@@ -178,9 +177,11 @@ func runCreate(subArgs: [String]) {
     errorExit("create requires --calendar-id ID --title TEXT --start ISO --end ISO")
   }
 
-  let isAllDay = hasFlag(subArgs, flag: "--all-day")
-  let notes    = argValue(subArgs, flag: "--notes")
-  let location = argValue(subArgs, flag: "--location")
+  let isAllDay     = hasFlag(subArgs, flag: "--all-day")
+  let notes        = argValue(subArgs, flag: "--notes")
+  let location     = argValue(subArgs, flag: "--location")
+  let alarmMinStr  = argValue(subArgs, flag: "--alarm-minutes")
+  let alarmMinutes = alarmMinStr.flatMap { Int($0) }
 
   requestAccess { granted in
     guard granted else { errorExit("EventKit access denied") }
@@ -197,6 +198,9 @@ func runCreate(subArgs: [String]) {
     newEvent.isAllDay  = isAllDay
     if let n = notes    { newEvent.notes    = n }
     if let l = location { newEvent.location = l }
+    if let mins = alarmMinutes {
+      newEvent.addAlarm(EKAlarm(relativeOffset: TimeInterval(-mins * 60)))
+    }
 
     do {
       try store.save(newEvent, span: .thisEvent, commit: true)
@@ -218,6 +222,95 @@ func runCreate(subArgs: [String]) {
 
     jsonOutput(result)
     CFRunLoopStop(CFRunLoopGetMain())
+  }
+  CFRunLoopRun()
+}
+
+// ── Subcommand: list-reminders ────────────────────────────────────────────────
+
+func requestReminderAccess(completion: @escaping (Bool) -> Void) {
+  if #available(macOS 14.0, *) {
+    store.requestFullAccessToReminders { granted, error in
+      if let error = error {
+        print("[cal-tool] Reminder access error: \(error.localizedDescription)", to: &standardError)
+      }
+      completion(granted)
+    }
+  } else {
+    store.requestAccess(to: .reminder) { granted, error in
+      if let error = error {
+        print("[cal-tool] Reminder access error: \(error.localizedDescription)", to: &standardError)
+      }
+      completion(granted)
+    }
+  }
+}
+
+func runListReminders(subArgs: [String]) {
+  let fromStr = argValue(subArgs, flag: "--from")
+  let toStr   = argValue(subArgs, flag: "--to")
+
+  requestReminderAccess { granted in
+    guard granted else { errorExit("EventKit reminder access denied") }
+
+    let predicate = store.predicateForReminders(in: nil)
+
+    store.fetchReminders(matching: predicate) { reminders in
+      guard let reminders = reminders else {
+        jsonOutput([] as [[String: Any]])
+        CFRunLoopStop(CFRunLoopGetMain())
+        return
+      }
+
+      // Datumsfilter (optional, basierend auf dueDate)
+      var fromDate: Date? = nil
+      var toDate: Date? = nil
+      if let f = fromStr { fromDate = parseISO(f + "T00:00:00Z") ?? parseISO(f) }
+      if let t = toStr   { toDate   = parseISO(t + "T23:59:59Z") ?? parseISO(t) }
+
+      var result: [[String: Any]] = []
+
+      for reminder in reminders {
+        guard !reminder.isCompleted else { continue }
+
+        // dueDate aus DateComponents berechnen
+        var dueDate: Date? = nil
+        if let comps = reminder.dueDateComponents {
+          dueDate = Calendar.current.date(from: comps)
+        }
+
+        // Datumsfilter anwenden
+        if let from = fromDate, let due = dueDate, due < from { continue }
+        if let to   = toDate,   let due = dueDate, due > to   { continue }
+
+        // Reminders ohne Fälligkeitsdatum immer einschließen
+        let dueDateStr: String
+        if let due = dueDate {
+          dueDateStr = formatISO(due)
+        } else {
+          // Kein Fälligkeitsdatum — als "today" behandeln (damit es im Kalender erscheint)
+          dueDateStr = formatISO(Date())
+        }
+
+        var entry: [String: Any] = [
+          "id":            reminder.calendarItemIdentifier,
+          "calendarId":    reminder.calendar?.calendarIdentifier ?? "",
+          "calendarTitle": reminder.calendar?.title ?? "Erinnerungen",
+          "title":         reminder.title ?? "(keine Beschreibung)",
+          "startDate":     dueDateStr,
+          "endDate":       dueDateStr,
+          "isAllDay":      reminder.dueDateComponents?.hour == nil, // kein Zeitanteil = ganztägig
+          "isReminder":    true,
+        ]
+        entry["location"] = NSNull()
+        entry["notes"]    = reminder.notes as Any? ?? NSNull()
+
+        result.append(entry)
+      }
+
+      jsonOutput(result)
+      CFRunLoopStop(CFRunLoopGetMain())
+    }
   }
   CFRunLoopRun()
 }
@@ -248,6 +341,84 @@ func runDelete(subArgs: [String]) {
   CFRunLoopRun()
 }
 
+// ── Subcommand: update ────────────────────────────────────────────────────────
+
+func runUpdate(subArgs: [String]) {
+  guard let eventId = argValue(subArgs, flag: "--event-id") else {
+    errorExit("update requires --event-id ID")
+  }
+
+  let newTitle    = argValue(subArgs, flag: "--title")
+  let startStr    = argValue(subArgs, flag: "--start")
+  let endStr      = argValue(subArgs, flag: "--end")
+  let newNotes    = argValue(subArgs, flag: "--notes")
+  let newLocation = argValue(subArgs, flag: "--location")
+  let newCalId    = argValue(subArgs, flag: "--calendar-id")
+  let isAllDay    = hasFlag(subArgs, flag: "--all-day")
+  let clearNotes  = hasFlag(subArgs, flag: "--clear-notes")
+  let clearLoc    = hasFlag(subArgs, flag: "--clear-location")
+  let alarmMinStr  = argValue(subArgs, flag: "--alarm-minutes")
+  let alarmMinutes = alarmMinStr.flatMap { Int($0) }
+
+  requestAccess { granted in
+    guard granted else { errorExit("EventKit access denied") }
+
+    guard let event = store.event(withIdentifier: eventId) else {
+      errorExit("Event not found: \(eventId)")
+    }
+
+    if let t = newTitle   { event.title     = t }
+    if let n = newNotes   { event.notes     = n }
+    if let l = newLocation { event.location = l }
+    if clearNotes         { event.notes     = nil }
+    if clearLoc           { event.location  = nil }
+
+    if let s = startStr, let startDate = parseISO(s) { event.startDate = startDate }
+    if let e = endStr,   let endDate   = parseISO(e) { event.endDate   = endDate   }
+
+    if startStr != nil || endStr != nil {
+      event.isAllDay = isAllDay
+    }
+
+    if let calId = newCalId,
+       let calendar = store.calendars(for: .event).first(where: { $0.calendarIdentifier == calId }) {
+      event.calendar = calendar
+    }
+
+    // Alarm: bestehende löschen und neu setzen wenn --alarm-minutes übergeben
+    if alarmMinStr != nil {
+      event.alarms = nil
+      if let mins = alarmMinutes, mins >= 0 {
+        event.addAlarm(EKAlarm(relativeOffset: TimeInterval(-mins * 60)))
+      }
+    }
+
+    do {
+      try store.save(event, span: .thisEvent, commit: true)
+    } catch {
+      errorExit("Failed to update event: \(error.localizedDescription)")
+    }
+
+    guard let cal = event.calendar else { errorExit("Calendar missing after update") }
+
+    let result: [String: Any] = [
+      "id":            event.eventIdentifier ?? eventId,
+      "calendarId":    cal.calendarIdentifier,
+      "calendarTitle": cal.title,
+      "title":         event.title ?? "",
+      "startDate":     formatISO(event.startDate),
+      "endDate":       formatISO(event.endDate),
+      "isAllDay":      event.isAllDay,
+      "location":      event.location as Any? ?? NSNull(),
+      "notes":         event.notes    as Any? ?? NSNull(),
+    ]
+
+    jsonOutput(result)
+    CFRunLoopStop(CFRunLoopGetMain())
+  }
+  CFRunLoopRun()
+}
+
 // ── Dispatch ──────────────────────────────────────────────────────────────────
 
 let subArgs = Array(args.dropFirst())
@@ -257,10 +428,14 @@ case "list-calendars":
   runListCalendars()
 case "read":
   runRead(subArgs: subArgs)
+case "list-reminders":
+  runListReminders(subArgs: subArgs)
 case "create":
   runCreate(subArgs: subArgs)
+case "update":
+  runUpdate(subArgs: subArgs)
 case "delete":
   runDelete(subArgs: subArgs)
 default:
-  errorExit("Unknown subcommand: \(subcommand). Use list-calendars, read, create, or delete.")
+  errorExit("Unknown subcommand: \(subcommand). Use list-calendars, read, list-reminders, create, update, or delete.")
 }

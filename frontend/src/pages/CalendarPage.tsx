@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import {
-  fetchEvents, fetchCalendars, createEvent, deleteEvent, forceSync, updateCalendarVisibility,
+  fetchEvents, fetchCalendars, createEvent, updateEvent, deleteEvent, forceSync, updateCalendarVisibility,
   type CalendarEvent, type Calendar, type CreateEventPayload,
 } from '../api/calendar.api';
 
@@ -115,10 +115,11 @@ interface WeekViewProps {
   viewDate: Date;
   filteredEvents: CalendarEvent[];
   calendars: Calendar[];
-  onDayClick: (d: Date) => void;
+  onNewEvent: (date: string) => void;
+  onEventClick: (evt: CalendarEvent) => void;
 }
 
-function WeekView({ viewDate, filteredEvents, calendars, onDayClick }: WeekViewProps) {
+function WeekView({ viewDate, filteredEvents, calendars, onNewEvent, onEventClick }: WeekViewProps) {
   const monday = new Date(viewDate);
   monday.setDate(viewDate.getDate() - ((viewDate.getDay() + 6) % 7));
 
@@ -137,29 +138,44 @@ function WeekView({ viewDate, filteredEvents, calendars, onDayClick }: WeekViewP
       background: 'var(--color-surface-container)', borderRadius: '0.75rem',
       border: '1px solid var(--color-outline-variant)', overflow: 'hidden',
     }}>
-      {/* Wochentags-Header mit Datum */}
+      {/* Wochentags-Header mit Datum + "+" Button */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}>
         {weekDays.map((day, i) => {
           const dayStr = isoDateLocal(day);
           const isToday = dayStr === todayStr;
           return (
             <div key={i} style={{
-              padding: '0.75rem 0.5rem', textAlign: 'center',
+              padding: '0.5rem 0.375rem 0.5rem', textAlign: 'center',
               borderBottom: '1px solid var(--color-outline-variant)',
               borderRight: i < 6 ? '1px solid var(--color-outline-variant)' : 'none',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem',
             }}>
               <div style={{ fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-outline)', fontWeight: 600 }}>
                 {WEEKDAYS[i]}
               </div>
               <div style={{
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                width: 28, height: 28, borderRadius: '50%', marginTop: '0.25rem',
+                width: 28, height: 28, borderRadius: '50%',
                 fontSize: '0.9rem', fontWeight: isToday ? 700 : 400,
                 color: isToday ? 'var(--color-on-primary)' : 'var(--color-on-surface)',
                 background: isToday ? 'var(--color-primary)' : 'transparent',
               }}>
                 {day.getDate()}
               </div>
+              <button
+                onClick={() => onNewEvent(dayStr)}
+                title="Neuer Termin"
+                style={{
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid var(--color-outline-variant)',
+                  cursor: 'pointer', padding: '3px 8px',
+                  borderRadius: 6, color: 'var(--color-outline)',
+                  fontSize: '0.7rem', letterSpacing: '0.04em',
+                  lineHeight: 1.4, whiteSpace: 'nowrap',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--color-primary)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-primary)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--color-outline)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-outline-variant)'; }}
+              >+ Neu</button>
             </div>
           );
         })}
@@ -179,24 +195,24 @@ function WeekView({ viewDate, filteredEvents, calendars, onDayClick }: WeekViewP
           return (
             <div
               key={i}
-              onClick={() => onDayClick(day)}
               style={{
-                padding: '0.5rem 0.375rem', cursor: 'pointer',
+                padding: '0.5rem 0.375rem',
                 borderRight: i < 6 ? '1px solid var(--color-outline-variant)' : 'none',
                 display: 'flex', flexDirection: 'column', gap: '4px',
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
               {sorted.map(evt => {
                 const color = calendarColor(calendars, evt.calendar_id, evt.calendar_name);
                 return (
-                  <div key={evt.apple_uid || evt.id} style={{
-                    fontSize: '0.7rem', padding: '3px 5px', borderRadius: 4,
-                    borderLeft: `3px solid ${color}`, background: `${color}22`,
-                    color: 'var(--color-on-surface)', overflow: 'hidden',
-                    whiteSpace: 'nowrap', textOverflow: 'ellipsis',
-                  }} title={evt.title}>
+                  <div key={evt.apple_uid || evt.id}
+                    onClick={() => onEventClick(evt)}
+                    style={{
+                      fontSize: '0.7rem', padding: '3px 5px', borderRadius: 4,
+                      borderLeft: `3px solid ${color}`, background: `${color}22`,
+                      color: 'var(--color-on-surface)', overflow: 'hidden',
+                      whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+                      cursor: 'pointer',
+                    }} title={evt.title}>
                     {evt.is_all_day ? '' : `${toLocalTimeStr(evt.start_at)} `}{evt.title}
                   </div>
                 );
@@ -218,9 +234,11 @@ interface DayViewProps {
   viewDate: Date;
   filteredEvents: CalendarEvent[];
   calendars: Calendar[];
+  onNewEvent: (date: string) => void;
+  onEventClick: (evt: CalendarEvent) => void;
 }
 
-function DayView({ viewDate, filteredEvents, calendars }: DayViewProps) {
+function DayView({ viewDate, filteredEvents, calendars, onNewEvent, onEventClick }: DayViewProps) {
   const dayStr = isoDateLocal(viewDate);
   const dayEvts = (groupEventsByDate(filteredEvents).get(dayStr) ?? [])
     .sort((a, b) => {
@@ -244,11 +262,16 @@ function DayView({ viewDate, filteredEvents, calendars }: DayViewProps) {
             const color = calendarColor(calendars, evt.calendar_id, evt.calendar_name);
             const timeStr = evt.is_all_day ? 'Ganztägig' : `${toLocalTimeStr(evt.start_at)} – ${toLocalTimeStr(evt.end_at)}`;
             return (
-              <div key={evt.apple_uid || evt.id} style={{
-                display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
-                padding: '0.875rem 1.25rem',
-                borderBottom: idx < dayEvts.length - 1 ? '1px solid var(--color-outline-variant)' : 'none',
-              }}>
+              <div key={evt.apple_uid || evt.id}
+                onClick={() => onEventClick(evt)}
+                style={{
+                  display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
+                  padding: '0.875rem 1.25rem', cursor: 'pointer',
+                  borderBottom: idx < dayEvts.length - 1 ? '1px solid var(--color-outline-variant)' : 'none',
+                }}
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'}
+                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+              >
                 <div style={{
                   width: 10, height: 10, borderRadius: '50%',
                   background: color, flexShrink: 0, marginTop: 4,
@@ -271,11 +294,35 @@ function DayView({ viewDate, filteredEvents, calendars }: DayViewProps) {
           })}
         </div>
       )}
+      {/* Neuer Termin Button */}
+      <div style={{ padding: '0.75rem 1.25rem', borderTop: '1px solid var(--color-outline-variant)' }}>
+        <button
+          onClick={() => onNewEvent(isoDateLocal(viewDate))}
+          style={{
+            width: '100%', padding: '0.625rem 1rem', borderRadius: '0.5rem',
+            background: 'var(--color-primary)', color: 'var(--color-on-primary)',
+            border: 'none', fontFamily: 'var(--font-body)', fontSize: '0.875rem',
+            fontWeight: 600, cursor: 'pointer',
+          }}
+        >
+          + Neuer Termin
+        </button>
+      </div>
     </div>
   );
 }
 
 // ── EventForm ──────────────────────────────────────────────────────────────────
+
+const ALARM_PRESETS = [
+  { label: 'Keine', value: null },
+  { label: '5 Min vorher', value: 5 },
+  { label: '15 Min vorher', value: 15 },
+  { label: '30 Min vorher', value: 30 },
+  { label: '1 Std vorher', value: 60 },
+  { label: '1 Tag vorher', value: 1440 },
+  { label: 'Eigene Zeit', value: -1 },
+];
 
 interface EventFormProps {
   calendars: Calendar[];
@@ -289,9 +336,23 @@ function EventForm({ calendars, initialDate, onSaved, onClose }: EventFormProps)
   const [date, setDate]           = useState(initialDate);
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime]     = useState('10:00');
+
+  function handleStartTimeChange(val: string) {
+    setStartTime(val);
+    // Endzeit auf Startzeit + 1h setzen, sofern Endzeit <= Startzeit
+    const [sh, sm] = val.split(':').map(Number);
+    const endMins = sh * 60 + sm + 60;
+    const eh = Math.floor(endMins / 60) % 24;
+    const em = endMins % 60;
+    const newEnd = `${String(eh).padStart(2,'0')}:${String(em).padStart(2,'0')}`;
+    const [curEh, curEm] = endTime.split(':').map(Number);
+    if (curEh * 60 + curEm <= sh * 60 + sm) setEndTime(newEnd);
+  }
   const [isAllDay, setIsAllDay]   = useState(false);
   const [calId, setCalId]         = useState(calendars[0]?.id ?? '');
   const [location, setLocation]   = useState('');
+  const [alarmPreset, setAlarmPreset] = useState<number | null>(null); // null=Keine, -1=Eigene
+  const [alarmCustom, setAlarmCustom] = useState('');
   const [saving, setSaving]       = useState(false);
   const [error, setError]         = useState<string | null>(null);
 
@@ -310,12 +371,18 @@ function EventForm({ calendars, initialDate, onSaved, onClose }: EventFormProps)
       let end_at: string;
 
       if (isAllDay) {
-        start_at = `${date}T00:00:00Z`;
-        end_at   = `${date}T23:59:59Z`;
+        // Ganztägig: Mitternacht lokal → UTC
+        start_at = new Date(`${date}T00:00:00`).toISOString();
+        end_at   = new Date(`${date}T23:59:59`).toISOString();
       } else {
-        start_at = `${date}T${startTime}:00Z`;
-        end_at   = `${date}T${endTime}:00Z`;
+        // Lokale Uhrzeit → UTC (ohne Z = Browser interpretiert als lokale Zeit)
+        start_at = new Date(`${date}T${startTime}:00`).toISOString();
+        end_at   = new Date(`${date}T${endTime}:00`).toISOString();
       }
+
+      const alarmMinutes = alarmPreset === -1
+        ? (parseInt(alarmCustom) > 0 ? parseInt(alarmCustom) : undefined)
+        : (alarmPreset ?? undefined);
 
       const payload: CreateEventPayload = {
         title: title.trim(),
@@ -324,6 +391,7 @@ function EventForm({ calendars, initialDate, onSaved, onClose }: EventFormProps)
         calendar_id: calId,
         is_all_day: isAllDay,
         location: location.trim() || undefined,
+        alarm_minutes: alarmMinutes,
       };
 
       const evt = await createEvent(payload);
@@ -375,7 +443,7 @@ function EventForm({ calendars, initialDate, onSaved, onClose }: EventFormProps)
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
           <div>
             <label style={labelStyle}>Von</label>
-            <input type="time" style={inputStyle} value={startTime} onChange={e => setStartTime(e.target.value)} />
+            <input type="time" style={inputStyle} value={startTime} onChange={e => handleStartTimeChange(e.target.value)} />
           </div>
           <div>
             <label style={labelStyle}>Bis</label>
@@ -407,6 +475,35 @@ function EventForm({ calendars, initialDate, onSaved, onClose }: EventFormProps)
           onChange={e => setLocation(e.target.value)}
           placeholder="Ort eingeben"
         />
+      </div>
+
+      <div>
+        <label style={labelStyle}>Erinnerung</label>
+        <select
+          style={{ ...inputStyle, cursor: 'pointer' }}
+          value={alarmPreset ?? 'null'}
+          onChange={e => {
+            const v = e.target.value;
+            setAlarmPreset(v === 'null' ? null : parseInt(v));
+          }}
+        >
+          {ALARM_PRESETS.map(p => (
+            <option key={String(p.value)} value={String(p.value)}>{p.label}</option>
+          ))}
+        </select>
+        {alarmPreset === -1 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+            <input
+              type="number"
+              min="1"
+              style={{ ...inputStyle, width: '100px' }}
+              value={alarmCustom}
+              onChange={e => setAlarmCustom(e.target.value)}
+              placeholder="z.B. 45"
+            />
+            <span style={{ fontSize: '0.8rem', color: 'var(--color-outline)' }}>Minuten vorher</span>
+          </div>
+        )}
       </div>
 
       {error && (
@@ -452,15 +549,118 @@ interface DaySlideOverProps {
   onClose: () => void;
   onEventDeleted: (appleUid: string) => void;
   onEventCreated: (evt: CalendarEvent) => void;
+  onEventUpdated: (evt: CalendarEvent) => void;
 }
 
-function DaySlideOver({ date, events, calendars, onClose, onEventDeleted, onEventCreated }: DaySlideOverProps) {
+function DaySlideOver({ date, events, calendars, onClose, onEventDeleted, onEventCreated, onEventUpdated }: DaySlideOverProps) {
   const [showForm, setShowForm] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  const [editTitle, setEditTitle]       = useState('');
+  const [editDate, setEditDate]         = useState('');
+  const [editStart, setEditStart]       = useState('');
+  const [editEnd, setEditEnd]           = useState('');
+  const [editAllDay, setEditAllDay]     = useState(false);
+  const [editCalId, setEditCalId]       = useState('');
+  const [editLocation, setEditLocation]       = useState('');
+  const [editNotes, setEditNotes]             = useState('');
+  const [editAlarmPreset, setEditAlarmPreset] = useState<number | null>(null);
+  const [editAlarmCustom, setEditAlarmCustom] = useState('');
+  const [saving, setSaving]                   = useState(false);
+  const [editError, setEditError]             = useState<string | null>(null);
 
-  const weekdayIdx = (date.getDay() + 6) % 7; // 0=Mo
-  const weekdayName = WEEKDAYS_LONG[weekdayIdx];
-  const dateStr = `${weekdayName}, ${date.getDate()}. ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+  function handleEditStartChange(val: string) {
+    setEditStart(val);
+    const [sh, sm] = val.split(':').map(Number);
+    const endMins = sh * 60 + sm + 60;
+    const eh = Math.floor(endMins / 60) % 24;
+    const em = endMins % 60;
+    const newEnd = `${String(eh).padStart(2,'0')}:${String(em).padStart(2,'0')}`;
+    const [curEh, curEm] = editEnd.split(':').map(Number);
+    if (curEh * 60 + curEm <= sh * 60 + sm) setEditEnd(newEnd);
+  }
+
+  function startEditing(evt: CalendarEvent) {
+    const start = new Date(evt.start_at);
+    const end   = new Date(evt.end_at);
+    setEditingEvent(evt);
+    setEditTitle(evt.title);
+    setEditDate(isoDateLocal(start));
+    setEditStart(`${String(start.getHours()).padStart(2,'0')}:${String(start.getMinutes()).padStart(2,'0')}`);
+    setEditEnd(`${String(end.getHours()).padStart(2,'0')}:${String(end.getMinutes()).padStart(2,'0')}`);
+    setEditAllDay(evt.is_all_day === 1);
+    setEditCalId(evt.calendar_id ?? '');
+    setEditLocation(evt.location ?? '');
+    setEditNotes(evt.notes ?? '');
+    setEditAlarmPreset(null);
+    setEditAlarmCustom('');
+    setEditError(null);
+  }
+
+  async function handleUpdate() {
+    if (!editingEvent) return;
+    if (!editTitle.trim()) { setEditError('Titel erforderlich'); return; }
+    setSaving(true);
+    setEditError(null);
+    try {
+      const start_at = editAllDay
+        ? new Date(`${editDate}T00:00:00`).toISOString()
+        : new Date(`${editDate}T${editStart}:00`).toISOString();
+      const end_at = editAllDay
+        ? new Date(`${editDate}T23:59:59`).toISOString()
+        : new Date(`${editDate}T${editEnd}:00`).toISOString();
+
+      const alarmMinutes = editAlarmPreset === -1
+        ? (parseInt(editAlarmCustom) > 0 ? parseInt(editAlarmCustom) : undefined)
+        : editAlarmPreset;
+
+      const updated = await updateEvent(editingEvent.id, {
+        title: editTitle.trim(),
+        start_at,
+        end_at,
+        is_all_day: editAllDay,
+        calendar_id: editCalId || undefined,
+        location: editLocation.trim() || null,
+        notes: editNotes.trim() || null,
+        alarm_minutes: alarmMinutes ?? null,
+      });
+      onEventUpdated(updated);
+      setEditingEvent(null);
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'Fehler beim Speichern');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Drag-State
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent) {
+      if (!dragRef.current) return;
+      setPos({
+        x: dragRef.current.origX + (e.clientX - dragRef.current.startX),
+        y: dragRef.current.origY + (e.clientY - dragRef.current.startY),
+      });
+    }
+    function onMouseUp() { dragRef.current = null; }
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => { window.removeEventListener('mousemove', onMouseMove); window.removeEventListener('mouseup', onMouseUp); };
+  }, []);
+
+  function onHeaderMouseDown(e: React.MouseEvent) {
+    if ((e.target as HTMLElement).closest('button')) return;
+    const cx = pos?.x ?? window.innerWidth / 2 - 200;
+    const cy = pos?.y ?? window.innerHeight / 2 - 240;
+    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: cx, origY: cy };
+    if (!pos) setPos({ x: cx, y: cy });
+  }
+
+  const weekdayIdx = (date.getDay() + 6) % 7;
+  const dateStr = `${WEEKDAYS_LONG[weekdayIdx]}, ${date.getDate()}. ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
 
   const sortedEvents = [...events].sort((a, b) => {
     if (a.is_all_day && !b.is_all_day) return -1;
@@ -481,105 +681,163 @@ function DaySlideOver({ date, events, calendars, onClose, onEventDeleted, onEven
     }
   }
 
+  const modalStyle: React.CSSProperties = pos
+    ? { position: 'fixed', left: pos.x, top: pos.y, transform: 'none' }
+    : { position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)' };
+
   return (
     <>
       {/* Overlay */}
-      <div
-        onClick={onClose}
-        style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 40,
-        }}
-      />
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 40 }} />
 
-      {/* SlideOver Panel */}
-      <div
-        style={{
-          position: 'fixed', top: 0, right: 0, bottom: 0, width: 400,
-          background: 'var(--color-surface-container-high)',
-          borderLeft: '1px solid var(--color-outline-variant)',
-          zIndex: 50, display: 'flex', flexDirection: 'column',
-          boxShadow: '-8px 0 32px rgba(0,0,0,0.4)',
-          animation: 'slideInRight 0.2s ease-out',
-        }}
-      >
-        {/* Header */}
-        <div style={{
-          padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--color-outline-variant)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0,
-        }}>
+      {/* Floating Modal */}
+      <div style={{
+        ...modalStyle,
+        width: 420, maxWidth: 'calc(100vw - 2rem)',
+        maxHeight: '80vh',
+        background: 'var(--color-surface-container-high)',
+        border: '1px solid var(--color-outline-variant)',
+        borderRadius: '0.75rem',
+        zIndex: 50, display: 'flex', flexDirection: 'column',
+        boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
+      }}>
+        {/* Header — drag handle */}
+        <div
+          onMouseDown={onHeaderMouseDown}
+          style={{
+            padding: '1rem 1.25rem', borderBottom: '1px solid var(--color-outline-variant)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            flexShrink: 0, cursor: 'grab', userSelect: 'none',
+          }}
+        >
           <div>
-            <p style={{ margin: 0, fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-outline)' }}>
+            <p style={{ margin: 0, fontSize: '0.65rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-outline)' }}>
               Tagesansicht
             </p>
-            <h2 style={{ margin: '0.25rem 0 0', fontSize: '1rem', fontWeight: 600, color: 'var(--color-on-surface)', fontFamily: 'var(--font-display)' }}>
+            <h2 style={{ margin: '0.2rem 0 0', fontSize: '0.95rem', fontWeight: 600, color: 'var(--color-on-surface)', fontFamily: 'var(--font-display)' }}>
               {dateStr}
             </h2>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'rgba(255,255,255,0.06)', border: '1px solid var(--color-outline-variant)',
-              borderRadius: '0.5rem', padding: '0.375rem 0.625rem', color: 'var(--color-on-surface)',
-              cursor: 'pointer', fontSize: '1rem', lineHeight: 1,
-            }}
-          >
-            ✕
-          </button>
+          <button onClick={onClose} style={{
+            background: 'rgba(255,255,255,0.06)', border: '1px solid var(--color-outline-variant)',
+            borderRadius: '0.5rem', padding: '0.3rem 0.6rem', color: 'var(--color-on-surface)',
+            cursor: 'pointer', fontSize: '0.9rem', lineHeight: 1,
+          }}>✕</button>
         </div>
 
         {/* Events Liste */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem 1.5rem' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 1.25rem' }}>
           {sortedEvents.length === 0 ? (
-            <p style={{ color: 'var(--color-outline)', fontSize: '0.875rem', textAlign: 'center', marginTop: '2rem' }}>
+            <p style={{ color: 'var(--color-outline)', fontSize: '0.875rem', textAlign: 'center', marginTop: '1.5rem' }}>
               Keine Termine an diesem Tag.
             </p>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {sortedEvents.map(evt => {
                 const color = calendarColor(calendars, evt.calendar_id, evt.calendar_name);
                 const timeStr = evt.is_all_day ? 'Ganztägig' : `${toLocalTimeStr(evt.start_at)} – ${toLocalTimeStr(evt.end_at)}`;
                 const isDeleting = deleting === evt.apple_uid;
+                const isEditing  = editingEvent?.apple_uid === evt.apple_uid;
+
+                if (isEditing) {
+                  return (
+                    <div key={evt.apple_uid || evt.id} style={{
+                      padding: '0.75rem', borderRadius: '0.5rem',
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid var(--color-primary)',
+                      display: 'flex', flexDirection: 'column', gap: '0.625rem',
+                    }}>
+                      <p style={{ margin: 0, fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-primary)' }}>Termin bearbeiten</p>
+
+                      <input style={inputStyle} value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="Titel" autoFocus />
+
+                      <input type="date" style={inputStyle} value={editDate} onChange={e => setEditDate(e.target.value)} />
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <input type="checkbox" id={`allday-${evt.id}`} checked={editAllDay} onChange={e => setEditAllDay(e.target.checked)}
+                          style={{ accentColor: 'var(--color-primary)', width: 14, height: 14 }} />
+                        <label htmlFor={`allday-${evt.id}`} style={{ fontSize: '0.78rem', color: 'var(--color-outline)', cursor: 'pointer' }}>Ganztägig</label>
+                      </div>
+
+                      {!editAllDay && (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                          <input type="time" style={inputStyle} value={editStart} onChange={e => handleEditStartChange(e.target.value)} />
+                          <input type="time" style={inputStyle} value={editEnd}   onChange={e => setEditEnd(e.target.value)} />
+                        </div>
+                      )}
+
+                      <select style={{ ...inputStyle, cursor: 'pointer' }} value={editCalId} onChange={e => setEditCalId(e.target.value)}>
+                        {calendars.map(cal => <option key={cal.id} value={cal.id}>{cal.title}</option>)}
+                      </select>
+
+                      <input style={inputStyle} value={editLocation} onChange={e => setEditLocation(e.target.value)} placeholder="Ort (optional)" />
+
+                      <select
+                        style={{ ...inputStyle, cursor: 'pointer' }}
+                        value={editAlarmPreset ?? 'null'}
+                        onChange={e => { const v = e.target.value; setEditAlarmPreset(v === 'null' ? null : parseInt(v)); }}
+                      >
+                        {ALARM_PRESETS.map(p => (
+                          <option key={String(p.value)} value={String(p.value)}>{p.label}</option>
+                        ))}
+                      </select>
+                      {editAlarmPreset === -1 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <input type="number" min="1" style={{ ...inputStyle, width: '80px' }}
+                            value={editAlarmCustom} onChange={e => setEditAlarmCustom(e.target.value)} placeholder="z.B. 45" />
+                          <span style={{ fontSize: '0.75rem', color: 'var(--color-outline)' }}>Minuten vorher</span>
+                        </div>
+                      )}
+
+                      {editError && <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-error)' }}>{editError}</p>}
+
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button onClick={handleUpdate} disabled={saving} style={{
+                          flex: 1, padding: '0.5rem', borderRadius: '0.375rem',
+                          background: 'var(--color-primary)', color: 'var(--color-on-primary)',
+                          border: 'none', fontSize: '0.8rem', fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer',
+                          opacity: saving ? 0.7 : 1,
+                        }}>{saving ? 'Speichern…' : 'Speichern'}</button>
+                        <button onClick={() => setEditingEvent(null)} style={{
+                          flex: 1, padding: '0.5rem', borderRadius: '0.375rem',
+                          background: 'rgba(255,255,255,0.06)', color: 'var(--color-on-surface)',
+                          border: '1px solid var(--color-outline-variant)', fontSize: '0.8rem', cursor: 'pointer',
+                        }}>Abbrechen</button>
+                      </div>
+                    </div>
+                  );
+                }
 
                 return (
-                  <div
-                    key={evt.apple_uid || evt.id}
-                    style={{
-                      display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
-                      padding: '0.75rem', borderRadius: '0.5rem',
-                      background: 'rgba(255,255,255,0.04)',
-                      border: '1px solid var(--color-outline-variant)',
-                    }}
-                  >
-                    {/* Farbpunkt */}
-                    <div style={{
-                      width: 10, height: 10, borderRadius: '50%',
-                      background: color, flexShrink: 0, marginTop: 3,
-                    }} />
+                  <div key={evt.apple_uid || evt.id} style={{
+                    display: 'flex', alignItems: 'flex-start', gap: '0.625rem',
+                    padding: '0.625rem 0.75rem', borderRadius: '0.5rem',
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid var(--color-outline-variant)',
+                  }}>
+                    <div style={{ width: 9, height: 9, borderRadius: '50%', background: color, flexShrink: 0, marginTop: 4 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: 0, fontWeight: 600, fontSize: '0.875rem', color: 'var(--color-on-surface)' }}>
+                      <p style={{ margin: 0, fontWeight: 600, fontSize: '0.85rem', color: 'var(--color-on-surface)' }}>
                         {evt.title}
                       </p>
-                      <p style={{ margin: '0.2rem 0 0', fontSize: '0.75rem', color: 'var(--color-outline)' }}>
-                        {timeStr}
+                      <p style={{ margin: '0.15rem 0 0', fontSize: '0.73rem', color: 'var(--color-outline)' }}>
+                        {timeStr} · {evt.calendar_name}
                       </p>
                       {evt.location && (
-                        <p style={{ margin: '0.2rem 0 0', fontSize: '0.75rem', color: 'var(--color-outline)' }}>
+                        <p style={{ margin: '0.1rem 0 0', fontSize: '0.72rem', color: 'var(--color-outline)' }}>
                           {evt.location}
                         </p>
                       )}
                     </div>
-                    <button
-                      onClick={() => handleDelete(evt)}
-                      disabled={isDeleting}
-                      title="Termin löschen"
-                      style={{
-                        background: 'none', border: 'none', cursor: isDeleting ? 'not-allowed' : 'pointer',
-                        color: 'var(--color-outline)', fontSize: '0.8rem', padding: '0.25rem',
-                        opacity: isDeleting ? 0.5 : 1, flexShrink: 0,
-                      }}
-                    >
-                      🗑
-                    </button>
+                    <button onClick={() => startEditing(evt)} title="Bearbeiten" style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'var(--color-outline)', fontSize: '0.8rem', padding: '0.2rem', flexShrink: 0,
+                    }}>✏️</button>
+                    <button onClick={() => handleDelete(evt)} disabled={isDeleting} title="Löschen" style={{
+                      background: 'none', border: 'none', cursor: isDeleting ? 'not-allowed' : 'pointer',
+                      color: 'var(--color-outline)', fontSize: '0.8rem', padding: '0.2rem',
+                      opacity: isDeleting ? 0.4 : 1, flexShrink: 0,
+                    }}>🗑</button>
                   </div>
                 );
               })}
@@ -588,13 +846,8 @@ function DaySlideOver({ date, events, calendars, onClose, onEventDeleted, onEven
 
           {/* Neuer Termin Form */}
           {showForm && (
-            <div style={{
-              marginTop: '1.5rem', padding: '1.25rem', borderRadius: '0.75rem',
-              background: 'rgba(255,255,255,0.04)', border: '1px solid var(--color-outline-variant)',
-            }}>
-              <h3 style={{ margin: '0 0 1rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-on-surface)' }}>
-                Neuer Termin
-              </h3>
+            <div style={{ marginTop: '1.25rem', padding: '1rem', borderRadius: '0.625rem', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--color-outline-variant)' }}>
+              <h3 style={{ margin: '0 0 0.875rem', fontSize: '0.85rem', fontWeight: 600 }}>Neuer Termin</h3>
               <EventForm
                 calendars={calendars}
                 initialDate={isoDateLocal(date)}
@@ -605,31 +858,115 @@ function DaySlideOver({ date, events, calendars, onClose, onEventDeleted, onEven
           )}
         </div>
 
-        {/* Footer: Neuer Termin Button */}
+        {/* Footer */}
         {!showForm && (
-          <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--color-outline-variant)', flexShrink: 0 }}>
-            <button
-              onClick={() => setShowForm(true)}
-              style={{
-                width: '100%', padding: '0.75rem 1rem', borderRadius: '0.5rem',
-                background: 'var(--color-primary)', color: 'var(--color-on-primary)',
-                border: 'none', fontFamily: 'var(--font-body)', fontSize: '0.875rem',
-                fontWeight: 600, cursor: 'pointer',
-              }}
-            >
+          <div style={{ padding: '0.875rem 1.25rem', borderTop: '1px solid var(--color-outline-variant)', flexShrink: 0 }}>
+            <button onClick={() => setShowForm(true)} style={{
+              width: '100%', padding: '0.625rem 1rem', borderRadius: '0.5rem',
+              background: 'var(--color-primary)', color: 'var(--color-on-primary)',
+              border: 'none', fontFamily: 'var(--font-body)', fontSize: '0.875rem',
+              fontWeight: 600, cursor: 'pointer',
+            }}>
               + Neuer Termin
             </button>
           </div>
         )}
       </div>
-
-      <style>{`
-        @keyframes slideInRight {
-          from { transform: translateX(100%); }
-          to   { transform: translateX(0); }
-        }
-      `}</style>
     </>
+  );
+}
+
+// ── SyncNotificationPopup ──────────────────────────────────────────────────────
+
+const SYNC_ACK_KEY = 'cal_last_ack_time';
+
+function detectNewEvents(events: CalendarEvent[]): CalendarEvent[] {
+  const lastAck = localStorage.getItem(SYNC_ACK_KEY);
+  const cutoff = lastAck ? new Date(lastAck) : null;
+  // Nur Events die innerhalb der letzten 2h ERSTMALS angelegt wurden
+  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+  return events.filter(evt => {
+    if (!evt.created_at) return false;
+    const createdAt = new Date(evt.created_at);
+    if (createdAt < twoHoursAgo) return false;           // zu alt
+    if (cutoff && createdAt <= cutoff) return false;     // bereits bestätigt
+    return true;
+  });
+}
+
+interface SyncNotificationPopupProps {
+  events: CalendarEvent[];
+  onAck: () => void;
+}
+
+function SyncNotificationPopup({ events, onAck }: SyncNotificationPopupProps) {
+  if (events.length === 0) return null;
+
+  const preview = events.slice(0, 5);
+
+  return (
+    <div style={{
+      position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 60,
+      width: 340, maxWidth: 'calc(100vw - 3rem)',
+      background: 'var(--color-surface-container-high)',
+      border: '1px solid var(--color-outline-variant)',
+      borderRadius: '0.75rem',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+      overflow: 'hidden',
+    }}>
+      {/* Header */}
+      <div style={{
+        padding: '0.875rem 1rem', borderBottom: '1px solid var(--color-outline-variant)',
+        display: 'flex', alignItems: 'center', gap: '0.5rem',
+      }}>
+        <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', color: 'var(--color-primary)' }}>sync</span>
+        <div style={{ flex: 1 }}>
+          <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-on-surface)' }}>
+            {events.length} neue{events.length === 1 ? 'r Termin' : ' Termine'} synchronisiert
+          </p>
+          <p style={{ margin: '0.1rem 0 0', fontSize: '0.7rem', color: 'var(--color-outline)' }}>
+            Aus Apple Kalender importiert
+          </p>
+        </div>
+      </div>
+
+      {/* Event-Liste */}
+      <div style={{ padding: '0.625rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+        {preview.map(evt => (
+          <div key={evt.apple_uid || evt.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--color-outline)', flexShrink: 0, minWidth: 80 }}>
+              {new Date(evt.start_at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}
+            </span>
+            <span style={{
+              fontSize: '0.8rem', color: 'var(--color-on-surface)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {evt.title}
+            </span>
+          </div>
+        ))}
+        {events.length > 5 && (
+          <p style={{ margin: '0.25rem 0 0', fontSize: '0.72rem', color: 'var(--color-outline)' }}>
+            … und {events.length - 5} weitere
+          </p>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div style={{ padding: '0.625rem 1rem', borderTop: '1px solid var(--color-outline-variant)' }}>
+        <button
+          onClick={onAck}
+          style={{
+            width: '100%', padding: '0.5rem 1rem', borderRadius: '0.5rem',
+            background: 'var(--color-primary)', color: 'var(--color-on-primary)',
+            border: 'none', fontFamily: 'var(--font-body)', fontSize: '0.8rem',
+            fontWeight: 600, cursor: 'pointer',
+          }}
+        >
+          Bestätigen
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -662,9 +999,14 @@ export function CalendarPage() {
     calendars.filter(c => c.is_visible === 1).map(c => c.id)
   );
 
-  // Gefilterte Events (nur sichtbare Kalender)
+  // Kalender-IDs die wir kennen (aus der calendars-Tabelle)
+  const knownCalendarIds = new Set(calendars.map(c => c.id));
+
+  // Gefilterte Events: sichtbare Kalender + Erinnerungen (deren Kalender nicht in unserer Liste)
   const filteredEvents = events.filter(evt =>
-    !evt.calendar_id || visibleCalendarIds.has(evt.calendar_id)
+    !evt.calendar_id
+    || visibleCalendarIds.has(evt.calendar_id)
+    || !knownCalendarIds.has(evt.calendar_id)  // Reminder-Listen etc. immer anzeigen
   );
 
   // Kalender toggle (optimistisch)
@@ -689,6 +1031,7 @@ export function CalendarPage() {
       const { from, to } = monthRange(y, m);
       const data = await fetchEvents(from, to);
       setEvents(data);
+      setNewSyncedEvents(detectNewEvents(data));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Fehler beim Laden der Termine');
     } finally {
@@ -710,14 +1053,14 @@ export function CalendarPage() {
       setLoading(true);
       setError(null);
       fetchEvents(isoDateLocal(monday), isoDateLocal(sunday))
-        .then(setEvents)
+        .then(data => { setEvents(data); setNewSyncedEvents(detectNewEvents(data)); })
         .catch(err => setError(err instanceof Error ? err.message : 'Fehler beim Laden'))
         .finally(() => setLoading(false));
     } else {
       setLoading(true);
       setError(null);
       fetchEvents(viewDateStr, viewDateStr)
-        .then(setEvents)
+        .then(data => { setEvents(data); setNewSyncedEvents(detectNewEvents(data)); })
         .catch(err => setError(err instanceof Error ? err.message : 'Fehler beim Laden'))
         .finally(() => setLoading(false));
     }
@@ -775,6 +1118,20 @@ export function CalendarPage() {
     setEvents(prev => [...prev, evt].sort((a, b) => a.start_at.localeCompare(b.start_at)));
   }
 
+  function handleEventUpdated(evt: CalendarEvent) {
+    setEvents(prev => prev.map(e => e.apple_uid === evt.apple_uid ? evt : e));
+  }
+
+  // Neuer-Termin-Modal für Wochen- und Tages-Ansicht
+  const [createFormDate, setCreateFormDate] = useState<string | null>(null);
+
+  const [newSyncedEvents, setNewSyncedEvents] = useState<CalendarEvent[]>([]);
+
+  function handleAck() {
+    localStorage.setItem(SYNC_ACK_KEY, new Date().toISOString());
+    setNewSyncedEvents([]);
+  }
+
   const [syncing, setSyncing] = useState(false);
   async function handleSync() {
     setSyncing(true);
@@ -789,9 +1146,11 @@ export function CalendarPage() {
         sunday.setDate(monday.getDate() + 6);
         const data = await fetchEvents(isoDateLocal(monday), isoDateLocal(sunday));
         setEvents(data);
+        setNewSyncedEvents(detectNewEvents(data));
       } else {
         const data = await fetchEvents(viewDateStr, viewDateStr);
         setEvents(data);
+        setNewSyncedEvents(detectNewEvents(data));
       }
     } catch (err) {
       console.error('Sync fehlgeschlagen:', err);
@@ -1051,17 +1410,6 @@ export function CalendarPage() {
             </div>
           </div>
 
-          {/* Tag-Detail SlideOver (nur in Monatsansicht) */}
-          {selectedDate && (
-            <DaySlideOver
-              date={selectedDate}
-              events={selectedEvents}
-              calendars={calendars}
-              onClose={() => setSelectedDate(null)}
-              onEventDeleted={handleEventDeleted}
-              onEventCreated={handleEventCreated}
-            />
-          )}
         </>
       )}
 
@@ -1070,7 +1418,8 @@ export function CalendarPage() {
           viewDate={viewDate}
           filteredEvents={filteredEvents}
           calendars={calendars}
-          onDayClick={(d) => { setViewDate(d); setViewMode('day'); }}
+          onNewEvent={(date) => setCreateFormDate(date)}
+          onEventClick={(evt) => setSelectedDate(new Date(evt.start_at))}
         />
       )}
 
@@ -1079,8 +1428,61 @@ export function CalendarPage() {
           viewDate={viewDate}
           filteredEvents={filteredEvents}
           calendars={calendars}
+          onNewEvent={(date) => setCreateFormDate(date)}
+          onEventClick={(evt) => setSelectedDate(new Date(evt.start_at))}
         />
       )}
+
+      {/* Tag-Detail SlideOver — funktioniert in allen Ansichten */}
+      {selectedDate && (
+        <DaySlideOver
+          date={selectedDate}
+          events={selectedEvents}
+          calendars={calendars}
+          onClose={() => setSelectedDate(null)}
+          onEventDeleted={handleEventDeleted}
+          onEventCreated={handleEventCreated}
+          onEventUpdated={handleEventUpdated}
+        />
+      )}
+
+      {/* Neuer-Termin-Modal für Wochen/Tages-Ansicht */}
+      {createFormDate && (
+        <>
+          <div
+            onClick={() => setCreateFormDate(null)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 40 }}
+          />
+          <div style={{
+            position: 'fixed', top: '50%', left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: 420, maxWidth: 'calc(100vw - 2rem)',
+            background: 'var(--color-surface-container-high)',
+            border: '1px solid var(--color-outline-variant)',
+            borderRadius: '0.75rem', padding: '1.5rem',
+            zIndex: 50, boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+              <h3 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: 600 }}>
+                Neuer Termin
+              </h3>
+              <button
+                onClick={() => setCreateFormDate(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-outline)', fontSize: '1.1rem' }}
+              >✕</button>
+            </div>
+            <EventForm
+              calendars={calendars.filter(c => c.is_visible === 1)}
+              initialDate={createFormDate}
+              onSaved={(evt) => { handleEventCreated(evt); setCreateFormDate(null); }}
+              onClose={() => setCreateFormDate(null)}
+            />
+          </div>
+        </>
+      )}
+
+      {/* Sync-Benachrichtigung */}
+      <SyncNotificationPopup events={newSyncedEvents} onAck={handleAck} />
     </PageWrapper>
   );
 }

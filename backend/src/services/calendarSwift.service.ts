@@ -118,6 +118,7 @@ interface RawEvent {
   startDate: string;
   endDate: string;
   isAllDay: boolean;
+  isReminder?: boolean;
   location: string | null;
   notes: string | null;
 }
@@ -146,8 +147,8 @@ export async function syncRange(from: string, to: string, deleteStale = false): 
   let created = 0, updated = 0, skipped = 0;
 
   const upsert = db.prepare(`
-    INSERT INTO calendar_events (apple_uid, title, start_at, end_at, is_all_day, calendar_name, calendar_id, location, notes, sync_status, last_synced_at, updated_at)
-    VALUES (@uid, @title, @start_at, @end_at, @is_all_day, @calendar_name, @calendar_id, @location, @notes, 'synced', @now, @now)
+    INSERT INTO calendar_events (apple_uid, title, start_at, end_at, is_all_day, calendar_name, calendar_id, location, notes, sync_status, last_synced_at, updated_at, created_at)
+    VALUES (@uid, @title, @start_at, @end_at, @is_all_day, @calendar_name, @calendar_id, @location, @notes, 'synced', @now, @now, @now)
     ON CONFLICT(apple_uid, start_at) DO UPDATE SET
       title         = excluded.title,
       end_at        = excluded.end_at,
@@ -200,6 +201,35 @@ export async function syncRange(from: string, to: string, deleteStale = false): 
     }
   }
 
+  // Reminders synken (nie deleteStale — Reminders sind nach isCompleted gefiltert)
+  try {
+    const reminders = await execBinary<RawEvent[]>(['list-reminders', '--from', from, '--to', to]);
+    const reminderTxn = db.transaction(() => {
+      for (const r of reminders) {
+        const existing = db.prepare('SELECT id FROM calendar_events WHERE apple_uid = ? AND start_at = ?')
+          .get(r.id, r.startDate);
+        upsert.run({
+          uid:           r.id,
+          title:         r.title,
+          start_at:      r.startDate,
+          end_at:        r.endDate,
+          is_all_day:    r.isAllDay ? 1 : 0,
+          calendar_name: r.calendarTitle,
+          calendar_id:   r.calendarId,
+          location:      null,
+          notes:         r.notes ?? null,
+          now:           new Date().toISOString(),
+        });
+        if (existing) updated++; else created++;
+      }
+    });
+    reminderTxn();
+    console.log(`[calendar] syncReminders ${from}→${to}: ${reminders.length} Erinnerungen`);
+  } catch (err) {
+    // Reminder-Sync ist nicht kritisch — Calendar-Sync trotzdem abschliessen
+    console.warn('[calendar] syncReminders error (ignoriert):', err);
+  }
+
   // Sync-Range Cache aktualisieren
   db.prepare(`
     INSERT INTO calendar_sync_ranges (range_start, range_end, synced_at)
@@ -222,6 +252,7 @@ interface CreateEventData {
   is_all_day?: boolean;
   location?: string;
   notes?: string;
+  alarm_minutes?: number;
 }
 
 export async function createEvent(data: CreateEventData): Promise<CalendarEvent> {
@@ -232,9 +263,10 @@ export async function createEvent(data: CreateEventData): Promise<CalendarEvent>
     '--start', data.start_at,
     '--end', data.end_at,
   ];
-  if (data.is_all_day)  args.push('--all-day');
-  if (data.notes)       args.push('--notes', data.notes);
-  if (data.location)    args.push('--location', data.location);
+  if (data.is_all_day)    args.push('--all-day');
+  if (data.notes)         args.push('--notes', data.notes);
+  if (data.location)      args.push('--location', data.location);
+  if (data.alarm_minutes != null) args.push('--alarm-minutes', String(data.alarm_minutes));
 
   const created = await execBinary<RawEvent>(args);
 
@@ -255,6 +287,65 @@ export async function createEvent(data: CreateEventData): Promise<CalendarEvent>
   );
 
   const row = db.prepare('SELECT * FROM calendar_events WHERE id = ?').get(result.lastInsertRowid) as CalendarEvent;
+  return row;
+}
+
+// ── Event aktualisieren ───────────────────────────────────────────────────────
+
+interface UpdateEventData {
+  title?: string;
+  start_at?: string;
+  end_at?: string;
+  calendar_id?: string;
+  is_all_day?: boolean;
+  location?: string | null;
+  notes?: string | null;
+  alarm_minutes?: number | null;
+}
+
+export async function updateEvent(appleUid: string, data: UpdateEventData): Promise<CalendarEvent> {
+  const args = ['update', '--event-id', appleUid];
+  if (data.title)       args.push('--title', data.title);
+  if (data.start_at)    args.push('--start', data.start_at);
+  if (data.end_at)      args.push('--end', data.end_at);
+  if (data.calendar_id) args.push('--calendar-id', data.calendar_id);
+  if (data.is_all_day)  args.push('--all-day');
+  if (data.notes)       args.push('--notes', data.notes);
+  else if (data.notes === null) args.push('--clear-notes');
+  if (data.location)    args.push('--location', data.location);
+  else if (data.location === null) args.push('--clear-location');
+  if (data.alarm_minutes != null) args.push('--alarm-minutes', String(data.alarm_minutes));
+  else if (data.alarm_minutes === null) args.push('--alarm-minutes', '-1'); // -1 = löschen
+
+  const updated = await execBinary<RawEvent>(args);
+
+  db.prepare(`
+    UPDATE calendar_events SET
+      title         = ?,
+      start_at      = ?,
+      end_at        = ?,
+      is_all_day    = ?,
+      calendar_name = ?,
+      calendar_id   = ?,
+      location      = ?,
+      notes         = ?,
+      sync_status   = 'synced',
+      updated_at    = ?
+    WHERE apple_uid = ?
+  `).run(
+    updated.title,
+    updated.startDate,
+    updated.endDate,
+    updated.isAllDay ? 1 : 0,
+    updated.calendarTitle,
+    updated.calendarId,
+    updated.location ?? null,
+    updated.notes ?? null,
+    new Date().toISOString(),
+    appleUid,
+  );
+
+  const row = db.prepare('SELECT * FROM calendar_events WHERE apple_uid = ?').get(appleUid) as CalendarEvent;
   return row;
 }
 

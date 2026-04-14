@@ -20,6 +20,8 @@ export interface CalendarEvent {
   is_all_day: number;   // 0 | 1
   location: string | null;
   notes: string | null;
+  last_synced_at: string | null;
+  created_at: string | null;
 }
 
 export interface CreateEventPayload {
@@ -30,6 +32,7 @@ export interface CreateEventPayload {
   is_all_day?: boolean;
   location?: string;
   notes?: string;
+  alarm_minutes?: number; // Minuten vor dem Event (z.B. 15 = 15 Min vorher)
 }
 
 // ── API-Funktionen ─────────────────────────────────────────────────────────────
@@ -46,6 +49,22 @@ export async function fetchEvents(from: string, to: string): Promise<CalendarEve
 
 export async function createEvent(payload: CreateEventPayload): Promise<CalendarEvent> {
   const res = await apiClient.post<{ ok: boolean; event: CalendarEvent }>('/calendar/events', payload);
+  return res.data.event;
+}
+
+export interface UpdateEventPayload {
+  title?: string;
+  start_at?: string;
+  end_at?: string;
+  calendar_id?: string;
+  is_all_day?: boolean;
+  location?: string | null;
+  notes?: string | null;
+  alarm_minutes?: number | null;
+}
+
+export async function updateEvent(id: number, payload: UpdateEventPayload): Promise<CalendarEvent> {
+  const res = await apiClient.patch<{ ok: boolean; event: CalendarEvent }>(`/calendar/events/${id}`, payload);
   return res.data.event;
 }
 
