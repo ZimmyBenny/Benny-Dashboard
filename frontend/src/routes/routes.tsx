@@ -17,6 +17,7 @@ import { ContactDetailPage } from '../pages/ContactDetailPage';
 import { ContactFormPage } from '../pages/ContactFormPage';
 import { ContactImportPage } from '../pages/ContactImportPage';
 import { ContractsPage } from '../pages/ContractsPage';
+import { HaushaltPage } from '../pages/HaushaltPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -43,6 +44,7 @@ export const router = createBrowserRouter([
           { path: '/contacts/:id',        element: <ContactDetailPage /> },
           { path: '/contacts/:id/edit',   element: <ContactFormPage /> },
           { path: '/contracts',            element: <ContractsPage /> },
+          { path: '/finanzen/haushalt',   element: <HaushaltPage /> },
         ],
       },
     ],

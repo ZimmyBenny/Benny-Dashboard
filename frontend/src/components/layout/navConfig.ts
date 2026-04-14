@@ -13,6 +13,7 @@ export const navItems: NavItem[] = [
   { path: '/finances',        label: 'Finanzen',     icon: 'account_balance_wallet' },
   { path: '/amazon',          label: 'Amazon',       icon: 'shopping_cart' },
   { path: '/contacts',        label: 'Kontakte',     icon: 'contacts' },
+  { path: '/finanzen/haushalt', label: 'Haushalt', icon: 'family_restroom' },
   { path: '/contracts',       label: 'Verträge & Fristen', icon: 'description' },
   { path: '/ki-agenten',      label: 'KI Agenten',   icon: 'smart_toy' },
 ];
@@ -35,6 +36,7 @@ export const pageNames: Record<string, string> = {
   '/finances':        'Finanzen',
   '/amazon':          'Amazon',
   '/contacts':        'Kontakte',
+  '/finanzen/haushalt': 'Haushalt',
   '/contracts':       'Verträge & Fristen',
   '/ki-agenten':      'KI Agenten',
   '/settings':        'Einstellungen',
