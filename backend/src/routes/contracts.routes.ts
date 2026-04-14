@@ -256,7 +256,8 @@ router.post('/', (req, res) => {
       description, notes, tags,
       linked_contact_id, linked_task_id, linked_calendar_event_id,
       is_archived,
-      unbefristet, vertragsinhaber, kontoname
+      unbefristet, vertragsinhaber, kontoname,
+      split_count, split_amount, is_business, amount_type, vat_rate
     ) VALUES (
       ?, ?, ?, ?, ?,
       ?, ?,
@@ -265,7 +266,8 @@ router.post('/', (req, res) => {
       ?, ?, ?,
       ?, ?, ?,
       ?,
-      ?, ?, ?
+      ?, ?, ?,
+      ?, ?, ?, ?, ?
     )
   `);
 
@@ -293,7 +295,12 @@ router.post('/', (req, res) => {
     0,
     unbefristetValue,
     (body.vertragsinhaber as string | null) ?? null,
-    (body.kontoname as string | null) ?? null
+    (body.kontoname as string | null) ?? null,
+    Number(body.split_count) || 1,
+    (body.split_amount as number | null) ?? null,
+    body.is_business ? 1 : 0,
+    (body.amount_type as string) || 'brutto',
+    Number(body.vat_rate) || 19,
   );
 
   const newId = result.lastInsertRowid as number;
@@ -350,6 +357,11 @@ router.put('/:id', (req, res) => {
       unbefristet = ?,
       vertragsinhaber = ?,
       kontoname = ?,
+      split_count = ?,
+      split_amount = ?,
+      is_business = ?,
+      amount_type = ?,
+      vat_rate = ?,
       updated_at = datetime('now')
     WHERE id = ?
   `).run(
@@ -376,6 +388,11 @@ router.put('/:id', (req, res) => {
     newUnbefristet,
     body.vertragsinhaber !== undefined ? ((body.vertragsinhaber as string | null) ?? null) : (existing.vertragsinhaber as string | null),
     body.kontoname !== undefined ? ((body.kontoname as string | null) ?? null) : (existing.kontoname as string | null),
+    body.split_count !== undefined ? (Number(body.split_count) || 1) : (existing.split_count as number ?? 1),
+    body.split_amount !== undefined ? ((body.split_amount as number | null) ?? null) : (existing.split_amount as number | null),
+    body.is_business !== undefined ? (body.is_business ? 1 : 0) : (existing.is_business as number ?? 0),
+    body.amount_type !== undefined ? ((body.amount_type as string) || 'brutto') : (existing.amount_type as string ?? 'brutto'),
+    body.vat_rate !== undefined ? (Number(body.vat_rate) || 19) : (existing.vat_rate as number ?? 19),
     id
   );
 
