@@ -1,6 +1,8 @@
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
+import PDFDocument from 'pdfkit';
+import db from '../db/connection';
 
 const PDF_ARCHIVE_DIR = path.join(process.cwd(), 'backups', 'invoices');
 const QUOTE_ARCHIVE_DIR = path.join(process.cwd(), 'backups', 'quotes');
@@ -9,11 +11,502 @@ function ensureDir(dir: string) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
-/**
- * Platzhalter für Phase 2.
- * Generiert ein einfaches PDF und gibt Pfad + SHA256-Hash zurück.
- * In Phase 2 (Rechnungen) wird dies mit dem vollen RECHNUNGS_TEMPLATE implementiert.
- */
+// ── Hilfsfunktionen ──────────────────────────────────────────────────────────
+
+function formatEur(n: number): string {
+  return new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) + ' EUR';
+}
+
+function formatDateDE(isoStr: string | null | undefined): string {
+  if (!isoStr) return '';
+  const d = isoStr.slice(0, 10);
+  const parts = d.split('-');
+  if (parts.length !== 3) return isoStr;
+  return `${parts[2]}.${parts[1]}.${parts[0]}`;
+}
+
+function replacePlaceholders(text: string, vars: Record<string, string>): string {
+  return text.replace(/\{\{(\w+)\}\}/g, (_, key: string) => vars[key] ?? '');
+}
+
+// ── Typen ────────────────────────────────────────────────────────────────────
+
+interface CompanySettings {
+  name: string;
+  company: string;
+  address: string;
+  zip: string;
+  city: string;
+  country: string;
+  phone: string;
+  email: string;
+  website: string;
+  tax_number: string;
+  vat_id: string | null;
+  is_vat_liable: boolean;
+  vat_rate: number;
+  bank: {
+    name: string;
+    iban: string;
+    bic: string;
+    holder: string;
+  };
+}
+
+interface QuoteRow {
+  id: number;
+  number: string | null;
+  customer_id: number;
+  event_id: number | null;
+  subject: string | null;
+  status: string;
+  quote_date: string;
+  valid_until: string | null;
+  header_text: string | null;
+  footer_text: string | null;
+  subtotal_net: number;
+  tax_total: number;
+  total_gross: number;
+  finalized_at: string | null;
+}
+
+interface QuoteItem {
+  position: number;
+  description: string;
+  quantity: number;
+  unit: string;
+  price_net: number;
+  tax_rate: number;
+  discount_pct: number;
+  total_net: number;
+}
+
+interface ContactRow {
+  id: number;
+  contact_kind: string;
+  salutation: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  organization_name: string | null;
+  customer_number: string | null;
+}
+
+interface AddressRow {
+  street: string | null;
+  postal_code: string | null;
+  city: string | null;
+  country: string | null;
+}
+
+interface EventRow {
+  title: string | null;
+  event_date: string | null;
+}
+
+// ── Footer-Renderer ───────────────────────────────────────────────────────────
+
+function renderFooter(doc: PDFKit.PDFDocument, company: CompanySettings) {
+  const pageWidth = doc.page.width;
+  const marginLeft = 71;
+  const marginRight = 57;
+  const usableWidth = pageWidth - marginLeft - marginRight;
+  const footerY = doc.page.height - 71;
+
+  // 1pt graue Trennlinie
+  doc.save()
+    .moveTo(marginLeft, footerY)
+    .lineTo(pageWidth - marginRight, footerY)
+    .lineWidth(1)
+    .strokeColor('#CCCCCC')
+    .stroke()
+    .restore();
+
+  const colWidth = usableWidth / 4;
+  const textY = footerY + 8;
+  const lineGap = 2;
+
+  doc.save()
+    .font('Helvetica')
+    .fontSize(8)
+    .fillColor('#666666');
+
+  // Spalte 1: Firma + Adresse
+  const col1 = marginLeft;
+  doc.text(company.company, col1, textY, { width: colWidth - 4, lineGap });
+  doc.text(company.name, col1, doc.y, { width: colWidth - 4, lineGap });
+  doc.text(company.address, col1, doc.y, { width: colWidth - 4, lineGap });
+  doc.text(`${company.zip} ${company.city}`, col1, doc.y, { width: colWidth - 4, lineGap });
+
+  // Spalte 2: Kontakt
+  const col2 = marginLeft + colWidth;
+  doc.text(`Tel: ${company.phone}`, col2, textY, { width: colWidth - 4, lineGap });
+  doc.text(company.email, col2, doc.y, { width: colWidth - 4, lineGap });
+  doc.text(company.website, col2, doc.y, { width: colWidth - 4, lineGap });
+
+  // Spalte 3: Steuer
+  const col3 = marginLeft + colWidth * 2;
+  doc.text(`Steuer-Nr: ${company.tax_number}`, col3, textY, { width: colWidth - 4, lineGap });
+  if (company.vat_id) {
+    doc.text(`USt-IdNr: ${company.vat_id}`, col3, doc.y, { width: colWidth - 4, lineGap });
+  }
+
+  // Spalte 4: Bank
+  const col4 = marginLeft + colWidth * 3;
+  doc.text(company.bank.name, col4, textY, { width: colWidth, lineGap });
+  doc.text(`IBAN: ${company.bank.iban}`, col4, doc.y, { width: colWidth, lineGap });
+  doc.text(`BIC: ${company.bank.bic}`, col4, doc.y, { width: colWidth, lineGap });
+
+  doc.restore();
+}
+
+// ── Hauptfunktion ─────────────────────────────────────────────────────────────
+
+export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> {
+  // --- Daten laden ---
+  const quote = db.prepare(
+    'SELECT * FROM dj_quotes WHERE id = ? AND deleted_at IS NULL'
+  ).get(quoteId) as QuoteRow | undefined;
+  if (!quote) throw new Error(`Angebot ${quoteId} nicht gefunden`);
+
+  const items = db.prepare(
+    'SELECT * FROM dj_quote_items WHERE quote_id = ? ORDER BY position'
+  ).all(quoteId) as QuoteItem[];
+
+  const contact = db.prepare(
+    'SELECT id, contact_kind, salutation, first_name, last_name, organization_name, customer_number FROM contacts WHERE id = ?'
+  ).get(quote.customer_id) as ContactRow | undefined;
+
+  let address: AddressRow | undefined = db.prepare(
+    'SELECT street, postal_code, city, country FROM contact_addresses WHERE contact_id = ? AND is_primary = 1 LIMIT 1'
+  ).get(quote.customer_id) as AddressRow | undefined;
+  if (!address) {
+    address = db.prepare(
+      'SELECT street, postal_code, city, country FROM contact_addresses WHERE contact_id = ? LIMIT 1'
+    ).get(quote.customer_id) as AddressRow | undefined;
+  }
+
+  const settingsRow = db.prepare(
+    "SELECT value FROM dj_settings WHERE key = 'company'"
+  ).get() as { value: string } | undefined;
+  const company: CompanySettings = settingsRow
+    ? (JSON.parse(settingsRow.value) as CompanySettings)
+    : {
+        name: 'Benjamin Zimmermann',
+        company: 'Dein Event DJ | Benjamin Zimmermann',
+        address: 'Mittelweg 10',
+        zip: '93426',
+        city: 'Roding',
+        country: 'Deutschland',
+        phone: '01711493222',
+        email: 'Benjamin.Z@gmx.de',
+        website: 'www.dein-event-dj.com',
+        tax_number: '21129292323',
+        vat_id: null,
+        is_vat_liable: true,
+        vat_rate: 19.0,
+        bank: { name: 'Raiffeisenbank', iban: 'DE59753900000005302552', bic: 'GENODEF1NEW', holder: 'Benjamin Zimmermann' },
+      };
+
+  let event: EventRow | undefined;
+  if (quote.event_id) {
+    event = db.prepare(
+      'SELECT title, event_date FROM dj_events WHERE id = ?'
+    ).get(quote.event_id) as EventRow | undefined;
+  }
+
+  // --- PDF erstellen ---
+  return new Promise<Buffer>((resolve, reject) => {
+    const doc = new PDFDocument({
+      size: 'A4',
+      margins: { top: 71, bottom: 120, left: 71, right: 57 },
+      autoFirstPage: true,
+      bufferPages: true,
+      info: {
+        Title: quote.number ? `Angebot ${quote.number}` : 'Angebot (Entwurf)',
+        Author: company.name,
+      },
+    });
+
+    const chunks: Buffer[] = [];
+    doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    // Footer auf jeder neuen Seite
+    doc.on('pageAdded', () => {
+      renderFooter(doc, company);
+    });
+
+    const marginLeft = 71;
+    const marginRight = 57;
+    const pageWidth = doc.page.width;
+    const usableWidth = pageWidth - marginLeft - marginRight;
+
+    // --- Absenderzeile ---
+    const senderText = `${company.name} \u00B7 ${company.address} \u00B7 ${company.zip} ${company.city}`;
+    doc.font('Helvetica').fontSize(8).fillColor('#666666')
+      .text(senderText, marginLeft, 71, { width: usableWidth });
+    const senderBottom = doc.y + 2;
+    doc.moveTo(marginLeft, senderBottom)
+      .lineTo(pageWidth - marginRight, senderBottom)
+      .lineWidth(0.5)
+      .strokeColor('#999999')
+      .stroke();
+
+    // --- Empfänger-Block (links) & Meta-Block (rechts) ---
+    const recipientStartY = senderBottom + 20;
+    const metaX = marginLeft + usableWidth * 0.55;
+    const metaWidth = usableWidth * 0.45;
+
+    // Empfänger aufbauen
+    const recipientLines: string[] = [];
+    if (contact) {
+      if (contact.contact_kind === 'organization') {
+        recipientLines.push(contact.organization_name ?? '');
+      } else {
+        const nameParts = [contact.salutation, contact.first_name, contact.last_name].filter(Boolean);
+        recipientLines.push(nameParts.join(' '));
+        if (contact.organization_name) recipientLines.push(contact.organization_name);
+      }
+    }
+    if (address) {
+      if (address.street) recipientLines.push(address.street);
+      if (address.postal_code || address.city) {
+        recipientLines.push(`${address.postal_code ?? ''} ${address.city ?? ''}`.trim());
+      }
+      if (address.country && address.country !== 'Deutschland') {
+        recipientLines.push(address.country);
+      }
+    }
+
+    // Empfänger rendern
+    doc.font('Helvetica').fontSize(11).fillColor('#000000');
+    let recipientY = recipientStartY;
+    for (const line of recipientLines) {
+      doc.text(line, marginLeft, recipientY, { width: metaX - marginLeft - 20 });
+      recipientY = doc.y;
+    }
+
+    // Meta-Block rendern (gleiche Y-Startposition wie Empfänger)
+    const metaLabelWidth = 85;
+    const metaValueWidth = metaWidth - metaLabelWidth;
+    let metaY = recipientStartY;
+
+    const quoteDisplayNumber = quote.number ?? 'Entwurf';
+
+    const metaRows: Array<[string, string]> = [
+      ['Angebots-Nr.:', quoteDisplayNumber],
+      ['Angebotsdatum:', formatDateDE(quote.quote_date)],
+      ['Gültig bis:', formatDateDE(quote.valid_until)],
+    ];
+    if (event?.title) metaRows.push(['Referenz:', event.title]);
+    if (contact?.customer_number) metaRows.push(['Kundennummer:', contact.customer_number]);
+    metaRows.push(['Ansprechpartner:', 'Benjamin Zimmermann']);
+
+    doc.font('Helvetica').fontSize(10).fillColor('#000000');
+    for (const [label, value] of metaRows) {
+      doc.text(label, metaX, metaY, { width: metaLabelWidth, continued: false });
+      doc.text(value, metaX + metaLabelWidth, metaY, { width: metaValueWidth });
+      metaY = doc.y;
+    }
+
+    // --- Titelzeile ---
+    const blockBottom = Math.max(recipientY, metaY);
+    const titleY = blockBottom + 20;
+    const titleText = quote.number
+      ? `Angebot Nr. ${quote.number}`
+      : 'Angebot (Entwurf)';
+
+    doc.font('Helvetica-Bold').fontSize(14).fillColor('#000000')
+      .text(titleText, marginLeft, titleY, { width: usableWidth });
+
+    // --- Kopftext ---
+    let currentY = doc.y + 10;
+    if (quote.header_text) {
+      const placeholderVars: Record<string, string> = {
+        vorname: contact?.first_name ?? '',
+        nachname: contact?.last_name ?? '',
+        anrede: contact?.salutation ?? '',
+        eventdatum: event?.event_date ? formatDateDE(event.event_date) : '',
+        gueltig_bis: formatDateDE(quote.valid_until),
+      };
+      const headerText = replacePlaceholders(quote.header_text, placeholderVars);
+      doc.font('Helvetica').fontSize(10).fillColor('#000000')
+        .text(headerText, marginLeft, currentY, { width: usableWidth, lineGap: 4 });
+      currentY = doc.y + 10;
+    }
+
+    // --- Positionstabelle ---
+    // Spaltenbreiten (relativ zu usableWidth ~467pt)
+    const colWidths = [
+      usableWidth * 0.08,   // Pos
+      usableWidth * 0.40,   // Beschreibung
+      usableWidth * 0.10,   // Menge
+      usableWidth * 0.12,   // Einheit
+      usableWidth * 0.15,   // Einzelpreis
+      usableWidth * 0.15,   // Gesamt
+    ];
+    const colX: number[] = [];
+    let cx = marginLeft;
+    for (const w of colWidths) {
+      colX.push(cx);
+      cx += w;
+    }
+
+    const rowHeight = 18;
+    const headerY = currentY;
+
+    // Header-Hintergrund
+    doc.save()
+      .rect(marginLeft, headerY, usableWidth, rowHeight)
+      .fillColor('#F0F0F0')
+      .fill()
+      .restore();
+
+    // Header-Text
+    const headers = ['Pos.', 'Beschreibung', 'Menge', 'Einheit', 'Einzelpreis', 'Gesamt'];
+    const headerAligns: Array<'center' | 'left' | 'right'> = ['center', 'left', 'right', 'center', 'right', 'right'];
+
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('#000000');
+    for (let i = 0; i < headers.length; i++) {
+      doc.text(headers[i], colX[i] + 3, headerY + 5, {
+        width: colWidths[i] - 6,
+        align: headerAligns[i],
+        lineBreak: false,
+      });
+    }
+
+    // Datenzeilen
+    let dataY = headerY + rowHeight;
+    const dataAligns: Array<'center' | 'left' | 'right'> = ['center', 'left', 'right', 'center', 'right', 'right'];
+
+    for (let idx = 0; idx < items.length; idx++) {
+      const item = items[idx];
+      // Seitenumbruch prüfen
+      if (dataY + rowHeight > doc.page.height - 120) {
+        doc.addPage();
+        dataY = 71;
+        // Tabellen-Header wiederholen
+        doc.save()
+          .rect(marginLeft, dataY, usableWidth, rowHeight)
+          .fillColor('#F0F0F0')
+          .fill()
+          .restore();
+        doc.font('Helvetica-Bold').fontSize(9).fillColor('#000000');
+        for (let i = 0; i < headers.length; i++) {
+          doc.text(headers[i], colX[i] + 3, dataY + 5, {
+            width: colWidths[i] - 6,
+            align: headerAligns[i],
+            lineBreak: false,
+          });
+        }
+        dataY += rowHeight;
+      }
+
+      // Trennlinie
+      doc.save()
+        .moveTo(marginLeft, dataY)
+        .lineTo(pageWidth - marginRight, dataY)
+        .lineWidth(0.5)
+        .strokeColor('#CCCCCC')
+        .stroke()
+        .restore();
+
+      doc.font('Helvetica').fontSize(10).fillColor('#000000');
+      const rowData = [
+        String(item.position),
+        item.description,
+        new Intl.NumberFormat('de-DE').format(item.quantity),
+        item.unit,
+        formatEur(item.price_net),
+        formatEur(item.total_net),
+      ];
+      for (let i = 0; i < rowData.length; i++) {
+        doc.text(rowData[i], colX[i] + 3, dataY + 4, {
+          width: colWidths[i] - 6,
+          align: dataAligns[i],
+          lineBreak: false,
+        });
+      }
+      dataY += rowHeight;
+    }
+
+    // Abschlusslinie Tabelle
+    doc.save()
+      .moveTo(marginLeft, dataY)
+      .lineTo(pageWidth - marginRight, dataY)
+      .lineWidth(0.5)
+      .strokeColor('#CCCCCC')
+      .stroke()
+      .restore();
+
+    // --- Summen-Block ---
+    let sumY = dataY + 14;
+    const sumLabelX = marginLeft + usableWidth * 0.55;
+    const sumValueX = marginLeft + usableWidth * 0.80;
+    const sumValueWidth = pageWidth - marginRight - sumValueX;
+
+    // MwSt nach Steuersatz gruppieren
+    const taxGroups: Map<number, number> = new Map();
+    for (const item of items) {
+      const tax = item.total_net * (item.tax_rate / 100);
+      taxGroups.set(item.tax_rate, (taxGroups.get(item.tax_rate) ?? 0) + tax);
+    }
+
+    doc.font('Helvetica').fontSize(10).fillColor('#000000');
+    doc.text('Nettosumme:', sumLabelX, sumY, { width: sumValueX - sumLabelX - 6, align: 'left' });
+    doc.text(formatEur(quote.subtotal_net), sumValueX, sumY, { width: sumValueWidth, align: 'right' });
+    sumY = doc.y + 2;
+
+    for (const [rate, taxAmt] of taxGroups) {
+      doc.text(`Umsatzsteuer ${rate} %:`, sumLabelX, sumY, { width: sumValueX - sumLabelX - 6, align: 'left' });
+      doc.text(formatEur(taxAmt), sumValueX, sumY, { width: sumValueWidth, align: 'right' });
+      sumY = doc.y + 2;
+    }
+
+    // Trennlinie vor Brutto
+    doc.save()
+      .moveTo(sumLabelX, sumY + 2)
+      .lineTo(pageWidth - marginRight, sumY + 2)
+      .lineWidth(0.5)
+      .strokeColor('#000000')
+      .stroke()
+      .restore();
+    sumY += 8;
+
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#000000');
+    doc.text('Angebotssumme brutto:', sumLabelX, sumY, { width: sumValueX - sumLabelX - 6, align: 'left' });
+    doc.text(formatEur(quote.total_gross), sumValueX, sumY, { width: sumValueWidth, align: 'right' });
+
+    // --- Fußtext ---
+    let footerTextY = doc.y + 20;
+    const placeholderVarsFt: Record<string, string> = {
+      gueltig_bis: formatDateDE(quote.valid_until),
+      valid_until: formatDateDE(quote.valid_until),
+    };
+
+    const footerContent = quote.footer_text
+      ? replacePlaceholders(quote.footer_text, placeholderVarsFt)
+      : `Dieses Angebot ist freibleibend und g\u00fcltig bis ${formatDateDE(quote.valid_until)}.`;
+
+    doc.font('Helvetica').fontSize(10).fillColor('#000000')
+      .text(footerContent, marginLeft, footerTextY, { width: usableWidth, lineGap: 4 });
+
+    // Grußformel
+    footerTextY = doc.y + 16;
+    doc.text('Mit freundlichen Gr\u00fc\u00dfen', marginLeft, footerTextY, { width: usableWidth });
+    doc.text('', marginLeft, doc.y + 4);
+    doc.text(company.name, marginLeft, doc.y, { width: usableWidth });
+
+    // Footer auf der ersten Seite rendern
+    renderFooter(doc, company);
+
+    doc.end();
+  });
+}
+
+// ── Platzhalter für Phase 2 ───────────────────────────────────────────────────
+
 export async function generateInvoicePdf(_invoiceId: number, number: string): Promise<{ path: string; hash: string }> {
   ensureDir(PDF_ARCHIVE_DIR);
   // TODO Phase 2: vollständiges PDF-Layout nach RECHNUNGS_TEMPLATE.md
