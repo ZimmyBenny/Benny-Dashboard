@@ -436,19 +436,22 @@ function ModalContent({
                 onClick={addBetragToList}
                 title="Betrag zur Liste hinzufügen"
                 style={{
-                  padding: '0 0.875rem',
+                  minWidth: '3rem',
                   borderRadius: '0.5rem',
                   border: '1px solid var(--color-outline-variant)',
                   background: 'var(--color-surface-container)',
                   color: 'var(--color-primary)',
                   cursor: 'pointer',
-                  fontSize: '1.25rem',
+                  fontSize: '1.5rem',
+                  fontWeight: 700,
                   display: 'flex',
                   alignItems: 'center',
+                  justifyContent: 'center',
                   flexShrink: 0,
+                  lineHeight: 1,
                 }}
               >
-                <span className="material-symbols-outlined">add</span>
+                +
               </button>
             </div>
 
@@ -466,9 +469,9 @@ function ModalContent({
                     </span>
                     <button
                       onClick={() => removeBetragFromList(i)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-outline)', padding: '0.1rem', display: 'flex' }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-outline)', padding: '0.1rem 0.3rem', fontSize: '1rem', lineHeight: 1 }}
                     >
-                      <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>close</span>
+                      ×
                     </button>
                   </div>
                 ))}
