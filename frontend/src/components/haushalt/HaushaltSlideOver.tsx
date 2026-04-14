@@ -50,7 +50,8 @@ type AufteilungModus = '50_50' | 'benny_alles' | 'julia_alles' | 'andere';
 
 interface FormState {
   datum: string;
-  betrag: string;
+  betrag: string;         // Aktuelles Eingabefeld
+  einzelbetraege: string[]; // Sammeleintrag: bereits hinzugefügte Beträge
   kategorie: string;
   sonstigesText: string; // Freitext wenn Kategorie = "Sonstiges"
   mietmonat: string;     // ISO "YYYY-MM" wenn Kategorie = "Miete"
@@ -65,6 +66,7 @@ function eintragToForm(eintrag?: HaushaltEintrag): FormState {
     return {
       datum: todayIso(),
       betrag: '',
+      einzelbetraege: [],
       kategorie: 'Haushalt',
       sonstigesText: '',
       mietmonat: currentMonthIso(),
@@ -82,6 +84,7 @@ function eintragToForm(eintrag?: HaushaltEintrag): FormState {
   return {
     datum: eintrag.datum,
     betrag: String(eintrag.betrag),
+    einzelbetraege: [],
     kategorie: eintrag.kategorie,
     sonstigesText: eintrag.kategorie === 'Sonstiges' ? eintrag.beschreibung : '',
     mietmonat: currentMonthIso(),
@@ -144,13 +147,26 @@ function ModalContent({
     const errs = new Set<string>();
     if (schritt === 'datum' && !form.datum) errs.add('datum');
     if (schritt === 'betrag') {
-      if (!form.betrag || isNaN(parseFloat(form.betrag)) || parseFloat(form.betrag) <= 0) errs.add('betrag');
+      const hatListeBetraege = form.einzelbetraege.length > 0;
+      const currentGueltig = form.betrag && !isNaN(parseFloat(form.betrag)) && parseFloat(form.betrag) > 0;
+      if (!hatListeBetraege && !currentGueltig) errs.add('betrag');
     }
     if (schritt === 'kategorie' && form.kategorie === 'Sonstiges' && !form.sonstigesText.trim()) {
       errs.add('sonstiges');
     }
     setErrors(errs);
     return errs.size === 0;
+  }
+
+  function addBetragToList() {
+    const val = form.betrag.trim();
+    if (!val || isNaN(parseFloat(val)) || parseFloat(val) <= 0) return;
+    setForm(prev => ({ ...prev, einzelbetraege: [...prev.einzelbetraege, val], betrag: '' }));
+    setErrors(new Set());
+  }
+
+  function removeBetragFromList(idx: number) {
+    setForm(prev => ({ ...prev, einzelbetraege: prev.einzelbetraege.filter((_, i) => i !== idx) }));
   }
 
   function weiter() {
@@ -181,7 +197,7 @@ function ModalContent({
         : form.kategorie;
       const payload: Partial<HaushaltEintrag> = {
         datum: isMieteTyp ? todayIso() : form.datum,
-        betrag: isMieteTyp ? 100 : parseFloat(form.betrag),
+        betrag: isMieteTyp ? 100 : form.einzelbetraege.reduce((s, b) => s + parseFloat(b), 0) + (parseFloat(form.betrag) || 0),
         beschreibung,
         kategorie: (isMieteTyp ? 'Miete' : form.eintrag_typ === 'geldübergabe' ? 'Sonstiges' : form.kategorie) as HaushaltEintrag['kategorie'],
         bezahlt_von: isMieteTyp ? 'benny' : form.bezahlt_von,
@@ -205,10 +221,10 @@ function ModalContent({
     }
   }
 
-  const betragNum = parseFloat(form.betrag);
+  const betragNum = form.einzelbetraege.reduce((s, b) => s + parseFloat(b), 0) + (parseFloat(form.betrag) || 0);
   const prozent = aufteilungZuProzent(form.aufteilung_modus, form.aufteilung_prozent);
-  const bennyAnteil = isNaN(betragNum) ? 0 : (betragNum * prozent) / 100;
-  const juliaAnteil = isNaN(betragNum) ? 0 : betragNum - bennyAnteil;
+  const bennyAnteil = betragNum <= 0 ? 0 : (betragNum * prozent) / 100;
+  const juliaAnteil = betragNum <= 0 ? 0 : betragNum - bennyAnteil;
 
   const BTN: React.CSSProperties = {
     fontFamily: 'var(--font-body)',
@@ -390,30 +406,79 @@ function ModalContent({
             <p style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-outline)', marginBottom: '0.625rem', marginTop: 0 }}>
               Betrag (EUR)
             </p>
-            <input
-              type="number"
-              step="0.01"
-              min="0.01"
-              placeholder="0,00"
-              value={form.betrag}
-              onChange={e => set('betrag', e.target.value)}
-              autoFocus
-              style={{
-                width: '100%',
-                background: 'var(--color-surface-container-low)',
-                border: `1px solid ${errors.has('betrag') ? 'var(--color-error)' : 'var(--color-outline-variant)'}`,
-                borderRadius: '0.5rem',
-                color: 'var(--color-on-surface)',
-                fontFamily: 'var(--font-display)',
-                fontSize: '1.5rem',
-                padding: '0.625rem 0.75rem',
-                outline: 'none',
-                boxSizing: 'border-box',
-                textAlign: 'right',
-              }}
-            />
+
+            {/* Eingabezeile + Hinzufügen-Button */}
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                placeholder="0,00"
+                value={form.betrag}
+                onChange={e => set('betrag', e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') addBetragToList(); }}
+                autoFocus
+                style={{
+                  flex: 1,
+                  background: 'var(--color-surface-container-low)',
+                  border: `1px solid ${errors.has('betrag') ? 'var(--color-error)' : 'var(--color-outline-variant)'}`,
+                  borderRadius: '0.5rem',
+                  color: 'var(--color-on-surface)',
+                  fontFamily: 'var(--font-display)',
+                  fontSize: '1.5rem',
+                  padding: '0.625rem 0.75rem',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  textAlign: 'right',
+                }}
+              />
+              <button
+                onClick={addBetragToList}
+                title="Betrag zur Liste hinzufügen"
+                style={{
+                  padding: '0 0.875rem',
+                  borderRadius: '0.5rem',
+                  border: '1px solid var(--color-outline-variant)',
+                  background: 'var(--color-surface-container)',
+                  color: 'var(--color-primary)',
+                  cursor: 'pointer',
+                  fontSize: '1.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <span className="material-symbols-outlined">add</span>
+              </button>
+            </div>
+
             {errors.has('betrag') && (
-              <p style={{ color: 'var(--color-error)', fontSize: '0.75rem', marginTop: '0.25rem' }}>Gültiger Betrag erforderlich</p>
+              <p style={{ color: 'var(--color-error)', fontSize: '0.75rem', marginTop: '0.25rem' }}>Mindestens ein Betrag erforderlich</p>
+            )}
+
+            {/* Sammelliste */}
+            {form.einzelbetraege.length > 0 && (
+              <div style={{ marginTop: '0.75rem', background: 'var(--color-surface-container-low)', borderRadius: '0.5rem', padding: '0.625rem', border: '1px solid var(--color-outline-variant)' }}>
+                {form.einzelbetraege.map((b, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.2rem 0' }}>
+                    <span style={{ fontSize: '0.875rem', color: 'var(--color-on-surface)' }}>
+                      {parseFloat(b).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                    </span>
+                    <button
+                      onClick={() => removeBetragFromList(i)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-outline)', padding: '0.1rem', display: 'flex' }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>close</span>
+                    </button>
+                  </div>
+                ))}
+                <div style={{ borderTop: '1px solid var(--color-outline-variant)', marginTop: '0.375rem', paddingTop: '0.375rem', display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--color-outline)' }}>Gesamt</span>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--color-primary)', fontFamily: 'var(--font-display)' }}>
+                    {betragNum.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                  </span>
+                </div>
+              </div>
             )}
           </div>
         )}
