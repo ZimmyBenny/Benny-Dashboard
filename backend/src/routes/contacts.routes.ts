@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import PDFDocument from 'pdfkit';
 import db from '../db/connection';
+import { createBackup } from '../db/backup';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -237,6 +238,9 @@ router.post('/import/csv', upload.single('file'), (req, res) => {
     const idx = headers.indexOf(name);
     return idx >= 0 ? (row[idx] ?? '').trim() : '';
   };
+
+  // Backup vor dem Bulk-Import — schützt bestehende Kontaktdaten
+  createBackup('contact-import');
 
   let imported = 0;
   let skipped = 0;

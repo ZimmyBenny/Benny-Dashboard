@@ -88,7 +88,36 @@ Ein persönliches, lokal laufendes Command Center für Alltag und Arbeit. Das Da
 <!-- GSD:conventions-start source:CONVENTIONS.md -->
 ## Conventions
 
-Conventions not yet established. Will populate as patterns emerge during development.
+### Datensicherheit — oberste Priorität
+
+**Daten dürfen niemals durch Code-Änderungen oder neue Features verloren gehen.**
+
+#### Regel: Backup vor destruktiven Bulk-Operationen
+
+Jede Operation die bestehende Daten in größerem Umfang verändern oder löschen kann, **muss** vorher `createBackup(label)` aus `backend/src/db/backup.ts` aufrufen:
+
+```ts
+import { createBackup } from '../db/backup';
+
+// Vor der Operation:
+createBackup('mein-feature-import');
+```
+
+**Gilt für:**
+- Migrations mit DROP TABLE / REBUILD (bereits in migrate.ts integriert)
+- CSV/VCF/JSON-Importe (bereits in contacts.routes.ts integriert)
+- Jede neue Route die Massen-Inserts, Massen-Updates oder Massen-Deletes ausführt
+- Jedes neue Modul mit Import-Funktionalität (z.B. zukünftig: Amazon, Finanzen, DJ-Bookings)
+
+**Gilt nicht für:**
+- Einzelne CRUD-Operationen (create/update/delete eines einzelnen Eintrags)
+- Lesende Operationen
+
+#### Regel: SQLite Migrations
+
+- `PRAGMA foreign_keys` niemals in einer Migration setzen — wird in `migrate.ts` zentral gesteuert
+- Migrationen die Tabellen rebuilden (DROP + CREATE + INSERT SELECT *) sind erlaubt, da migrate.ts foreign_keys korrekt handhabt
+- Backup vor Migrationen ist automatisch — kein manueller Aufruf nötig
 <!-- GSD:conventions-end -->
 
 <!-- GSD:architecture-start source:ARCHITECTURE.md -->
