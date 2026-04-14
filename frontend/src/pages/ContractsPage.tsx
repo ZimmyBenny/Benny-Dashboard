@@ -76,7 +76,7 @@ function exportContractsCsv(contracts: Contract[]) {
   const header = [
     'Titel', 'Eintragstyp', 'Bereich', 'Status', 'Priorität', 'Anbieter', 'Referenznummer',
     'Startdatum', 'Ablaufdatum', 'Kündigungsdatum', 'Erinnerungsdatum',
-    'Kostenbetrag', 'Währung', 'Zahlungsintervall',
+    'Kostenbetrag', 'Mein Anteil', 'Währung', 'Zahlungsintervall',
     'Beschreibung', 'Notizen',
   ];
   const lines = [header.join(';')];
@@ -94,6 +94,7 @@ function exportContractsCsv(contracts: Contract[]) {
       escapeCSV(c.cancellation_date),
       escapeCSV(c.reminder_date),
       escapeCSV(c.cost_amount),
+      escapeCSV((c.split_count ?? 1) > 1 ? effectiveCost(c) : ''),
       escapeCSV(c.currency),
       escapeCSV(c.cost_interval),
       escapeCSV(c.description),
@@ -199,6 +200,13 @@ function toYearly(amount: number, interval: string | null): number {
   }
 }
 
+function effectiveCost(c: Contract): number {
+  if (c.cost_amount == null) return 0;
+  if (c.split_amount != null) return c.split_amount;
+  if ((c.split_count ?? 1) > 1) return c.cost_amount / c.split_count;
+  return c.cost_amount;
+}
+
 function KostenUebersicht({ contracts }: { contracts: Contract[] }) {
   const aktiv = contracts.filter(c => c.status === 'aktiv' && (c.cost_amount ?? 0) > 0);
   if (aktiv.length === 0) return null;
@@ -211,8 +219,9 @@ function KostenUebersicht({ contracts }: { contracts: Contract[] }) {
 
   for (const c of aktiv) {
     const area = c.area || 'Sonstiges';
-    const m = toMonthly(c.cost_amount!, c.cost_interval);
-    const y = toYearly(c.cost_amount!, c.cost_interval);
+    const amt = effectiveCost(c);
+    const m = toMonthly(amt, c.cost_interval);
+    const y = toYearly(amt, c.cost_interval);
     byAreaMonthly[area] = (byAreaMonthly[area] ?? 0) + m;
     byAreaYearly[area] = (byAreaYearly[area] ?? 0) + y;
     totalMonthly += m;
@@ -647,8 +656,20 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
                     ) : null}
                     {contract.cost_amount != null && (
                       <div style={{ fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)' }}>
-                        {contract.cost_amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {contract.currency}
-                        {contract.cost_interval ? `/${contract.cost_interval}` : ''}
+                        {(contract.split_count ?? 1) > 1 ? (
+                          <>
+                            {effectiveCost(contract).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR
+                            <span style={{ color: 'var(--color-outline)', fontSize: '0.7rem', marginLeft: '0.25rem' }}>
+                              (von {contract.cost_amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR)
+                            </span>
+                            {contract.cost_interval ? `/${contract.cost_interval}` : ''}
+                          </>
+                        ) : (
+                          <>
+                            {contract.cost_amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {contract.currency}
+                            {contract.cost_interval ? `/${contract.cost_interval}` : ''}
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
