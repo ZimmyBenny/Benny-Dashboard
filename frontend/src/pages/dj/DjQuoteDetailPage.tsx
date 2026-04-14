@@ -4,6 +4,7 @@ import { PageWrapper } from '../../components/layout/PageWrapper';
 import {
   fetchDjQuote, fetchDjCustomers, fetchDjEvents, fetchDjServices,
   createDjQuote, updateDjQuote, finalizeDjQuote,
+  updateDjQuoteStatus, createDjQuoteRevision,
   type DjQuote, type DjCustomer, type DjEvent, type DjService,
 } from '../../api/dj.api';
 import { StatusBadge } from '../../components/dj/StatusBadge';
@@ -391,6 +392,31 @@ export function DjQuoteDetailPage() {
   }
 
   // ---------------------------------------------------------------------------
+  // Status ändern
+  // ---------------------------------------------------------------------------
+  async function handleStatusChange(newStatus: string) {
+    try {
+      const updated = await updateDjQuoteStatus(Number(id), newStatus);
+      setQuote(updated);
+    } catch {
+      setError('Status konnte nicht geändert werden.');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Revision erstellen
+  // ---------------------------------------------------------------------------
+  async function handleCreateRevision() {
+    if (!window.confirm('Eine neue Revision dieses Angebots erstellen?')) return;
+    try {
+      const rev = await createDjQuoteRevision(Number(id));
+      navigate(`/dj/quotes/${rev.id}`);
+    } catch {
+      setError('Revision konnte nicht erstellt werden.');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Styles
   // ---------------------------------------------------------------------------
   const inputStyle: React.CSSProperties = {
@@ -518,6 +544,18 @@ export function DjQuoteDetailPage() {
           )}
         </div>
         <div style={{ display: 'flex', gap: '0.625rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Vorschau-Button: nur bei gespeichertem Angebot */}
+          {!isNew && id && (
+            <button
+              type="button"
+              style={btnSecondary}
+              onClick={() => window.open(`/api/dj/quotes/${id}/preview`, '_blank')}
+              title="PDF-Vorschau im neuen Tab öffnen"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>picture_as_pdf</span>
+              Vorschau
+            </button>
+          )}
           {/* Finalisieren-Button: nur sichtbar wenn !isNew && !finalized && status=entwurf */}
           {!isNew && !finalized && quote?.status === 'entwurf' && (
             <button
@@ -583,7 +621,7 @@ export function DjQuoteDetailPage() {
           border: '1px solid rgba(148,170,255,0.3)',
           borderRadius: '0.5rem',
           padding: '0.625rem 1rem',
-          marginBottom: '1.25rem',
+          marginBottom: '1rem',
           color: 'var(--color-primary)',
           fontFamily: 'var(--font-body)',
           fontSize: '0.875rem',
@@ -593,6 +631,53 @@ export function DjQuoteDetailPage() {
         }}>
           <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>lock</span>
           Dieses Angebot wurde finalisiert und ist schreibgeschützt.
+        </div>
+      )}
+
+      {/* Status-Panel: nur für finalisierte Angebote */}
+      {finalized && (
+        <div style={{
+          display: 'flex',
+          gap: '0.75rem',
+          alignItems: 'center',
+          padding: '0.75rem 1rem',
+          background: 'var(--color-surface-container)',
+          borderRadius: '0.75rem',
+          marginBottom: '1.5rem',
+          flexWrap: 'wrap',
+        }}>
+          <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface-variant)' }}>
+            Status:
+          </span>
+          {(['gesendet', 'angenommen', 'abgelehnt', 'abgelaufen'] as const).map(s => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => void handleStatusChange(s)}
+              style={{
+                background: quote?.status === s ? 'var(--color-primary)' : 'var(--color-surface-container-high)',
+                color: quote?.status === s ? '#000' : 'var(--color-on-surface-variant)',
+                border: 'none',
+                borderRadius: '999px',
+                padding: '0.25rem 0.875rem',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                fontFamily: 'var(--font-body)',
+              }}
+            >
+              {s.charAt(0).toUpperCase() + s.slice(1)}
+            </button>
+          ))}
+          <div style={{ flex: 1 }} />
+          <button
+            type="button"
+            onClick={() => void handleCreateRevision()}
+            style={{ ...btnSecondary, fontSize: '0.8rem' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '0.9rem' }}>content_copy</span>
+            Revision erstellen
+          </button>
         </div>
       )}
 
@@ -1030,10 +1115,21 @@ export function DjQuoteDetailPage() {
         </div>
 
         {/* Aktions-Buttons unten */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', gap: '0.75rem', flexWrap: 'wrap' }}>
           <button type="button" style={btnSecondary} onClick={() => navigate('/dj/quotes')}>
             Abbrechen
           </button>
+          {!isNew && id && (
+            <button
+              type="button"
+              style={btnSecondary}
+              onClick={() => window.open(`/api/dj/quotes/${id}/preview`, '_blank')}
+              title="PDF-Vorschau im neuen Tab öffnen"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>picture_as_pdf</span>
+              Vorschau
+            </button>
+          )}
           <button
             type="button"
             style={{ ...btnPrimary, cursor: (finalized || saving) ? 'not-allowed' : 'pointer', opacity: (finalized || saving) ? 0.6 : 1 }}

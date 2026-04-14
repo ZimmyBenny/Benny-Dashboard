@@ -401,3 +401,16 @@ export const fetchDjSettingByKey = <T>(key: string): Promise<T> =>
 
 export const fetchDjSequences = (): Promise<DjNumberSequence[]> =>
   apiClient.get('/dj/settings/sequences/all').then(r => r.data);
+
+// Angebot PDF / Vorschau / Status / Revision
+export const previewDjQuote = (id: number): string =>
+  `${apiClient.defaults.baseURL ?? '/api'}/dj/quotes/${id}/preview`;
+
+export const downloadDjQuote = (id: number): string =>
+  `${apiClient.defaults.baseURL ?? '/api'}/dj/quotes/${id}/pdf`;
+
+export const updateDjQuoteStatus = (id: number, status: string): Promise<DjQuote> =>
+  apiClient.patch(`/dj/quotes/${id}/status`, { status }).then(r => r.data);
+
+export const createDjQuoteRevision = (id: number): Promise<DjQuote> =>
+  apiClient.post(`/dj/quotes/${id}/revision`).then(r => r.data);
