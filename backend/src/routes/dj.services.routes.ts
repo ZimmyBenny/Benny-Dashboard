@@ -60,16 +60,17 @@ router.patch('/:id', (req, res) => {
   const existing = db.prepare('SELECT * FROM dj_services WHERE id = ?').get(id);
   if (!existing) { res.status(404).json({ error: 'Leistung nicht gefunden' }); return; }
 
-  const { category, name, description, unit, price_net, tax_rate, sort_order } = req.body as Record<string, unknown>;
+  const { category, name, description, unit, price_net, tax_rate, sort_order, active } = req.body as Record<string, unknown>;
   db.prepare(`
     UPDATE dj_services SET
       category = COALESCE(?, category), name = COALESCE(?, name),
       description = COALESCE(?, description), unit = COALESCE(?, unit),
       price_net = COALESCE(?, price_net), tax_rate = COALESCE(?, tax_rate),
-      sort_order = COALESCE(?, sort_order), updated_at = datetime('now')
+      sort_order = COALESCE(?, sort_order), active = COALESCE(?, active),
+      updated_at = datetime('now')
     WHERE id = ?
   `).run(category ?? null, name ?? null, description ?? null, unit ?? null,
-    price_net ?? null, tax_rate ?? null, sort_order ?? null, id);
+    price_net ?? null, tax_rate ?? null, sort_order ?? null, active ?? null, id);
 
   logAudit(req, 'service', id, 'update', existing, req.body);
   res.json(db.prepare('SELECT * FROM dj_services WHERE id = ?').get(id));

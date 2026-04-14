@@ -202,6 +202,26 @@ export const fetchDjServices = (): Promise<DjService[]> =>
 export const fetchDjPackages = (): Promise<DjPackage[]> =>
   apiClient.get('/dj/services/packages').then(r => r.data);
 
+// Alle Leistungen inkl. inaktive (für Verwaltungsseite)
+export const fetchDjServicesAll = (): Promise<DjService[]> =>
+  apiClient.get('/dj/services/all').then(r => r.data);
+
+// Leistung anlegen
+export const createDjService = (data: Partial<DjService>): Promise<DjService> =>
+  apiClient.post('/dj/services', data).then(r => r.data);
+
+// Leistung aktualisieren (inkl. active-Toggle)
+export const updateDjService = (id: number, data: Partial<DjService>): Promise<DjService> =>
+  apiClient.patch(`/dj/services/${id}`, data).then(r => r.data);
+
+// Leistung deaktivieren (soft-delete via DELETE → setzt active=0)
+export const deactivateDjService = (id: number): Promise<{ ok: boolean }> =>
+  apiClient.delete(`/dj/services/${id}`).then(r => r.data);
+
+// Paket anlegen
+export const createDjPackage = (data: { name: string; description?: string; price_net: number; tax_rate?: number; service_ids?: number[] }): Promise<DjPackage> =>
+  apiClient.post('/dj/services/packages', data).then(r => r.data);
+
 // Angebote
 export const fetchDjQuotes = (params?: { year?: number; status?: string; customer_id?: number }): Promise<DjQuote[]> =>
   apiClient.get('/dj/quotes', { params }).then(r => r.data);
