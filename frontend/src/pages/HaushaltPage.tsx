@@ -173,34 +173,52 @@ function EintragZeile({
         </div>
       </div>
 
-      {/* Betrag */}
-      <span style={{
-        fontSize: '0.9rem',
-        fontWeight: 700,
-        color: istGeldubergabe ? 'var(--color-secondary)' : 'var(--color-on-surface)',
-        flexShrink: 0,
-      }}>
-        {formatBetrag(eintrag.betrag)} EUR
-      </span>
+      {/* Betrag + Einzelbeträge */}
+      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+        <div style={{
+          fontSize: '0.9rem',
+          fontWeight: 700,
+          color: istGeldubergabe ? 'var(--color-secondary)' : 'var(--color-on-surface)',
+        }}>
+          {formatBetrag(eintrag.betrag)} EUR
+        </div>
+        {eintrag.einzelbetraege && (() => {
+          try {
+            const betraege: number[] = JSON.parse(eintrag.einzelbetraege!);
+            if (betraege.length > 1) {
+              return (
+                <div style={{ fontSize: '0.7rem', color: 'var(--color-outline)', marginTop: '0.1rem' }}>
+                  {betraege.map(b => b.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })).join(' + ')}
+                </div>
+              );
+            }
+          } catch { return null; }
+          return null;
+        })()}
+      </div>
 
-      {/* Lösch-Button */}
-      {showActions && onDelete && (
-        <button
-          onClick={e => { e.stopPropagation(); onDelete(); }}
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            color: 'var(--color-outline)',
-            padding: '0.25rem',
-            display: 'flex',
-            alignItems: 'center',
-            flexShrink: 0,
-          }}
-          title="Eintrag löschen"
-        >
-          <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>delete</span>
-        </button>
+      {/* Aktions-Buttons */}
+      {showActions && (
+        <div style={{ display: 'flex', gap: '0.125rem', flexShrink: 0 }}>
+          {onEdit && (
+            <button
+              onClick={e => { e.stopPropagation(); onEdit(); }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-outline)', padding: '0.25rem', display: 'flex', alignItems: 'center' }}
+              title="Eintrag bearbeiten"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>edit</span>
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={e => { e.stopPropagation(); onDelete(); }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-outline)', padding: '0.25rem', display: 'flex', alignItems: 'center' }}
+              title="Eintrag löschen"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>delete</span>
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

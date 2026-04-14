@@ -16,6 +16,7 @@ export interface HaushaltEintrag {
   zahlungsart: 'cash' | 'überweisung' | 'offen' | null;
   zeitraum_von: string | null;
   zeitraum_bis: string | null;
+  einzelbetraege: string | null; // JSON-Array der Einzelbeträge z.B. "[50,75]"
   abrechnung_id: number | null;
   created_at: string;
   updated_at: string;
@@ -84,4 +85,16 @@ export async function fetchAbrechnungEintraege(id: number): Promise<HaushaltEint
 
 export async function createAbrechnung(data: { titel: string; notiz?: string }): Promise<HaushaltAbrechnung> {
   return apiClient.post<HaushaltAbrechnung>('/haushalt/abrechnungen', data).then(r => r.data);
+}
+
+export async function deleteAbrechnung(id: number): Promise<void> {
+  await apiClient.delete(`/haushalt/abrechnungen/${id}`);
+}
+
+// ---------------------------------------------------------------------------
+// API-Funktionen — Miete
+// ---------------------------------------------------------------------------
+
+export async function fetchMieteEintraege(): Promise<HaushaltEintrag[]> {
+  return apiClient.get<HaushaltEintrag[]>('/haushalt/miete').then(r => r.data);
 }

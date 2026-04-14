@@ -203,6 +203,9 @@ function ModalContent({
         bezahlt_von: isMieteTyp ? 'benny' : form.bezahlt_von,
         eintrag_typ: form.eintrag_typ,
         aufteilung_prozent: form.eintrag_typ === 'geldübergabe' ? 100 : prozent,
+        einzelbetraege: form.einzelbetraege.length > 0
+          ? JSON.stringify(form.einzelbetraege.map(b => parseFloat(b)))
+          : null,
         zahlungsart: null,
         zeitraum_von: null,
         zeitraum_bis: null,

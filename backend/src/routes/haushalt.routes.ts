@@ -20,6 +20,7 @@ interface HaushaltEintragRow {
   zeitraum_von: string | null;
   zeitraum_bis: string | null;
   abrechnung_id: number | null;
+  einzelbetraege: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -246,11 +247,13 @@ router.post('/', (req, res) => {
   const zeitraum_von = (body.zeitraum_von as string | null) ?? null;
   const zeitraum_bis = (body.zeitraum_bis as string | null) ?? null;
 
+  const einzelbetraege = (body.einzelbetraege as string | null) ?? null;
+
   const result = db.prepare(
     `INSERT INTO haushalt_eintraege
-       (datum, betrag, beschreibung, kategorie, bezahlt_von, eintrag_typ, aufteilung_prozent, zahlungsart, zeitraum_von, zeitraum_bis)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(datum, betrag, beschreibung, kategorie, bezahlt_von, eintrag_typ, aufteilung_prozent, zahlungsart, zeitraum_von, zeitraum_bis);
+       (datum, betrag, beschreibung, kategorie, bezahlt_von, eintrag_typ, aufteilung_prozent, zahlungsart, zeitraum_von, zeitraum_bis, einzelbetraege)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(datum, betrag, beschreibung, kategorie, bezahlt_von, eintrag_typ, aufteilung_prozent, zahlungsart, zeitraum_von, zeitraum_bis, einzelbetraege);
 
   const neuerEintrag = db.prepare('SELECT * FROM haushalt_eintraege WHERE id = ?').get(result.lastInsertRowid);
   return res.status(201).json(neuerEintrag);
@@ -292,6 +295,7 @@ router.put('/:id', (req, res) => {
        zahlungsart = ?,
        zeitraum_von = ?,
        zeitraum_bis = ?,
+       einzelbetraege = ?,
        updated_at = datetime('now')
      WHERE id = ?`
   ).run(
@@ -305,6 +309,7 @@ router.put('/:id', (req, res) => {
     body.zahlungsart !== undefined ? ((body.zahlungsart as string | null) ?? null) : existing.zahlungsart,
     body.zeitraum_von !== undefined ? ((body.zeitraum_von as string | null) ?? null) : existing.zeitraum_von,
     body.zeitraum_bis !== undefined ? ((body.zeitraum_bis as string | null) ?? null) : existing.zeitraum_bis,
+    body.einzelbetraege !== undefined ? ((body.einzelbetraege as string | null) ?? null) : existing.einzelbetraege,
     id
   );
 
