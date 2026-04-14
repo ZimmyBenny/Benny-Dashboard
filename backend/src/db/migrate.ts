@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import db from './connection';
 
 const migrationsDir = path.join(__dirname, 'migrations');
@@ -24,6 +25,26 @@ export function runMigrations(): void {
     .readdirSync(migrationsDir)
     .filter((f) => f.endsWith('.sql'))
     .sort();
+
+  // Pending Migrations ermitteln — vor dem Loop, damit wir wissen ob ein Backup nötig ist
+  const pending = files.filter((f) => !applied.has(f));
+
+  // Automatisches DB-Backup vor jeder Migrationsrunde mit neuen Migrationen.
+  // Schützt vor Datenverlust bei fehlerhaften Migrationen (z.B. unbeabsichtigter CASCADE).
+  if (pending.length > 0) {
+    try {
+      const dbPath = path.join(os.homedir(), '.local', 'share', 'benny-dashboard', 'dashboard.db');
+      const backupDir = path.join(os.homedir(), '.local', 'share', 'benny-dashboard', 'backups');
+      if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const backupPath = path.join(backupDir, `pre-migration-${timestamp}.db`);
+      fs.copyFileSync(dbPath, backupPath);
+      console.log(`[migrate] DB-Backup erstellt: ${backupPath}`);
+    } catch (err) {
+      // Backup-Fehler dürfen den Start nicht blockieren — nur warnen
+      console.warn('[migrate] WARNUNG: DB-Backup vor Migration fehlgeschlagen:', err);
+    }
+  }
 
   // PRAGMA foreign_keys muss AUSSERHALB einer Transaktion gesetzt werden.
   // Innerhalb von db.transaction() wird es von SQLite stillschweigend ignoriert.
