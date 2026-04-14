@@ -76,10 +76,9 @@ interface RawCalendar {
   type: string;
 }
 
-export async function getCalendars(): Promise<Calendar[]> {
+async function upsertCalendars(): Promise<void> {
   const raw = await execBinary<RawCalendar[]>(['list-calendars']);
 
-  // Upsert in calendars-Tabelle
   const upsert = db.prepare(`
     INSERT INTO calendars (id, title, color, synced_at)
     VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%SZ','now'))
@@ -95,9 +94,18 @@ export async function getCalendars(): Promise<Calendar[]> {
     }
   });
   txn();
+}
 
+export async function getCalendars(): Promise<Calendar[]> {
+  await upsertCalendars();
   // Nur sichtbare Kalender zurueckgeben
   return db.prepare('SELECT id, title, color, is_visible FROM calendars WHERE is_visible = 1 ORDER BY title').all() as Calendar[];
+}
+
+export async function getAllCalendars(): Promise<Calendar[]> {
+  await upsertCalendars();
+  // ALLE Kalender zurueckgeben — kein is_visible Filter
+  return db.prepare('SELECT id, title, color, is_visible FROM calendars ORDER BY title').all() as Calendar[];
 }
 
 // ── Event-Sync fuer Zeitraum ──────────────────────────────────────────────────
@@ -114,7 +122,7 @@ interface RawEvent {
   notes: string | null;
 }
 
-export async function syncRange(from: string, to: string): Promise<SyncResult> {
+export async function syncRange(from: string, to: string, deleteStale = false): Promise<SyncResult> {
   // Pruefen ob Zeitraum schon gecacht (< 5 Minuten alt)
   const cached = db.prepare(`
     SELECT synced_at FROM calendar_sync_ranges
@@ -129,6 +137,9 @@ export async function syncRange(from: string, to: string): Promise<SyncResult> {
       return { created: 0, updated: 0, skipped: 0 };
     }
   }
+
+  // Zeitstempel VOR dem Sync setzen — events die danach nicht aktualisiert wurden, wurden in Apple gelöscht
+  const syncStartTime = new Date().toISOString();
 
   const raw = await execBinary<RawEvent[]>(['read', '--from', from, '--to', to]);
 
@@ -172,6 +183,22 @@ export async function syncRange(from: string, to: string): Promise<SyncResult> {
     }
   });
   txn();
+
+  // Events löschen die in Apple Calendar nicht mehr existieren.
+  // Nur beim vollen Hintergrund-Sync (deleteStale=true) — nie bei engen Frontend-Syncs,
+  // da überlappende Ranges sonst Events löschen die vom breiten Sync noch gültig befunden wurden.
+  if (deleteStale && raw.length > 0) {
+    const fromUtc = new Date(`${from}T00:00:00.000Z`);
+    fromUtc.setDate(fromUtc.getDate() - 1);
+    const toUtc = new Date(`${to}T23:59:59.000Z`);
+    toUtc.setDate(toUtc.getDate() + 1);
+    const deleted = db.prepare(
+      `DELETE FROM calendar_events WHERE start_at >= ? AND start_at <= ? AND last_synced_at < ?`
+    ).run(fromUtc.toISOString(), toUtc.toISOString(), syncStartTime);
+    if (deleted.changes > 0) {
+      console.log(`[calendar] syncRange: ${deleted.changes} gelöschte Events entfernt`);
+    }
+  }
 
   // Sync-Range Cache aktualisieren
   db.prepare(`
@@ -256,7 +283,7 @@ export async function backgroundSync(): Promise<void> {
     const from = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, '0')}-01`;
     const to   = `${nextMonthEnd.getFullYear()}-${String(nextMonthEnd.getMonth() + 1).padStart(2, '0')}-${String(nextMonthEnd.getDate()).padStart(2, '0')}`;
 
-    await syncRange(from, to);
+    await syncRange(from, to, true);
   } catch (err) {
     console.error('[calendar] backgroundSync error:', err);
   } finally {
