@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import apiClient from '../../api/client';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import {
   fetchDjQuote, fetchDjCustomers, fetchDjEvents, fetchDjServices,
@@ -160,6 +161,23 @@ interface LocalItem {
   price_net: number;
   tax_rate: number;
   discount_pct: number;
+}
+
+// ---------------------------------------------------------------------------
+// PDF-Hilfsfunktionen (Blob-basiert, sendet JWT-Header via apiClient)
+// ---------------------------------------------------------------------------
+async function openQuotePdf(id: string, mode: 'preview' | 'download') {
+  const res = await apiClient.get(`/dj/quotes/${id}/${mode === 'preview' ? 'preview' : 'pdf'}`, { responseType: 'blob' });
+  const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+  if (mode === 'preview') {
+    window.open(url, '_blank');
+  } else {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Angebot-${id}.pdf`;
+    a.click();
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
 // ---------------------------------------------------------------------------
@@ -549,7 +567,7 @@ export function DjQuoteDetailPage() {
             <button
               type="button"
               style={btnSecondary}
-              onClick={() => window.open(`/api/dj/quotes/${id}/preview`, '_blank')}
+              onClick={() => void openQuotePdf(id!, 'preview')}
               title="PDF-Vorschau im neuen Tab öffnen"
             >
               <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>picture_as_pdf</span>
@@ -1123,7 +1141,7 @@ export function DjQuoteDetailPage() {
             <button
               type="button"
               style={btnSecondary}
-              onClick={() => window.open(`/api/dj/quotes/${id}/preview`, '_blank')}
+              onClick={() => void openQuotePdf(id!, 'preview')}
               title="PDF-Vorschau im neuen Tab öffnen"
             >
               <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>picture_as_pdf</span>
