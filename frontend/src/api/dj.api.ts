@@ -283,6 +283,9 @@ export const updateDjQuote = (id: number, data: Partial<DjQuote>): Promise<DjQuo
 export const finalizeDjQuote = (id: number): Promise<DjQuote> =>
   apiClient.post(`/dj/quotes/${id}/finalize`).then(r => r.data);
 
+export const deleteDjQuote = (id: number): Promise<void> =>
+  apiClient.delete(`/dj/quotes/${id}`).then(() => undefined);
+
 // Rechnungen
 export const fetchDjInvoices = (params?: { year?: number; status?: string; customer_id?: number }): Promise<DjInvoice[]> =>
   apiClient.get('/dj/invoices', { params }).then(r => r.data);

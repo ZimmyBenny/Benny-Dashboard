@@ -85,6 +85,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 ---
 | 260414-v4b | DJ-Rechnungen: DjInvoicesPage + DjInvoiceDetailPage (GoBD, Finalisieren, Stornieren, Zahlung) | 2026-04-14 | f5a35c8 | [260414-v4b-dj-rechnungen-seite-implementieren](.planning/quick/260414-v4b-dj-rechnungen-seite-implementieren/) |
 | 260414-wgb | DJ Leistungen-Seite Redesign | 2026-04-14 | 70a5caa | [260414-wgb-dj-leistungen-seite-redesignen-synthetic](.planning/quick/260414-wgb-dj-leistungen-seite-redesignen-synthetic/) |
+| 260414-wmy | DJ Events-Seite Redesign | 2026-04-14 | f8c9bd8 | [260414-wmy-dj-events-seite-redesignen-synthetic-con](.planning/quick/260414-wmy-dj-events-seite-redesignen-synthetic-con/) |
 
 ---
 *State initialized: 2026-04-07 | Last activity: 2026-04-14 - Completed quick task 260414-wgb: DJ Leistungen-Seite Redesign im Synthetic Conductor Stil*
