@@ -45,11 +45,14 @@ function berechneSaldo(eintraege: HaushaltEintragRow[]): {
         benny_schuldet += e.betrag * e.aufteilung_prozent / 100;
       }
     } else if (e.eintrag_typ === 'geldübergabe') {
-      if (e.bezahlt_von === 'benny') {
-        // Benny hat Geld gegeben → Julia schuldet weniger
+      if (e.kategorie === 'Miete') {
+        // Miete: fixe Verpflichtung Benny → Julia (kein Ausgleich, sondern Schuld)
+        benny_schuldet += e.betrag;
+      } else if (e.bezahlt_von === 'benny') {
+        // Reguläre Geldübergabe: Benny hat Geld gegeben → Julia schuldet weniger
         benny_hat_gegeben += e.betrag;
       } else {
-        // Julia hat Geld gegeben → Benny schuldet weniger
+        // Reguläre Geldübergabe: Julia hat Geld gegeben → Benny schuldet weniger
         julia_hat_gegeben += e.betrag;
       }
     }
@@ -161,6 +164,19 @@ router.post('/abrechnungen', (req, res) => {
   ).get(result);
 
   return res.status(201).json(neueAbrechnung);
+});
+
+// ---------------------------------------------------------------------------
+// GET /miete — Alle Miete-Zahlungen (unabhaengig von Abrechnung)
+// ---------------------------------------------------------------------------
+
+router.get('/miete', (_req, res) => {
+  const eintraege = db.prepare(
+    `SELECT * FROM haushalt_eintraege
+     WHERE kategorie = 'Miete' AND eintrag_typ = 'geldübergabe'
+     ORDER BY datum DESC, created_at DESC`
+  ).all() as HaushaltEintragRow[];
+  return res.json(eintraege);
 });
 
 // ---------------------------------------------------------------------------
@@ -294,6 +310,25 @@ router.put('/:id', (req, res) => {
 
   const aktualisiertEintrag = db.prepare('SELECT * FROM haushalt_eintraege WHERE id = ?').get(id);
   return res.json(aktualisiertEintrag);
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /abrechnungen/:id — Abrechnung loeschen (Eintraege werden wieder offen)
+// ---------------------------------------------------------------------------
+
+router.delete('/abrechnungen/:id', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: 'Ungültige ID' });
+
+  const existing = db.prepare('SELECT id FROM haushalt_abrechnungen WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Abrechnung nicht gefunden' });
+
+  db.transaction(() => {
+    db.prepare('DELETE FROM haushalt_eintraege WHERE abrechnung_id = ?').run(id);
+    db.prepare('DELETE FROM haushalt_abrechnungen WHERE id = ?').run(id);
+  })();
+
+  return res.status(204).send();
 });
 
 // ---------------------------------------------------------------------------
