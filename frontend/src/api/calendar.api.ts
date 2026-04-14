@@ -2,65 +2,45 @@ import apiClient from './client';
 
 // ── Typen ──────────────────────────────────────────────────────────────────────
 
-export interface CalendarEvent {
-  id: number;
-  apple_uid: string;
+export interface Calendar {
+  id: string;          // EKCalendar.calendarIdentifier
   title: string;
-  start_at: string;       // ISO 8601 UTC
-  end_at: string;         // ISO 8601 UTC
-  is_all_day: number;     // 0 | 1
+  color: string | null;
+  is_visible: number;
+}
+
+export interface CalendarEvent {
+  id: number;           // SQLite auto-increment ID
+  apple_uid: string;    // EKEvent.eventIdentifier
+  calendar_id: string | null;
   calendar_name: string;
+  title: string;
+  start_at: string;     // ISO 8601
+  end_at: string;       // ISO 8601
+  is_all_day: number;   // 0 | 1
   location: string | null;
   notes: string | null;
-  apple_stamp: string | null;
-  sync_status: 'synced' | 'pending_push' | 'pending_delete';
-  last_synced_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface KnownCalendar {
-  id: number;
-  name: string;
-  color: string | null;
-  enabled: number;
-  first_seen_at: string;
-}
-
-export interface SyncResult {
-  ok: boolean;
-  created: number;
-  updated: number;
-  skipped: number;
-  errors: number;
-  durationMs: number;
 }
 
 export interface CreateEventPayload {
   title: string;
-  start_at: string;
-  end_at: string;
-  is_all_day?: number;
-  calendar_name: string;
+  start_at: string;     // ISO 8601
+  end_at: string;       // ISO 8601
+  calendar_id: string;  // EKCalendar.calendarIdentifier
+  is_all_day?: boolean;
   location?: string;
   notes?: string;
 }
 
 // ── API-Funktionen ─────────────────────────────────────────────────────────────
 
-export async function fetchEvents(start?: string, end?: string): Promise<CalendarEvent[]> {
-  const params = start && end ? { start, end } : {};
-  const res = await apiClient.get<CalendarEvent[]>('/calendar/events', { params });
+export async function fetchCalendars(): Promise<Calendar[]> {
+  const res = await apiClient.get<Calendar[]>('/calendar/calendars');
   return res.data;
 }
 
-export async function triggerSync(): Promise<SyncResult> {
-  const res = await apiClient.post<SyncResult>('/calendar/sync');
-  return res.data;
-}
-
-export async function fetchCalendars(checkNew = false): Promise<{ known: KnownCalendar[]; new_calendars: string[] }> {
-  const res = await apiClient.get('/calendar/calendars', { params: { check_new: checkNew } });
+export async function fetchEvents(from: string, to: string): Promise<CalendarEvent[]> {
+  const res = await apiClient.get<CalendarEvent[]>('/calendar/events', { params: { from, to } });
   return res.data;
 }
 
@@ -69,11 +49,6 @@ export async function createEvent(payload: CreateEventPayload): Promise<Calendar
   return res.data.event;
 }
 
-export async function updateEvent(id: number, payload: Partial<CreateEventPayload>): Promise<CalendarEvent> {
-  const res = await apiClient.put<{ ok: boolean; event: CalendarEvent }>(`/calendar/events/${id}`, payload);
-  return res.data.event;
-}
-
-export async function deleteEvent(id: number): Promise<void> {
-  await apiClient.delete(`/calendar/events/${id}`);
+export async function deleteEvent(appleUid: string): Promise<void> {
+  await apiClient.delete(`/calendar/events/${encodeURIComponent(appleUid)}`);
 }
