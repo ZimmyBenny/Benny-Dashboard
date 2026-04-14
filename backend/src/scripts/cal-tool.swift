@@ -279,18 +279,14 @@ func runListReminders(subArgs: [String]) {
           dueDate = Calendar.current.date(from: comps)
         }
 
-        // Datumsfilter anwenden
-        if let from = fromDate, let due = dueDate, due < from { continue }
-        if let to   = toDate,   let due = dueDate, due > to   { continue }
+        // Erinnerungen ohne Fälligkeitsdatum überspringen — gehören nicht in den Kalender
+        guard let due = dueDate else { continue }
 
-        // Reminders ohne Fälligkeitsdatum immer einschließen
-        let dueDateStr: String
-        if let due = dueDate {
-          dueDateStr = formatISO(due)
-        } else {
-          // Kein Fälligkeitsdatum — als "today" behandeln (damit es im Kalender erscheint)
-          dueDateStr = formatISO(Date())
-        }
+        // Datumsfilter anwenden
+        if let from = fromDate, due < from { continue }
+        if let to   = toDate,   due > to   { continue }
+
+        let dueDateStr = formatISO(due)
 
         var entry: [String: Any] = [
           "id":            reminder.calendarItemIdentifier,

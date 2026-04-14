@@ -6,6 +6,7 @@ import { fetchVisibleQuickLinks, type QuickLink } from '../api/quickLinks.api';
 import { fetchTaskStats, createTask, type TaskStats, type Task } from '../api/tasks.api';
 import { TaskSlideOver } from '../components/tasks/TaskSlideOver';
 import { fetchContracts, type Contract } from '../api/contracts.api';
+import { fetchSaldo, type HaushaltSaldo } from '../api/haushalt.api';
 
 function getGreeting(): { time: string; name: string } {
   const hour = new Date().getHours();
@@ -24,6 +25,7 @@ const modules = [
   { path: '/contracts',     label: 'Verträge & Fristen', icon: 'description',         description: 'Verträge · Fristen · Dokumente', isContracts: true as const },
 
   { path: '/finances',      label: 'Finanzen',       icon: 'account_balance_wallet', description: 'Einnahmen · Ausgaben · Budgets' },
+  { path: '/haushalt', label: 'Haushalt',   icon: 'family_restroom',        description: 'Ausgaben · Geldübergaben · Abrechnungen', isHaushalt: true as const },
 ];
 
 function formatMs(ms: number): string {
@@ -71,6 +73,12 @@ export function DashboardPage() {
 
   useEffect(() => {
     fetchContracts({ segment: 'soon', limit: 5 }).then(r => setUpcomingContracts(r.data)).catch(() => {});
+  }, []);
+
+  // Haushalt-Saldo
+  const [haushaltSaldo, setHaushaltSaldo] = useState<HaushaltSaldo | null>(null);
+  useEffect(() => {
+    fetchSaldo().then(setHaushaltSaldo).catch(() => {});
   }, []);
 
   // Neue Aufgabe SlideOver
@@ -376,6 +384,36 @@ export function DashboardPage() {
                     <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>add</span>
                     Neuer Eintrag
                   </button>
+                </div>
+              )}
+
+              {'isHaushalt' in mod && (
+                <div style={{ marginTop: '0.875rem' }}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); navigate('/haushalt', { state: { openNew: true } }); }}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                      padding: '0.35rem 0.8rem',
+                      borderRadius: '9999px',
+                      background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+                      color: '#000', border: 'none', cursor: 'pointer',
+                      fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.7rem',
+                      letterSpacing: '0.03em',
+                    }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>add</span>
+                    Neuer Eintrag
+                  </button>
+                  {haushaltSaldo !== null && haushaltSaldo.saldo !== 0 && (
+                    <p style={{
+                      fontFamily: 'var(--font-body)', fontSize: '0.7rem',
+                      color: haushaltSaldo.saldo > 0 ? 'var(--color-primary)' : '#fb923c',
+                      marginTop: '0.5rem', letterSpacing: '0.01em',
+                    }}>
+                      {Math.abs(haushaltSaldo.saldo).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € offen —{' '}
+                      {haushaltSaldo.saldo > 0 ? 'Julia → Benny' : 'Benny → Julia'}
+                    </p>
+                  )}
                 </div>
               )}
 

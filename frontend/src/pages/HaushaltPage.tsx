@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import {
   fetchEintraege,
@@ -15,6 +15,7 @@ import {
 } from '../api/haushalt.api';
 import { HaushaltSlideOver } from '../components/haushalt/HaushaltSlideOver';
 import { AbrechnungsModal } from '../components/haushalt/AbrechnungsModal';
+import { useAuthStore } from '../store/authStore';
 
 // ---------------------------------------------------------------------------
 // Hilfsfunktionen
@@ -52,26 +53,6 @@ const KATEGORIE_TEXT: Record<string, string> = {
   'Sonstiges': '#9ca3af',
 };
 
-// ---------------------------------------------------------------------------
-// Miete-Hilfsfunktionen
-// ---------------------------------------------------------------------------
-
-function formatMietmonat(monat: string): string {
-  if (!monat) return 'Miete';
-  const [year, month] = monat.split('-');
-  const monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
-  return `Miete ${monthNames[parseInt(month, 10) - 1]} ${year}`;
-}
-
-function letzteMonateIso(anzahl: number): string[] {
-  const monate: string[] = [];
-  const heute = new Date();
-  for (let i = 0; i < anzahl; i++) {
-    const d = new Date(heute.getFullYear(), heute.getMonth() - i, 1);
-    monate.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-  }
-  return monate;
-}
 
 // ---------------------------------------------------------------------------
 // Segment-Tabs
@@ -105,7 +86,6 @@ function EintragZeile({
 
   return (
     <div
-      onClick={showActions && onEdit ? onEdit : undefined}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -114,11 +94,7 @@ function EintragZeile({
         borderRadius: '0.5rem',
         background: 'var(--color-surface-container)',
         border: '1px solid var(--color-outline-variant)',
-        cursor: showActions && onEdit ? 'pointer' : 'default',
-        transition: 'background 0.15s',
       }}
-      onMouseEnter={e => { if (showActions && onEdit) (e.currentTarget as HTMLElement).style.background = 'var(--color-surface-container-high)'; }}
-      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--color-surface-container)'; }}
     >
       {/* Icon */}
       <span
@@ -230,6 +206,7 @@ function EintragZeile({
 
 export function HaushaltPage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>('offen');
 
   // Offene Eintraege
@@ -247,18 +224,47 @@ export function HaushaltPage() {
   const [mieteEintraege, setMieteEintraege] = useState<HaushaltEintrag[]>([]);
   const [loadingMiete, setLoadingMiete] = useState(false);
 
+  // CSV-Export
+  const [exportOpen, setExportOpen] = useState(false);
+  const token = useAuthStore(s => s.token);
+
+  async function csvExport(scope: 'all' | 'offen' | 'abrechnungen' | 'miete') {
+    setExportOpen(false);
+    try {
+      const res = await fetch(`/api/haushalt/export/csv?scope=${scope}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const cd = res.headers.get('content-disposition') ?? '';
+      const match = cd.match(/filename="([^"]+)"/);
+      a.download = match ? match[1] : `haushalt_${scope}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('CSV-Export Fehler:', err);
+    }
+  }
+
   // Modals
   const [slideOverOpen, setSlideOverOpen] = useState(false);
   const [editEintrag, setEditEintrag] = useState<HaushaltEintrag | undefined>();
   const [abrechnungsModalOpen, setAbrechnungsModalOpen] = useState(false);
 
   // Auto-öffnen wenn vom Dashboard per state: { openNew: true } navigiert
+  // State sofort löschen damit Refresh nicht erneut öffnet
   useEffect(() => {
     if ((location.state as { openNew?: boolean } | null)?.openNew) {
       setEditEintrag(undefined);
       setSlideOverOpen(true);
+      navigate('.', { replace: true, state: {} });
     }
-  }, [location.state]);
+  }, [location.state, navigate]);
 
   // ---------------------------------------------------------------------------
   // Datenladen
@@ -442,28 +448,83 @@ export function HaushaltPage() {
         Haushalt
       </h1>
 
-      {/* Segment-Tabs */}
-      <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--color-surface-container)', borderRadius: '0.5rem', padding: '0.25rem', marginBottom: '1.25rem', width: 'fit-content' }}>
-        {TABS.map(tab => (
+      {/* Segment-Tabs + Export */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+        <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--color-surface-container)', borderRadius: '0.5rem', padding: '0.25rem' }}>
+          {TABS.map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              style={{
+                padding: '0.4rem 1rem',
+                borderRadius: '0.375rem',
+                border: 'none',
+                background: activeTab === tab.key ? 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dim) 100%)' : 'transparent',
+                color: activeTab === tab.key ? 'var(--color-on-primary)' : 'var(--color-outline)',
+                fontFamily: 'var(--font-body)',
+                fontSize: '0.875rem',
+                fontWeight: activeTab === tab.key ? 600 : 400,
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* CSV-Export Dropdown */}
+        <div style={{ position: 'relative' }}>
           <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => setExportOpen(o => !o)}
             style={{
-              padding: '0.4rem 1rem',
-              borderRadius: '0.375rem',
-              border: 'none',
-              background: activeTab === tab.key ? 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dim) 100%)' : 'transparent',
-              color: activeTab === tab.key ? 'var(--color-on-primary)' : 'var(--color-outline)',
-              fontFamily: 'var(--font-body)',
-              fontSize: '0.875rem',
-              fontWeight: activeTab === tab.key ? 600 : 400,
-              cursor: 'pointer',
-              transition: 'all 0.15s',
+              display: 'flex', alignItems: 'center', gap: '0.375rem',
+              padding: '0.4rem 0.75rem', borderRadius: '0.5rem',
+              border: '1px solid var(--color-outline-variant)',
+              background: 'var(--color-surface-container)',
+              color: 'var(--color-outline)',
+              fontFamily: 'var(--font-body)', fontSize: '0.8rem', cursor: 'pointer',
             }}
           >
-            {tab.label}
+            <span className="material-symbols-outlined" style={{ fontSize: '0.95rem' }}>download</span>
+            CSV
           </button>
-        ))}
+          {exportOpen && (
+            <>
+              <div onClick={() => setExportOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 10 }} />
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 0.375rem)', left: 0,
+                zIndex: 20, minWidth: '160px',
+                background: 'var(--color-surface-container-high)',
+                border: '1px solid var(--color-outline-variant)',
+                borderRadius: '0.5rem', overflow: 'hidden',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+              }}>
+                {([
+                  { scope: 'all', label: 'Alles exportieren' },
+                  { scope: 'offen', label: 'Nur Offen' },
+                  { scope: 'abrechnungen', label: 'Abrechnungen' },
+                  { scope: 'miete', label: 'Miete' },
+                ] as const).map(opt => (
+                  <button
+                    key={opt.scope}
+                    onClick={() => csvExport(opt.scope)}
+                    style={{
+                      display: 'block', width: '100%', textAlign: 'left',
+                      padding: '0.6rem 1rem', border: 'none',
+                      background: 'none', color: 'var(--color-on-surface)',
+                      fontFamily: 'var(--font-body)', fontSize: '0.85rem', cursor: 'pointer',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-surface-container)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* ── Tab: Offen ── */}

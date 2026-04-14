@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { useUiStore } from '../../store/uiStore';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
@@ -8,6 +8,8 @@ import { ReminderPoller } from '../tasks/ReminderPoller';
 export function AppShell() {
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
   const theme = useUiStore((state) => state.theme);
+  const location = useLocation();
+  const isDjModule = location.pathname.startsWith('/dj');
 
   // Theme auf documentElement synchronisieren
   useEffect(() => {
@@ -40,6 +42,7 @@ export function AppShell() {
     <div
       className="flex h-screen overflow-hidden"
       style={{ backgroundColor: 'var(--color-background)', position: 'relative' }}
+      data-module={isDjModule ? 'dj' : undefined}
     >
       {/* Global ambient light leaks — subtle atmospheric depth */}
       <div aria-hidden style={{

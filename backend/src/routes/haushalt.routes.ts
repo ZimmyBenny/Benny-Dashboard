@@ -168,6 +168,47 @@ router.post('/abrechnungen', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /export/csv — CSV-Export (scope: all | offen | abrechnungen | miete)
+// ---------------------------------------------------------------------------
+
+router.get('/export/csv', (req, res) => {
+  const scope = (req.query.scope as string) || 'all';
+
+  let sql: string;
+  if (scope === 'offen') {
+    sql = `SELECT * FROM haushalt_eintraege WHERE abrechnung_id IS NULL AND NOT (kategorie = 'Miete' AND eintrag_typ = 'geldübergabe') ORDER BY datum DESC`;
+  } else if (scope === 'abrechnungen') {
+    sql = `SELECT e.*, a.titel as abrechnung_titel FROM haushalt_eintraege e LEFT JOIN haushalt_abrechnungen a ON a.id = e.abrechnung_id WHERE e.abrechnung_id IS NOT NULL ORDER BY e.datum DESC`;
+  } else if (scope === 'miete') {
+    sql = `SELECT * FROM haushalt_eintraege WHERE kategorie = 'Miete' AND eintrag_typ = 'geldübergabe' ORDER BY datum DESC`;
+  } else {
+    sql = `SELECT e.*, a.titel as abrechnung_titel FROM haushalt_eintraege e LEFT JOIN haushalt_abrechnungen a ON a.id = e.abrechnung_id ORDER BY e.datum DESC`;
+  }
+
+  const rows = db.prepare(sql).all() as (HaushaltEintragRow & { abrechnung_titel?: string })[];
+
+  const headers = ['Datum', 'Beschreibung', 'Kategorie', 'Betrag (EUR)', 'Bezahlt von', 'Typ', 'Aufteilung %', 'Status', 'Abrechnung'];
+  const csvRows = rows.map(r => [
+    r.datum,
+    `"${(r.beschreibung || '').replace(/"/g, '""')}"`,
+    r.kategorie,
+    r.betrag.toFixed(2).replace('.', ','),
+    r.bezahlt_von === 'benny' ? 'Benny' : 'Julia',
+    r.eintrag_typ === 'ausgabe' ? 'Ausgabe' : 'Geldübergabe',
+    r.aufteilung_prozent,
+    r.abrechnung_id ? 'Abgerechnet' : 'Offen',
+    r.abrechnung_titel ? `"${r.abrechnung_titel.replace(/"/g, '""')}"` : '',
+  ].join(';'));
+
+  const csv = [headers.join(';'), ...csvRows].join('\r\n');
+  const filename = `haushalt-${scope}-${new Date().toISOString().slice(0, 10)}.csv`;
+
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send('\uFEFF' + csv); // BOM für Excel-Kompatibilität
+});
+
+// ---------------------------------------------------------------------------
 // GET /miete — Alle Miete-Zahlungen (unabhaengig von Abrechnung)
 // ---------------------------------------------------------------------------
 

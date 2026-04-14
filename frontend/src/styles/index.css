@@ -82,6 +82,43 @@
   --glass-bg:       rgba(25, 37, 64, 0.4);
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   DJ MODULE — "The Synthetic Conductor" color scope
+   Überschreibt Primary/Secondary/Tertiary + Font nur innerhalb
+   von [data-module="dj"]. Rest des Dashboards bleibt unverändert.
+   Werte aus: DJ Dashboard/files/DESIGN_SYSTEM.md
+   ═══════════════════════════════════════════════════════════════════ */
+[data-module="dj"] {
+  /* Primary — Electric Blue */
+  --color-primary:              #94aaff;
+  --color-primary-dim:          #3367ff;
+  --color-primary-container:    #809bff;
+  --color-on-primary:           #060e20;
+  --color-on-primary-container: #060e20;
+  --color-surface-tint:         #94aaff;
+
+  /* Secondary — Emerald Green (nur für Erfolg/Finanzen) */
+  --color-secondary:              #5cfd80;
+  --color-secondary-dim:          #4bee74;
+  --color-secondary-container:    #006e2a;
+  --color-on-secondary:           #003915;
+  --color-on-secondary-container: #dee5ff;
+
+  /* Tertiary — Deep Violet */
+  --color-tertiary:              #a68cff;
+  --color-tertiary-dim:          #7e51ff;
+  --color-tertiary-container:    #3d0099;
+  --color-on-tertiary:           #060e20;
+  --color-on-tertiary-container: #ece0ff;
+
+  /* Glow angepasst */
+  --glow-primary:   0 0 20px rgba(148, 170, 255, 0.35);
+  --glow-secondary: 0 0 12px rgba(92, 253, 128, 0.15);
+
+  /* Headline-Font — Manrope statt Epilogue */
+  --font-headline: "Manrope", "Epilogue", sans-serif;
+}
+
 /* Glass-Card Klasse — exakter Wert aus Design-HTML (per D-05) */
 /* NICHT via Tailwind-Opacity-Modifier, da rgba(25,37,64,0.4) nicht identisch mit surface-variant/40 */
 .glass-card {

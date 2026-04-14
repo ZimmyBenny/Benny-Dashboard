@@ -81,10 +81,23 @@ function eintragToForm(eintrag?: HaushaltEintrag): FormState {
   else if (eintrag.aufteilung_prozent === 0) aufteilung_modus = 'julia_alles';
   else if (eintrag.aufteilung_prozent !== 50) aufteilung_modus = 'andere';
 
+  // Einzelbeträge wiederherstellen wenn Sammeleintrag
+  let einzelbetraege: string[] = [];
+  let betragStr = String(eintrag.betrag);
+  if (eintrag.einzelbetraege) {
+    try {
+      const parsed: number[] = JSON.parse(eintrag.einzelbetraege);
+      if (parsed.length > 1) {
+        einzelbetraege = parsed.map(b => String(b));
+        betragStr = '';
+      }
+    } catch { /* ignore */ }
+  }
+
   return {
     datum: eintrag.datum,
-    betrag: String(eintrag.betrag),
-    einzelbetraege: [],
+    betrag: betragStr,
+    einzelbetraege,
     kategorie: eintrag.kategorie,
     sonstigesText: eintrag.kategorie === 'Sonstiges' ? eintrag.beschreibung : '',
     mietmonat: currentMonthIso(),
