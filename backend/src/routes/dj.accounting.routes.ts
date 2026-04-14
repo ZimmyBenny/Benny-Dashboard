@@ -102,25 +102,68 @@ router.get('/vat', (req, res) => {
 // GET /api/dj/accounting/trips?year=2026
 router.get('/trips', (req, res) => {
   const year = String(req.query.year ?? new Date().getFullYear());
-  const rows = db.prepare(`
-    SELECT * FROM v_dj_trips WHERE year = ? ORDER BY date
-  `).all(Number(year));
 
+  // Settings für Km-Pauschale und Verpflegung
   const settings = db.prepare("SELECT value FROM dj_settings WHERE key = 'tax'").get() as { value: string } | undefined;
   const tax = settings ? JSON.parse(settings.value) : {};
-  const mileageRate = tax.mileage_rate_per_km ?? 0.30;
-  const meal8h = tax.meal_allowance_8h ?? 14;
-  const meal24h = tax.meal_allowance_24h ?? 28;
+  const mileageRate: number = tax.mileage_rate_per_km ?? 0.30;
+  const meal8h: number = tax.meal_allowance_8h ?? 14;
+  const meal24h: number = tax.meal_allowance_24h ?? 28;
 
-  const withMeal = (rows as Array<Record<string, number>>).map((r) => ({
-    ...r,
-    meal_allowance:
-      r.absence_hours >= 24 ? meal24h :
-      r.absence_hours >= 8  ? meal8h  : 0,
+  // Event-basierte Fahrten aus View
+  const eventRows = (db.prepare(
+    `SELECT * FROM v_dj_trips WHERE year = ? ORDER BY date`
+  ).all(Number(year)) as Array<Record<string, unknown>>).map((r) => ({
+    source: 'event' as const,
+    id: null,                          // nicht löschbar
+    event_id: r.event_id,
+    date: r.date,
+    event_name: r.event_name,
+    start_location: null,
+    end_location: null,
+    distance_km: r.total_km,          // Hin+Rückfahrt
+    purpose: null,
+    reimbursement_amount: r.deductible_value,
     mileage_rate: mileageRate,
+    meal_allowance:
+      (r.absence_hours as number) >= 24 ? meal24h :
+      (r.absence_hours as number) >= 8  ? meal8h  : 0,
   }));
 
-  res.json(withMeal);
+  // Manuelle Fahrten aus dj_expenses(category='fahrt')
+  const manualRows = (db.prepare(`
+    SELECT id, expense_date, description, amount_gross, notes
+    FROM dj_expenses
+    WHERE category = 'fahrt'
+      AND deleted_at IS NULL
+      AND strftime('%Y', expense_date) = ?
+    ORDER BY expense_date
+  `).all(year) as Array<Record<string, unknown>>).map((r) => {
+    // notes enthält JSON: { start_location, end_location, distance_km, rate_per_km }
+    let extra: Record<string, unknown> = {};
+    try { extra = r.notes ? JSON.parse(r.notes as string) : {}; } catch { extra = {}; }
+    return {
+      source: 'manual' as const,
+      id: r.id,
+      event_id: null,
+      date: r.expense_date,
+      event_name: null,
+      start_location: extra.start_location ?? null,
+      end_location: extra.end_location ?? null,
+      distance_km: extra.distance_km ?? null,
+      purpose: r.description,
+      reimbursement_amount: r.amount_gross,
+      mileage_rate: extra.rate_per_km ?? mileageRate,
+      meal_allowance: 0,
+    };
+  });
+
+  // Zusammenführen nach Datum sortiert
+  const all = [...eventRows, ...manualRows].sort((a, b) =>
+    String(a.date).localeCompare(String(b.date))
+  );
+
+  res.json(all);
 });
 
 export default router;

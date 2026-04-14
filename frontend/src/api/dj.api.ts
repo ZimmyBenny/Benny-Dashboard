@@ -170,6 +170,21 @@ export interface DjExpense {
   created_at: string;
 }
 
+export interface DjTrip {
+  source: 'event' | 'manual';
+  id: number | null;        // null = Event-basiert, nicht löschbar
+  event_id: number | null;
+  date: string;
+  event_name: string | null;
+  start_location: string | null;
+  end_location: string | null;
+  distance_km: number | null;
+  purpose: string | null;
+  reimbursement_amount: number;
+  mileage_rate: number;
+  meal_allowance: number;
+}
+
 export interface DjOverview {
   year: string;
   total_events: number;
@@ -294,8 +309,31 @@ export const deleteDjExpense = (id: number): Promise<void> =>
 export const fetchDjAccountingSummary = (year?: number) =>
   apiClient.get('/dj/accounting/summary', { params: { year } }).then(r => r.data);
 
-export const fetchDjTrips = (year?: number) =>
+export const fetchDjTrips = (year?: number): Promise<DjTrip[]> =>
   apiClient.get('/dj/accounting/trips', { params: { year } }).then(r => r.data);
+
+export const createDjTrip = (data: {
+  expense_date: string;
+  start_location: string;
+  end_location: string;
+  distance_km: number;
+  purpose: string;
+  rate_per_km: number;
+  reimbursement_amount: number;
+}): Promise<DjExpense> =>
+  apiClient.post('/dj/expenses', {
+    expense_date: data.expense_date,
+    category: 'fahrt',
+    description: data.purpose,
+    amount_gross: data.reimbursement_amount,
+    tax_rate: 0,
+    notes: JSON.stringify({
+      start_location: data.start_location,
+      end_location: data.end_location,
+      distance_km: data.distance_km,
+      rate_per_km: data.rate_per_km,
+    }),
+  }).then(r => r.data);
 
 // Einstellungen
 export const fetchDjSettings = () =>
