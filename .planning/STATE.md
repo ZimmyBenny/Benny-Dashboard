@@ -80,9 +80,13 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 | 260414-d5g | Haushalt-Modul Gemeinsame Ausgaben Benny und Julia | 2026-04-14 | cd1eb4c | [260414-d5g-haushalt-modul-gemeinsame-ausgaben-benny](.planning/quick/260414-d5g-haushalt-modul-gemeinsame-ausgaben-benny/) |
 | 260414-ug7 | DJ-Kunden-Seite: Tabelle, KPIs, Suche, Kontakt-Picker | 2026-04-14 | 24b05fd | [260414-ug7-dj-kunden-seite-implementieren-djcustome](.planning/quick/260414-ug7-dj-kunden-seite-implementieren-djcustome/) |
 | 260414-ulb | DJ-Leistungen & Pakete Seite: Tabs, Tabelle, Toggle, Slide-Overs, KPIs | 2026-04-14 | 453bd71 | [260414-ulb-dj-leistungen-pakete-seite-implementiere](.planning/quick/260414-ulb-dj-leistungen-pakete-seite-implementiere/) |
+| 260414-urj | DJ Events & Anfragen Seite: Liste+KPIs+Filter, Erstell-/Bearbeitungsformular, Status-Verlauf | 2026-04-14 | e943469 | [260414-urj-dj-events-anfragen-seite-implementieren](.planning/quick/260414-urj-dj-events-anfragen-seite-implementieren/) |
 
 ---
-*State initialized: 2026-04-07 | Last activity: 2026-04-14 - Completed quick task 260414-d5g: Haushalt-Modul Gemeinsame Ausgaben Benny & Julia*
+| 260414-v4b | DJ-Rechnungen: DjInvoicesPage + DjInvoiceDetailPage (GoBD, Finalisieren, Stornieren, Zahlung) | 2026-04-14 | f5a35c8 | [260414-v4b-dj-rechnungen-seite-implementieren](.planning/quick/260414-v4b-dj-rechnungen-seite-implementieren/) |
+
+---
+*State initialized: 2026-04-07 | Last activity: 2026-04-14 - Completed quick task 260414-v4b: DJ-Rechnungen vollständig implementiert*
 | 2026-04-10 | fast | TaskCard onClick → SlideOver fix (PointerSensor distance constraint) | ✅ |
 | 2026-04-10 | fast | TaskSlideOver Backdrop-Klick schließt Panel nicht mehr | ✅ |
 | 2026-04-10 | 260410-v3q | Status-Notiz beim Drag (DragPrompt + DB-Migration + KanbanBoard-Pause) | ✅ |
