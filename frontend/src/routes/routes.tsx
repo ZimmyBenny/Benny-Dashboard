@@ -5,7 +5,18 @@ import { LoginPage } from '../pages/LoginPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { TasksPage } from '../pages/TasksPage';
 import { CalendarPage } from '../pages/CalendarPage';
-import { DjPage } from '../pages/DjPage';
+import { DjOverviewPage } from '../pages/dj/DjOverviewPage';
+import { DjEventsPage } from '../pages/dj/DjEventsPage';
+import { DjEventDetailPage } from '../pages/dj/DjEventDetailPage';
+import { DjQuotesPage } from '../pages/dj/DjQuotesPage';
+import { DjQuoteDetailPage } from '../pages/dj/DjQuoteDetailPage';
+import { DjInvoicesPage } from '../pages/dj/DjInvoicesPage';
+import { DjInvoiceDetailPage } from '../pages/dj/DjInvoiceDetailPage';
+import { DjCustomersPage } from '../pages/dj/DjCustomersPage';
+import { DjServicesPage } from '../pages/dj/DjServicesPage';
+import { DjTripsPage } from '../pages/dj/DjTripsPage';
+import { DjAccountingPage } from '../pages/dj/DjAccountingPage';
+import { DjSettingsPage } from '../pages/dj/DjSettingsPage';
 import { FinancesPage } from '../pages/FinancesPage';
 import { AmazonPage } from '../pages/AmazonPage';
 import { KiAgentsPage } from '../pages/KiAgentsPage';
@@ -32,7 +43,21 @@ export const router = createBrowserRouter([
           { path: '/tasks',          element: <TasksPage /> },
           { path: '/arbeitsmappe',   element: <WorkbookPage /> },
           { path: '/calendar',       element: <CalendarPage /> },
-          { path: '/dj',             element: <DjPage /> },
+          { path: '/dj',                  element: <DjOverviewPage /> },
+          { path: '/dj/events',           element: <DjEventsPage /> },
+          { path: '/dj/events/new',       element: <DjEventDetailPage /> },
+          { path: '/dj/events/:id',       element: <DjEventDetailPage /> },
+          { path: '/dj/quotes',           element: <DjQuotesPage /> },
+          { path: '/dj/quotes/new',       element: <DjQuoteDetailPage /> },
+          { path: '/dj/quotes/:id',       element: <DjQuoteDetailPage /> },
+          { path: '/dj/invoices',         element: <DjInvoicesPage /> },
+          { path: '/dj/invoices/new',     element: <DjInvoiceDetailPage /> },
+          { path: '/dj/invoices/:id',     element: <DjInvoiceDetailPage /> },
+          { path: '/dj/customers',        element: <DjCustomersPage /> },
+          { path: '/dj/services',         element: <DjServicesPage /> },
+          { path: '/dj/trips',            element: <DjTripsPage /> },
+          { path: '/dj/accounting',       element: <DjAccountingPage /> },
+          { path: '/dj/settings',         element: <DjSettingsPage /> },
           { path: '/finances',       element: <FinancesPage /> },
           { path: '/amazon',         element: <AmazonPage /> },
           { path: '/ki-agenten',     element: <KiAgentsPage /> },
@@ -44,7 +69,7 @@ export const router = createBrowserRouter([
           { path: '/contacts/:id',        element: <ContactDetailPage /> },
           { path: '/contacts/:id/edit',   element: <ContactFormPage /> },
           { path: '/contracts',            element: <ContractsPage /> },
-          { path: '/finanzen/haushalt',   element: <HaushaltPage /> },
+          { path: '/haushalt',   element: <HaushaltPage /> },
         ],
       },
     ],

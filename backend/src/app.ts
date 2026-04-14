@@ -15,6 +15,7 @@ import contactsRoutes from './routes/contacts.routes';
 import contractsRoutes from './routes/contracts.routes';
 import haushaltRoutes from './routes/haushalt.routes';
 import appSettingsRoutes from './routes/appSettings.routes';
+import djRoutes from './routes/dj.routes';
 import { verifyToken, type AuthenticatedRequest } from './middleware/auth';
 
 export function createApp() {
@@ -53,6 +54,7 @@ export function createApp() {
   app.use('/api/contracts', contractsRoutes);
   app.use('/api/haushalt', haushaltRoutes);
   app.use('/api/app-settings', appSettingsRoutes);
+  app.use('/api/dj', djRoutes);
 
   // Temporary probe route to verify the guard end-to-end (kept; Plan 3 may remove)
   app.get('/api/_probe', (req: AuthenticatedRequest, res) => {

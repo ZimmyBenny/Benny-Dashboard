@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useRef, useEffect } from 'react';
 import { useUiStore } from '../../store/uiStore';
 import { useAuthStore } from '../../store/authStore';
@@ -34,19 +34,33 @@ function SidebarNavLink({
   end?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
+  const isIndented = !!item.indent;
 
   return (
     <div
       className="relative group"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      style={!collapsed && isIndented ? { paddingLeft: '0.75rem', position: 'relative' } : undefined}
     >
+      {/* Verbindungslinie zum übergeordneten Eintrag */}
+      {!collapsed && isIndented && (
+        <span style={{
+          position: 'absolute',
+          left: '1.125rem',
+          top: 0,
+          bottom: 0,
+          width: '1px',
+          background: 'rgba(255,255,255,0.1)',
+          pointerEvents: 'none',
+        }} />
+      )}
       <NavLink
         to={item.path}
         end={end}
         className="flex items-center gap-3 rounded-lg transition-all duration-150"
         style={({ isActive }) => ({
-          padding: collapsed ? '0.5rem' : '0.5rem 0.75rem',
+          padding: collapsed ? '0.5rem' : isIndented ? '0.375rem 0.75rem 0.375rem 1.25rem' : '0.5rem 0.75rem',
           justifyContent: collapsed ? 'center' : undefined,
           color: isActive
             ? 'var(--color-primary)'
@@ -63,14 +77,14 @@ function SidebarNavLink({
       >
         <span
           className="material-symbols-outlined flex-shrink-0"
-          style={{ fontSize: '20px' }}
+          style={{ fontSize: isIndented && !collapsed ? '17px' : '20px' }}
         >
           {item.icon}
         </span>
         {!collapsed && (
           <span style={{
             fontFamily: 'var(--font-body)',
-            fontSize: '0.8125rem',
+            fontSize: isIndented ? '0.775rem' : '0.8125rem',
             fontWeight: hovered ? 700 : 500,
             letterSpacing: '0.01em',
             overflow: 'hidden',
@@ -110,7 +124,32 @@ export function Sidebar() {
   const logout = useAuthStore((state) => state.logout);
   const navigate = useNavigate();
 
+  const location = useLocation();
   const [orderedItems, setOrderedItems] = useState<NavItem[]>(loadNavOrder);
+
+  // Aufklappbare Untermenüs (z.B. DJ)
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('sidebarExpandedGroups');
+      return saved ? new Set<string>(JSON.parse(saved)) : new Set<string>();
+    } catch { return new Set<string>(); }
+  });
+
+  // DJ-Untermenü automatisch aufklappen wenn auf /dj/* Route
+  useEffect(() => {
+    if (location.pathname.startsWith('/dj') && !expandedGroups.has('/dj')) {
+      setExpandedGroups(prev => new Set([...prev, '/dj']));
+    }
+  }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function toggleGroup(path: string) {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path); else next.add(path);
+      localStorage.setItem('sidebarExpandedGroups', JSON.stringify([...next]));
+      return next;
+    });
+  }
   const [dragSource, setDragSource] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
   const dragSourceRef = useRef<number | null>(null);
@@ -325,11 +364,43 @@ export function Sidebar() {
               cursor: 'grab',
             }}
           >
-            <SidebarNavLink
-              item={item}
-              collapsed={collapsed}
-              end={item.path === '/'}
-            />
+            {/* Parent-Item mit optionalem Chevron für Untermenüs */}
+            {item.subItems && !collapsed ? (
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <SidebarNavLink item={item} collapsed={collapsed} end={item.path === '/'} />
+                </div>
+                <button
+                  onClick={() => toggleGroup(item.path)}
+                  style={{
+                    background: 'transparent', border: 'none', cursor: 'pointer',
+                    padding: '0.375rem 0.25rem', color: 'var(--color-on-surface-variant)',
+                    display: 'flex', alignItems: 'center', flexShrink: 0,
+                  }}
+                  title={expandedGroups.has(item.path) ? 'Zuklappen' : 'Aufklappen'}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
+                    {expandedGroups.has(item.path) ? 'expand_less' : 'expand_more'}
+                  </span>
+                </button>
+              </div>
+            ) : (
+              <SidebarNavLink item={item} collapsed={collapsed} end={item.path === '/'} />
+            )}
+
+            {/* Untermenü-Einträge (nicht draggable) */}
+            {item.subItems && !collapsed && expandedGroups.has(item.path) && (
+              <div style={{ paddingLeft: '0.5rem' }}>
+                {item.subItems.map(sub => (
+                  <SidebarNavLink
+                    key={sub.path}
+                    item={{ ...sub, indent: true }}
+                    collapsed={false}
+                    end={sub.path === '/dj'}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </nav>
