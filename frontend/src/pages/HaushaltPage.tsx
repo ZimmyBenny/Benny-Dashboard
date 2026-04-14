@@ -671,56 +671,54 @@ export function HaushaltPage() {
       {/* ── Tab: Miete bezahlt ── */}
       {activeTab === 'miete' && (
         <div>
-          <div style={{ marginBottom: '1rem', fontSize: '0.8rem', color: 'var(--color-outline)' }}>
-            Letzte 12 Monate — 100 € · Benny → Julia
-          </div>
           {loadingMiete ? (
             <div style={{ color: 'var(--color-outline)', fontSize: '0.875rem', padding: '2rem 0', textAlign: 'center' }}>
               Wird geladen…
             </div>
+          ) : mieteEintraege.length === 0 ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '3rem 1rem',
+              color: 'var(--color-outline)',
+              fontSize: '0.875rem',
+              background: 'var(--color-surface-container)',
+              borderRadius: '0.75rem',
+              border: '1px solid var(--color-outline-variant)',
+            }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem', opacity: 0.5 }}>home</span>
+              Noch keine Mietzahlungen eingetragen
+            </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {letzteMonateIso(12).map(monat => {
-                const bezeichnung = formatMietmonat(monat);
-                const bezahlt = mieteEintraege.some(e => e.beschreibung === bezeichnung);
-                const [year, month] = monat.split('-');
-                const monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
-                const label = `${monthNames[parseInt(month, 10) - 1]} ${year}`;
-                return (
-                  <div
-                    key={monat}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.75rem',
-                      padding: '0.75rem 1rem',
-                      borderRadius: '0.5rem',
-                      background: bezahlt ? 'rgba(45,212,191,0.06)' : 'var(--color-surface-container)',
-                      border: `1px solid ${bezahlt ? '#2dd4bf' : 'var(--color-outline-variant)'}`,
-                    }}
-                  >
-                    <span
-                      className="material-symbols-outlined"
-                      style={{ fontSize: '1.25rem', color: bezahlt ? '#2dd4bf' : 'var(--color-outline)', flexShrink: 0 }}
-                    >
-                      {bezahlt ? 'check_circle' : 'radio_button_unchecked'}
-                    </span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '0.9rem', fontWeight: bezahlt ? 600 : 400, color: bezahlt ? '#2dd4bf' : 'var(--color-on-surface)' }}>
-                        {label}
-                      </div>
-                      {bezahlt && (
-                        <div style={{ fontSize: '0.75rem', color: 'var(--color-outline)', marginTop: '0.1rem' }}>
-                          {formatDatum(mieteEintraege.find(e => e.beschreibung === bezeichnung)?.datum ?? '')}
-                        </div>
-                      )}
+              {mieteEintraege.map(e => (
+                <div
+                  key={e.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    padding: '0.75rem 1rem',
+                    borderRadius: '0.5rem',
+                    background: 'rgba(45,212,191,0.06)',
+                    border: '1px solid #2dd4bf',
+                  }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '1.25rem', color: '#2dd4bf', flexShrink: 0 }}>
+                    check_circle
+                  </span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#2dd4bf' }}>
+                      {e.beschreibung}
                     </div>
-                    <span style={{ fontSize: '0.875rem', fontWeight: 700, color: bezahlt ? '#2dd4bf' : 'var(--color-outline)', flexShrink: 0 }}>
-                      {bezahlt ? '100,00 EUR' : '—'}
-                    </span>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--color-outline)', marginTop: '0.1rem' }}>
+                      Eingetragen: {formatDatum(e.datum)}
+                    </div>
                   </div>
-                );
-              })}
+                  <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#2dd4bf', flexShrink: 0 }}>
+                    {formatBetrag(e.betrag)} EUR
+                  </span>
+                </div>
+              ))}
             </div>
           )}
 
