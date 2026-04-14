@@ -41,7 +41,6 @@ export function DjCustomersPage() {
   // Suche (clientseitig)
   const [search, setSearch] = useState('');
 
-  const [successMsg, setSuccessMsg] = useState('');
 
   // ---------------------------------------------------------------------------
   // Laden
@@ -163,26 +162,6 @@ export function DjCustomersPage() {
         <KpiCard label="Mit Events" value={kpiWithEvents} icon="event" />
         <KpiCard label="Ohne Events" value={kpiWithoutEvents} icon="person_off" />
       </div>
-
-      {/* Erfolgs-Meldung */}
-      {successMsg && (
-        <div style={{
-          background: 'rgba(74,222,128,0.15)',
-          border: '1px solid rgba(74,222,128,0.4)',
-          borderRadius: '0.5rem',
-          padding: '0.625rem 1rem',
-          marginBottom: '1rem',
-          color: '#4ade80',
-          fontFamily: 'var(--font-body)',
-          fontSize: '0.875rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.5rem',
-        }}>
-          <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>check_circle</span>
-          {successMsg}
-        </div>
-      )}
 
       {/* Aktionsleiste */}
       <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1.25rem', alignItems: 'center' }}>
