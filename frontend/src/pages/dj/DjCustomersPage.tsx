@@ -324,10 +324,30 @@ export function DjCustomersPage() {
                       </span>
                     </div>
 
-                    {/* Chevron */}
-                    <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: 'var(--color-on-surface-variant)', flexShrink: 0, opacity: 0.5 }}>
-                      chevron_right
-                    </span>
+                    {/* Quick-Aktionen */}
+                    <div style={{ display: 'flex', gap: '0.25rem', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        title="Neues Event für diesen Kunden"
+                        onClick={() => navigate(`/dj/events/new?customer_id=${c.id}`)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-on-surface-variant)', padding: '0.25rem', borderRadius: '0.375rem', display: 'flex', alignItems: 'center' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--color-primary)'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--color-on-surface-variant)'; }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>add_task</span>
+                      </button>
+                      <button
+                        type="button"
+                        title="Neues Angebot für diesen Kunden"
+                        onClick={() => navigate(`/dj/quotes/new?customer_id=${c.id}`)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-on-surface-variant)', padding: '0.25rem', borderRadius: '0.375rem', display: 'flex', alignItems: 'center' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--color-secondary)'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--color-on-surface-variant)'; }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>request_quote</span>
+                      </button>
+                      <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: 'var(--color-on-surface-variant)', opacity: 0.5, alignSelf: 'center' }}>chevron_right</span>
+                    </div>
                   </div>
                 );
               })}
