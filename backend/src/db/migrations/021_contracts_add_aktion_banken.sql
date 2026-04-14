@@ -1,7 +1,6 @@
 -- Eintragstyp 'Aktion' + Bereich 'Banken' hinzufügen
 -- SQLite erlaubt kein ALTER COLUMN → Tabelle neu erstellen
-
-PRAGMA foreign_keys = OFF;
+-- Hinweis: PRAGMA foreign_keys wird zentral in migrate.ts gesteuert.
 
 CREATE TABLE contracts_and_deadlines_new (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,5 +45,3 @@ CREATE INDEX IF NOT EXISTS idx_cad_status ON contracts_and_deadlines(status);
 CREATE INDEX IF NOT EXISTS idx_cad_expiration_date ON contracts_and_deadlines(expiration_date);
 CREATE INDEX IF NOT EXISTS idx_cad_reminder_date ON contracts_and_deadlines(reminder_date);
 CREATE INDEX IF NOT EXISTS idx_cad_is_archived ON contracts_and_deadlines(is_archived);
-
-PRAGMA foreign_keys = ON;

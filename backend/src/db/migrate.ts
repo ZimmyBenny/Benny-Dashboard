@@ -25,6 +25,12 @@ export function runMigrations(): void {
     .filter((f) => f.endsWith('.sql'))
     .sort();
 
+  // PRAGMA foreign_keys muss AUSSERHALB einer Transaktion gesetzt werden.
+  // Innerhalb von db.transaction() wird es von SQLite stillschweigend ignoriert.
+  // Ohne diesen Fix loesen DROP TABLE Migrationen ON DELETE CASCADE aus
+  // und loeschen referenzierte Daten (z.B. Anhaenge, Activity-Logs).
+  db.pragma('foreign_keys = OFF');
+
   let appliedCount = 0;
   for (const file of files) {
     if (applied.has(file)) {
@@ -41,6 +47,9 @@ export function runMigrations(): void {
     console.log(`[migrate] Applied ${file}`);
     appliedCount++;
   }
+
+  // Foreign Keys nach allen Migrationen wieder aktivieren
+  db.pragma('foreign_keys = ON');
 
   if (appliedCount === 0) {
     console.log('[migrate] All migrations up to date.');
