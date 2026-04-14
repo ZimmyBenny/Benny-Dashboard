@@ -17,6 +17,137 @@ function displayCustomerName(c: DjCustomer): string {
 }
 
 // ---------------------------------------------------------------------------
+// ServiceSearchPicker — Suchfeld für Leistungen pro Position
+// ---------------------------------------------------------------------------
+function ServiceSearchPicker({
+  services,
+  selectedId,
+  onSelect,
+  disabled,
+  inputStyle,
+}: {
+  services: DjService[];
+  selectedId: number | null;
+  onSelect: (svc: DjService | null) => void;
+  disabled?: boolean;
+  inputStyle: React.CSSProperties;
+}) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const selected = selectedId ? services.find(s => s.id === selectedId) : null;
+
+  const filtered = services
+    .filter(s => s.active)
+    .filter(s => !query || s.name.toLowerCase().includes(query.toLowerCase()) ||
+      (s.description ?? '').toLowerCase().includes(query.toLowerCase()));
+
+  useEffect(() => {
+    if (!open) return;
+    function onMouseDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [open]);
+
+  if (selected) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+        <span style={{
+          ...inputStyle,
+          flex: 1,
+          fontSize: '0.8rem',
+          padding: '0.375rem 0.625rem',
+          color: 'var(--color-primary)',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          opacity: disabled ? 0.7 : 1,
+        }}>
+          {selected.name}
+        </span>
+        {!disabled && (
+          <button
+            type="button"
+            onClick={() => onSelect(null)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-on-surface-variant)', padding: '0.2rem', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+            title="Auswahl aufheben (Freitext)"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>close</span>
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <div style={{ position: 'relative' }}>
+        <span className="material-symbols-outlined" style={{ position: 'absolute', left: '0.4rem', top: '50%', transform: 'translateY(-50%)', fontSize: '0.9rem', color: 'var(--color-on-surface-variant)', pointerEvents: 'none' }}>
+          search
+        </span>
+        <input
+          type="text"
+          placeholder="Leistung suchen..."
+          value={query}
+          disabled={disabled}
+          onFocus={() => setOpen(true)}
+          onChange={e => { setQuery(e.target.value); setOpen(true); }}
+          style={{ ...inputStyle, fontSize: '0.8rem', padding: '0.375rem 0.625rem 0.375rem 1.75rem', width: '100%', boxSizing: 'border-box', opacity: disabled ? 0.7 : 1 }}
+        />
+      </div>
+      {open && filtered.length > 0 && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+          background: 'var(--color-surface-container-high)',
+          border: '1px solid var(--color-outline-variant)',
+          borderRadius: '0.5rem',
+          marginTop: '0.25rem',
+          maxHeight: '200px',
+          overflowY: 'auto',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+        }}>
+          {filtered.map(s => (
+            <button
+              key={s.id}
+              type="button"
+              onMouseDown={e => { e.preventDefault(); onSelect(s); setQuery(''); setOpen(false); }}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+                padding: '0.5rem 0.75rem', textAlign: 'left',
+                color: 'var(--color-on-surface)', fontFamily: 'var(--font-body)', fontSize: '0.825rem',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.07)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; }}
+            >
+              <span style={{ fontWeight: 500 }}>{s.name}</span>
+              <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.75rem', marginLeft: '0.5rem', flexShrink: 0 }}>
+                {s.price_net.toFixed(2)} € / {s.unit}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+      {open && query.length > 0 && filtered.length === 0 && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+          background: 'var(--color-surface-container-high)',
+          border: '1px solid var(--color-outline-variant)',
+          borderRadius: '0.5rem', marginTop: '0.25rem',
+          padding: '0.5rem 0.75rem',
+          color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.8rem',
+        }}>
+          Keine Leistung gefunden — Freitext wird verwendet.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // LocalItem — nur für lokalen State
 // ---------------------------------------------------------------------------
 interface LocalItem {
@@ -181,23 +312,6 @@ export function DjQuoteDetailPage() {
 
   function updateItem(key: number, patch: Partial<LocalItem>) {
     setItems(prev => prev.map(i => (i._key === key ? { ...i, ...patch } : i)));
-  }
-
-  function handleServiceSelect(key: number, serviceId: string) {
-    if (!serviceId) {
-      updateItem(key, { service_id: null });
-      return;
-    }
-    const svc = services.find(s => s.id === Number(serviceId));
-    if (svc) {
-      updateItem(key, {
-        service_id: svc.id,
-        description: svc.name,
-        unit: svc.unit,
-        price_net: svc.price_net,
-        tax_rate: svc.tax_rate,
-      });
-    }
   }
 
   // ---------------------------------------------------------------------------
@@ -749,19 +863,27 @@ export function DjQuoteDetailPage() {
                   borderTop: '1px solid var(--color-outline-variant)',
                   alignItems: 'center',
                 }}>
-                  {/* Leistung: Service-Dropdown + Beschreibungs-Input */}
+                  {/* Leistung: Suchfeld + Beschreibungs-Input */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <select
-                      value={item.service_id ?? ''}
-                      onChange={e => handleServiceSelect(item._key, e.target.value)}
+                    <ServiceSearchPicker
+                      services={services}
+                      selectedId={item.service_id}
                       disabled={finalized}
-                      style={{ ...inputStyle, appearance: 'none' as const, fontSize: '0.8rem', padding: '0.375rem 0.625rem', opacity: finalized ? 0.7 : 1 }}
-                    >
-                      <option value="">(Freitext)</option>
-                      {services.filter(s => s.active).map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
+                      inputStyle={inputStyle}
+                      onSelect={svc => {
+                        if (!svc) {
+                          updateItem(item._key, { service_id: null });
+                        } else {
+                          updateItem(item._key, {
+                            service_id: svc.id,
+                            description: svc.name,
+                            unit: svc.unit,
+                            price_net: svc.price_net,
+                            tax_rate: svc.tax_rate,
+                          });
+                        }
+                      }}
+                    />
                     <input
                       type="text"
                       placeholder="Beschreibung..."
