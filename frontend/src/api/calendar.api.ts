@@ -52,3 +52,11 @@ export async function createEvent(payload: CreateEventPayload): Promise<Calendar
 export async function deleteEvent(appleUid: string): Promise<void> {
   await apiClient.delete(`/calendar/events/${encodeURIComponent(appleUid)}`);
 }
+
+export async function forceSync(): Promise<void> {
+  await apiClient.post('/calendar/sync', {});
+}
+
+export async function updateCalendarVisibility(id: string, isVisible: boolean): Promise<void> {
+  await apiClient.patch(`/calendar/calendars/${encodeURIComponent(id)}`, { is_visible: isVisible });
+}

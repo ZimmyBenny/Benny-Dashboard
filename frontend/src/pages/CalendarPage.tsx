@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import {
-  fetchEvents, fetchCalendars, createEvent, deleteEvent,
+  fetchEvents, fetchCalendars, createEvent, deleteEvent, forceSync, updateCalendarVisibility,
   type CalendarEvent, type Calendar, type CreateEventPayload,
 } from '../api/calendar.api';
 
@@ -10,6 +10,10 @@ import {
 const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 const WEEKDAYS_LONG = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
 const MONTHS = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+
+// ── View-Typ ───────────────────────────────────────────────────────────────────
+
+type ViewMode = 'month' | 'week' | 'day';
 
 // ── Styles ─────────────────────────────────────────────────────────────────────
 
@@ -57,7 +61,8 @@ function buildMonthGrid(year: number, month: number): Date[] {
 function groupEventsByDate(events: CalendarEvent[]): Map<string, CalendarEvent[]> {
   const map = new Map<string, CalendarEvent[]>();
   for (const evt of events) {
-    const key = evt.start_at.slice(0, 10);
+    // Lokale Datum verwenden (nicht UTC slice) — Ganztages-Events kommen als 22:00 UTC (= 00:00 CET)
+    const key = isoDateLocal(new Date(evt.start_at));
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(evt);
   }
@@ -81,6 +86,193 @@ function monthRange(year: number, month: number): { from: string; to: string } {
   const from = `${year}-${String(month + 1).padStart(2, '0')}-01`;
   const to   = `${year}-${String(month + 1).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
   return { from, to };
+}
+
+function weekRangeLabel(d: Date): string {
+  const monday = new Date(d);
+  monday.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const mDay = monday.getDate();
+  const sDay = sunday.getDate();
+  const mMonth = MONTHS[monday.getMonth()];
+  const sMonth = MONTHS[sunday.getMonth()];
+  const yr = sunday.getFullYear();
+  if (monday.getMonth() === sunday.getMonth()) {
+    return `${mDay}. – ${sDay}. ${mMonth} ${yr}`;
+  }
+  return `${mDay}. ${mMonth} – ${sDay}. ${sMonth} ${yr}`;
+}
+
+function dayLabel(d: Date): string {
+  const wdIdx = (d.getDay() + 6) % 7;
+  return `${WEEKDAYS_LONG[wdIdx]}, ${d.getDate()}. ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+// ── WeekView ───────────────────────────────────────────────────────────────────
+
+interface WeekViewProps {
+  viewDate: Date;
+  filteredEvents: CalendarEvent[];
+  calendars: Calendar[];
+  onDayClick: (d: Date) => void;
+}
+
+function WeekView({ viewDate, filteredEvents, calendars, onDayClick }: WeekViewProps) {
+  const monday = new Date(viewDate);
+  monday.setDate(viewDate.getDate() - ((viewDate.getDay() + 6) % 7));
+
+  const weekDays: Date[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    weekDays.push(d);
+  }
+
+  const eventsByDate = groupEventsByDate(filteredEvents);
+  const todayStr = isoDateLocal(new Date());
+
+  return (
+    <div style={{
+      background: 'var(--color-surface-container)', borderRadius: '0.75rem',
+      border: '1px solid var(--color-outline-variant)', overflow: 'hidden',
+    }}>
+      {/* Wochentags-Header mit Datum */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}>
+        {weekDays.map((day, i) => {
+          const dayStr = isoDateLocal(day);
+          const isToday = dayStr === todayStr;
+          return (
+            <div key={i} style={{
+              padding: '0.75rem 0.5rem', textAlign: 'center',
+              borderBottom: '1px solid var(--color-outline-variant)',
+              borderRight: i < 6 ? '1px solid var(--color-outline-variant)' : 'none',
+            }}>
+              <div style={{ fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-outline)', fontWeight: 600 }}>
+                {WEEKDAYS[i]}
+              </div>
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 28, height: 28, borderRadius: '50%', marginTop: '0.25rem',
+                fontSize: '0.9rem', fontWeight: isToday ? 700 : 400,
+                color: isToday ? 'var(--color-on-primary)' : 'var(--color-on-surface)',
+                background: isToday ? 'var(--color-primary)' : 'transparent',
+              }}>
+                {day.getDate()}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Event-Spalten */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', minHeight: 300 }}>
+        {weekDays.map((day, i) => {
+          const dayStr = isoDateLocal(day);
+          const dayEvts = eventsByDate.get(dayStr) ?? [];
+          const sorted = [...dayEvts].sort((a, b) => {
+            if (a.is_all_day && !b.is_all_day) return -1;
+            if (!a.is_all_day && b.is_all_day) return 1;
+            return a.start_at.localeCompare(b.start_at);
+          });
+
+          return (
+            <div
+              key={i}
+              onClick={() => onDayClick(day)}
+              style={{
+                padding: '0.5rem 0.375rem', cursor: 'pointer',
+                borderRight: i < 6 ? '1px solid var(--color-outline-variant)' : 'none',
+                display: 'flex', flexDirection: 'column', gap: '4px',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+            >
+              {sorted.map(evt => {
+                const color = calendarColor(calendars, evt.calendar_id, evt.calendar_name);
+                return (
+                  <div key={evt.apple_uid || evt.id} style={{
+                    fontSize: '0.7rem', padding: '3px 5px', borderRadius: 4,
+                    borderLeft: `3px solid ${color}`, background: `${color}22`,
+                    color: 'var(--color-on-surface)', overflow: 'hidden',
+                    whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+                  }} title={evt.title}>
+                    {evt.is_all_day ? '' : `${toLocalTimeStr(evt.start_at)} `}{evt.title}
+                  </div>
+                );
+              })}
+              {sorted.length === 0 && (
+                <div style={{ fontSize: '0.7rem', color: 'var(--color-outline)', opacity: 0.5, textAlign: 'center', marginTop: '1rem' }}>—</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── DayView ────────────────────────────────────────────────────────────────────
+
+interface DayViewProps {
+  viewDate: Date;
+  filteredEvents: CalendarEvent[];
+  calendars: Calendar[];
+}
+
+function DayView({ viewDate, filteredEvents, calendars }: DayViewProps) {
+  const dayStr = isoDateLocal(viewDate);
+  const dayEvts = (groupEventsByDate(filteredEvents).get(dayStr) ?? [])
+    .sort((a, b) => {
+      if (a.is_all_day && !b.is_all_day) return -1;
+      if (!a.is_all_day && b.is_all_day) return 1;
+      return a.start_at.localeCompare(b.start_at);
+    });
+
+  return (
+    <div style={{
+      background: 'var(--color-surface-container)', borderRadius: '0.75rem',
+      border: '1px solid var(--color-outline-variant)', overflow: 'hidden',
+    }}>
+      {dayEvts.length === 0 ? (
+        <p style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-outline)', fontSize: '0.875rem' }}>
+          Keine Termine an diesem Tag.
+        </p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {dayEvts.map((evt, idx) => {
+            const color = calendarColor(calendars, evt.calendar_id, evt.calendar_name);
+            const timeStr = evt.is_all_day ? 'Ganztägig' : `${toLocalTimeStr(evt.start_at)} – ${toLocalTimeStr(evt.end_at)}`;
+            return (
+              <div key={evt.apple_uid || evt.id} style={{
+                display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
+                padding: '0.875rem 1.25rem',
+                borderBottom: idx < dayEvts.length - 1 ? '1px solid var(--color-outline-variant)' : 'none',
+              }}>
+                <div style={{
+                  width: 10, height: 10, borderRadius: '50%',
+                  background: color, flexShrink: 0, marginTop: 4,
+                }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontWeight: 600, fontSize: '0.9rem', color: 'var(--color-on-surface)' }}>
+                    {evt.title}
+                  </p>
+                  <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--color-outline)' }}>
+                    {timeStr}
+                  </p>
+                  {evt.location && (
+                    <p style={{ margin: '0.2rem 0 0', fontSize: '0.75rem', color: 'var(--color-outline)' }}>
+                      {evt.location}
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ── EventForm ──────────────────────────────────────────────────────────────────
@@ -443,10 +635,13 @@ function DaySlideOver({ date, events, calendars, onClose, onEventDeleted, onEven
 
 // ── CalendarPage ───────────────────────────────────────────────────────────────
 
-export default function CalendarPage() {
+export function CalendarPage() {
   const today = new Date();
   const [year, setYear]   = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
+
+  const [viewMode, setViewMode] = useState<ViewMode>('month');
+  const [viewDate, setViewDate] = useState<Date>(new Date());
 
   const [events, setEvents]       = useState<CalendarEvent[]>([]);
   const [calendars, setCalendars] = useState<Calendar[]>([]);
@@ -462,7 +657,31 @@ export default function CalendarPage() {
       .catch(err => console.error('[CalendarPage] fetchCalendars failed:', err));
   }, []);
 
-  // Events bei Monatswechsel laden
+  // Sichtbare Kalender-IDs als Set
+  const visibleCalendarIds = new Set(
+    calendars.filter(c => c.is_visible === 1).map(c => c.id)
+  );
+
+  // Gefilterte Events (nur sichtbare Kalender)
+  const filteredEvents = events.filter(evt =>
+    !evt.calendar_id || visibleCalendarIds.has(evt.calendar_id)
+  );
+
+  // Kalender toggle (optimistisch)
+  async function handleToggleCalendar(calId: string) {
+    const cal = calendars.find(c => c.id === calId);
+    if (!cal) return;
+    const newVisible = cal.is_visible === 1 ? false : true;
+    setCalendars(prev => prev.map(c => c.id === calId ? { ...c, is_visible: newVisible ? 1 : 0 } : c));
+    try {
+      await updateCalendarVisibility(calId, newVisible);
+    } catch {
+      // Rollback bei Fehler
+      setCalendars(prev => prev.map(c => c.id === calId ? { ...c, is_visible: cal.is_visible } : c));
+    }
+  }
+
+  // Events laden
   const loadEvents = useCallback(async (y: number, m: number) => {
     setLoading(true);
     setError(null);
@@ -477,9 +696,33 @@ export default function CalendarPage() {
     }
   }, []);
 
+  // viewDate als stabiler String fuer useEffect-Dependency
+  const viewDateStr = isoDateLocal(viewDate);
+
   useEffect(() => {
-    loadEvents(year, month);
-  }, [year, month, loadEvents]);
+    if (viewMode === 'month') {
+      loadEvents(year, month);
+    } else if (viewMode === 'week') {
+      const monday = new Date(viewDate);
+      monday.setDate(viewDate.getDate() - ((viewDate.getDay() + 6) % 7));
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      setLoading(true);
+      setError(null);
+      fetchEvents(isoDateLocal(monday), isoDateLocal(sunday))
+        .then(setEvents)
+        .catch(err => setError(err instanceof Error ? err.message : 'Fehler beim Laden'))
+        .finally(() => setLoading(false));
+    } else {
+      setLoading(true);
+      setError(null);
+      fetchEvents(viewDateStr, viewDateStr)
+        .then(setEvents)
+        .catch(err => setError(err instanceof Error ? err.message : 'Fehler beim Laden'))
+        .finally(() => setLoading(false));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, year, month, viewDateStr, loadEvents]);
 
   // Monat navigieren
   function prevMonth() {
@@ -494,14 +737,32 @@ export default function CalendarPage() {
     setSelectedDate(null);
   }
 
+  // Woche navigieren
+  function prevWeek() { setViewDate(d => { const n = new Date(d); n.setDate(n.getDate() - 7); return n; }); }
+  function nextWeek() { setViewDate(d => { const n = new Date(d); n.setDate(n.getDate() + 7); return n; }); }
+
+  // Tag navigieren
+  function prevDay() { setViewDate(d => { const n = new Date(d); n.setDate(n.getDate() - 1); return n; }); }
+  function nextDay() { setViewDate(d => { const n = new Date(d); n.setDate(n.getDate() + 1); return n; }); }
+
   function goToday() {
     setYear(today.getFullYear());
     setMonth(today.getMonth());
+    setViewDate(new Date());
     setSelectedDate(null);
   }
 
-  const gridDays   = buildMonthGrid(year, month);
-  const eventsByDate = groupEventsByDate(events);
+  // Navigation abhaengig von viewMode
+  const navPrev  = viewMode === 'month' ? prevMonth : viewMode === 'week' ? prevWeek : prevDay;
+  const navNext  = viewMode === 'month' ? nextMonth : viewMode === 'week' ? nextWeek : nextDay;
+  const navTitle = viewMode === 'month'
+    ? `${MONTHS[month]} ${year}`
+    : viewMode === 'week'
+      ? weekRangeLabel(viewDate)
+      : dayLabel(viewDate);
+
+  const gridDays        = buildMonthGrid(year, month);
+  const eventsByDate    = groupEventsByDate(filteredEvents);
 
   const selectedDateStr = selectedDate ? isoDateLocal(selectedDate) : null;
   const selectedEvents  = selectedDateStr ? (eventsByDate.get(selectedDateStr) ?? []) : [];
@@ -514,14 +775,39 @@ export default function CalendarPage() {
     setEvents(prev => [...prev, evt].sort((a, b) => a.start_at.localeCompare(b.start_at)));
   }
 
+  const [syncing, setSyncing] = useState(false);
+  async function handleSync() {
+    setSyncing(true);
+    try {
+      await forceSync();
+      if (viewMode === 'month') {
+        await loadEvents(year, month);
+      } else if (viewMode === 'week') {
+        const monday = new Date(viewDate);
+        monday.setDate(viewDate.getDate() - ((viewDate.getDay() + 6) % 7));
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        const data = await fetchEvents(isoDateLocal(monday), isoDateLocal(sunday));
+        setEvents(data);
+      } else {
+        const data = await fetchEvents(viewDateStr, viewDateStr);
+        setEvents(data);
+      }
+    } catch (err) {
+      console.error('Sync fehlgeschlagen:', err);
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   return (
-    <PageWrapper title="Kalender">
+    <PageWrapper>
       {/* Header: Navigation */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap',
       }}>
         <button
-          onClick={prevMonth}
+          onClick={navPrev}
           style={{
             background: 'rgba(255,255,255,0.06)', border: '1px solid var(--color-outline-variant)',
             borderRadius: '0.5rem', padding: '0.5rem 0.875rem', color: 'var(--color-on-surface)',
@@ -532,11 +818,11 @@ export default function CalendarPage() {
         </button>
 
         <h2 style={{ margin: 0, flex: 1, textAlign: 'center', fontFamily: 'var(--font-display)', fontSize: '1.25rem', fontWeight: 600 }}>
-          {MONTHS[month]} {year}
+          {navTitle}
         </h2>
 
         <button
-          onClick={nextMonth}
+          onClick={navNext}
           style={{
             background: 'rgba(255,255,255,0.06)', border: '1px solid var(--color-outline-variant)',
             borderRadius: '0.5rem', padding: '0.5rem 0.875rem', color: 'var(--color-on-surface)',
@@ -556,6 +842,52 @@ export default function CalendarPage() {
         >
           Heute
         </button>
+
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          title="Apple Calendar neu einlesen"
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.375rem',
+            background: 'rgba(255,255,255,0.06)', border: '1px solid var(--color-outline-variant)',
+            borderRadius: '0.5rem', padding: '0.5rem 0.875rem', color: syncing ? 'var(--color-outline)' : 'var(--color-on-surface)',
+            cursor: syncing ? 'default' : 'pointer', fontSize: '0.8rem',
+          }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '1rem', animation: syncing ? 'spin 1s linear infinite' : 'none' }}>sync</span>
+          {syncing ? 'Lädt…' : 'Sync'}
+        </button>
+
+        {/* View-Switcher: Segmented Control */}
+        <div style={{
+          display: 'flex', borderRadius: '0.5rem', overflow: 'hidden',
+          border: '1px solid var(--color-outline-variant)',
+        }}>
+          {(['month', 'week', 'day'] as const).map((mode) => {
+            const labels: Record<ViewMode, string> = { month: 'Monat', week: 'Woche', day: 'Tag' };
+            const isActive = viewMode === mode;
+            return (
+              <button
+                key={mode}
+                onClick={() => {
+                  setViewMode(mode);
+                  if (mode === 'week' || mode === 'day') {
+                    setViewDate(selectedDate ?? new Date(year, month, new Date().getDate()));
+                  }
+                }}
+                style={{
+                  padding: '0.375rem 0.75rem', border: 'none', cursor: 'pointer',
+                  fontSize: '0.8rem', fontFamily: 'var(--font-body)',
+                  background: isActive ? 'var(--color-primary)' : 'rgba(255,255,255,0.04)',
+                  color: isActive ? 'var(--color-on-primary)' : 'var(--color-on-surface)',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {labels[mode]}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Fehler */}
@@ -569,128 +901,184 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* Monats-Grid */}
-      <div style={{
-        background: 'var(--color-surface-container)', borderRadius: '0.75rem',
-        border: '1px solid var(--color-outline-variant)', overflow: 'hidden',
-      }}>
-        {/* Wochentags-Header */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
-          {WEEKDAYS.map(wd => (
-            <div
-              key={wd}
-              style={{
-                padding: '0.75rem 0.5rem', textAlign: 'center',
-                fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase',
-                color: 'var(--color-outline)', borderBottom: '1px solid var(--color-outline-variant)',
-                fontWeight: 600,
-              }}
-            >
-              {wd}
-            </div>
-          ))}
-        </div>
-
-        {/* Tage-Grid */}
+      {/* Kalender-Toggle-Chips */}
+      {calendars.length > 0 && (
         <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)',
-          opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s',
+          display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem',
         }}>
-          {gridDays.map((day, idx) => {
-            const dayKey       = isoDateLocal(day);
-            const inMonth      = day.getMonth() === month;
-            const isToday      = dayKey === isoDateLocal(today);
-            const isSelected   = selectedDateStr === dayKey;
-            const dayEvents    = eventsByDate.get(dayKey) ?? [];
-            const showEvents   = dayEvents.slice(0, 3);
-            const extraCount   = dayEvents.length - 3;
-            const isWeekend    = idx % 7 >= 5;
-
+          {calendars.map(cal => {
+            const active = cal.is_visible === 1;
             return (
-              <div
-                key={dayKey + '-' + idx}
-                onClick={() => setSelectedDate(day)}
+              <button
+                key={cal.id}
+                onClick={() => handleToggleCalendar(cal.id)}
                 style={{
-                  minHeight: 100, padding: '0.5rem 0.5rem 0.375rem',
-                  cursor: 'pointer',
-                  borderBottom: idx < 35 ? '1px solid var(--color-outline-variant)' : 'none',
-                  borderRight: idx % 7 < 6 ? '1px solid var(--color-outline-variant)' : 'none',
-                  background: isSelected
-                    ? 'rgba(var(--color-primary-rgb, 99, 102, 241), 0.12)'
-                    : isWeekend && inMonth
-                      ? 'rgba(255,255,255,0.015)'
-                      : 'transparent',
-                  transition: 'background 0.15s',
-                }}
-                onMouseEnter={e => {
-                  if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)';
-                }}
-                onMouseLeave={e => {
-                  if (!isSelected) (e.currentTarget as HTMLElement).style.background =
-                    isWeekend && inMonth ? 'rgba(255,255,255,0.015)' : 'transparent';
+                  display: 'flex', alignItems: 'center', gap: '0.375rem',
+                  padding: '0.375rem 0.75rem', borderRadius: '999px',
+                  border: '1px solid var(--color-outline-variant)',
+                  background: active ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.02)',
+                  color: active ? 'var(--color-on-surface)' : 'var(--color-outline)',
+                  cursor: 'pointer', fontSize: '0.8rem',
+                  opacity: active ? 1 : 0.5,
+                  transition: 'all 0.15s',
                 }}
               >
-                {/* Tagesnummer */}
-                <div style={{
-                  display: 'flex', justifyContent: 'center', marginBottom: '0.375rem',
-                }}>
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    width: 26, height: 26, borderRadius: '50%',
-                    fontSize: '0.8rem', fontWeight: isToday ? 700 : 400,
-                    color: !inMonth
-                      ? 'var(--color-outline)'
-                      : isToday
-                        ? 'var(--color-on-primary)'
-                        : 'var(--color-on-surface)',
-                    background: isToday ? 'var(--color-primary)' : 'transparent',
-                    border: isSelected && !isToday ? '2px solid var(--color-primary)' : 'none',
-                  }}>
-                    {day.getDate()}
-                  </span>
-                </div>
-
-                {/* Event-Chips */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  {showEvents.map(evt => {
-                    const color = calendarColor(calendars, evt.calendar_id, evt.calendar_name);
-                    return (
-                      <div
-                        key={evt.apple_uid || evt.id}
-                        style={{
-                          fontSize: '0.65rem', padding: '1px 4px',
-                          borderRadius: 3, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
-                          borderLeft: `3px solid ${color}`,
-                          background: `${color}22`,
-                          color: inMonth ? 'var(--color-on-surface)' : 'var(--color-outline)',
-                        }}
-                        title={evt.title}
-                      >
-                        {evt.is_all_day ? '' : `${toLocalTimeStr(evt.start_at)} `}{evt.title}
-                      </div>
-                    );
-                  })}
-                  {extraCount > 0 && (
-                    <div style={{ fontSize: '0.6rem', color: 'var(--color-outline)', paddingLeft: 4 }}>
-                      +{extraCount} weitere
-                    </div>
-                  )}
-                </div>
-              </div>
+                <span style={{
+                  width: 8, height: 8, borderRadius: '50%',
+                  background: active ? (cal.color ?? 'var(--color-primary)') : 'var(--color-outline)',
+                  flexShrink: 0,
+                }} />
+                {cal.title}
+              </button>
             );
           })}
         </div>
-      </div>
+      )}
 
-      {/* Tag-Detail SlideOver */}
-      {selectedDate && (
-        <DaySlideOver
-          date={selectedDate}
-          events={selectedEvents}
+      {/* Ansichten */}
+      {viewMode === 'month' && (
+        <>
+          {/* Monats-Grid */}
+          <div style={{
+            background: 'var(--color-surface-container)', borderRadius: '0.75rem',
+            border: '1px solid var(--color-outline-variant)', overflow: 'hidden',
+          }}>
+            {/* Wochentags-Header */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}>
+              {WEEKDAYS.map(wd => (
+                <div
+                  key={wd}
+                  style={{
+                    padding: '0.75rem 0.5rem', textAlign: 'center',
+                    fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase',
+                    color: 'var(--color-outline)', borderBottom: '1px solid var(--color-outline-variant)',
+                    fontWeight: 600,
+                  }}
+                >
+                  {wd}
+                </div>
+              ))}
+            </div>
+
+            {/* Tage-Grid */}
+            <div style={{
+              display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
+              opacity: loading ? 0.6 : 1, transition: 'opacity 0.2s',
+            }}>
+              {gridDays.map((day, idx) => {
+                const dayKey       = isoDateLocal(day);
+                const inMonth      = day.getMonth() === month;
+                const isToday      = dayKey === isoDateLocal(today);
+                const isSelected   = selectedDateStr === dayKey;
+                const dayEvents    = eventsByDate.get(dayKey) ?? [];
+                const showEvts     = dayEvents.slice(0, 3);
+                const extraCount   = dayEvents.length - 3;
+                const isWeekend    = idx % 7 >= 5;
+
+                return (
+                  <div
+                    key={dayKey + '-' + idx}
+                    onClick={() => setSelectedDate(day)}
+                    style={{
+                      minHeight: 100, minWidth: 0, padding: '0.5rem 0.5rem 0.375rem', overflow: 'hidden',
+                      cursor: 'pointer',
+                      borderBottom: idx < 35 ? '1px solid var(--color-outline-variant)' : 'none',
+                      borderRight: idx % 7 < 6 ? '1px solid var(--color-outline-variant)' : 'none',
+                      background: isSelected
+                        ? 'rgba(var(--color-primary-rgb, 99, 102, 241), 0.12)'
+                        : isWeekend && inMonth
+                          ? 'rgba(255,255,255,0.015)'
+                          : 'transparent',
+                      transition: 'background 0.15s',
+                    }}
+                    onMouseEnter={e => {
+                      if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)';
+                    }}
+                    onMouseLeave={e => {
+                      if (!isSelected) (e.currentTarget as HTMLElement).style.background =
+                        isWeekend && inMonth ? 'rgba(255,255,255,0.015)' : 'transparent';
+                    }}
+                  >
+                    {/* Tagesnummer */}
+                    <div style={{
+                      display: 'flex', justifyContent: 'center', marginBottom: '0.375rem',
+                    }}>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        width: 26, height: 26, borderRadius: '50%',
+                        fontSize: '0.8rem', fontWeight: isToday ? 700 : 400,
+                        color: !inMonth
+                          ? 'var(--color-outline)'
+                          : isToday
+                            ? 'var(--color-on-primary)'
+                            : 'var(--color-on-surface)',
+                        background: isToday ? 'var(--color-primary)' : 'transparent',
+                        border: isSelected && !isToday ? '2px solid var(--color-primary)' : 'none',
+                      }}>
+                        {day.getDate()}
+                      </span>
+                    </div>
+
+                    {/* Event-Chips */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      {showEvts.map(evt => {
+                        const color = calendarColor(calendars, evt.calendar_id, evt.calendar_name);
+                        return (
+                          <div
+                            key={evt.apple_uid || evt.id}
+                            style={{
+                              fontSize: '0.65rem', padding: '1px 4px',
+                              borderRadius: 3, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+                              borderLeft: `3px solid ${color}`,
+                              background: `${color}22`,
+                              color: inMonth ? 'var(--color-on-surface)' : 'var(--color-outline)',
+                            }}
+                            title={evt.title}
+                          >
+                            {evt.is_all_day ? '' : `${toLocalTimeStr(evt.start_at)} `}{evt.title}
+                          </div>
+                        );
+                      })}
+                      {extraCount > 0 && (
+                        <div style={{ fontSize: '0.6rem', color: 'var(--color-outline)', paddingLeft: 4 }}>
+                          +{extraCount} weitere
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Tag-Detail SlideOver (nur in Monatsansicht) */}
+          {selectedDate && (
+            <DaySlideOver
+              date={selectedDate}
+              events={selectedEvents}
+              calendars={calendars}
+              onClose={() => setSelectedDate(null)}
+              onEventDeleted={handleEventDeleted}
+              onEventCreated={handleEventCreated}
+            />
+          )}
+        </>
+      )}
+
+      {viewMode === 'week' && (
+        <WeekView
+          viewDate={viewDate}
+          filteredEvents={filteredEvents}
           calendars={calendars}
-          onClose={() => setSelectedDate(null)}
-          onEventDeleted={handleEventDeleted}
-          onEventCreated={handleEventCreated}
+          onDayClick={(d) => { setViewDate(d); setViewMode('day'); }}
+        />
+      )}
+
+      {viewMode === 'day' && (
+        <DayView
+          viewDate={viewDate}
+          filteredEvents={filteredEvents}
+          calendars={calendars}
         />
       )}
     </PageWrapper>
