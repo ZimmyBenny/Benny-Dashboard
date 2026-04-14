@@ -1,144 +1,77 @@
 import { Router } from 'express';
 import db from '../db/connection';
 import {
-  syncPull, pushEvent, updateAppleEvent, deleteAppleEvent,
-  listCalendars, detectNewCalendars,
-} from '../services/calendarSync.service';
+  getCalendars, syncRange, createEvent, deleteEvent,
+} from '../services/calendarSwift.service';
 
 const router = Router();
 
-// GET /api/calendar/events?start=ISO&end=ISO
-router.get('/events', (req, res) => {
-  const { start, end } = req.query as { start?: string; end?: string };
-  let rows;
-  if (start && end) {
-    rows = db.prepare(
-      'SELECT * FROM calendar_events WHERE start_at >= ? AND start_at <= ? ORDER BY start_at'
-    ).all(start, end);
-  } else {
-    // Default: -30 / +90 Tage
+// GET /api/calendar/calendars — Kalender-Liste aus EventKit
+router.get('/calendars', async (_req, res) => {
+  const calendars = await getCalendars();
+  res.json(calendars);
+});
+
+// GET /api/calendar/events?from=YYYY-MM-DD&to=YYYY-MM-DD
+router.get('/events', async (req, res) => {
+  const { from, to } = req.query as { from?: string; to?: string };
+
+  if (!from || !to) {
+    // Default: aktueller Monat
     const now = new Date();
-    const from = new Date(now); from.setDate(from.getDate() - 30);
-    const to   = new Date(now); to.setDate(to.getDate() + 90);
-    rows = db.prepare(
-      'SELECT * FROM calendar_events WHERE start_at >= ? AND start_at <= ? ORDER BY start_at'
-    ).all(from.toISOString(), to.toISOString());
+    const defaultFrom = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const defaultTo = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+    await syncRange(defaultFrom, defaultTo);
+    const rows = db.prepare(
+      "SELECT * FROM calendar_events WHERE start_at >= ? AND start_at <= ? ORDER BY start_at"
+    ).all(`${defaultFrom}T00:00:00.000Z`, `${defaultTo}T23:59:59.000Z`);
+    return res.json(rows);
   }
-  res.json(rows);
-});
 
-// POST /api/calendar/sync — on-demand Pull von Apple Calendar (non-blocking)
-// Sync braucht 90-140s — sofort 202 zurückgeben, Sync läuft im Hintergrund
-router.post('/sync', (_req, res) => {
-  res.status(202).json({ ok: true, status: 'started' });
-  syncPull().catch((err) => console.error('[sync] on-demand sync error:', err));
-});
+  // Sync triggern (cached wenn < 5 Min alt)
+  await syncRange(from, to);
 
-// GET /api/calendar/calendars — Kalender-Liste + optional neue Kalender erkennen
-router.get('/calendars', async (req, res) => {
-  const checkNew = req.query.check_new === 'true';
-  if (checkNew) {
-    const newCalendars = await detectNewCalendars();
-    const known = db.prepare('SELECT * FROM known_calendars ORDER BY name').all();
-    res.json({ known, new_calendars: newCalendars });
-  } else {
-    const known = db.prepare('SELECT * FROM known_calendars ORDER BY name').all();
-    res.json({ known, new_calendars: [] });
-  }
-});
-
-// GET /api/calendar/sync-log?limit=50
-router.get('/sync-log', (req, res) => {
-  const limit = Math.min(parseInt(String(req.query.limit ?? '50')), 200);
   const rows = db.prepare(
-    'SELECT * FROM calendar_sync_log ORDER BY synced_at DESC LIMIT ?'
-  ).all(limit);
+    "SELECT * FROM calendar_events WHERE start_at >= ? AND start_at <= ? ORDER BY start_at"
+  ).all(`${from}T00:00:00.000Z`, `${to}T23:59:59.000Z`);
   res.json(rows);
 });
 
-// GET /api/calendar/apple-calendars — alle Kalender direkt aus Apple Calendar
-router.get('/apple-calendars', async (_req, res) => {
-  const calendars = await listCalendars();
-  res.json(calendars.map(c => c.name));
-});
-
-// POST /api/calendar/events — Neues Event erstellen (Dashboard -> SQLite -> Apple)
+// POST /api/calendar/events — Neues Event erstellen
 router.post('/events', async (req, res) => {
-  const { title, start_at, end_at, is_all_day = 0, calendar_name, location, notes } = req.body as {
-    title: string; start_at: string; end_at: string; is_all_day?: number;
-    calendar_name: string; location?: string; notes?: string;
+  const {
+    title, start_at, end_at, calendar_id,
+    is_all_day = false, location, notes,
+  } = req.body as {
+    title: string;
+    start_at: string;
+    end_at: string;
+    calendar_id: string;
+    is_all_day?: boolean;
+    location?: string;
+    notes?: string;
   };
 
-  if (!title || !start_at || !end_at || !calendar_name) {
-    return res.status(400).json({ error: 'title, start_at, end_at, calendar_name required' });
+  if (!title || !start_at || !end_at || !calendar_id) {
+    return res.status(400).json({ error: 'title, start_at, end_at, calendar_id required' });
   }
 
-  // Zuerst SQLite, dann Apple push
-  const result = db.prepare(`
-    INSERT INTO calendar_events (apple_uid, title, start_at, end_at, is_all_day, calendar_name, location, notes, sync_status)
-    VALUES ('pending-' || lower(hex(randomblob(8))), ?, ?, ?, ?, ?, ?, ?, 'pending_push')
-  `).run(title, start_at, end_at, is_all_day, calendar_name, location ?? null, notes ?? null);
-
-  const newId = result.lastInsertRowid as number;
-
-  try {
-    const { uid } = await pushEvent(newId);
-    const row = db.prepare('SELECT * FROM calendar_events WHERE id = ?').get(newId);
-    res.status(201).json({ ok: true, uid, event: row });
-  } catch (pushErr) {
-    // Apple-Push fehlgeschlagen — Event in DB als pending_push belassen, Fehler melden
-    console.error('[calendar] pushEvent failed:', pushErr);
-    const row = db.prepare('SELECT * FROM calendar_events WHERE id = ?').get(newId);
-    res.status(201).json({
-      ok: true,
-      uid: null,
-      event: row,
-      warning: 'Event gespeichert, aber Apple Calendar-Sync fehlgeschlagen. Wird beim nächsten Sync übertragen.',
-    });
-  }
+  const event = await createEvent({ title, start_at, end_at, calendar_id, is_all_day, location, notes });
+  res.status(201).json({ ok: true, event });
 });
 
-// PUT /api/calendar/events/:id — Event updaten
-router.put('/events/:id', async (req, res) => {
-  const id = parseInt(req.params.id);
-  const { title, start_at, end_at, is_all_day, location, notes } = req.body as {
-    title?: string; start_at?: string; end_at?: string; is_all_day?: number;
-    location?: string; notes?: string;
-  };
-
-  const existing = db.prepare('SELECT * FROM calendar_events WHERE id = ?').get(id) as {
-    id: number; apple_uid: string;
-  } | undefined;
-  if (!existing) return res.status(404).json({ error: 'Not found' });
-
-  // Nur uebergebene Felder updaten
-  const updates: string[] = [];
-  const vals: unknown[] = [];
-  if (title      !== undefined) { updates.push('title = ?');      vals.push(title); }
-  if (start_at   !== undefined) { updates.push('start_at = ?');   vals.push(start_at); }
-  if (end_at     !== undefined) { updates.push('end_at = ?');     vals.push(end_at); }
-  if (is_all_day !== undefined) { updates.push('is_all_day = ?'); vals.push(is_all_day); }
-  if (location   !== undefined) { updates.push('location = ?');   vals.push(location); }
-  if (notes      !== undefined) { updates.push('notes = ?');      vals.push(notes); }
-
-  if (updates.length > 0) {
-    updates.push("sync_status = 'pending_push'", 'updated_at = ?');
-    vals.push(new Date().toISOString(), id);
-    db.prepare(`UPDATE calendar_events SET ${updates.join(', ')} WHERE id = ?`).run(...vals);
-  }
-
-  // Apple Calendar updaten (async — ~2s)
-  await updateAppleEvent(id);
-  const row = db.prepare('SELECT * FROM calendar_events WHERE id = ?').get(id);
-  res.json({ ok: true, event: row });
-});
-
-// DELETE /api/calendar/events/:id
+// DELETE /api/calendar/events/:id — Event loeschen (id = apple_uid / eventIdentifier)
 router.delete('/events/:id', async (req, res) => {
-  const id = parseInt(req.params.id);
-  const existing = db.prepare('SELECT id FROM calendar_events WHERE id = ?').get(id);
-  if (!existing) return res.status(404).json({ error: 'Not found' });
-  await deleteAppleEvent(id);
+  const appleUid = req.params.id;
+
+  const existing = db.prepare('SELECT apple_uid FROM calendar_events WHERE apple_uid = ?').get(appleUid);
+  if (!existing) {
+    return res.status(404).json({ error: 'Event not found' });
+  }
+
+  await deleteEvent(appleUid);
   res.json({ ok: true });
 });
 

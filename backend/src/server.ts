@@ -33,10 +33,10 @@ app.listen(PORT, () => {
   console.log(`[server] Benny Dashboard API running on http://localhost:${PORT}`);
   console.log(`[server] Health: http://localhost:${PORT}/api/health`);
 
-  // Hintergrund-Sync: Apple Calendar alle 10 Minuten (kein UI-Blocking)
+  // Hintergrund-Sync: Apple Calendar alle 5 Minuten via Swift EventKit (kein UI-Blocking)
   // Lazy import nach Server-Start damit Migration bereits abgeschlossen ist
-  const SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 Minuten (Sync dauert ~90s bei vielen Kalendern)
-  import('./services/calendarSync.service').then(({ fullSync }) => {
+  const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 Minuten (Swift EventKit: ~1-2s statt ~90s)
+  import('./services/calendarSwift.service').then(({ fullSync }) => {
     // Einmal direkt beim Start feuern (nach 3s Verzögerung damit Server voll bereit ist)
     setTimeout(() => {
       fullSync().catch(err => console.error('[calendar] Startup sync failed:', err));
@@ -44,6 +44,6 @@ app.listen(PORT, () => {
     setInterval(() => {
       fullSync().catch(err => console.error('[calendar] Background sync failed:', err));
     }, SYNC_INTERVAL_MS);
-    console.log(`[calendar] Background sync scheduled every 15 minutes (+ immediate startup sync)`);
-  }).catch(err => console.error('[calendar] Failed to load calendarSync.service:', err));
+    console.log(`[calendar] Background sync scheduled every 5 minutes (+ immediate startup sync)`);
+  }).catch(err => console.error('[calendar] Failed to load calendarSwift.service:', err));
 });
