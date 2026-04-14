@@ -20,6 +20,9 @@ backend/dist/
 # Claude Code local settings
 .claude/
 
+# Cal-tool compiled binary (Swift EventKit CLI)
+backend/src/scripts/cal-tool
+
 # macOS
 .DS_Store
 
