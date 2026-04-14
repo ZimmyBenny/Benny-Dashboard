@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import {
   fetchDjEvent, fetchDjCustomers, createDjEvent, updateDjEvent,
@@ -33,13 +33,15 @@ function displayCustomerName(c: DjCustomer): string {
 export function DjEventDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const isNew = !id;
 
-  // Formularfelder
+  // Formularfelder — customer_id aus URL-Param vorbelegen falls vorhanden
+  const presetCustomerId = isNew ? Number(searchParams.get('customer_id')) || null : null;
   const [eventDate, setEventDate] = useState('');
   const [eventType, setEventType] = useState('hochzeit');
   const [title, setTitle] = useState('');
-  const [customerId, setCustomerId] = useState<number | null>(null);
+  const [customerId, setCustomerId] = useState<number | null>(presetCustomerId);
   const [timeStart, setTimeStart] = useState('');
   const [timeEnd, setTimeEnd] = useState('');
   const [guests, setGuests] = useState('');
