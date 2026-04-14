@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import {
   fetchDjQuote, fetchDjCustomers, fetchDjEvents, fetchDjServices,
@@ -36,10 +36,12 @@ interface LocalItem {
 export function DjQuoteDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const isNew = !id || id === 'new';
 
-  // Formularfelder
-  const [customerId, setCustomerId] = useState<number | null>(null);
+  // Formularfelder — customer_id aus URL-Param vorbelegen falls vorhanden
+  const presetCustomerId = isNew ? Number(searchParams.get('customer_id')) || null : null;
+  const [customerId, setCustomerId] = useState<number | null>(presetCustomerId);
   const [eventId, setEventId] = useState<number | null>(null);
   const [subject, setSubject] = useState('');
   const [validUntil, setValidUntil] = useState('');
