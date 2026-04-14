@@ -77,9 +77,10 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 | 260414-chg | Fix migrate.ts PRAGMA foreign_keys außerhalb Transaktion | 2026-04-14 | 65d0801 | [260414-chg-fix-migrate-ts-pragma-foreign-keys-au-er](.planning/quick/260414-chg-fix-migrate-ts-pragma-foreign-keys-au-er/) |
 | 260414-cpd | Automatisches DB-Backup vor Migrationen in migrate.ts | 2026-04-14 | 6edfe32 | [260414-cpd-automatisches-db-backup-vor-migrationen-](.planning/quick/260414-cpd-automatisches-db-backup-vor-migrationen-/) |
 | 260414-cs9 | Systemweite Datensicherheit createBackup-Utility und CLAUDE.md Regel | 2026-04-14 | 690dc77 | [260414-cs9-systemweite-datensicherheit-createbackup](.planning/quick/260414-cs9-systemweite-datensicherheit-createbackup/) |
+| 260414-d5g | Haushalt-Modul Gemeinsame Ausgaben Benny und Julia | 2026-04-14 | cd1eb4c | [260414-d5g-haushalt-modul-gemeinsame-ausgaben-benny](.planning/quick/260414-d5g-haushalt-modul-gemeinsame-ausgaben-benny/) |
 
 ---
-*State initialized: 2026-04-07 | Last activity: 2026-04-14 - Completed quick task 260414-cs9: Systemweite Datensicherheit*
+*State initialized: 2026-04-07 | Last activity: 2026-04-14 - Completed quick task 260414-d5g: Haushalt-Modul Gemeinsame Ausgaben Benny & Julia*
 | 2026-04-10 | fast | TaskCard onClick → SlideOver fix (PointerSensor distance constraint) | ✅ |
 | 2026-04-10 | fast | TaskSlideOver Backdrop-Klick schließt Panel nicht mehr | ✅ |
 | 2026-04-10 | 260410-v3q | Status-Notiz beim Drag (DragPrompt + DB-Migration + KanbanBoard-Pause) | ✅ |
