@@ -407,53 +407,50 @@ function ModalContent({
               Betrag (EUR)
             </p>
 
-            {/* Eingabezeile + Hinzufügen-Button */}
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                placeholder="0,00"
-                value={form.betrag}
-                onChange={e => set('betrag', e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') addBetragToList(); }}
-                autoFocus
-                style={{
-                  flex: 1,
-                  background: 'var(--color-surface-container-low)',
-                  border: `1px solid ${errors.has('betrag') ? 'var(--color-error)' : 'var(--color-outline-variant)'}`,
-                  borderRadius: '0.5rem',
-                  color: 'var(--color-on-surface)',
-                  fontFamily: 'var(--font-display)',
-                  fontSize: '1.5rem',
-                  padding: '0.625rem 0.75rem',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                  textAlign: 'right',
-                }}
-              />
+            <input
+              type="number"
+              step="0.01"
+              min="0.01"
+              placeholder="0,00"
+              value={form.betrag}
+              onChange={e => set('betrag', e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') addBetragToList(); }}
+              autoFocus
+              style={{
+                width: '100%',
+                background: 'var(--color-surface-container-low)',
+                border: `1px solid ${errors.has('betrag') ? 'var(--color-error)' : 'var(--color-outline-variant)'}`,
+                borderRadius: '0.5rem',
+                color: 'var(--color-on-surface)',
+                fontFamily: 'var(--font-display)',
+                fontSize: '1.5rem',
+                padding: '0.625rem 0.75rem',
+                outline: 'none',
+                boxSizing: 'border-box',
+                textAlign: 'right',
+              }}
+            />
+            {/* Hinzufügen-Button — nur sichtbar wenn ein gültiger Betrag eingegeben */}
+            {form.betrag && parseFloat(form.betrag) > 0 && (
               <button
                 onClick={addBetragToList}
-                title="Betrag zur Liste hinzufügen"
                 style={{
-                  minWidth: '3rem',
+                  marginTop: '0.5rem',
+                  width: '100%',
+                  padding: '0.5rem',
                   borderRadius: '0.5rem',
-                  border: '1px solid var(--color-outline-variant)',
-                  background: 'var(--color-surface-container)',
+                  border: '1px dashed var(--color-primary)',
+                  background: 'transparent',
                   color: 'var(--color-primary)',
                   cursor: 'pointer',
-                  fontSize: '1.5rem',
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                  lineHeight: 1,
+                  fontSize: '0.875rem',
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 600,
                 }}
               >
-                +
+                + Weiteren Betrag hinzufügen
               </button>
-            </div>
+            )}
 
             {errors.has('betrag') && (
               <p style={{ color: 'var(--color-error)', fontSize: '0.75rem', marginTop: '0.25rem' }}>Mindestens ein Betrag erforderlich</p>
