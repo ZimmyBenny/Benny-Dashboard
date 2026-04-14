@@ -138,18 +138,19 @@ export function DjOverviewPage() {
               <button
                 onClick={() => navigate('/dj/events')}
                 style={{
-                  background: 'var(--color-primary-container)',
-                  color: 'var(--color-on-primary-container)',
+                  background: 'linear-gradient(135deg, #94aaff 0%, #5cfd80 100%)',
+                  color: '#060e20',
                   border: 'none',
                   borderRadius: '0.75rem',
                   padding: '0.625rem 1.25rem',
                   fontSize: '0.875rem',
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 600,
+                  fontFamily: 'Manrope, sans-serif',
+                  fontWeight: 700,
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.375rem',
+                  boxShadow: '0 0 16px rgba(148,170,255,0.3)',
                 }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span>
