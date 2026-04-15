@@ -3,8 +3,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useDraggableModal } from '../../hooks/useDraggableModal';
 import {
-  createDjEvent, fetchDjCustomers, fetchDjEvent, updateDjEvent,
-  type DjCustomer, type EventType, type EventStatus, type StatusHistoryEntry,
+  createDjEvent, fetchDjCustomers, fetchDjEvent, fetchDjEvents, updateDjEvent,
+  type DjCustomer, type DjEvent, type EventType, type EventStatus, type StatusHistoryEntry,
 } from '../../api/dj.api';
 import { createContact, type ContactDetail } from '../../api/contacts.api';
 import { EVENT_TYPE_LABELS } from './StatusBadge';
@@ -398,8 +398,13 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
   const [calendars, setCalendars] = useState<{ id: string; title: string; color?: string }[]>([]);
   const [selectedCalendarId, setSelectedCalendarId] = useState('');
 
+  // Datum-Kollision
+  const [allEvents, setAllEvents] = useState<DjEvent[]>([]);
+  const [conflictingEvents, setConflictingEvents] = useState<DjEvent[]>([]);
+
   useEffect(() => {
     void fetchDjCustomers().then(setCustomers).catch(() => {});
+    void fetchDjEvents().then(setAllEvents).catch(() => {});
     // Kalender vorab laden damit selectedCalendarId sofort verfügbar ist
     if (!isEdit) {
       void apiClient.get('/calendar/calendars').then(r => {
@@ -787,10 +792,38 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
               <input
                 type="date"
                 value={eventDate}
-                onChange={e => setEventDate(e.target.value)}
+                onChange={e => {
+                  const newDate = e.target.value;
+                  setEventDate(newDate);
+                  if (newDate) {
+                    setConflictingEvents(allEvents.filter(ev => ev.event_date === newDate));
+                  } else {
+                    setConflictingEvents([]);
+                  }
+                }}
                 style={inputStyle}
               />
             </div>
+
+            {conflictingEvents.length > 0 && (
+              <div style={{
+                gridColumn: '1 / -1',
+                background: 'rgba(255,200,0,0.07)',
+                border: '1px solid rgba(255,200,0,0.3)',
+                borderRadius: '0.5rem',
+                padding: '0.5rem 0.75rem',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '0.5rem',
+              }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: '#ffc800', flexShrink: 0, marginTop: '0.1rem' }}>warning</span>
+                <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: '#ffc800', lineHeight: 1.5 }}>
+                  <strong>Bereits {conflictingEvents.length} Anfrage{conflictingEvents.length > 1 ? 'n' : ''} an diesem Tag:</strong>
+                  <br />
+                  {conflictingEvents.map(ev => ev.title || EVENT_TYPE_LABELS[ev.event_type as keyof typeof EVENT_TYPE_LABELS] || ev.event_type).join(', ')}
+                </div>
+              </div>
+            )}
 
             {/* Veranstaltungstyp */}
             <div>
