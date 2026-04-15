@@ -36,24 +36,20 @@ router.get('/overview', (req, res) => {
   ).get(year) as { count: number };
 
   const revenueYear = db.prepare(`
-    SELECT COALESCE(SUM(p.amount), 0) AS total
+    SELECT
+      COALESCE(SUM(p.amount), 0) AS total,
+      COALESCE(SUM(i.subtotal_net), 0) AS net,
+      COALESCE(SUM(i.tax_total), 0) AS tax
     FROM dj_payments p
     JOIN dj_invoices i ON i.id = p.invoice_id
     WHERE strftime('%Y', p.payment_date) = ? AND i.is_cancellation = 0
-  `).get(year) as { total: number };
+  `).get(year) as { total: number; net: number; tax: number };
 
   const unpaidInvoices = db.prepare(`
     SELECT COALESCE(SUM(total_gross - paid_amount), 0) AS total, COUNT(*) AS count
     FROM dj_invoices
     WHERE finalized_at IS NOT NULL AND status IN ('offen','teilbezahlt','ueberfaellig') AND is_cancellation = 0
   `).get() as { total: number; count: number };
-
-  const confirmedRevenue = db.prepare(`
-    SELECT COALESCE(SUM(i.total_gross), 0) AS total
-    FROM dj_invoices i
-    JOIN dj_events e ON e.id = i.event_id
-    WHERE e.status = 'bestaetigt' AND i.status IN ('offen','teilbezahlt') AND i.finalized_at IS NOT NULL
-  `).get() as { total: number };
 
   const recentCompleted = db.prepare(`
     SELECT e.id, e.title, e.event_type, e.event_date,
@@ -73,9 +69,10 @@ router.get('/overview', (req, res) => {
     confirmed_events: confirmedEvents.count,
     completed_events: completedEvents.count,
     revenue_year: revenueYear.total,
+    revenue_year_net: revenueYear.net,
+    revenue_year_tax: revenueYear.tax,
     unpaid_total: unpaidInvoices.total,
     unpaid_count: unpaidInvoices.count,
-    confirmed_revenue: confirmedRevenue.total,
     recent_completed: recentCompleted,
   });
 });

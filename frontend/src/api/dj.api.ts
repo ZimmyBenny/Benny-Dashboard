@@ -214,9 +214,10 @@ export interface DjOverview {
   confirmed_events: number;
   completed_events: number;
   revenue_year: number;
+  revenue_year_net: number;
+  revenue_year_tax: number;
   unpaid_total: number;
   unpaid_count: number;
-  confirmed_revenue: number;
   recent_completed: DjEvent[];
 }
 

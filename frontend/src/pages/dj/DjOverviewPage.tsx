@@ -439,12 +439,16 @@ export function DjOverviewPage() {
               <p style={{ fontFamily: 'var(--font-headline)', fontSize: '2rem', fontWeight: 700, color: 'var(--color-secondary)', lineHeight: 1, margin: 0, marginBottom: '0.75rem' }}>
                 {overviewLoading ? '–' : formatCurrency(overview?.revenue_year ?? 0)}
               </p>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--color-on-surface-variant)' }}>
-                  Erwarteter Umsatz
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.375rem' }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--color-on-surface-variant)' }}>Netto</span>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface)', fontWeight: 500 }}>
+                  {overviewLoading ? '–' : formatCurrency(overview?.revenue_year_net ?? 0)}
                 </span>
-                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface)', fontWeight: 500 }}>
-                  {overviewLoading ? '–' : formatCurrency(overview?.confirmed_revenue ?? 0)}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--color-on-surface-variant)' }}>MwSt</span>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: '#fbbf24', fontWeight: 500 }}>
+                  {overviewLoading ? '–' : formatCurrency(overview?.revenue_year_tax ?? 0)}
                 </span>
               </div>
             </div>
