@@ -37,7 +37,8 @@ router.get('/', (req, res) => {
       e.*,
       c.first_name || ' ' || c.last_name AS customer_name,
       c.organization_name AS customer_org,
-      l.name AS location_name, l.city AS location_city
+      COALESCE(e.venue_name, l.name) AS location_name,
+      COALESCE(e.venue_city, l.city) AS location_city
     FROM dj_events e
     LEFT JOIN contacts c ON c.id = e.customer_id
     LEFT JOIN dj_locations l ON l.id = e.location_id
@@ -72,12 +73,13 @@ router.post('/', (req, res) => {
   const {
     customer_id, location_id, title, event_type, event_date,
     time_start, time_end, setup_minutes, teardown_minutes,
-    guests, status = 'neu', contact_on_site_name, contact_on_site_phone,
-    contact_on_site_email, notes,
+    guests, status = 'anfrage', contact_on_site_name, contact_on_site_phone,
+    contact_on_site_email, notes, source_channel,
+    venue_name, venue_street, venue_zip, venue_city,
   } = req.body as Record<string, unknown>;
 
-  if (!event_type || !event_date) {
-    res.status(400).json({ error: 'event_type und event_date sind erforderlich' });
+  if (!event_type) {
+    res.status(400).json({ error: 'event_type ist erforderlich' });
     return;
   }
 
@@ -85,13 +87,16 @@ router.post('/', (req, res) => {
     INSERT INTO dj_events
       (customer_id, location_id, title, event_type, event_date, time_start, time_end,
        setup_minutes, teardown_minutes, guests, status,
-       contact_on_site_name, contact_on_site_phone, contact_on_site_email, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       contact_on_site_name, contact_on_site_phone, contact_on_site_email, notes, source_channel,
+       venue_name, venue_street, venue_zip, venue_city)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     customer_id ?? null, location_id ?? null, title ?? null, event_type, event_date,
     time_start ?? null, time_end ?? null, setup_minutes ?? 90, teardown_minutes ?? 90,
     guests ?? null, status, contact_on_site_name ?? null,
     contact_on_site_phone ?? null, contact_on_site_email ?? null, notes ?? null,
+    source_channel ?? null,
+    venue_name ?? null, venue_street ?? null, venue_zip ?? null, venue_city ?? null,
   );
 
   const newId = Number(result.lastInsertRowid);
@@ -115,7 +120,8 @@ router.patch('/:id', (req, res) => {
     customer_id, location_id, title, event_type, event_date,
     time_start, time_end, setup_minutes, teardown_minutes,
     guests, status, contact_on_site_name, contact_on_site_phone,
-    contact_on_site_email, notes, cancellation_reason,
+    contact_on_site_email, notes, cancellation_reason, source_channel,
+    venue_name, venue_street, venue_zip, venue_city,
   } = req.body as Record<string, unknown>;
 
   db.prepare(`
@@ -135,7 +141,12 @@ router.patch('/:id', (req, res) => {
       contact_on_site_phone = COALESCE(?, contact_on_site_phone),
       contact_on_site_email = COALESCE(?, contact_on_site_email),
       notes = COALESCE(?, notes),
-      cancellation_reason = COALESCE(?, cancellation_reason)
+      cancellation_reason = COALESCE(?, cancellation_reason),
+      source_channel = COALESCE(?, source_channel),
+      venue_name = COALESCE(?, venue_name),
+      venue_street = COALESCE(?, venue_street),
+      venue_zip = COALESCE(?, venue_zip),
+      venue_city = COALESCE(?, venue_city)
     WHERE id = ?
   `).run(
     customer_id ?? null, location_id ?? null, title ?? null, event_type ?? null,
@@ -143,6 +154,8 @@ router.patch('/:id', (req, res) => {
     setup_minutes ?? null, teardown_minutes ?? null, guests ?? null,
     status ?? null, contact_on_site_name ?? null, contact_on_site_phone ?? null,
     contact_on_site_email ?? null, notes ?? null, cancellation_reason ?? null,
+    source_channel ?? null,
+    venue_name ?? null, venue_street ?? null, venue_zip ?? null, venue_city ?? null,
     id,
   );
 

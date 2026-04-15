@@ -468,10 +468,6 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
   const selectedCustomer = customers.find(c => c.id === customerId) ?? null;
 
   async function handleSave() {
-    if (!eventDate) {
-      setError('Eventdatum ist ein Pflichtfeld.');
-      return;
-    }
     setSaving(true);
     setError(null);
     try {
@@ -789,7 +785,7 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
 
             {/* Eventdatum */}
             <div>
-              <label style={labelStyle}>Eventdatum *</label>
+              <label style={labelStyle}>Eventdatum</label>
               <input
                 type="date"
                 value={eventDate}
