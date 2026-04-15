@@ -31,9 +31,12 @@ router.get('/overview', (req, res) => {
     "SELECT COUNT(*) AS count FROM dj_events WHERE status = 'bestaetigt' AND deleted_at IS NULL"
   ).get() as { count: number };
 
-  const completedEvents = db.prepare(
-    "SELECT COUNT(*) AS count FROM dj_events WHERE status = 'abgeschlossen' AND strftime('%Y', event_date) = ? AND deleted_at IS NULL"
-  ).get(year) as { count: number };
+  const completedEvents = db.prepare(`
+    SELECT COUNT(*) AS count FROM dj_invoices
+    WHERE is_cancellation = 0
+      AND finalized_at IS NOT NULL
+      AND strftime('%Y', invoice_date) = ?
+  `).get(year) as { count: number };
 
   const revenueYear = db.prepare(`
     SELECT
