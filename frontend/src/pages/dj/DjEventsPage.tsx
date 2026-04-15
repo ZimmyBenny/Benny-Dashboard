@@ -5,6 +5,7 @@ import { PageWrapper } from '../../components/layout/PageWrapper';
 import { fetchDjEvents, deleteDjEvent, type DjEvent } from '../../api/dj.api';
 import { StatusBadge, EVENT_TYPE_LABELS } from '../../components/dj/StatusBadge';
 import { formatDate } from '../../lib/format';
+import { NeueAnfrageModal } from '../../components/dj/NeueAnfrageModal';
 
 // ── Filter-Konfiguration ───────────────────────────────────────────────────────
 
@@ -35,7 +36,7 @@ function EventRow({
 
   const typeBadgeStyle: React.CSSProperties = {
     display: 'inline-block',
-    background: 'var(--color-surface-container-high)',
+    background: 'rgba(255,255,255,0.05)',
     borderRadius: '0.25rem',
     padding: '0.2rem 0.5rem',
     fontSize: '0.75rem',
@@ -70,7 +71,7 @@ function EventRow({
         gridTemplateColumns: '110px 1fr 120px 150px 150px 100px 120px 72px',
         gap: '0.75rem',
         padding: '0.75rem 1.25rem',
-        borderTop: isFirst ? 'none' : '1px solid var(--color-outline-variant)',
+        borderTop: isFirst ? 'none' : '1px solid rgba(148,170,255,0.15)',
         cursor: 'pointer',
         background: hovered ? 'rgba(255,255,255,0.05)' : 'transparent',
         alignItems: 'center',
@@ -178,6 +179,8 @@ export function DjEventsPage() {
 
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [statusFilter, setStatusFilter] = useState('');
+  const [showNeueAnfrage, setShowNeueAnfrage] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
 
   // Datenladen
   const { data: allEvents = [], isLoading } = useQuery<DjEvent[]>({
@@ -191,10 +194,29 @@ export function DjEventsPage() {
   });
 
   // Client-seitige Filterung
-  const filtered = useMemo(
-    () => statusFilter ? allEvents.filter(e => e.status === statusFilter) : allEvents,
-    [allEvents, statusFilter],
-  );
+  const filtered = useMemo(() => {
+    if (!statusFilter) return allEvents;
+    if (statusFilter === 'neu') {
+      const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      return allEvents.filter(e => new Date(e.created_at).getTime() >= cutoff);
+    }
+    return allEvents.filter(e => e.status === statusFilter);
+  }, [allEvents, statusFilter]);
+
+  // Zähler für alle Filter-Pillen
+  const tabCounts = useMemo(() => {
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    return {
+      '': allEvents.length,
+      neu: allEvents.filter(e => new Date(e.created_at).getTime() >= cutoff).length,
+      vorgespraech_vereinbart: allEvents.filter(e => e.status === 'vorgespraech_vereinbart').length,
+      angebot_gesendet: allEvents.filter(e => e.status === 'angebot_gesendet').length,
+      bestaetigt: allEvents.filter(e => e.status === 'bestaetigt').length,
+      abgeschlossen: allEvents.filter(e => e.status === 'abgeschlossen').length,
+      abgesagt: allEvents.filter(e => e.status === 'abgesagt').length,
+    } as Record<string, number>;
+  }, [allEvents]);
+
 
   // KPI-Berechnungen (aus allEvents, nicht filtered)
   const kpiOffene = allEvents.filter(e => ['neu', 'vorgespraech_vereinbart', 'angebot_gesendet'].includes(e.status)).length;
@@ -247,20 +269,8 @@ export function DjEventsPage() {
                 margin: 0,
                 lineHeight: 1.1,
               }}>
-                VERANSTALTUNGEN
+                ANFRAGEN
               </h1>
-              <p style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 500,
-                fontSize: '0.7rem',
-                letterSpacing: '0.15em',
-                textTransform: 'uppercase',
-                color: 'var(--color-on-surface-variant)',
-                marginTop: '0.375rem',
-                marginBottom: 0,
-              }}>
-                SYNTHETIC CONDUCTOR
-              </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}>
               {/* Jahr-Dropdown */}
@@ -268,7 +278,7 @@ export function DjEventsPage() {
                 value={selectedYear}
                 onChange={ev => setSelectedYear(Number(ev.target.value))}
                 style={{
-                  background: 'var(--color-surface-container-high)',
+                  background: 'rgba(255,255,255,0.05)',
                   color: 'var(--color-on-surface)',
                   border: 'none',
                   borderRadius: '0.5rem',
@@ -283,9 +293,9 @@ export function DjEventsPage() {
                   <option key={y} value={y}>{y}</option>
                 ))}
               </select>
-              {/* + Neue Veranstaltung */}
+              {/* + Neue Anfrage */}
               <button
-                onClick={() => navigate('/dj/events/new')}
+                onClick={() => setShowNeueAnfrage(true)}
                 style={{
                   background: 'linear-gradient(135deg, #94aaff 0%, #5cfd80 100%)',
                   color: '#060e20',
@@ -303,7 +313,7 @@ export function DjEventsPage() {
                 }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span>
-                Neue Veranstaltung
+                Neue Anfrage
               </button>
             </div>
           </div>
@@ -312,7 +322,7 @@ export function DjEventsPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
 
             {/* Offene Anfragen */}
-            <div style={{ background: 'var(--color-surface-container)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.375rem' }}>
                   Offene Anfragen
@@ -327,7 +337,7 @@ export function DjEventsPage() {
             </div>
 
             {/* Bestätigt */}
-            <div style={{ background: 'var(--color-surface-container)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.375rem' }}>
                   Bestätigt
@@ -342,7 +352,7 @@ export function DjEventsPage() {
             </div>
 
             {/* Abgeschlossen */}
-            <div style={{ background: 'var(--color-surface-container)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.375rem' }}>
                   Abgeschlossen
@@ -368,8 +378,8 @@ export function DjEventsPage() {
                   type="button"
                   onClick={() => setStatusFilter(tab.value)}
                   style={{
-                    background: active ? 'rgba(148,170,255,0.15)' : 'var(--color-surface-container)',
-                    border: active ? '1px solid var(--color-primary)' : '1px solid var(--color-outline-variant)',
+                    background: active ? 'rgba(148,170,255,0.15)' : 'rgba(255,255,255,0.03)',
+                    border: active ? '1px solid var(--color-primary)' : '1px solid rgba(148,170,255,0.15)',
                     borderRadius: '999px',
                     color: active ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
                     padding: '0.375rem 1rem',
@@ -381,6 +391,17 @@ export function DjEventsPage() {
                   }}
                 >
                   {tab.label}
+                  <span style={{
+                    marginLeft: '0.375rem',
+                    background: active ? 'rgba(148,170,255,0.3)' : 'rgba(148,170,255,0.12)',
+                    borderRadius: '999px',
+                    padding: '0.05rem 0.45rem',
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    color: active ? '#94aaff' : 'var(--color-on-surface-variant)',
+                  }}>
+                    {tabCounts[tab.value] ?? 0}
+                  </span>
                 </button>
               );
             })}
@@ -393,7 +414,7 @@ export function DjEventsPage() {
               Lade...
             </div>
           ) : (
-            <div style={{ background: 'var(--color-surface-container)', borderRadius: '0.75rem', overflow: 'hidden' }}>
+            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', overflow: 'hidden' }}>
 
               {/* Header-Zeile */}
               {filtered.length > 0 && (
@@ -402,10 +423,10 @@ export function DjEventsPage() {
                   gridTemplateColumns: '110px 1fr 120px 150px 150px 100px 120px 72px',
                   gap: '0.75rem',
                   padding: '0.75rem 1.25rem',
-                  borderBottom: '1px solid var(--color-outline-variant)',
+                  borderBottom: '1px solid rgba(148,170,255,0.15)',
                   background: 'rgba(255,255,255,0.03)',
                 }}>
-                  {['Datum', 'Event', 'Typ', 'Location', 'Kunde', 'Gage', 'Status', ''].map((col, i) => (
+                  {['Eventdatum', 'Event', 'Typ', 'Location', 'Kunde', 'Gage', 'Status', ''].map((col, i) => (
                     <span key={i} style={{
                       fontFamily: 'var(--font-body)',
                       fontSize: '0.7rem',
@@ -434,7 +455,7 @@ export function DjEventsPage() {
                     key={e.id}
                     event={e}
                     isFirst={idx === 0}
-                    onNavigate={() => navigate(`/dj/events/${e.id}`)}
+                    onNavigate={() => setSelectedEventId(e.id)}
                     onDelete={() => {
                       if (window.confirm('Veranstaltung wirklich löschen?')) {
                         deleteMut.mutate(e.id);
@@ -449,6 +470,28 @@ export function DjEventsPage() {
 
         </div>{/* /content-wrapper */}
       </div>
+
+      {showNeueAnfrage && !selectedEventId && (
+        <NeueAnfrageModal
+          onClose={() => setShowNeueAnfrage(false)}
+          onCreated={() => {
+            setShowNeueAnfrage(false);
+            queryClient.invalidateQueries({ queryKey: ['dj-events'] });
+          }}
+        />
+      )}
+
+      {selectedEventId != null && (
+        <NeueAnfrageModal
+          eventId={selectedEventId}
+          onClose={() => setSelectedEventId(null)}
+          onCreated={() => setSelectedEventId(null)}
+          onUpdated={() => {
+            setSelectedEventId(null);
+            queryClient.invalidateQueries({ queryKey: ['dj-events'] });
+          }}
+        />
+      )}
     </PageWrapper>
   );
 }
