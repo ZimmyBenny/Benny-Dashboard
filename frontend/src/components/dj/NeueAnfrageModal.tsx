@@ -508,7 +508,13 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
             const endTime = timeEnd || (timeStart
               ? `${String(Number(timeStart.split(':')[0]) + 1).padStart(2, '0')}:${timeStart.split(':')[1]}`
               : '13:00');
-            const calTitle = `Anfrage – ${title.trim() || EVENT_TYPE_LABELS[eventType] || eventType}`;
+            const typLabel = EVENT_TYPE_LABELS[eventType] || eventType;
+            const kundenLabel = selectedCustomer
+              ? displayName(selectedCustomer)
+              : customerFreetext.trim() || null;
+            const calTitle = kundenLabel
+              ? `Anfrage – ${typLabel} | ${kundenLabel}`
+              : `Anfrage – ${typLabel}`;
             const calPayload = {
               title: calTitle,
               start_at: `${eventDate}T${startTime}:00Z`,
