@@ -68,7 +68,7 @@ function parseLine(line: string): CsvRow {
     total_gross:     parseAmount(cols[6]),
     open_amount:     parseAmount(cols[7]),
     customer_number: cols[8]?.trim() ?? '',
-    notes:           cols[14]?.trim() ?? '',
+    notes:           cols[13]?.trim() ?? '',
   };
 }
 

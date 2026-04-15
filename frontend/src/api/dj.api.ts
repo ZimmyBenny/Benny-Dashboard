@@ -132,6 +132,8 @@ export interface DjInvoice {
   status: InvoiceStatus;
   invoice_date: string;
   due_date: string | null;
+  subtotal_net: number;
+  tax_total: number;
   total_gross: number;
   paid_amount: number;
   finalized_at: string | null;

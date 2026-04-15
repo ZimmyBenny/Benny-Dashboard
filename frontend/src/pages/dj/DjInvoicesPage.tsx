@@ -45,7 +45,7 @@ function InvoiceRow({ invoice: i, isFirst, today, onNavigate, onFinalize, onMark
   const entwurfChipStyle: React.CSSProperties = {
     display: 'inline-block', padding: '0.15rem 0.5rem', borderRadius: '0.25rem',
     fontSize: '0.7rem', fontWeight: 500, fontFamily: 'var(--font-body)',
-    background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)', whiteSpace: 'nowrap',
+    background: 'rgba(255,255,255,0.05)', color: 'var(--color-on-surface-variant)', whiteSpace: 'nowrap',
   };
   const isOverdue = !!(i.due_date && i.due_date < today && i.paid_amount < i.total_gross && i.status !== 'storniert');
   const isDraft = i.finalized_at === null;
@@ -66,7 +66,7 @@ function InvoiceRow({ invoice: i, isFirst, today, onNavigate, onFinalize, onMark
         gridTemplateColumns: '110px 90px 1fr 1fr 120px 110px 110px 120px',
         gap: '0.75rem',
         padding: '0.75rem 1.25rem',
-        borderTop: isFirst ? 'none' : '1px solid var(--color-outline-variant)',
+        borderTop: isFirst ? 'none' : '1px solid rgba(148,170,255,0.15)',
         cursor: 'pointer',
         background: hovered ? 'rgba(255,255,255,0.05)' : 'transparent',
         alignItems: 'center',
@@ -130,13 +130,13 @@ export function DjInvoicesPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();
-  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [selectedYear, setSelectedYear] = useState<number | 0>(currentYear);
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | ''>('');
   const today = new Date().toISOString().slice(0, 10);
 
   const { data: allInvoices = [], isLoading } = useQuery<DjInvoice[]>({
     queryKey: ['dj-invoices', selectedYear],
-    queryFn: () => fetchDjInvoices({ year: selectedYear }),
+    queryFn: () => fetchDjInvoices(selectedYear === 0 ? {} : { year: selectedYear }),
   });
 
   const finalizeMut = useMutation({
@@ -167,7 +167,13 @@ export function DjInvoicesPage() {
     i.status !== 'storniert' && i.status !== 'bezahlt'
   ).length;
   const kpiStorniert    = allInvoices.filter(i => i.status === 'storniert').length;
-  const yearOptions     = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1, currentYear + 2];
+  const yearOptions     = [0, currentYear - 3, currentYear - 2, currentYear - 1, currentYear, currentYear + 1, currentYear + 2];
+
+  const activeInvoices  = allInvoices.filter(i => i.status !== 'storniert');
+  const umsatzNetto     = activeInvoices.reduce((s, i) => s + (i.subtotal_net ?? 0), 0);
+  const mwstTotal       = activeInvoices.reduce((s, i) => s + (i.tax_total ?? 0), 0);
+  const umsatzBrutto    = activeInvoices.reduce((s, i) => s + i.total_gross, 0);
+  const showMwst        = selectedYear === 0 || selectedYear >= 2026;
 
   return (
     <PageWrapper>
@@ -183,9 +189,6 @@ export function DjInvoicesPage() {
               <h1 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '3rem', letterSpacing: '-0.02em', color: 'var(--color-primary)', margin: 0, lineHeight: 1.1, textTransform: 'uppercase' }}>
                 RECHNUNGEN
               </h1>
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '0.7rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', marginTop: '0.375rem', marginBottom: 0 }}>
-                SYNTHETIC CONDUCTOR
-              </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}>
               <select
@@ -193,7 +196,7 @@ export function DjInvoicesPage() {
                 onChange={ev => setSelectedYear(Number(ev.target.value))}
                 style={{ background: 'var(--color-surface-variant)', color: 'var(--color-on-surface)', border: 'none', borderRadius: '0.5rem', padding: '0.5rem 0.875rem', fontSize: '0.875rem', fontFamily: 'var(--font-body)', cursor: 'pointer', outline: 'none' }}
               >
-                {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+                {yearOptions.map(y => <option key={y} value={y}>{y === 0 ? 'Alle Jahre' : y}</option>)}
               </select>
               <button
                 onClick={() => navigate('/dj/invoices/new')}
@@ -226,6 +229,36 @@ export function DjInvoicesPage() {
               </div>
             ))}
           </div>
+
+          {/* Umsatz-Zusammenfassung */}
+          {!isLoading && allInvoices.length > 0 && (
+            <div style={{ background: 'var(--color-surface-variant)', borderRadius: '0.75rem', padding: '1rem 1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '2.5rem', flexWrap: 'wrap' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--color-secondary)', opacity: 0.8 }}>payments</span>
+              <div>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.2rem' }}>Netto</p>
+                <p style={{ fontFamily: 'Manrope, sans-serif', fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-on-surface)', margin: 0 }}>{formatCurrency(umsatzNetto)}</p>
+              </div>
+              {showMwst && (
+                <>
+                  <div style={{ color: 'var(--color-on-surface-variant)', fontSize: '1.2rem', opacity: 0.4 }}>+</div>
+                  <div>
+                    <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.2rem' }}>MwSt</p>
+                    <p style={{ fontFamily: 'Manrope, sans-serif', fontSize: '1.25rem', fontWeight: 700, color: '#fbbf24', margin: 0 }}>{formatCurrency(mwstTotal)}</p>
+                  </div>
+                  <div style={{ color: 'var(--color-on-surface-variant)', fontSize: '1.2rem', opacity: 0.4 }}>=</div>
+                </>
+              )}
+              <div>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.2rem' }}>Brutto</p>
+                <p style={{ fontFamily: 'Manrope, sans-serif', fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-secondary)', margin: 0 }}>{formatCurrency(umsatzBrutto)}</p>
+              </div>
+              {selectedYear === 0 && (
+                <div style={{ marginLeft: 'auto', fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', opacity: 0.7 }}>
+                  Alle Jahre · ohne Storno
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Filter pills */}
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
@@ -264,7 +297,7 @@ export function DjInvoicesPage() {
           ) : (
             <div style={{ background: 'var(--color-surface-variant)', borderRadius: '0.75rem', overflow: 'hidden' }}>
               {filtered.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: '110px 90px 1fr 1fr 120px 110px 110px 120px', gap: '0.75rem', padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--color-outline-variant)', background: 'rgba(255,255,255,0.03)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '110px 90px 1fr 1fr 120px 110px 110px 120px', gap: '0.75rem', padding: '0.75rem 1.25rem', borderBottom: '1px solid rgba(148,170,255,0.15)', background: 'rgba(255,255,255,0.03)' }}>
                   {['Datum', 'Nr.', 'Betreff', 'Kunde', 'Fällig am', 'Brutto', 'Status', ''].map((col, idx) => (
                     <span key={idx} style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 600, color: 'var(--color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                       {col}
