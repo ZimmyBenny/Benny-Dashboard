@@ -1,5 +1,9 @@
 -- Migration 029: Status 'anfrage' hinzufügen + event_date optional machen
 -- Rebuild dj_events Tabelle wegen CHECK-Constraint-Änderung
+-- Views zuerst droppen, danach neu erstellen
+
+DROP VIEW IF EXISTS v_dj_trips;
+DROP VIEW IF EXISTS v_dj_open_invoices;
 
 CREATE TABLE dj_events_new (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,3 +61,42 @@ CREATE INDEX IF NOT EXISTS idx_dj_events_date     ON dj_events(event_date);
 CREATE INDEX IF NOT EXISTS idx_dj_events_status   ON dj_events(status);
 CREATE INDEX IF NOT EXISTS idx_dj_events_customer ON dj_events(customer_id);
 CREATE INDEX IF NOT EXISTS idx_dj_events_type     ON dj_events(event_type);
+
+-- Views neu erstellen
+CREATE VIEW IF NOT EXISTS v_dj_trips AS
+SELECT
+    e.id                                                AS event_id,
+    e.event_date                                        AS date,
+    COALESCE(e.title, 'Event ' || e.id)                 AS event_name,
+    e.event_type                                        AS event_type,
+    COALESCE(e.status, 'anfrage')                       AS event_status,
+    l.distance_km                                       AS distance_km_one_way,
+    l.travel_time_min                                   AS travel_time_min_one_way,
+    (COALESCE(l.distance_km, 0) * 2)                    AS total_km,
+    (COALESCE(l.distance_km, 0) * 2 * 0.30)             AS deductible_value,
+    (
+        COALESCE(e.setup_minutes, 90)
+      + (
+          CASE
+            WHEN e.time_start IS NOT NULL AND e.time_end IS NOT NULL
+            THEN (strftime('%s', '2000-01-01 ' || e.time_end) - strftime('%s', '2000-01-01 ' || e.time_start)) / 60
+            ELSE 240
+          END
+        )
+      + COALESCE(e.teardown_minutes, 90)
+      + (COALESCE(l.travel_time_min, 0) * 2)
+    ) / 60.0                                            AS absence_hours,
+    CAST(strftime('%Y', e.event_date) AS INTEGER)       AS year
+FROM dj_events e
+LEFT JOIN dj_locations l ON l.id = e.location_id
+WHERE e.deleted_at IS NULL
+  AND e.event_date IS NOT NULL;
+
+CREATE VIEW IF NOT EXISTS v_dj_open_invoices AS
+SELECT
+    i.*,
+    (i.total_gross - i.paid_amount) AS outstanding
+FROM dj_invoices i
+WHERE i.finalized_at IS NOT NULL
+  AND i.status IN ('offen','teilbezahlt','ueberfaellig')
+  AND i.is_cancellation = 0;
