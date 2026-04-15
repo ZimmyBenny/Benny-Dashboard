@@ -176,7 +176,7 @@ export function DjEventsPage() {
                 margin: 0,
                 lineHeight: 1.1,
               }}>
-                ANFRAGEN
+                ANFRAGEN & EVENTS
               </h1>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}>
