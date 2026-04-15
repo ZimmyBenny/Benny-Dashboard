@@ -28,15 +28,24 @@ const STATUS_CONFIG: Record<AnyStatus, { label: string; bg: string; text: string
 
 export function StatusBadge({ status }: { status: AnyStatus }) {
   const cfg = STATUS_CONFIG[status] ?? { label: status, bg: 'rgba(109,117,140,0.2)', text: 'var(--color-on-surface-variant)' };
+  const glowColor = cfg.dot ?? cfg.text;
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', borderRadius: '999px', padding: '0.2rem 0.625rem', fontSize: '0.7rem', fontWeight: 600, fontFamily: 'var(--font-body)', background: cfg.bg, color: cfg.text, textDecoration: cfg.extra, whiteSpace: 'nowrap', gap: '0.375rem' }}>
-      <span style={{
-        width: '6px', height: '6px', borderRadius: '50%',
-        background: cfg.dot ?? cfg.text,
-        boxShadow: `0 0 5px 1px ${cfg.dot ?? cfg.text}`,
-        flexShrink: 0,
-        display: 'inline-block',
-      }} />
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      borderRadius: '999px',
+      padding: '0.2rem 0.75rem',
+      fontSize: '0.7rem',
+      fontWeight: 700,
+      fontFamily: 'var(--font-body)',
+      background: cfg.bg,
+      color: cfg.text,
+      textDecoration: cfg.extra,
+      whiteSpace: 'nowrap',
+      border: `1px solid ${glowColor}`,
+      boxShadow: `0 0 8px 1px ${glowColor}40, inset 0 0 8px 0px ${glowColor}18`,
+      letterSpacing: '0.03em',
+    }}>
       {cfg.label}
     </span>
   );

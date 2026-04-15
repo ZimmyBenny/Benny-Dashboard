@@ -89,6 +89,8 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 | 260414-wsc | DJ Angebote-Seite Redesign | 2026-04-14 | 58432c0 | [260414-wsc-dj-angebote-seite-redesignen-synthetic-c](.planning/quick/260414-wsc-dj-angebote-seite-redesignen-synthetic-c/) |
 | 260415-cni | NeueAnfrageModal: unified Create/Edit-Modal mit Venue, Gäste, Status-Dropdown, Status-Verlauf | 2026-04-15 | d0837a7 | [260415-cni-anfragen-modal-vereinheitlichen-edit-mod](.planning/quick/260415-cni-anfragen-modal-vereinheitlichen-edit-mod/) |
 | 260415-cu5 | DjEventsPage Tabelle Redesign: HTML-Tabelle 7 Spalten, Inline-Status-Picker, Suchfeld | 2026-04-15 | f390c35 | [260415-cu5-djeventspage-tabelle-redesignen-neue-spa](.planning/quick/260415-cu5-djeventspage-tabelle-redesignen-neue-spa/) |
+| 260415-d19 | StatusBadge LED-Glow-Dot + Kalender-Titel mit Kunde/Typ | 2026-04-15 | 71c0b82 | — |
+| 260415-d3w | Datum-Kollisions-Warnung in NeueAnfrageModal | 2026-04-15 | 4c6758d | — |
 
 ---
 *State initialized: 2026-04-07 | Last activity: 2026-04-14 - Completed quick task 260414-wgb: DJ Leistungen-Seite Redesign im Synthetic Conductor Stil*
