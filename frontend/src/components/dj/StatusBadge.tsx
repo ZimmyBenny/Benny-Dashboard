@@ -1,4 +1,4 @@
-type EventStatus = 'neu' | 'vorgespraech_vereinbart' | 'angebot_gesendet' | 'bestaetigt' | 'abgeschlossen' | 'abgesagt';
+type EventStatus = 'anfrage' | 'neu' | 'vorgespraech_vereinbart' | 'angebot_gesendet' | 'bestaetigt' | 'abgeschlossen' | 'abgesagt';
 type QuoteStatus = 'entwurf' | 'gesendet' | 'angenommen' | 'abgelehnt' | 'abgelaufen';
 type InvoiceStatus = 'entwurf' | 'offen' | 'teilbezahlt' | 'bezahlt' | 'ueberfaellig' | 'storniert';
 
@@ -6,6 +6,7 @@ type AnyStatus = EventStatus | QuoteStatus | InvoiceStatus;
 
 const STATUS_CONFIG: Record<AnyStatus, { label: string; bg: string; text: string; extra?: string; dot?: string }> = {
   // Event-Status
+  anfrage:                   { label: 'Anfrage',                bg: 'rgba(148,170,255,0.12)',          text: 'var(--color-primary)',            dot: '#94aaff' },
   neu:                       { label: 'Neu',                    bg: 'var(--color-outline-variant-20)', text: 'var(--color-on-surface-variant)', dot: '#94aaff' },
   vorgespraech_vereinbart:   { label: 'Vorgespräch vereinbart', bg: 'rgba(148,170,255,0.15)',          text: 'var(--color-primary)',            dot: '#94aaff' },
   angebot_gesendet:          { label: 'Angebot gesendet',       bg: 'rgba(148,170,255,0.15)',          text: 'var(--color-primary)',            dot: '#94aaff' },

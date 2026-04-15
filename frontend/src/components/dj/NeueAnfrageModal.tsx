@@ -14,6 +14,7 @@ import apiClient from '../../api/client';
 // ── Status-Labels ─────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
+  anfrage: 'Anfrage',
   neu: 'Neu',
   vorgespraech_vereinbart: 'Vorgespräch vereinbart',
   angebot_gesendet: 'Angebot gesendet',
@@ -377,7 +378,7 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
   const [venueZip, setVenueZip] = useState('');
   const [venueCity, setVenueCity] = useState('');
   const [guests, setGuests] = useState('');
-  const [status, setStatus] = useState<EventStatus>('neu');
+  const [status, setStatus] = useState<EventStatus>('anfrage');
   const [statusHistory, setStatusHistory] = useState<StatusHistoryEntry[]>([]);
   const [loadingEvent, setLoadingEvent] = useState(false);
 
@@ -502,7 +503,7 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
         await queryClient.invalidateQueries({ queryKey: ['dj-events'] });
         onUpdated?.();
       } else {
-        await createDjEvent({ ...payload, status: 'neu' } as Parameters<typeof createDjEvent>[0]);
+        await createDjEvent({ ...payload, status: 'anfrage' } as Parameters<typeof createDjEvent>[0]);
         // Kalender-Eintrag anlegen
         console.log('[Kalender] addToCalendar:', addToCalendar, '| calendarId:', selectedCalendarId, '| date:', eventDate);
         if (addToCalendar && eventDate) {

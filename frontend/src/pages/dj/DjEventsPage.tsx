@@ -10,7 +10,7 @@ import { NeueAnfrageModal } from '../../components/dj/NeueAnfrageModal';
 
 const FILTER_TABS: { label: string; value: string }[] = [
   { label: 'Alle', value: '' },
-  { label: 'Neu', value: 'neu' },
+  { label: 'Anfrage', value: 'anfrage' },
   { label: 'Vorgespräch', value: 'vorgespraech_vereinbart' },
   { label: 'Angebot', value: 'angebot_gesendet' },
   { label: 'Bestätigt', value: 'bestaetigt' },
@@ -19,6 +19,7 @@ const FILTER_TABS: { label: string; value: string }[] = [
 ];
 
 const STATUS_OPTIONS: EventStatus[] = [
+  'anfrage',
   'neu',
   'vorgespraech_vereinbart',
   'angebot_gesendet',
@@ -75,10 +76,6 @@ export function DjEventsPage() {
   // Client-seitige Filterung nach Status
   const filtered = useMemo(() => {
     if (!statusFilter) return allEvents;
-    if (statusFilter === 'neu') {
-      const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-      return allEvents.filter(e => new Date(e.created_at).getTime() >= cutoff);
-    }
     return allEvents.filter(e => e.status === statusFilter);
   }, [allEvents, statusFilter]);
 
@@ -98,10 +95,9 @@ export function DjEventsPage() {
 
   // Zähler für alle Filter-Pillen
   const tabCounts = useMemo(() => {
-    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
     return {
       '': allEvents.length,
-      neu: allEvents.filter(e => new Date(e.created_at).getTime() >= cutoff).length,
+      anfrage: allEvents.filter(e => e.status === 'anfrage').length,
       vorgespraech_vereinbart: allEvents.filter(e => e.status === 'vorgespraech_vereinbart').length,
       angebot_gesendet: allEvents.filter(e => e.status === 'angebot_gesendet').length,
       bestaetigt: allEvents.filter(e => e.status === 'bestaetigt').length,
@@ -111,7 +107,7 @@ export function DjEventsPage() {
   }, [allEvents]);
 
   // KPI-Berechnungen (aus allEvents, nicht filtered)
-  const kpiOffene = allEvents.filter(e => ['neu', 'vorgespraech_vereinbart', 'angebot_gesendet'].includes(e.status)).length;
+  const kpiOffene = allEvents.filter(e => ['anfrage', 'neu', 'vorgespraech_vereinbart', 'angebot_gesendet'].includes(e.status)).length;
   const kpiBestaetigt = allEvents.filter(e => e.status === 'bestaetigt').length;
   const kpiAbgeschlossen = allEvents.filter(e => e.status === 'abgeschlossen').length;
 

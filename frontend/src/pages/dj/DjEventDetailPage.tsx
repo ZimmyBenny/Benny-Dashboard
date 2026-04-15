@@ -12,6 +12,7 @@ import { formatDate } from '../../lib/format';
 // Status-Labels
 // ---------------------------------------------------------------------------
 const STATUS_LABELS: Record<string, string> = {
+  anfrage: 'Anfrage',
   neu: 'Neu',
   vorgespraech_vereinbart: 'Vorgespräch vereinbart',
   angebot_gesendet: 'Angebot gesendet',
@@ -47,8 +48,10 @@ export function DjEventDetailPage() {
   const [guests, setGuests] = useState('');
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState('neu');
-  const [locationName, setLocationName] = useState('');
-  const [locationCity, setLocationCity] = useState('');
+  const [venueName, setVenueName] = useState('');
+  const [venueStreet, setVenueStreet] = useState('');
+  const [venueZip, setVenueZip] = useState('');
+  const [venueCity, setVenueCity] = useState('');
 
   // Hilfsdaten
   const [customers, setCustomers] = useState<DjCustomer[]>([]);
@@ -82,8 +85,10 @@ export function DjEventDetailPage() {
       setGuests(data.guests != null ? String(data.guests) : '');
       setNotes(data.notes ?? '');
       setStatus(data.status ?? 'neu');
-      setLocationName(data.location_name ?? '');
-      setLocationCity(data.location_city ?? '');
+      setVenueName(data.venue_name ?? '');
+      setVenueStreet(data.venue_street ?? '');
+      setVenueZip(data.venue_zip ?? '');
+      setVenueCity(data.venue_city ?? '');
       setStatusHistory(data.statusHistory ?? []);
     } catch {
       setError('Fehler beim Laden des Events');
@@ -154,15 +159,18 @@ export function DjEventDetailPage() {
         time_end: timeEnd || null,
         guests: guests ? Number(guests) : null,
         notes: notes.trim() || null,
-        status: (isNew ? 'neu' : status) as import('../../api/dj.api').EventStatus,
+        status: (isNew ? 'anfrage' : status) as import('../../api/dj.api').EventStatus,
+        venue_name: venueName.trim() || null,
+        venue_street: venueStreet.trim() || null,
+        venue_zip: venueZip.trim() || null,
+        venue_city: venueCity.trim() || null,
       };
       if (isNew) {
-        const created = await createDjEvent(payload);
-        navigate(`/dj/events/${created.id}`);
+        await createDjEvent(payload);
       } else {
         await updateDjEvent(Number(id), payload);
-        await loadEvent();
       }
+      navigate('/dj/events');
     } catch {
       setError('Fehler beim Speichern. Bitte erneut versuchen.');
     } finally {
@@ -175,7 +183,7 @@ export function DjEventDetailPage() {
   // ---------------------------------------------------------------------------
   const inputStyle: React.CSSProperties = {
     background: 'rgba(255,255,255,0.06)',
-    border: '1px solid var(--color-outline-variant)',
+    border: '1px solid rgba(148,170,255,0.2)',
     borderRadius: '0.5rem',
     color: 'var(--color-on-surface)',
     padding: '0.5rem 0.875rem',
@@ -188,34 +196,35 @@ export function DjEventDetailPage() {
 
   const labelStyle: React.CSSProperties = {
     fontFamily: 'var(--font-body)',
-    fontSize: '0.8rem',
+    fontSize: '0.75rem',
     fontWeight: 600,
     color: 'var(--color-on-surface-variant)',
     marginBottom: '0.375rem',
     display: 'block',
     textTransform: 'uppercase',
-    letterSpacing: '0.04em',
+    letterSpacing: '0.06em',
   };
 
   const btnPrimary: React.CSSProperties = {
-    background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+    background: 'linear-gradient(135deg, #94aaff 0%, #5cfd80 100%)',
     border: 'none',
     borderRadius: '0.5rem',
-    color: '#000',
+    color: '#060e20',
     padding: '0.5rem 1.25rem',
     cursor: saving ? 'not-allowed' : 'pointer',
     fontFamily: 'var(--font-body)',
     fontSize: '0.875rem',
-    fontWeight: 600,
+    fontWeight: 700,
     display: 'inline-flex',
     alignItems: 'center',
     gap: '0.375rem',
     opacity: saving ? 0.6 : 1,
+    boxShadow: '0 0 16px rgba(148,170,255,0.3)',
   };
 
   const btnSecondary: React.CSSProperties = {
     background: 'rgba(255,255,255,0.06)',
-    border: '1px solid var(--color-outline-variant)',
+    border: '1px solid rgba(255,255,255,0.12)',
     borderRadius: '0.5rem',
     color: 'var(--color-on-surface)',
     padding: '0.5rem 1rem',
@@ -228,7 +237,7 @@ export function DjEventDetailPage() {
   };
 
   const cardStyle: React.CSSProperties = {
-    background: 'var(--color-surface-container)',
+    background: 'rgba(255,255,255,0.03)',
     borderRadius: '0.75rem',
     padding: '1.5rem',
   };
@@ -251,43 +260,46 @@ export function DjEventDetailPage() {
   // ---------------------------------------------------------------------------
   return (
     <PageWrapper>
+      {/* Ambient Glow */}
+      <div style={{
+        position: 'fixed', top: '80px', right: '5%',
+        width: '400px', height: '400px', borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(148,170,255,0.06) 0%, transparent 70%)',
+        pointerEvents: 'none', zIndex: 0,
+      }} />
+
+      <div style={{ position: 'relative', zIndex: 1, maxWidth: '900px', margin: '0 auto', padding: '0 0 3rem' }}>
+
       {/* Zurück-Button */}
       <button
         type="button"
         onClick={() => navigate('/dj/events')}
         style={{
-          background: 'transparent',
-          border: 'none',
-          color: 'var(--color-on-surface-variant)',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.25rem',
-          marginBottom: '1.5rem',
-          fontFamily: 'var(--font-body)',
-          fontSize: '0.875rem',
-          padding: 0,
+          background: 'transparent', border: 'none',
+          color: 'var(--color-on-surface-variant)', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: '0.25rem',
+          marginBottom: '1.75rem', fontFamily: 'var(--font-body)', fontSize: '0.8125rem', padding: 0,
+          opacity: 0.7,
         }}
       >
         <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_back</span>
-        Zurück zu Events
+        Zurück zu Anfragen
       </button>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.75rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <h1 style={{
-          fontFamily: 'var(--font-headline)',
-          fontWeight: 800,
-          fontSize: 'clamp(1.25rem, 3vw, 1.75rem)',
-          letterSpacing: '-0.02em',
-          color: 'var(--color-on-surface)',
-          margin: 0,
-        }}>
-          {isNew ? 'Neue Anfrage erstellen' : (title || 'Event bearbeiten')}
-        </h1>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+<h1 style={{
+            fontFamily: 'var(--font-headline)', fontWeight: 800,
+            fontSize: 'clamp(1.5rem, 3vw, 2rem)', letterSpacing: '-0.02em',
+            color: 'var(--color-on-surface)', margin: 0, lineHeight: 1,
+          }}>
+            {isNew ? 'Neue Anfrage' : (title || 'Event bearbeiten')}
+          </h1>
+        </div>
         <button type="button" style={btnPrimary} onClick={() => void handleSave()} disabled={saving}>
           <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>save</span>
-          {saving ? 'Speichern...' : 'Speichern'}
+          {saving ? 'Speichern…' : 'Speichern'}
         </button>
       </div>
 
@@ -368,8 +380,8 @@ export function DjEventDetailPage() {
               left: 0,
               right: 0,
               marginTop: '0.25rem',
-              background: 'var(--color-surface-container)',
-              border: '1px solid var(--color-outline-variant)',
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(148,170,255,0.15)',
               borderRadius: '0.75rem',
               padding: '0.75rem',
               boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
@@ -437,7 +449,7 @@ export function DjEventDetailPage() {
         }}>
           {/* Datum */}
           <div>
-            <label style={labelStyle}>Datum *</label>
+            <label style={labelStyle}>Eventdatum *</label>
             <input
               type="date"
               value={eventDate}
@@ -488,33 +500,50 @@ export function DjEventDetailPage() {
             </div>
           )}
 
-          {/* Location-Name (Info-only) */}
-          <div>
-            <label style={labelStyle}>Veranstaltungsort (Name)</label>
+          {/* Veranstaltungslocation — Name (volle Breite) */}
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label style={labelStyle}>Veranstaltungslocation</label>
             <input
               type="text"
-              placeholder="Veranstaltungsort"
-              value={locationName}
-              onChange={e => setLocationName(e.target.value)}
-              style={{ ...inputStyle, opacity: 0.7 }}
-              readOnly
+              placeholder="z.B. Alte Glasfabrik, Schloss Neuschwanstein…"
+              value={venueName}
+              onChange={e => setVenueName(e.target.value)}
+              style={inputStyle}
             />
-            <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', marginTop: '0.25rem', display: 'block' }}>
-              Veranstaltungsort-Verknüpfung folgt in einem späteren Update.
-            </span>
           </div>
 
-          {/* City (Info-only) */}
-          <div>
-            <label style={labelStyle}>Stadt</label>
-            <input
-              type="text"
-              placeholder="Stadt"
-              value={locationCity}
-              onChange={e => setLocationCity(e.target.value)}
-              style={{ ...inputStyle, opacity: 0.7 }}
-              readOnly
-            />
+          {/* Straße + PLZ/Stadt */}
+          <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 120px 1fr', gap: '0.75rem' }}>
+            <div>
+              <label style={labelStyle}>Straße / Adresse</label>
+              <input
+                type="text"
+                placeholder="Musterstraße 12"
+                value={venueStreet}
+                onChange={e => setVenueStreet(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>PLZ</label>
+              <input
+                type="text"
+                placeholder="12345"
+                value={venueZip}
+                onChange={e => setVenueZip(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Stadt</label>
+              <input
+                type="text"
+                placeholder="München"
+                value={venueCity}
+                onChange={e => setVenueCity(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
           </div>
 
           {/* Uhrzeit Start */}
@@ -608,7 +637,7 @@ export function DjEventDetailPage() {
                 gridTemplateColumns: '180px 1fr 1fr',
                 gap: '1rem',
                 padding: '0.5rem 0.75rem',
-                borderBottom: '1px solid var(--color-outline-variant)',
+                borderBottom: '1px solid rgba(148,170,255,0.15)',
                 marginBottom: '0.25rem',
               }}>
                 {['Datum', 'Von', 'Nach'].map(col => (
@@ -638,7 +667,7 @@ export function DjEventDetailPage() {
                       gridTemplateColumns: '180px 1fr 1fr',
                       gap: '1rem',
                       padding: '0.625rem 0.75rem',
-                      borderTop: idx === 0 ? 'none' : '1px solid var(--color-outline-variant)',
+                      borderTop: idx === 0 ? 'none' : '1px solid rgba(148,170,255,0.15)',
                       alignItems: 'center',
                     }}
                   >
@@ -658,6 +687,8 @@ export function DjEventDetailPage() {
           )}
         </div>
       )}
+
+      </div> {/* /position:relative wrapper */}
     </PageWrapper>
   );
 }
