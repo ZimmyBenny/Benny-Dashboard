@@ -551,6 +551,7 @@ export function DjEventsPage() {
 
       {showNeueAnfrage && !selectedEventId && (
         <NeueAnfrageModal
+          key="create"
           onClose={() => setShowNeueAnfrage(false)}
           onCreated={() => {
             setShowNeueAnfrage(false);
@@ -561,6 +562,7 @@ export function DjEventsPage() {
 
       {selectedEventId != null && (
         <NeueAnfrageModal
+          key={`edit-${selectedEventId}`}
           eventId={selectedEventId}
           onClose={() => setSelectedEventId(null)}
           onCreated={() => setSelectedEventId(null)}
