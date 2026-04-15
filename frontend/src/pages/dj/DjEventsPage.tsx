@@ -1,10 +1,11 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageWrapper } from '../../components/layout/PageWrapper';
-import { fetchDjEvents, deleteDjEvent, updateDjEvent, type DjEvent, type EventStatus } from '../../api/dj.api';
+import { fetchDjEvents, fetchDjEvent, deleteDjEvent, updateDjEvent, type DjEvent, type EventStatus } from '../../api/dj.api';
 import { StatusBadge, EVENT_TYPE_LABELS } from '../../components/dj/StatusBadge';
 import { formatDate } from '../../lib/format';
 import { NeueAnfrageModal } from '../../components/dj/NeueAnfrageModal';
+import apiClient from '../../api/client';
 
 // ── Filter-Konfiguration ───────────────────────────────────────────────────────
 
@@ -20,7 +21,6 @@ const FILTER_TABS: { label: string; value: string }[] = [
 
 const STATUS_OPTIONS: EventStatus[] = [
   'anfrage',
-  'neu',
   'vorgespraech_vereinbart',
   'angebot_gesendet',
   'bestaetigt',
@@ -41,6 +41,19 @@ export function DjEventsPage() {
   const [search, setSearch] = useState('');
   const [statusPickerId, setStatusPickerId] = useState<number | null>(null);
   const [statusPickerPos, setStatusPickerPos] = useState<{ top: number; left: number } | null>(null);
+  const [calToast, setCalToast] = useState<string | null>(null);
+  const [calError, setCalError] = useState<string | null>(null);
+  const [djCalendarId, setDjCalendarId] = useState<string | null>(null);
+  const djCalendarIdRef = useRef<string | null>(null);
+
+  // DJ-Kalender-ID vorab laden — Ref für stableCallback, State für UI
+  useEffect(() => {
+    void apiClient.get('/calendar/calendars').then(r => {
+      const list = r.data as { id: string; title: string }[];
+      const djCal = list.find(c => c.title.toLowerCase().replace(/[-\s]/g, '') === 'djtermine') ?? list[0];
+      if (djCal) { setDjCalendarId(djCal.id); djCalendarIdRef.current = djCal.id; }
+    }).catch(() => {});
+  }, []);
 
   // Datenladen
   const { data: allEvents = [], isLoading } = useQuery<DjEvent[]>({
@@ -54,11 +67,101 @@ export function DjEventsPage() {
   });
 
   const statusMut = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: EventStatus }) => updateDjEvent(id, { status }),
-    onSuccess: () => {
+    mutationFn: ({ id, status }: { id: number; status: EventStatus; event?: DjEvent }) =>
+      updateDjEvent(id, { status }),
+    onSuccess: async (_, { status, event }) => {
       queryClient.invalidateQueries({ queryKey: ['dj-events'] });
       setStatusPickerId(null);
       setStatusPickerPos(null);
+
+      // Kalender-Eintrag löschen bei Absage
+      if (status === 'abgesagt' && event) {
+        const freshEvent = await fetchDjEvent(event.id).catch(() => null);
+        if (freshEvent?.calendar_uid) {
+          const deleted = await apiClient
+            .delete(`/calendar/events/${encodeURIComponent(freshEvent.calendar_uid)}`)
+            .then(() => true)
+            .catch(() => false);
+          // calendar_uid immer leeren — auch wenn Eintrag in Apple Calendar nicht mehr existiert
+          await updateDjEvent(event.id, { calendar_uid: null } as Partial<DjEvent>);
+          queryClient.invalidateQueries({ queryKey: ['dj-events'] });
+          if (deleted) {
+            setCalToast('Kalendereintrag wurde gelöscht.');
+            setTimeout(() => setCalToast(null), 4000);
+          }
+        }
+        return;
+      }
+
+      // Auto-Kalender bei Bestätigung
+      if (status === 'bestaetigt' && event && event.event_date) {
+        // Frischen Stand vom Server holen (Cache könnte alte calendar_uid haben)
+        const freshEvent = await fetchDjEvent(event.id).catch(() => null);
+        if (freshEvent?.calendar_uid) return; // Eintrag existiert bereits
+
+        const calId = djCalendarIdRef.current;
+        if (!calId) {
+          setCalError('Kalender "DJ Termine" nicht gefunden. Bitte Kalender-Sync prüfen.');
+          setTimeout(() => setCalError(null), 8000);
+          return;
+        }
+
+        const typLabel = EVENT_TYPE_LABELS[event.event_type] || event.event_type;
+        const kundenLabel = event.customer_name || event.customer_org || 'Unbekannt';
+        const locationLabel = event.venue_name || event.location_name || '';
+        const calTitle = `Gebucht – ${typLabel} | ${kundenLabel}`;
+        const startTime = event.time_start?.substring(0, 5) || '20:00';
+        const endRaw = event.time_end?.substring(0, 5);
+        // Lokaler Timezone-Offset (z.B. "+02:00" für CEST)
+        const offsetMin = -new Date().getTimezoneOffset();
+        const tzSign = offsetMin >= 0 ? '+' : '-';
+        const tzH = String(Math.floor(Math.abs(offsetMin) / 60)).padStart(2, '0');
+        const tzM = String(Math.abs(offsetMin) % 60).padStart(2, '0');
+        const tz = `${tzSign}${tzH}:${tzM}`;
+        // Mitternacht-Crossing: end < start → end ist am Folgetag
+        let endDate = event.event_date;
+        let endTime: string;
+        const nextDay = () => {
+          const d = new Date(event.event_date + 'T00:00:00Z');
+          d.setUTCDate(d.getUTCDate() + 1);
+          return d.toISOString().substring(0, 10);
+        };
+        if (!endRaw) {
+          const [h, m] = startTime.split(':').map(Number);
+          const newH = h + 3;
+          endTime = `${String(newH % 24).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+          if (newH >= 24) endDate = nextDay();
+        } else if (endRaw <= startTime) {
+          endTime = endRaw;
+          endDate = nextDay();
+        } else {
+          endTime = endRaw;
+        }
+        try {
+          const res = await apiClient.post('/calendar/events', {
+            calendar_id: calId,
+            title: calTitle,
+            start_at: `${event.event_date}T${startTime}:00${tz}`,
+            end_at: `${endDate}T${endTime}:00${tz}`,
+            notes: [
+              `Kunde: ${kundenLabel}`,
+              `Veranstaltungstyp: ${typLabel}`,
+              locationLabel ? `Location: ${locationLabel}` : '',
+            ].filter(Boolean).join('\n'),
+          });
+          const calUid = (res.data as { event?: { apple_uid?: string } })?.event?.apple_uid;
+          if (calUid) {
+            await updateDjEvent(event.id, { calendar_uid: calUid } as Partial<DjEvent>);
+            queryClient.invalidateQueries({ queryKey: ['dj-events'] });
+          }
+          setCalToast(`Kalendereintrag "${calTitle}" wurde angelegt.`);
+          setTimeout(() => setCalToast(null), 5000);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : 'Unbekannter Fehler';
+          setCalError(`Kalendereintrag konnte nicht erstellt werden: ${msg}`);
+          setTimeout(() => setCalError(null), 8000);
+        }
+      }
     },
   });
 
@@ -216,7 +319,7 @@ export function DjEventsPage() {
                 }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span>
-                Neue Anfrage
+                Neues Event
               </button>
             </div>
           </div>
@@ -360,7 +463,7 @@ export function DjEventsPage() {
               <table className="dj-events-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    {['Eventdatum', 'Kunde', 'Typ', 'Location', 'Status', 'Eingang', ''].map((col, i) => (
+                    {['Eventdatum', 'Kunde', 'Typ', 'Event-Typ', 'Location', 'Status', 'Eingang', ''].map((col, i) => (
                       <th
                         key={i}
                         style={{
@@ -384,7 +487,7 @@ export function DjEventsPage() {
                 <tbody>
                   {searchFiltered.length === 0 ? (
                     <tr>
-                      <td colSpan={7} style={{ textAlign: 'center', padding: '3rem 2rem', color: 'var(--color-on-surface-variant)' }}>
+                      <td colSpan={8} style={{ textAlign: 'center', padding: '3rem 2rem', color: 'var(--color-on-surface-variant)' }}>
                         <span className="material-symbols-outlined" style={{ fontSize: '3rem', marginBottom: '1rem', display: 'block', opacity: 0.4 }}>event_busy</span>
                         <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.9rem', margin: 0 }}>
                           Keine Veranstaltungen für diesen Filter.
@@ -393,6 +496,15 @@ export function DjEventsPage() {
                     </tr>
                   ) : (
                     searchFiltered.map(e => {
+                      const rowBg: Record<string, string> = {
+                        anfrage:                 'rgba(148,170,255,0.06)',
+                        vorgespraech_vereinbart: 'rgba(148,170,255,0.06)',
+                        angebot_gesendet:        'rgba(148,170,255,0.08)',
+                        bestaetigt:              'rgba(166,140,255,0.08)',
+                        abgeschlossen:           'rgba(92,253,128,0.07)',
+                        abgesagt:                'rgba(255,110,132,0.06)',
+                      };
+
                       const tdStyle: React.CSSProperties = {
                         padding: '0.875rem 1rem',
                         borderBottom: '1px solid rgba(148,170,255,0.08)',
@@ -406,7 +518,7 @@ export function DjEventsPage() {
                         (e.time_start ? ' / ' + e.time_start.substring(0, 5) : '');
 
                       return (
-                        <tr key={e.id}>
+                        <tr key={e.id} style={{ background: rowBg[e.status] ?? 'transparent' }}>
                           {/* Spalte 1: Eventdatum */}
                           <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
                             {eventDateStr}
@@ -432,7 +544,12 @@ export function DjEventsPage() {
                             </span>
                           </td>
 
-                          {/* Spalte 4: Location */}
+                          {/* Spalte 4: Event-Typ (Freitext / Titel) */}
+                          <td style={{ ...tdStyle, color: 'var(--color-on-surface-variant)', fontStyle: e.title ? 'normal' : 'italic', fontSize: '0.82rem' }}>
+                            {e.title || '—'}
+                          </td>
+
+                          {/* Spalte 5: Location */}
                           <td style={{ ...tdStyle, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
                             {e.venue_name || e.location_name || '—'}
                           </td>
@@ -480,7 +597,7 @@ export function DjEventsPage() {
                                       key={option}
                                       type="button"
                                       className="dj-status-option"
-                                      onClick={() => statusMut.mutate({ id: e.id, status: option })}
+                                      onClick={() => statusMut.mutate({ id: e.id, status: option, event: e })}
                                       style={{
                                         display: 'flex',
                                         width: '100%',
@@ -516,26 +633,54 @@ export function DjEventsPage() {
 
                           {/* Spalte 7: Aktionen */}
                           <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
-                            <button
-                              type="button"
-                              className="dj-edit-btn"
-                              title="Bearbeiten"
-                              onClick={() => setSelectedEventId(e.id)}
-                              style={{
-                                background: 'rgba(255,255,255,0.06)',
-                                border: '1px solid rgba(148,170,255,0.15)',
-                                borderRadius: '0.375rem',
-                                padding: '0.375rem',
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                              }}
-                            >
-                              <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: 'var(--color-primary)' }}>
-                                edit_note
-                              </span>
-                            </button>
+                            <div style={{ display: 'flex', gap: '0.375rem' }}>
+                              <button
+                                type="button"
+                                className="dj-edit-btn"
+                                title="Bearbeiten"
+                                onClick={() => setSelectedEventId(e.id)}
+                                style={{
+                                  background: 'rgba(255,255,255,0.06)',
+                                  border: '1px solid rgba(148,170,255,0.15)',
+                                  borderRadius: '0.375rem',
+                                  padding: '0.375rem',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                              >
+                                <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: 'var(--color-primary)' }}>
+                                  edit_note
+                                </span>
+                              </button>
+                              <button
+                                type="button"
+                                className="dj-edit-btn"
+                                title="Löschen"
+                                onClick={async () => {
+                                  if (!window.confirm(`Event "${e.title || EVENT_TYPE_LABELS[e.event_type]}" wirklich löschen?`)) return;
+                                  if (e.calendar_uid) {
+                                    await apiClient.delete(`/calendar/events/${encodeURIComponent(e.calendar_uid)}`).catch(() => {});
+                                  }
+                                  deleteMut.mutate(e.id);
+                                }}
+                                style={{
+                                  background: 'rgba(255,110,132,0.08)',
+                                  border: '1px solid rgba(255,110,132,0.2)',
+                                  borderRadius: '0.375rem',
+                                  padding: '0.375rem',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                              >
+                                <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: '#ff6e84' }}>
+                                  delete
+                                </span>
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -548,6 +693,42 @@ export function DjEventsPage() {
 
         </div>{/* /content-wrapper */}
       </div>
+
+      {/* Kalender-Bestätigung Toast */}
+      {calToast && (
+        <div style={{
+          position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 9000,
+          background: 'rgba(92,253,128,0.12)', border: '1px solid #5cfd80',
+          borderRadius: '0.75rem', padding: '0.875rem 1.25rem',
+          display: 'flex', alignItems: 'center', gap: '0.75rem',
+          boxShadow: '0 0 24px rgba(92,253,128,0.25)',
+          fontFamily: 'var(--font-body)', fontSize: '0.875rem',
+          color: 'var(--color-secondary)', maxWidth: '380px',
+        }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '1.25rem', color: '#5cfd80', flexShrink: 0 }}>
+            calendar_add_on
+          </span>
+          {calToast}
+        </div>
+      )}
+
+      {/* Kalender-Fehler Toast */}
+      {calError && (
+        <div style={{
+          position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 9000,
+          background: 'rgba(255,110,132,0.12)', border: '1px solid rgba(255,110,132,0.6)',
+          borderRadius: '0.75rem', padding: '0.875rem 1.25rem',
+          display: 'flex', alignItems: 'center', gap: '0.75rem',
+          boxShadow: '0 0 24px rgba(255,110,132,0.2)',
+          fontFamily: 'var(--font-body)', fontSize: '0.875rem',
+          color: '#ff6e84', maxWidth: '420px',
+        }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '1.25rem', color: '#ff6e84', flexShrink: 0 }}>
+            calendar_today
+          </span>
+          {calError}
+        </div>
+      )}
 
       {showNeueAnfrage && !selectedEventId && (
         <NeueAnfrageModal

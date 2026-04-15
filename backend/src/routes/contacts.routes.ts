@@ -21,16 +21,14 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
 // ---------------------------------------------------------------------------
 // Naechste Kundennummer (Transaction: lesen + inkrementieren)
 // ---------------------------------------------------------------------------
-function getNextCustomerNumber(): string {
-  const getNext = db.transaction(() => {
-    const row = db.prepare(`SELECT value FROM app_settings WHERE key = 'contact_next_number'`).get() as { value: string } | undefined;
-    const current = parseInt(row?.value ?? '1051', 10);
-    const next = current + 1;
-    db.prepare(`UPDATE app_settings SET value = ?, updated_at = datetime('now') WHERE key = 'contact_next_number'`).run(String(next));
-    return String(current);
-  });
-  return getNext();
+// Ohne eigene Transaktion — kann innerhalb einer äußeren Transaktion aufgerufen werden
+function nextCustomerNumberInTx(): string {
+  // Immer aus dem tatsächlichen MAX der Tabelle ableiten — app_settings-Zähler kann veraltet sein
+  const row = db.prepare(`SELECT MAX(CAST(customer_number AS INTEGER)) AS max_num FROM contacts`).get() as { max_num: number | null };
+  const next = (row?.max_num ?? 1000) + 1;
+  return String(next);
 }
+
 
 // ---------------------------------------------------------------------------
 // Hilfsfunktionen: Subtabellen laden
@@ -117,8 +115,8 @@ router.get('/', (req, res) => {
 // GET /api/contacts/next-number
 // ---------------------------------------------------------------------------
 router.get('/next-number', (_req, res) => {
-  const row = db.prepare(`SELECT value FROM app_settings WHERE key = 'contact_next_number'`).get() as { value: string } | undefined;
-  res.json({ next_number: row?.value ?? '1051' });
+  const row = db.prepare(`SELECT MAX(CAST(customer_number AS INTEGER)) AS max_num FROM contacts`).get() as { max_num: number | null };
+  res.json({ next_number: String((row?.max_num ?? 1000) + 1) });
 });
 
 // ---------------------------------------------------------------------------
@@ -577,7 +575,9 @@ router.post('/', (req, res) => {
   }
 
   const createFn = db.transaction(() => {
-    const customerNumber = body.customer_number ?? getNextCustomerNumber();
+    // Immer frisch berechnen — die vom Frontend übermittelte Nummer kann
+    // inzwischen vergeben sein (Race Condition), da das Feld readonly ist.
+    const customerNumber = nextCustomerNumberInTx();
 
     const result = db.prepare(`
       INSERT INTO contacts (

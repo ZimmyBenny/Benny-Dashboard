@@ -43,6 +43,7 @@ export interface DjEvent {
   venue_city: string | null;
   created_at: string;
   updated_at: string;
+  calendar_uid?: string | null;
   // joined
   customer_name?: string;
   customer_org?: string;

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { formatCurrency, formatDate } from '../../lib/format';
@@ -9,13 +9,17 @@ import {
   type DjOverview,
   type DjEvent,
 } from '../../api/dj.api';
+import { NeueAnfrageModal } from '../../components/dj/NeueAnfrageModal';
+import { StatusBadge, EVENT_TYPE_LABELS } from '../../components/dj/StatusBadge';
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export function DjOverviewPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [showNeueAnfrage, setShowNeueAnfrage] = useState(false);
 
   const { data: overview, isLoading: overviewLoading } =
     useQuery<DjOverview>({
@@ -28,6 +32,21 @@ export function DjOverviewPage() {
       queryKey: ['dj-events-all'],
       queryFn: () => fetchDjEvents(),
     });
+
+  // Nächste Events Widget
+  const [upcomingWeeks, setUpcomingWeeks] = useState<2 | 4>(2);
+  const upcomingEvents = useMemo(() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const end = new Date(today);
+    end.setDate(today.getDate() + upcomingWeeks * 7);
+    return (events ?? [])
+      .filter(e => {
+        if (e.status === 'abgesagt') return false;
+        const d = new Date(e.event_date);
+        return d >= today && d <= end;
+      })
+      .sort((a, b) => a.event_date.localeCompare(b.event_date));
+  }, [events, upcomingWeeks]);
 
   // Auslastung: bestätigte Events Fr/Sa in den nächsten 365 Tagen
   const weekendStats = useMemo(() => {
@@ -98,20 +117,8 @@ export function DjOverviewPage() {
                 margin: 0,
                 lineHeight: 1.1,
               }}>
-                DJ ÜBERSICHT
+                DJ DASHBOARD
               </h1>
-              <p style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 500,
-                fontSize: '0.7rem',
-                letterSpacing: '0.15em',
-                textTransform: 'uppercase',
-                color: 'var(--color-on-surface-variant)',
-                marginTop: '0.375rem',
-                marginBottom: 0,
-              }}>
-                SYNTHETIC CONDUCTOR
-              </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}>
               {/* Jahres-Filter */}
@@ -119,7 +126,7 @@ export function DjOverviewPage() {
                 value={selectedYear}
                 onChange={e => setSelectedYear(Number(e.target.value))}
                 style={{
-                  background: 'var(--color-surface-container-high)',
+                  background: 'rgba(255,255,255,0.05)',
                   color: 'var(--color-on-surface)',
                   border: 'none',
                   borderRadius: '0.5rem',
@@ -134,9 +141,8 @@ export function DjOverviewPage() {
                   <option key={y} value={y}>{y}</option>
                 ))}
               </select>
-              {/* + Neue Anfrage */}
               <button
-                onClick={() => navigate('/dj/events')}
+                onClick={() => setShowNeueAnfrage(true)}
                 style={{
                   background: 'linear-gradient(135deg, #94aaff 0%, #5cfd80 100%)',
                   color: '#060e20',
@@ -154,31 +160,194 @@ export function DjOverviewPage() {
                 }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span>
-                Neue Anfrage
+                Neues Event
               </button>
             </div>
+          </div>
+
+          {/* ── Nächste Veranstaltungen ───────────────────────── */}
+          <div style={{
+            marginBottom: '2rem',
+            borderRadius: '1rem',
+            overflow: 'hidden',
+            border: '1px solid rgba(148,170,255,0.25)',
+            boxShadow: '0 0 40px rgba(148,170,255,0.08), 0 0 0 1px rgba(148,170,255,0.05) inset',
+            background: 'linear-gradient(135deg, rgba(148,170,255,0.06) 0%, rgba(6,14,32,0.8) 60%)',
+          }}>
+            {/* Header */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '1.125rem 1.5rem',
+              borderBottom: '1px solid rgba(148,170,255,0.15)',
+              background: 'rgba(148,170,255,0.04)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                <div style={{
+                  width: '32px', height: '32px', borderRadius: '0.5rem',
+                  background: 'rgba(148,170,255,0.12)',
+                  border: '1px solid rgba(148,170,255,0.2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', color: 'var(--color-primary)' }}>upcoming</span>
+                </div>
+                <div>
+                  <div style={{
+                    fontFamily: 'var(--font-headline)',
+                    fontSize: '1.25rem',
+                    fontWeight: 800,
+                    letterSpacing: '-0.02em',
+                    background: 'linear-gradient(135deg, #94aaff 0%, #5cfd80 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                  }}>
+                    Nächste Veranstaltungen
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', color: 'rgba(148,170,255,0.6)', marginTop: '0.1rem' }}>
+                    {upcomingEvents.length === 0 ? 'Keine Events im Zeitraum' : `${upcomingEvents.length} Event${upcomingEvents.length !== 1 ? 's' : ''} im Zeitraum`}
+                  </div>
+                </div>
+              </div>
+              {/* Toggle */}
+              <div style={{ display: 'flex', gap: '0.375rem', background: 'rgba(0,0,0,0.2)', padding: '0.25rem', borderRadius: '999px' }}>
+                {([2, 4] as const).map(w => (
+                  <button
+                    key={w}
+                    type="button"
+                    onClick={() => setUpcomingWeeks(w)}
+                    style={{
+                      background: upcomingWeeks === w ? 'linear-gradient(135deg, rgba(148,170,255,0.25), rgba(148,170,255,0.1))' : 'transparent',
+                      border: upcomingWeeks === w ? '1px solid rgba(148,170,255,0.4)' : '1px solid transparent',
+                      borderRadius: '999px',
+                      color: upcomingWeeks === w ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
+                      padding: '0.3rem 0.875rem',
+                      fontSize: '0.75rem',
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s',
+                      boxShadow: upcomingWeeks === w ? '0 0 12px rgba(148,170,255,0.2)' : 'none',
+                    }}
+                  >
+                    {w} Wochen
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Tabelle */}
+            {upcomingEvents.length === 0 ? (
+              <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.875rem' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.75rem', opacity: 0.3, color: 'var(--color-primary)' }}>event_available</span>
+                Keine Veranstaltungen in den nächsten {upcomingWeeks} Wochen.
+              </div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(0,0,0,0.15)' }}>
+                    {['Datum', 'Kunde', 'Typ', 'Event-Typ', 'Location', 'Status'].map((col, i) => (
+                      <th key={i} style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.09em', color: 'rgba(148,170,255,0.45)', padding: '0.6rem 1.25rem', textAlign: 'left', fontFamily: 'var(--font-body)', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                        {col}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {upcomingEvents.map((e, idx) => {
+                    const isFirst = idx === 0;
+                    const tdStyle: React.CSSProperties = {
+                      padding: '0.875rem 1.25rem',
+                      borderTop: '1px solid rgba(148,170,255,0.08)',
+                      fontFamily: 'var(--font-body)',
+                      fontSize: '0.875rem',
+                      color: 'var(--color-on-surface)',
+                    };
+                    const dateStr = formatDate(e.event_date) + (e.time_start ? ' · ' + e.time_start.substring(0, 5) : '');
+                    // Countdown berechnen
+                    const today = new Date(); today.setHours(0, 0, 0, 0);
+                    const evDay = new Date(e.event_date); evDay.setHours(0, 0, 0, 0);
+                    const diffDays = Math.round((evDay.getTime() - today.getTime()) / 86400000);
+                    const countdownLabel = diffDays === 0 ? 'Heute' : diffDays === 1 ? 'Morgen' : `${diffDays} Tage`;
+                    const countdownUrgent = diffDays <= 3;
+                    return (
+                      <tr
+                        key={e.id}
+                        style={{
+                          background: isFirst
+                            ? 'rgba(148,170,255,0.06)'
+                            : e.status === 'bestaetigt'
+                              ? 'rgba(92,253,128,0.03)'
+                              : 'transparent',
+                          transition: 'background 0.15s',
+                        }}
+                        onMouseEnter={ev => { (ev.currentTarget as HTMLTableRowElement).style.background = 'rgba(148,170,255,0.07)'; }}
+                        onMouseLeave={ev => {
+                          (ev.currentTarget as HTMLTableRowElement).style.background = isFirst
+                            ? 'rgba(148,170,255,0.06)'
+                            : e.status === 'bestaetigt' ? 'rgba(92,253,128,0.03)' : 'transparent';
+                        }}
+                      >
+                        <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            {isFirst && <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--color-primary)', boxShadow: '0 0 6px var(--color-primary)', flexShrink: 0 }} />}
+                            <div>
+                              <span style={{ fontWeight: isFirst ? 700 : 500, color: isFirst ? 'var(--color-primary)' : 'var(--color-on-surface)', fontSize: isFirst ? '0.9rem' : '0.875rem' }}>
+                                {dateStr}
+                              </span>
+                              <span style={{
+                                marginLeft: '0.5rem',
+                                display: 'inline-block',
+                                fontSize: '0.68rem',
+                                fontWeight: 700,
+                                padding: '0.15rem 0.5rem',
+                                borderRadius: '999px',
+                                background: countdownUrgent
+                                  ? 'rgba(255,100,100,0.15)'
+                                  : isFirst
+                                    ? 'rgba(148,170,255,0.15)'
+                                    : 'rgba(255,255,255,0.06)',
+                                border: countdownUrgent
+                                  ? '1px solid rgba(255,100,100,0.4)'
+                                  : isFirst
+                                    ? '1px solid rgba(148,170,255,0.3)'
+                                    : '1px solid rgba(255,255,255,0.1)',
+                                color: countdownUrgent
+                                  ? '#ff6464'
+                                  : isFirst
+                                    ? 'var(--color-primary)'
+                                    : 'var(--color-on-surface-variant)',
+                                letterSpacing: '0.02em',
+                              }}>
+                                {countdownLabel}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td style={{ ...tdStyle, fontWeight: isFirst ? 600 : 400 }}>{e.customer_name || e.customer_org || '—'}</td>
+                        <td style={tdStyle}>
+                          <span style={{ background: 'rgba(148,170,255,0.08)', border: '1px solid rgba(148,170,255,0.15)', borderRadius: '0.375rem', padding: '0.2rem 0.6rem', fontSize: '0.72rem', color: 'rgba(148,170,255,0.8)', whiteSpace: 'nowrap', fontWeight: 600, letterSpacing: '0.02em' }}>
+                            {EVENT_TYPE_LABELS[e.event_type] || e.event_type}
+                          </span>
+                        </td>
+                        <td style={{ ...tdStyle, color: 'var(--color-on-surface-variant)', fontSize: '0.82rem' }}>{e.title || '—'}</td>
+                        <td style={{ ...tdStyle, maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--color-on-surface-variant)' }}>{e.venue_name || e.location_name || '—'}</td>
+                        <td style={tdStyle}><StatusBadge status={e.status} /></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
 
           {/* ── Reihe 1: 3 kompakte KPI-Kacheln ─────────────── */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
 
-            {/* Termine gesamt */}
-            <div style={{ background: 'var(--color-surface-container)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.375rem' }}>
-                  Termine gesamt
-                </p>
-                <p style={{ fontFamily: 'var(--font-headline)', fontSize: '2rem', fontWeight: 700, color: 'var(--color-on-surface)', lineHeight: 1, margin: 0 }}>
-                  {overviewLoading ? '–' : (overview?.total_events ?? 0)}
-                </p>
-              </div>
-              <span className="material-symbols-outlined" style={{ fontSize: '28px', color: 'var(--color-primary)', opacity: 0.7 }}>
-                calendar_month
-              </span>
-            </div>
-
             {/* Offene Anfragen */}
-            <div style={{ background: 'var(--color-surface-container)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.375rem' }}>
                   Offene Anfragen
@@ -193,7 +362,7 @@ export function DjOverviewPage() {
             </div>
 
             {/* Angebote ausstehend */}
-            <div style={{ background: 'var(--color-surface-container)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.375rem' }}>
                   Angebote ausstehend
@@ -207,13 +376,28 @@ export function DjOverviewPage() {
               </span>
             </div>
 
+            {/* Termine gesamt */}
+            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.375rem' }}>
+                  Termine gesamt
+                </p>
+                <p style={{ fontFamily: 'var(--font-headline)', fontSize: '2rem', fontWeight: 700, color: 'var(--color-on-surface)', lineHeight: 1, margin: 0 }}>
+                  {overviewLoading ? '–' : (overview?.total_events ?? 0)}
+                </p>
+              </div>
+              <span className="material-symbols-outlined" style={{ fontSize: '28px', color: 'var(--color-primary)', opacity: 0.7 }}>
+                calendar_month
+              </span>
+            </div>
+
           </div>
 
           {/* ── Reihe 2: 3 größere Widgets ───────────────────── */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
 
             {/* Offene Vorgespräche */}
-            <div style={{ background: 'var(--color-surface-container-high)', borderRadius: '0.75rem', padding: '1.5rem', minHeight: '160px' }}>
+            <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '0.75rem', padding: '1.5rem', minHeight: '160px' }}>
               <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.75rem' }}>
                 Offene Vorgespräche
               </p>
@@ -226,7 +410,7 @@ export function DjOverviewPage() {
             </div>
 
             {/* Gespielte Veranstaltungen YYYY */}
-            <div style={{ background: 'var(--color-surface-container)', borderRadius: '0.75rem', padding: '1.5rem', minHeight: '160px' }}>
+            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', padding: '1.5rem', minHeight: '160px' }}>
               <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.75rem' }}>
                 Gespielte Veranstaltungen {selectedYear}
               </p>
@@ -248,7 +432,7 @@ export function DjOverviewPage() {
             </div>
 
             {/* Umsatz YYYY */}
-            <div style={{ background: 'var(--color-surface-container-high)', borderRadius: '0.75rem', padding: '1.5rem', minHeight: '160px' }}>
+            <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '0.75rem', padding: '1.5rem', minHeight: '160px' }}>
               <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.75rem' }}>
                 Umsatz {selectedYear}
               </p>
@@ -274,14 +458,14 @@ export function DjOverviewPage() {
             <div
               onClick={() => navigate('/dj/invoices')}
               style={{
-                background: 'var(--color-surface-container)',
+                background: 'rgba(255,255,255,0.03)',
                 borderRadius: '0.75rem',
                 padding: '1.5rem',
                 cursor: 'pointer',
                 transition: 'background 0.15s',
               }}
-              onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'var(--color-surface-container-high)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'var(--color-surface-container)'; }}
+              onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.05)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.03)'; }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0 }}>
@@ -305,7 +489,7 @@ export function DjOverviewPage() {
             </div>
 
             {/* Bestätigte zukünftige Einnahmen */}
-            <div style={{ background: 'var(--color-surface-container)', borderRadius: '0.75rem', padding: '1.5rem' }}>
+            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', padding: '1.5rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0 }}>
                   Bestätigte zukünftige Einnahmen
@@ -325,7 +509,7 @@ export function DjOverviewPage() {
           </div>
 
           {/* ── Auslastung Wochenenden (volle Breite) ────────── */}
-          <div style={{ background: 'var(--color-surface-container)', borderRadius: '0.75rem', padding: '1.5rem' }}>
+          <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', padding: '1.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.875rem' }}>
               <div>
                 <p style={{ fontFamily: 'var(--font-headline)', fontSize: '1rem', fontWeight: 600, color: 'var(--color-on-surface)', margin: 0, marginBottom: '0.25rem' }}>
@@ -352,7 +536,7 @@ export function DjOverviewPage() {
               </div>
             </div>
             {/* Progress-Bar */}
-            <div style={{ background: 'var(--color-surface-container-highest)', borderRadius: '9999px', height: '6px', overflow: 'hidden', marginBottom: '0.5rem' }}>
+            <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: '9999px', height: '6px', overflow: 'hidden', marginBottom: '0.5rem' }}>
               <div style={{
                 background: 'var(--color-secondary)',
                 height: '100%',
@@ -372,6 +556,16 @@ export function DjOverviewPage() {
 
         </div>{/* /content-wrapper */}
       </div>
+      {showNeueAnfrage && (
+        <NeueAnfrageModal
+          onClose={() => setShowNeueAnfrage(false)}
+          onCreated={() => {
+            setShowNeueAnfrage(false);
+            queryClient.invalidateQueries({ queryKey: ['dj-overview'] });
+            queryClient.invalidateQueries({ queryKey: ['dj-events'] });
+          }}
+        />
+      )}
     </PageWrapper>
   );
 }

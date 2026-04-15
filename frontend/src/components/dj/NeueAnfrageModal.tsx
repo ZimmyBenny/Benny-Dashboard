@@ -57,7 +57,7 @@ const SOURCE_CHANNELS = [
   { value: 'whatsapp', label: 'WhatsApp', icon: 'chat' },
   { value: 'instagram', label: 'Instagram', icon: 'photo_camera' },
   { value: 'persoenlich', label: 'Persönlich', icon: 'handshake' },
-  { value: 'andere', label: 'Andere', icon: 'more_horiz' },
+  { value: 'andere', label: 'Sonstiges', icon: 'more_horiz' },
 ];
 
 // ── Kundenname anzeigen ───────────────────────────────────────────────────────
@@ -499,9 +499,8 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
         await queryClient.invalidateQueries({ queryKey: ['dj-events'] });
         onUpdated?.();
       } else {
-        await createDjEvent({ ...payload, status: 'anfrage' } as Parameters<typeof createDjEvent>[0]);
+        const newEvent = await createDjEvent({ ...payload, status: 'anfrage' } as Parameters<typeof createDjEvent>[0]);
         // Kalender-Eintrag anlegen
-        console.log('[Kalender] addToCalendar:', addToCalendar, '| calendarId:', selectedCalendarId, '| date:', eventDate);
         if (addToCalendar && eventDate) {
           if (!selectedCalendarId) {
             setError('Kalender "DJ-Termine" nicht gefunden. Anfrage wurde trotzdem gespeichert.');
@@ -517,20 +516,25 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
             const calTitle = kundenLabel
               ? `Anfrage – ${typLabel} | ${kundenLabel}`
               : `Anfrage – ${typLabel}`;
-            const calPayload = {
-              title: calTitle,
-              start_at: `${eventDate}T${startTime}:00Z`,
-              end_at: `${eventDate}T${endTime}:00Z`,
-              calendar_id: selectedCalendarId,
-              notes: customerFreetext.trim() ? `Kundendaten: ${customerFreetext.trim()}` : undefined,
-            };
-            console.log('[Kalender] POST payload:', calPayload);
             try {
-              const res = await apiClient.post('/calendar/events', calPayload);
-              console.log('[Kalender] Erfolg:', res.data);
+              const offsetMin = -new Date().getTimezoneOffset();
+              const tzSign = offsetMin >= 0 ? '+' : '-';
+              const tzH = String(Math.floor(Math.abs(offsetMin) / 60)).padStart(2, '0');
+              const tzM = String(Math.abs(offsetMin) % 60).padStart(2, '0');
+              const tz = `${tzSign}${tzH}:${tzM}`;
+              const res = await apiClient.post('/calendar/events', {
+                title: calTitle,
+                start_at: `${eventDate}T${startTime}:00${tz}`,
+                end_at: `${eventDate}T${endTime}:00${tz}`,
+                calendar_id: selectedCalendarId,
+                notes: customerFreetext.trim() ? `Kundendaten: ${customerFreetext.trim()}` : undefined,
+              });
+              const calUid = (res.data as { event?: { apple_uid?: string } })?.event?.apple_uid;
+              if (calUid && newEvent?.id) {
+                await updateDjEvent(newEvent.id, { calendar_uid: calUid } as Partial<DjEvent>);
+              }
             } catch (calErr: unknown) {
               const msg = calErr instanceof Error ? calErr.message : String(calErr);
-              console.error('[Kalender] Fehler:', msg);
               setError(`Anfrage gespeichert, aber Kalender-Eintrag fehlgeschlagen: ${msg}`);
             }
           }
@@ -787,8 +791,12 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
             <div>
               <label style={labelStyle}>Eventdatum</label>
               <input
-                type="date"
+                type={eventDate ? 'date' : 'text'}
                 value={eventDate}
+                placeholder="Datum wählen…"
+                autoComplete="off"
+                onFocus={e => { e.currentTarget.type = 'date'; }}
+                onBlur={e => { if (!e.currentTarget.value) e.currentTarget.type = 'text'; }}
                 onChange={e => {
                   const newDate = e.target.value;
                   setEventDate(newDate);
@@ -845,8 +853,12 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
             <div>
               <label style={labelStyle}>Beginn</label>
               <input
-                type="time"
+                type={timeStart ? 'time' : 'text'}
                 value={timeStart}
+                placeholder="Uhrzeit…"
+                autoComplete="off"
+                onFocus={e => { e.currentTarget.type = 'time'; }}
+                onBlur={e => { if (!e.currentTarget.value) e.currentTarget.type = 'text'; }}
                 onChange={e => setTimeStart(e.target.value)}
                 style={inputStyle}
               />
@@ -856,8 +868,12 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
             <div>
               <label style={labelStyle}>Ende</label>
               <input
-                type="time"
+                type={timeEnd ? 'time' : 'text'}
                 value={timeEnd}
+                placeholder="Uhrzeit…"
+                autoComplete="off"
+                onFocus={e => { e.currentTarget.type = 'time'; }}
+                onBlur={e => { if (!e.currentTarget.value) e.currentTarget.type = 'text'; }}
                 onChange={e => setTimeEnd(e.target.value)}
                 style={inputStyle}
               />

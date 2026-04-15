@@ -121,7 +121,7 @@ router.patch('/:id', (req, res) => {
     time_start, time_end, setup_minutes, teardown_minutes,
     guests, status, contact_on_site_name, contact_on_site_phone,
     contact_on_site_email, notes, cancellation_reason, source_channel,
-    venue_name, venue_street, venue_zip, venue_city,
+    venue_name, venue_street, venue_zip, venue_city, calendar_uid,
   } = req.body as Record<string, unknown>;
 
   db.prepare(`
@@ -146,7 +146,8 @@ router.patch('/:id', (req, res) => {
       venue_name = COALESCE(?, venue_name),
       venue_street = COALESCE(?, venue_street),
       venue_zip = COALESCE(?, venue_zip),
-      venue_city = COALESCE(?, venue_city)
+      venue_city = COALESCE(?, venue_city),
+      calendar_uid = ?
     WHERE id = ?
   `).run(
     customer_id ?? null, location_id ?? null, title ?? null, event_type ?? null,
@@ -156,6 +157,8 @@ router.patch('/:id', (req, res) => {
     contact_on_site_email ?? null, notes ?? null, cancellation_reason ?? null,
     source_channel ?? null,
     venue_name ?? null, venue_street ?? null, venue_zip ?? null, venue_city ?? null,
+    // calendar_uid: explicit null clears it; undefined keeps existing value
+    'calendar_uid' in (req.body as object) ? (calendar_uid ?? null) : (existing.calendar_uid ?? null),
     id,
   );
 

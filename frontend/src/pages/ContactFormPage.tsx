@@ -319,8 +319,9 @@ export function ContactFormPage() {
         result = await createContact(payload);
       }
       navigate(`/contacts/${result.id}`);
-    } catch (err) {
-      setError('Speichern fehlgeschlagen. Bitte prüfen und erneut versuchen.');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      setError(msg ? `Fehler: ${msg}` : 'Speichern fehlgeschlagen. Bitte prüfen und erneut versuchen.');
       console.error(err);
     } finally {
       setSaving(false);
