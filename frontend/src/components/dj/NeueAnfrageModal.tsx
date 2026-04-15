@@ -820,7 +820,12 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
                 <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: '#ffc800', lineHeight: 1.5 }}>
                   <strong>Bereits {conflictingEvents.length} Anfrage{conflictingEvents.length > 1 ? 'n' : ''} an diesem Tag:</strong>
                   <br />
-                  {conflictingEvents.map(ev => ev.title || EVENT_TYPE_LABELS[ev.event_type as keyof typeof EVENT_TYPE_LABELS] || ev.event_type).join(', ')}
+                  {conflictingEvents.map(ev => {
+                    const kunde = ev.customer_name || ev.customer_org || null;
+                    const typ = EVENT_TYPE_LABELS[ev.event_type as keyof typeof EVENT_TYPE_LABELS] || ev.event_type;
+                    const label = ev.title || typ;
+                    return kunde ? `${kunde} – ${label}` : label;
+                  }).join(' · ')}
                 </div>
               </div>
             )}
