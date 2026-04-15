@@ -51,6 +51,13 @@ router.get('/overview', (req, res) => {
     WHERE finalized_at IS NOT NULL AND status IN ('offen','teilbezahlt','ueberfaellig') AND is_cancellation = 0
   `).get() as { total: number; count: number };
 
+  const confirmedRevenue = db.prepare(`
+    SELECT COALESCE(SUM(i.total_gross), 0) AS total
+    FROM dj_invoices i
+    JOIN dj_events e ON e.id = i.event_id
+    WHERE e.status = 'bestaetigt' AND i.status IN ('offen','teilbezahlt') AND i.finalized_at IS NOT NULL
+  `).get() as { total: number };
+
   const recentCompleted = db.prepare(`
     SELECT e.id, e.title, e.event_type, e.event_date,
            c.first_name || ' ' || c.last_name AS customer_name, c.organization_name
@@ -73,6 +80,7 @@ router.get('/overview', (req, res) => {
     revenue_year_tax: revenueYear.tax,
     unpaid_total: unpaidInvoices.total,
     unpaid_count: unpaidInvoices.count,
+    confirmed_revenue: confirmedRevenue.total,
     recent_completed: recentCompleted,
   });
 });

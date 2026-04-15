@@ -218,6 +218,7 @@ export interface DjOverview {
   revenue_year_tax: number;
   unpaid_total: number;
   unpaid_count: number;
+  confirmed_revenue: number;
   recent_completed: DjEvent[];
 }
 
