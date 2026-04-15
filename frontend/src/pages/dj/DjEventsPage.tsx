@@ -39,6 +39,7 @@ export function DjEventsPage() {
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [statusPickerId, setStatusPickerId] = useState<number | null>(null);
+  const [statusPickerPos, setStatusPickerPos] = useState<{ top: number; left: number } | null>(null);
 
   // Datenladen
   const { data: allEvents = [], isLoading } = useQuery<DjEvent[]>({
@@ -56,6 +57,7 @@ export function DjEventsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dj-events'] });
       setStatusPickerId(null);
+      setStatusPickerPos(null);
     },
   });
 
@@ -64,7 +66,7 @@ export function DjEventsPage() {
     if (statusPickerId === null) return;
     const handler = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      if (!target.closest('[data-status-picker]')) setStatusPickerId(null);
+      if (!target.closest('[data-status-picker]')) { setStatusPickerId(null); setStatusPickerPos(null); }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -440,32 +442,41 @@ export function DjEventsPage() {
                           </td>
 
                           {/* Spalte 5: Status (klickbar mit Inline-Dropdown) */}
-                          <td style={{ ...tdStyle, position: 'relative' }}>
+                          <td style={{ ...tdStyle }}>
                             <div
                               data-status-picker={statusPickerId === e.id ? 'open' : undefined}
-                              style={{ display: 'inline-block', position: 'relative' }}
+                              style={{ display: 'inline-block' }}
                             >
                               <div
-                                onClick={() => setStatusPickerId(statusPickerId === e.id ? null : e.id)}
+                                onClick={(evt) => {
+                                  if (statusPickerId === e.id) {
+                                    setStatusPickerId(null);
+                                    setStatusPickerPos(null);
+                                  } else {
+                                    const rect = (evt.currentTarget as HTMLElement).getBoundingClientRect();
+                                    setStatusPickerPos({ top: rect.bottom + 6, left: rect.left });
+                                    setStatusPickerId(e.id);
+                                  }
+                                }}
                                 style={{ cursor: 'pointer' }}
                               >
                                 <StatusBadge status={e.status} />
                               </div>
 
-                              {statusPickerId === e.id && (
+                              {statusPickerId === e.id && statusPickerPos && (
                                 <div
                                   data-status-picker="dropdown"
                                   style={{
-                                    position: 'absolute',
-                                    top: 'calc(100% + 4px)',
-                                    left: 0,
-                                    zIndex: 50,
-                                    background: 'var(--color-surface, #0d1526)',
+                                    position: 'fixed',
+                                    top: statusPickerPos.top,
+                                    left: statusPickerPos.left,
+                                    zIndex: 9999,
+                                    background: '#0d1526',
                                     border: '1px solid rgba(148,170,255,0.2)',
                                     borderRadius: '0.5rem',
                                     padding: '0.375rem',
-                                    minWidth: '200px',
-                                    boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                                    minWidth: '220px',
+                                    boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
                                   }}
                                 >
                                   {STATUS_OPTIONS.map(option => (
