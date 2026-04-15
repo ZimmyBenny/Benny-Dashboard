@@ -11,36 +11,18 @@ import {
   type DjNumberSequence,
 } from '../../api/dj.api';
 
-// ── Styles ─────────────────────────────────────────────────────────────────────
+// ── Shared Styles ──────────────────────────────────────────────────────────────
 
-const sectionStyle: React.CSSProperties = {
-  background: 'var(--color-surface-container)',
+const cardStyle: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.03)',
   borderRadius: '0.75rem',
   padding: '1.5rem',
   marginBottom: '1.5rem',
 };
 
-const sectionHeaderStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '0.5rem',
-  paddingBottom: '1rem',
-  marginBottom: '1rem',
-  borderBottom: '1px solid var(--color-surface-container-high)',
-};
-
-const labelStyle: React.CSSProperties = {
-  display: 'block',
-  fontSize: '0.75rem',
-  fontWeight: 500,
-  color: 'var(--color-on-surface-variant)',
-  marginBottom: '0.25rem',
-  fontFamily: 'var(--font-body)',
-};
-
-const inputStyle: React.CSSProperties = {
-  background: 'var(--color-surface-container-low)',
-  border: '1px solid var(--color-surface-container-high)',
+const inputBase: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.06)',
+  border: '1px solid rgba(148,170,255,0.2)',
   borderRadius: '0.5rem',
   padding: '0.5rem 0.75rem',
   color: 'var(--color-on-surface)',
@@ -49,33 +31,76 @@ const inputStyle: React.CSSProperties = {
   width: '100%',
   boxSizing: 'border-box' as const,
   outline: 'none',
+  transition: 'border-color 0.15s, box-shadow 0.15s',
 };
 
-const saveButtonStyle = (isDirty: boolean): React.CSSProperties => ({
-  marginTop: '1rem',
-  padding: '0.5rem 1.25rem',
-  background: 'var(--color-primary)',
-  color: 'var(--color-on-primary)',
-  border: 'none',
-  borderRadius: '0.5rem',
-  fontFamily: 'var(--font-body)',
-  fontSize: '0.875rem',
+const inputFocusStyle: React.CSSProperties = {
+  borderColor: '#94aaff',
+  boxShadow: '0 0 0 3px rgba(148,170,255,0.12)',
+};
+
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: '0.75rem',
   fontWeight: 600,
-  cursor: isDirty ? 'pointer' : 'not-allowed',
-  opacity: isDirty ? 1 : 0.4,
-  transition: 'opacity 0.15s',
-});
+  color: 'var(--color-on-surface-variant)',
+  marginBottom: '0.25rem',
+  fontFamily: 'var(--font-body)',
+  letterSpacing: '0.04em',
+};
+
+function saveButtonStyle(isDirty: boolean): React.CSSProperties {
+  return {
+    marginTop: '1.25rem',
+    padding: '0.5rem 1.5rem',
+    background: isDirty ? 'linear-gradient(135deg, #94aaff 0%, #5cfd80 100%)' : 'rgba(255,255,255,0.06)',
+    color: isDirty ? '#060e20' : 'var(--color-on-surface-variant)',
+    border: 'none',
+    borderRadius: '0.5rem',
+    fontFamily: 'var(--font-body)',
+    fontSize: '0.875rem',
+    fontWeight: 700,
+    cursor: isDirty ? 'pointer' : 'not-allowed',
+    boxShadow: isDirty ? '0 0 12px rgba(148,170,255,0.25)' : 'none',
+    transition: 'all 0.2s',
+  };
+}
 
 // ── Section Heading ────────────────────────────────────────────────────────────
 
-function SectionHeading({ icon, title }: { icon: string; title: string }) {
+function SectionHeading({ icon, title, accent }: { icon: string; title: string; accent?: string }) {
   return (
-    <div style={sectionHeaderStyle}>
-      <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'var(--color-primary)' }}>{icon}</span>
-      <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.0625rem', fontWeight: 600, color: 'var(--color-on-surface)', margin: 0 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', paddingBottom: '1.25rem', marginBottom: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+      <div style={{
+        width: '32px', height: '32px', borderRadius: '0.5rem',
+        background: `rgba(${accent ?? '148,170,255'}, 0.12)`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+      }}>
+        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: accent ? `rgb(${accent})` : '#94aaff' }}>{icon}</span>
+      </div>
+      <h2 style={{ fontFamily: 'var(--font-headline)', fontSize: '1.0625rem', fontWeight: 700, color: 'var(--color-on-surface)', margin: 0 }}>
         {title}
       </h2>
     </div>
+  );
+}
+
+// ── FocusInput ─────────────────────────────────────────────────────────────────
+
+function FocusInput({ type = 'text', value, onChange, placeholder }: {
+  type?: string; value: string; onChange: (v: string) => void; placeholder?: string;
+}) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      style={{ ...inputBase, ...(focused ? inputFocusStyle : {}) }}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+    />
   );
 }
 
@@ -95,11 +120,7 @@ function CompanySection() {
   });
 
   const [local, setLocal] = useState<DjCompanySettings>(defaultCompany);
-  const [focusedField, setFocusedField] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (queryData) setLocal(queryData);
-  }, [queryData]);
+  useEffect(() => { if (queryData) setLocal(queryData); }, [queryData]);
 
   const isDirty = JSON.stringify(local) !== JSON.stringify(queryData ?? defaultCompany);
 
@@ -108,55 +129,49 @@ function CompanySection() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dj-setting', 'company'] }),
   });
 
-  if (isError) {
-    return (
-      <div style={sectionStyle}>
-        <SectionHeading icon="business" title="Firmendaten" />
-        <p style={{ color: 'var(--color-error)', fontSize: '0.875rem' }}>Einstellungen konnten nicht geladen werden.</p>
-      </div>
-    );
-  }
-
-  const field = (key: keyof DjCompanySettings, label: string, type = 'text') => (
-    <div>
+  const f = (key: keyof DjCompanySettings, label: string, type = 'text') => (
+    <div key={key}>
       <label style={labelStyle}>{label}</label>
-      <input
+      <FocusInput
         type={type}
         value={local[key]}
-        onChange={e => setLocal(prev => ({ ...prev, [key]: e.target.value }))}
-        style={{
-          ...inputStyle,
-          borderColor: focusedField === key ? 'var(--color-primary)' : 'var(--color-surface-container-high)',
-        }}
-        onFocus={() => setFocusedField(key)}
-        onBlur={() => setFocusedField(null)}
+        onChange={v => setLocal(prev => ({ ...prev, [key]: v }))}
       />
     </div>
   );
 
-  return (
-    <div style={sectionStyle}>
+  if (isError) return (
+    <div style={cardStyle}>
       <SectionHeading icon="business" title="Firmendaten" />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-        {field('name', 'Firmenname')}
-        {field('street', 'Straße & Hausnummer')}
-        {field('zip', 'PLZ')}
-        {field('city', 'Stadt')}
-        {field('country', 'Land')}
-        {field('phone', 'Telefon')}
-        {field('email', 'E-Mail', 'email')}
-        {field('website', 'Website')}
-        {field('tax_id', 'Steuernummer / USt-ID')}
-        {field('bank_name', 'Bank')}
-        {field('iban', 'IBAN')}
-        {field('bic', 'BIC')}
+      <p style={{ color: 'var(--color-error)', fontSize: '0.875rem' }}>Einstellungen konnten nicht geladen werden.</p>
+    </div>
+  );
+
+  return (
+    <div style={cardStyle}>
+      <SectionHeading icon="business" title="Firmendaten" />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.875rem' }}>
+        {f('name', 'Firmenname')}
+        {f('street', 'Straße & Hausnummer')}
+        {f('zip', 'PLZ')}
+        {f('city', 'Stadt')}
+        {f('country', 'Land')}
+        {f('phone', 'Telefon')}
+        {f('email', 'E-Mail', 'email')}
+        {f('website', 'Website')}
+        {f('tax_id', 'Steuernummer / USt-ID')}
+        {f('bank_name', 'Bank')}
+        {f('iban', 'IBAN')}
+        {f('bic', 'BIC')}
       </div>
-      <button
-        disabled={!isDirty}
-        style={saveButtonStyle(isDirty)}
-        onClick={() => mutation.mutate(local)}
-      >
-        {mutation.isPending ? 'Speichert...' : 'Speichern'}
+      {mutation.isSuccess && !isDirty && (
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: '#5cfd80', marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>check_circle</span>
+          Gespeichert
+        </p>
+      )}
+      <button disabled={!isDirty} style={saveButtonStyle(isDirty)} onClick={() => mutation.mutate(local)}>
+        {mutation.isPending ? 'Speichert…' : 'Speichern'}
       </button>
     </div>
   );
@@ -174,11 +189,8 @@ function TaxSection() {
   });
 
   const [local, setLocal] = useState<DjTaxSettings>(defaultTax);
-  const [focusedField, setFocusedField] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (queryData) setLocal(queryData);
-  }, [queryData]);
+  const [focused, setFocused] = useState(false);
+  useEffect(() => { if (queryData) setLocal(queryData); }, [queryData]);
 
   const isDirty = JSON.stringify(local) !== JSON.stringify(queryData ?? defaultTax);
 
@@ -187,33 +199,26 @@ function TaxSection() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dj-setting', 'tax'] }),
   });
 
-  if (isError) {
-    return (
-      <div style={sectionStyle}>
-        <SectionHeading icon="percent" title="Steuereinstellungen" />
-        <p style={{ color: 'var(--color-error)', fontSize: '0.875rem' }}>Einstellungen konnten nicht geladen werden.</p>
-      </div>
-    );
-  }
+  if (isError) return (
+    <div style={cardStyle}>
+      <SectionHeading icon="percent" title="Steuereinstellungen" />
+      <p style={{ color: 'var(--color-error)', fontSize: '0.875rem' }}>Einstellungen konnten nicht geladen werden.</p>
+    </div>
+  );
 
   return (
-    <div style={sectionStyle}>
-      <SectionHeading icon="percent" title="Steuereinstellungen" />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+    <div style={cardStyle}>
+      <SectionHeading icon="percent" title="Steuereinstellungen" accent="92,253,128" />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.875rem', maxWidth: '600px' }}>
         <div>
           <label style={labelStyle}>Mehrwertsteuersatz (%)</label>
           <input
-            type="number"
-            min={0}
-            max={100}
+            type="number" min={0} max={100}
             value={local.vat_rate}
             onChange={e => setLocal(prev => ({ ...prev, vat_rate: Number(e.target.value) }))}
-            style={{
-              ...inputStyle,
-              borderColor: focusedField === 'vat_rate' ? 'var(--color-primary)' : 'var(--color-surface-container-high)',
-            }}
-            onFocus={() => setFocusedField('vat_rate')}
-            onBlur={() => setFocusedField(null)}
+            style={{ ...inputBase, ...(focused ? inputFocusStyle : {}) }}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
           />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingTop: '1.25rem' }}>
@@ -222,24 +227,26 @@ function TaxSection() {
             id="small_business"
             checked={local.small_business}
             onChange={e => setLocal(prev => ({ ...prev, small_business: e.target.checked }))}
-            style={{ width: '1.125rem', height: '1.125rem', cursor: 'pointer', accentColor: 'var(--color-primary)' }}
+            style={{ width: '1.125rem', height: '1.125rem', cursor: 'pointer', accentColor: '#94aaff' }}
           />
-          <label htmlFor="small_business" style={{ ...labelStyle, margin: 0, cursor: 'pointer' }}>
+          <label htmlFor="small_business" style={{ ...labelStyle, margin: 0, cursor: 'pointer', textTransform: 'none', letterSpacing: 0, fontSize: '0.875rem', fontWeight: 500 }}>
             Kleinunternehmer (§19 UStG)
           </label>
         </div>
       </div>
       {local.small_business && (
         <p style={{ marginTop: '0.75rem', color: 'var(--color-on-surface-variant)', fontSize: '0.8rem', fontStyle: 'italic' }}>
-          Im Kleinunternehmer-Modus wird keine MwSt. ausgewiesen.
+          Im Kleinunternehmer-Modus wird keine MwSt. auf Rechnungen ausgewiesen.
         </p>
       )}
-      <button
-        disabled={!isDirty}
-        style={saveButtonStyle(isDirty)}
-        onClick={() => mutation.mutate(local)}
-      >
-        {mutation.isPending ? 'Speichert...' : 'Speichern'}
+      {mutation.isSuccess && !isDirty && (
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: '#5cfd80', marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>check_circle</span>
+          Gespeichert
+        </p>
+      )}
+      <button disabled={!isDirty} style={saveButtonStyle(isDirty)} onClick={() => mutation.mutate(local)}>
+        {mutation.isPending ? 'Speichert…' : 'Speichern'}
       </button>
     </div>
   );
@@ -257,11 +264,8 @@ function PaymentTermsSection() {
   });
 
   const [local, setLocal] = useState<DjPaymentTermsSettings>(defaultPayment);
-  const [focusedField, setFocusedField] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (queryData) setLocal(queryData);
-  }, [queryData]);
+  const [focused, setFocused] = useState<string | null>(null);
+  useEffect(() => { if (queryData) setLocal(queryData); }, [queryData]);
 
   const isDirty = JSON.stringify(local) !== JSON.stringify(queryData ?? defaultPayment);
 
@@ -270,56 +274,51 @@ function PaymentTermsSection() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dj-setting', 'payment_terms'] }),
   });
 
-  if (isError) {
-    return (
-      <div style={sectionStyle}>
-        <SectionHeading icon="payments" title="Zahlungskonditionen" />
-        <p style={{ color: 'var(--color-error)', fontSize: '0.875rem' }}>Einstellungen konnten nicht geladen werden.</p>
-      </div>
-    );
-  }
+  if (isError) return (
+    <div style={cardStyle}>
+      <SectionHeading icon="payments" title="Zahlungskonditionen" />
+      <p style={{ color: 'var(--color-error)', fontSize: '0.875rem' }}>Einstellungen konnten nicht geladen werden.</p>
+    </div>
+  );
 
   return (
-    <div style={sectionStyle}>
-      <SectionHeading icon="payments" title="Zahlungskonditionen" />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem', maxWidth: '600px' }}>
+    <div style={cardStyle}>
+      <SectionHeading icon="payments" title="Zahlungskonditionen" accent="183,148,244" />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.875rem', maxWidth: '600px' }}>
         <div>
           <label style={labelStyle}>Zahlungsziel (Tage)</label>
           <input
-            type="number"
-            min={0}
+            type="number" min={0}
             value={local.days}
             onChange={e => setLocal(prev => ({ ...prev, days: Number(e.target.value) }))}
-            style={{
-              ...inputStyle,
-              borderColor: focusedField === 'days' ? 'var(--color-primary)' : 'var(--color-surface-container-high)',
-            }}
-            onFocus={() => setFocusedField('days')}
-            onBlur={() => setFocusedField(null)}
+            style={{ ...inputBase, ...(focused === 'days' ? inputFocusStyle : {}) }}
+            onFocus={() => setFocused('days')}
+            onBlur={() => setFocused(null)}
           />
         </div>
         <div>
-          <label style={labelStyle}>Hinweis</label>
+          <label style={labelStyle}>Hinweis / Zahlungstext</label>
           <textarea
             rows={3}
             value={local.note}
             onChange={e => setLocal(prev => ({ ...prev, note: e.target.value }))}
             style={{
-              ...inputStyle,
-              resize: 'vertical',
-              borderColor: focusedField === 'note' ? 'var(--color-primary)' : 'var(--color-surface-container-high)',
+              ...inputBase, resize: 'vertical',
+              ...(focused === 'note' ? inputFocusStyle : {}),
             }}
-            onFocus={() => setFocusedField('note')}
-            onBlur={() => setFocusedField(null)}
+            onFocus={() => setFocused('note')}
+            onBlur={() => setFocused(null)}
           />
         </div>
       </div>
-      <button
-        disabled={!isDirty}
-        style={saveButtonStyle(isDirty)}
-        onClick={() => mutation.mutate(local)}
-      >
-        {mutation.isPending ? 'Speichert...' : 'Speichern'}
+      {mutation.isSuccess && !isDirty && (
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: '#5cfd80', marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>check_circle</span>
+          Gespeichert
+        </p>
+      )}
+      <button disabled={!isDirty} style={saveButtonStyle(isDirty)} onClick={() => mutation.mutate(local)}>
+        {mutation.isPending ? 'Speichert…' : 'Speichern'}
       </button>
     </div>
   );
@@ -334,29 +333,26 @@ function SequencesSection() {
   });
 
   return (
-    <div style={sectionStyle}>
-      <SectionHeading icon="pin" title="Nummernkreise" />
-      <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.8125rem', fontStyle: 'italic', marginBottom: '1rem' }}>
-        Nummernkreise werden automatisch verwaltet und können hier nicht bearbeitet werden.
+    <div style={cardStyle}>
+      <SectionHeading icon="pin" title="Nummernkreise" accent="148,170,255" />
+      <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.8125rem', fontStyle: 'italic', marginBottom: '1.25rem', marginTop: 0 }}>
+        Nummernkreise werden automatisch vergeben und können hier nicht manuell geändert werden.
       </p>
 
-      {isError && (
-        <p style={{ color: 'var(--color-error)', fontSize: '0.875rem' }}>Einstellungen konnten nicht geladen werden.</p>
-      )}
-
-      {isLoading && (
-        <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.875rem' }}>Lade...</p>
-      )}
+      {isError && <p style={{ color: 'var(--color-error)', fontSize: '0.875rem' }}>Konnte nicht geladen werden.</p>}
+      {isLoading && <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.875rem' }}>Lade…</p>}
 
       {sequences && (
-        <div style={{ borderRadius: '0.75rem', overflow: 'hidden', border: '1px solid var(--color-surface-container-high)' }}>
+        <div style={{ borderRadius: '0.5rem', overflow: 'hidden', border: '1px solid rgba(148,170,255,0.1)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-body)', fontSize: '0.875rem' }}>
             <thead>
-              <tr style={{ background: 'var(--color-surface-container-high)' }}>
+              <tr style={{ background: 'rgba(148,170,255,0.07)' }}>
                 {['Typ', 'Präfix', 'Aktueller Stand', 'Format'].map(col => (
-                  <th key={col} style={{ padding: '0.625rem 1rem', textAlign: 'left', fontWeight: 600, color: 'var(--color-on-surface)', fontSize: '0.75rem', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                    {col}
-                  </th>
+                  <th key={col} style={{
+                    padding: '0.625rem 1rem', textAlign: 'left',
+                    fontWeight: 600, color: 'var(--color-on-surface-variant)',
+                    fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase',
+                  }}>{col}</th>
                 ))}
               </tr>
             </thead>
@@ -364,12 +360,15 @@ function SequencesSection() {
               {sequences.map((seq, i) => (
                 <tr
                   key={seq.id}
-                  style={{ background: i % 2 === 0 ? 'var(--color-surface-container)' : 'var(--color-surface-container-low)' }}
+                  style={{
+                    background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)',
+                    borderTop: i > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                  }}
                 >
-                  <td style={{ padding: '0.625rem 1rem', color: 'var(--color-on-surface)' }}>{seq.entity_type}</td>
-                  <td style={{ padding: '0.625rem 1rem', color: 'var(--color-on-surface)' }}>{seq.prefix}</td>
-                  <td style={{ padding: '0.625rem 1rem', color: 'var(--color-on-surface)' }}>{seq.current_value}</td>
-                  <td style={{ padding: '0.625rem 1rem', color: 'var(--color-on-surface-variant)', fontFamily: 'monospace' }}>{seq.format}</td>
+                  <td style={{ padding: '0.625rem 1rem', color: 'var(--color-on-surface)', fontWeight: 500 }}>{seq.entity_type}</td>
+                  <td style={{ padding: '0.625rem 1rem', color: '#94aaff', fontWeight: 600, fontFamily: 'monospace' }}>{seq.prefix}</td>
+                  <td style={{ padding: '0.625rem 1rem', color: 'var(--color-on-surface)', fontWeight: 700 }}>{seq.current_value}</td>
+                  <td style={{ padding: '0.625rem 1rem', color: 'var(--color-on-surface-variant)', fontFamily: 'monospace', fontSize: '0.8rem' }}>{seq.format}</td>
                 </tr>
               ))}
             </tbody>
@@ -385,20 +384,44 @@ function SequencesSection() {
 export function DjSettingsPage() {
   return (
     <PageWrapper>
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '2.5rem 2rem' }}>
-        <div style={{ marginBottom: '2rem' }}>
-          <h1 style={{ fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '1.75rem', color: 'var(--color-on-surface)', marginBottom: '0.25rem' }}>
-            DJ Einstellungen
-          </h1>
-          <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.875rem' }}>
-            Firmendaten, Steuer, Zahlungskonditionen und Nummernkreise
-          </p>
-        </div>
+      <div style={{ maxWidth: '960px', margin: '0 auto', padding: '2.5rem 2rem', position: 'relative' }}>
 
-        <CompanySection />
-        <TaxSection />
-        <PaymentTermsSection />
-        <SequencesSection />
+        {/* Ambient Glow */}
+        <div style={{
+          position: 'absolute', top: '-60px', right: '0',
+          width: '400px', height: '400px', borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(148,170,255,0.06) 0%, transparent 70%)',
+          pointerEvents: 'none', zIndex: 0,
+        }} />
+
+        <div style={{ position: 'relative', zIndex: 1 }}>
+
+          {/* Page Header */}
+          <div style={{ marginBottom: '2.5rem' }}>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: '0.6875rem', fontWeight: 600,
+              color: 'var(--color-primary)', letterSpacing: '0.12em', textTransform: 'uppercase',
+              margin: '0 0 0.375rem',
+            }}>
+              SYSTEM CONFIG
+            </p>
+            <h1 style={{
+              fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2.25rem',
+              color: 'var(--color-on-surface)', margin: 0, letterSpacing: '-0.02em', lineHeight: 1,
+            }}>
+              Einstellungen
+            </h1>
+            <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.875rem', margin: '0.5rem 0 0' }}>
+              Firmendaten, Steuer, Zahlungskonditionen und Nummernkreise
+            </p>
+          </div>
+
+          <CompanySection />
+          <TaxSection />
+          <PaymentTermsSection />
+          <SequencesSection />
+
+        </div>
       </div>
     </PageWrapper>
   );
