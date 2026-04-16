@@ -16,6 +16,7 @@ import { fetchTasks, reorderTasks, archiveTask, deleteTask } from '../../api/tas
 import { KanbanColumn } from './KanbanColumn';
 import { TaskCard } from './TaskCard';
 import { DragPrompt } from './DragPrompt';
+import { RemindersColumn } from './RemindersColumn';
 
 type Status = Task['status'];
 
@@ -283,6 +284,7 @@ export function KanbanBoard({ filters, onTaskClick, onShowAllDone, refreshKey = 
               onDelete={handleDelete}
             />
           ))}
+          <RemindersColumn />
         </div>
 
         <DragOverlay>

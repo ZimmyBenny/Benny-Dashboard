@@ -47,6 +47,18 @@ app.listen(PORT, () => {
     console.log(`[calendar] Background sync scheduled every 5 minutes (+ immediate startup sync)`);
   }).catch(err => console.error('[calendar] Failed to load calendarSwift.service:', err));
 
+  // Apple Reminders Sync: 5min interval + Startup (versetzt zu Calendar-Sync)
+  const REMINDERS_SYNC_INTERVAL_MS = 5 * 60 * 1000;
+  import('./services/remindersSync.service').then(({ syncReminders }) => {
+    setTimeout(() => {
+      syncReminders().catch(err => console.error('[reminders] Startup sync failed:', err));
+    }, 5_000); // 5s nach Server-Start, versetzt zum Calendar-Sync
+    setInterval(() => {
+      syncReminders().catch(err => console.error('[reminders] Background sync failed:', err));
+    }, REMINDERS_SYNC_INTERVAL_MS);
+    console.log('[reminders] Background sync scheduled every 5 minutes (+ startup sync)');
+  }).catch(err => console.error('[reminders] Failed to load remindersSync.service:', err));
+
   // Verträge-Reminder-Job: einmal sofort + alle 24h
   import('./jobs/contractReminders').then(({ startContractReminderJob }) => {
     startContractReminderJob();
