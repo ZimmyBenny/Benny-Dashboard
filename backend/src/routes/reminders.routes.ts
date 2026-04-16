@@ -10,7 +10,7 @@ router.get('/', (_req, res) => {
     SELECT id, apple_uid, title, list_name, due_date, reminder_date, completed, notes, last_synced_at
     FROM apple_reminders
     WHERE completed = 0 AND trim(title) != ''
-    ORDER BY id DESC
+    ORDER BY list_name, id DESC
   `).all();
   res.json(rows);
 });
