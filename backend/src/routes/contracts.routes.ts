@@ -39,10 +39,53 @@ const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
 const router = Router();
 
 // ---------------------------------------------------------------------------
+// SQL für berechnete Kündigungsfenster-Felder
+// ---------------------------------------------------------------------------
+const COMPUTED_FIELDS_SQL = `,
+  CASE WHEN auto_renews = 1 AND cost_interval = 'jaehrlich' AND start_date IS NOT NULL THEN
+    date(
+      CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
+        THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
+        ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END,
+      '-' || (cancellation_notice_weeks * 7) || ' days')
+  ELSE NULL END AS cancellation_window_end,
+  CASE WHEN auto_renews = 1 AND cost_interval = 'jaehrlich' AND start_date IS NOT NULL THEN
+    date(
+      CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
+        THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
+        ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END,
+      '-' || (cancellation_notice_weeks * 7 + 14) || ' days')
+  ELSE NULL END AS cancellation_window_start,
+  CASE
+    WHEN auto_renews = 1 AND cost_interval = 'jaehrlich' AND start_date IS NOT NULL
+      AND date('now') >= date(
+        CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
+          THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
+          ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END,
+        '-' || (cancellation_notice_weeks * 7 + 14) || ' days')
+      AND date('now') <= date(
+        CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
+          THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
+          ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END,
+        '-' || (cancellation_notice_weeks * 7) || ' days')
+    THEN 1
+    ELSE 0
+  END AS is_in_cancellation_window,
+  CASE WHEN auto_renews = 1 AND cost_interval = 'jaehrlich' AND start_date IS NOT NULL THEN
+    CAST(julianday(
+      date(
+        CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
+          THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
+          ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END,
+        '-' || (cancellation_notice_weeks * 7 + 14) || ' days')
+    ) - julianday(date('now')) AS INTEGER)
+  ELSE NULL END AS days_until_cancellation_window`;
+
+// ---------------------------------------------------------------------------
 // Hilfsfunktion: Detail laden (Eintrag + Activity Log)
 // ---------------------------------------------------------------------------
 function loadDetail(id: number) {
-  const item = db.prepare(`SELECT * FROM contracts_and_deadlines WHERE id = ?`).get(id);
+  const item = db.prepare(`SELECT * ${COMPUTED_FIELDS_SQL} FROM contracts_and_deadlines WHERE id = ?`).get(id);
   if (!item) return null;
   const activity_log = db.prepare(
     `SELECT * FROM contracts_and_deadlines_activity_log WHERE item_id = ? ORDER BY created_at DESC LIMIT 50`
@@ -79,9 +122,21 @@ router.get('/', (req, res) => {
     conditions.push(`is_archived = 0`);
     conditions.push(`unbefristet = 0`);
   } else if (segment === 'cancellable') {
-    conditions.push(`cancellation_date >= date('now')`);
+    conditions.push(`auto_renews = 1`);
+    conditions.push(`cost_interval = 'jaehrlich'`);
+    conditions.push(`start_date IS NOT NULL`);
     conditions.push(`status = 'aktiv'`);
     conditions.push(`is_archived = 0`);
+    conditions.push(`date('now') BETWEEN
+      date(CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
+        THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
+        ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END,
+        '-' || (cancellation_notice_weeks * 7 + 14) || ' days')
+      AND
+      date(CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
+        THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
+        ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END,
+        '-' || (cancellation_notice_weeks * 7) || ' days')`);
   } else if (segment === 'archive') {
     conditions.push(`is_archived = 1`);
   } else if (segment === 'gesamt') {
@@ -114,7 +169,7 @@ router.get('/', (req, res) => {
   const total = totalRow.total;
 
   const rows = db.prepare(
-    `SELECT * FROM contracts_and_deadlines ${where}
+    `SELECT * ${COMPUTED_FIELDS_SQL} FROM contracts_and_deadlines ${where}
      ORDER BY expiration_date ASC NULLS LAST, created_at DESC
      LIMIT ? OFFSET ?`
   ).all(...params, limitNum, offsetNum);
@@ -257,7 +312,8 @@ router.post('/', (req, res) => {
       linked_contact_id, linked_task_id, linked_calendar_event_id,
       is_archived,
       unbefristet, vertragsinhaber, kontoname,
-      split_count, split_amount, is_business, amount_type, vat_rate
+      split_count, split_amount, is_business, amount_type, vat_rate,
+      cancellation_notice_weeks, auto_renews, last_reviewed_at
     ) VALUES (
       ?, ?, ?, ?, ?,
       ?, ?,
@@ -267,7 +323,8 @@ router.post('/', (req, res) => {
       ?, ?, ?,
       ?,
       ?, ?, ?,
-      ?, ?, ?, ?, ?
+      ?, ?, ?, ?, ?,
+      ?, ?, ?
     )
   `);
 
@@ -301,6 +358,9 @@ router.post('/', (req, res) => {
     body.is_business ? 1 : 0,
     (body.amount_type as string) || 'brutto',
     Number(body.vat_rate) || 19,
+    Number(body.cancellation_notice_weeks) || 4,
+    body.auto_renews !== undefined ? (body.auto_renews ? 1 : 0) : 1,
+    (body.last_reviewed_at as string | null) ?? null,
   );
 
   const newId = result.lastInsertRowid as number;
@@ -362,6 +422,9 @@ router.put('/:id', (req, res) => {
       is_business = ?,
       amount_type = ?,
       vat_rate = ?,
+      cancellation_notice_weeks = ?,
+      auto_renews = ?,
+      last_reviewed_at = ?,
       updated_at = datetime('now')
     WHERE id = ?
   `).run(
@@ -393,6 +456,9 @@ router.put('/:id', (req, res) => {
     body.is_business !== undefined ? (body.is_business ? 1 : 0) : (existing.is_business as number ?? 0),
     body.amount_type !== undefined ? ((body.amount_type as string) || 'brutto') : (existing.amount_type as string ?? 'brutto'),
     body.vat_rate !== undefined ? (Number(body.vat_rate) || 19) : (existing.vat_rate as number ?? 19),
+    body.cancellation_notice_weeks !== undefined ? (Number(body.cancellation_notice_weeks) || 4) : (existing.cancellation_notice_weeks as number ?? 4),
+    body.auto_renews !== undefined ? (body.auto_renews ? 1 : 0) : (existing.auto_renews as number ?? 1),
+    body.last_reviewed_at !== undefined ? ((body.last_reviewed_at as string | null) ?? null) : (existing.last_reviewed_at as string | null),
     id
   );
 
