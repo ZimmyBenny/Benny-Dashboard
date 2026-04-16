@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { fetchReminders, completeReminder, type AppleReminder } from '../../api/reminders.api';
+import { fetchReminders, completeReminder, triggerRemindersSync, type AppleReminder } from '../../api/reminders.api';
 
 function listColor(name: string): { bg: string; fg: string } {
   let hash = 0;
@@ -23,6 +23,9 @@ function formatDueDate(isoDate: string): string {
 export function RemindersColumn() {
   const [reminders, setReminders] = useState<AppleReminder[]>([]);
   const [loading, setLoading]     = useState(true);
+  const [syncing, setSyncing]     = useState(false);
+  const [search, setSearch]       = useState('');
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     fetchReminders()
@@ -48,6 +51,25 @@ export function RemindersColumn() {
     }
   }
 
+  async function handleSync() {
+    setSyncing(true);
+    setSyncError(null);
+    try {
+      await triggerRemindersSync();
+      setLoading(true);
+      await fetchReminders().then(setReminders);
+    } catch {
+      setSyncError('Sync fehlgeschlagen');
+    } finally {
+      setSyncing(false);
+      setLoading(false);
+    }
+  }
+
+  const filtered = search.trim()
+    ? reminders.filter((r) => r.title.toLowerCase().includes(search.trim().toLowerCase()))
+    : reminders;
+
   return (
     <div style={{
       display: 'flex',
@@ -59,6 +81,8 @@ export function RemindersColumn() {
       borderRadius: '0.875rem',
       overflow: 'hidden',
     }}>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+
       {/* Spalten-Header */}
       <div style={{
         display: 'flex',
@@ -98,8 +122,79 @@ export function RemindersColumn() {
           fontSize: '0.7rem',
           fontWeight: 600,
         }}>
-          {reminders.length}
+          {filtered.length}
         </span>
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          title="Apple Reminders synchronisieren"
+          style={{
+            background: 'transparent',
+            border: 'none',
+            cursor: syncing ? 'default' : 'pointer',
+            padding: '0',
+            display: 'flex',
+            alignItems: 'center',
+            color: syncing ? 'var(--color-primary)' : 'var(--color-outline)',
+            transition: 'color 150ms ease',
+            opacity: syncing ? 0.7 : 1,
+          }}
+          onMouseEnter={(e) => { if (!syncing) (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-primary)'; }}
+          onMouseLeave={(e) => { if (!syncing) (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-outline)'; }}
+        >
+          <span
+            className="material-symbols-outlined"
+            style={{ fontSize: '16px', animation: syncing ? 'spin 1s linear infinite' : 'none' }}
+          >
+            sync
+          </span>
+        </button>
+      </div>
+
+      {/* Suchfeld */}
+      <div style={{ padding: '0.5rem 0.75rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.375rem',
+          background: 'rgba(255,255,255,0.04)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: '0.5rem',
+          padding: '0.375rem 0.625rem',
+        }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'var(--color-outline)', flexShrink: 0 }}>
+            search
+          </span>
+          <input
+            type="text"
+            placeholder="Suchen…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{
+              flex: 1,
+              background: 'transparent',
+              border: 'none',
+              outline: 'none',
+              fontFamily: 'var(--font-body)',
+              fontSize: '0.8rem',
+              color: 'var(--color-on-surface)',
+              caretColor: 'var(--color-primary)',
+            }}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '0', display: 'flex', alignItems: 'center', color: 'var(--color-outline)' }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>close</span>
+            </button>
+          )}
+        </div>
+        {syncError && (
+          <p style={{ margin: '0.375rem 0 0', fontFamily: 'var(--font-body)', fontSize: '0.7rem', color: '#f87171' }}>
+            {syncError}
+          </p>
+        )}
       </div>
 
       {/* Karten-Bereich */}
@@ -124,7 +219,22 @@ export function RemindersColumn() {
           </div>
         )}
 
-        {!loading && reminders.length === 0 && (
+        {!loading && filtered.length === 0 && search && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '80px',
+            color: 'var(--color-outline)',
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.75rem',
+            fontStyle: 'italic',
+          }}>
+            Keine Treffer für „{search}"
+          </div>
+        )}
+
+        {!loading && filtered.length === 0 && !search && (
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -139,7 +249,7 @@ export function RemindersColumn() {
           </div>
         )}
 
-        {!loading && reminders.map((r) => {
+        {!loading && filtered.map((r) => {
           const badge = r.list_name ? listColor(r.list_name) : null;
           return (
             <div
