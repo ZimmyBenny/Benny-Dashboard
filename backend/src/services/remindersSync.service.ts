@@ -1,10 +1,7 @@
 import { execFile } from 'child_process';
-import path from 'path';
 import db from '../db/connection';
 
-const SCRIPT_PATH = path.join(__dirname, '../scripts/reminders-jxa.js');
-
-// ── Sync-Mutex: verhindert parallele osascript-Aufrufe ────────────────────────
+// ── Sync-Mutex ────────────────────────────────────────────────────────────────
 let syncRunning = false;
 
 // ── Typen ─────────────────────────────────────────────────────────────────────
@@ -28,44 +25,104 @@ interface RawReminder {
   listName: string;
   dueDate: string | null;
   reminderDate: string | null;
-  completed: boolean;
   notes: string | null;
 }
 
-// ── JXA-Wrapper ───────────────────────────────────────────────────────────────
+// ── AppleScript-Snippets ──────────────────────────────────────────────────────
+//
+// Wir nutzen klassisches AppleScript (nicht JXA) — stabiler für Reminders.
+// Ausgabe als Tab-getrennte Zeilen, die Node.js parst.
+// Format pro Zeile: id \t title \t listName \t dueDate \t notes
+// Fehlende Felder werden als leerer String ausgegeben.
 
-function execJXA<T>(args: string[]): Promise<T> {
+const AS_LIST = `
+with timeout of 45 seconds
+tell application "Reminders"
+  set output to ""
+  repeat with aList in lists
+    set listName to name of aList
+    try
+      repeat with r in (every reminder in aList)
+        if completed of r is false then
+          set rId to id of r
+          set rTitle to name of r as string
+          -- Zeilenumbrüche im Titel → erste Zeile (Rest in Notes)
+          set AppleScript's text item delimiters to linefeed
+          set rTitle to text item 1 of rTitle
+          set AppleScript's text item delimiters to ""
+          set rNotes to ""
+          try
+            set rNotes to body of r as string
+          end try
+          set rDue to ""
+          try
+            set d to due date of r
+            if d is not missing value then
+              set rDue to ((year of d) as string) & "-" & text -2 thru -1 of ("0" & (month of d as integer as string)) & "-" & text -2 thru -1 of ("0" & (day of d as string))
+            end if
+          end try
+          set output to output & rId & tab & rTitle & tab & listName & tab & rDue & tab & rNotes & linefeed
+        end if
+      end repeat
+    end try
+  end repeat
+  return output
+end tell
+end timeout
+`;
+
+function buildAsComplete(uid: string): string {
+  return `
+tell application "Reminders"
+  repeat with aList in lists
+    repeat with r in (every reminder in aList)
+      if id of r is "${uid.replace(/"/g, '\\"')}" then
+        set completed of r to true
+        return "ok"
+      end if
+    end repeat
+  end repeat
+  return "not found"
+end tell
+`;
+}
+
+// ── osascript-Wrapper (AppleScript-Modus) ─────────────────────────────────────
+
+function runAppleScript(script: string): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile(
       'osascript',
-      ['-l', 'JavaScript', SCRIPT_PATH, ...args],
-      { timeout: 60_000, maxBuffer: 5 * 1024 * 1024 },
+      ['-e', script],
+      { timeout: 90_000, maxBuffer: 5 * 1024 * 1024 },
       (err, stdout, stderr) => {
-        const trimmed = stdout.trim();
-
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(trimmed);
-        } catch {
-          if (err) return reject(new Error(stderr || err.message));
-          return reject(new Error(`reminders-jxa output is not valid JSON: ${trimmed.slice(0, 200)}`));
-        }
-
-        // Fehler-JSON vom Skript
-        if (
-          parsed &&
-          typeof parsed === 'object' &&
-          !Array.isArray(parsed) &&
-          (parsed as Record<string, unknown>).error
-        ) {
-          return reject(new Error(String((parsed as Record<string, unknown>).error)));
-        }
-
-        if (err) return reject(new Error(stderr || err.message));
-        resolve(parsed as T);
+        if (stderr.trim()) console.error('[reminders] osascript stderr:', stderr.trim());
+        if (err) return reject(new Error(stderr.trim() || err.message));
+        resolve(stdout);
       }
     );
   });
+}
+
+// ── TSV-Parser ────────────────────────────────────────────────────────────────
+
+function parseTsv(raw: string): RawReminder[] {
+  return raw
+    .split('\n')
+    .map(l => l.trimEnd())
+    .filter(l => l.length > 0)
+    .map(line => {
+      const [id = '', title = '', listName = '', dueDate = '', notes = ''] = line.split('\t');
+      return {
+        id: id.trim(),
+        title: title.trim(),
+        listName: listName.trim(),
+        dueDate: dueDate.trim() || null,
+        reminderDate: null,
+        notes: notes.trim() || null,
+      };
+    })
+    .filter(r => r.id.length > 0);
 }
 
 // ── syncReminders ─────────────────────────────────────────────────────────────
@@ -80,7 +137,10 @@ export async function syncReminders(): Promise<void> {
   try {
     const syncStartTime = new Date().toISOString();
 
-    const raw = await execJXA<RawReminder[]>([]);
+    console.log('[reminders] starte AppleScript-Sync...');
+    const tsv = await runAppleScript(AS_LIST);
+    const raw = parseTsv(tsv);
+    console.log(`[reminders] AppleScript fertig: ${raw.length} offene Erinnerungen`);
 
     const upsert = db.prepare(`
       INSERT INTO apple_reminders (apple_uid, title, list_name, due_date, reminder_date, completed, notes, last_synced_at)
@@ -100,17 +160,16 @@ export async function syncReminders(): Promise<void> {
         upsert.run(
           r.id,
           r.title,
-          r.listName ?? null,
-          r.dueDate ?? null,
-          r.reminderDate ?? null,
-          r.notes ?? null,
+          r.listName || null,
+          r.dueDate || null,
+          r.reminderDate || null,
+          r.notes || null,
           syncStartTime,
         );
       }
     });
     txn();
 
-    // Stale-Cleanup: Einträge die beim letzten Sync nicht mehr in Apple waren (gelöscht)
     const deleted = db.prepare(
       `DELETE FROM apple_reminders WHERE completed = 0 AND (last_synced_at IS NULL OR last_synced_at < ?)`
     ).run(syncStartTime);
@@ -124,8 +183,10 @@ export async function syncReminders(): Promise<void> {
 // ── markReminderCompleted ─────────────────────────────────────────────────────
 
 export async function markReminderCompleted(appleUid: string): Promise<void> {
-  await execJXA<{ ok: true }>(['complete', appleUid]);
-  // Lokal sofort entfernen — nächster Sync würde sie sowieso nicht mehr mitbringen
+  const result = await runAppleScript(buildAsComplete(appleUid));
+  if (result.trim() === 'not found') {
+    throw new Error(`Reminder not found: ${appleUid}`);
+  }
   db.prepare('DELETE FROM apple_reminders WHERE apple_uid = ?').run(appleUid);
 }
 
