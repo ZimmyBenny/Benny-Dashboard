@@ -16,7 +16,7 @@ export interface Contract {
   start_date: string | null;
   expiration_date: string | null;
   cancellation_date: string | null;
-  reminder_date: string | null;
+  reminder_date: string | null;    // Erinnerungsdatum (manuell, DB-Feld)
 
   cost_amount: number | null;
   currency: string;
@@ -48,7 +48,7 @@ export interface Contract {
   // Neue berechnete Felder (v2 — Kündigungs-Reminder):
   next_anniversary_date: string | null;
   days_to_anniversary: number | null;
-  reminder_date: string | null;
+  auto_reminder_date: string | null;
   cancellation_deadline: string | null;
   created_at: string;
   updated_at: string;

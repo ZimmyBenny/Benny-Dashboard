@@ -64,7 +64,7 @@ const COMPUTED_FIELDS_SQL = `,
         THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
         ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END,
       '-56 days')
-  ELSE NULL END AS reminder_date,
+  ELSE NULL END AS auto_reminder_date,
   CASE WHEN auto_renews = 1 AND cost_interval = 'jaehrlich' AND start_date IS NOT NULL THEN
     date(
       CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)

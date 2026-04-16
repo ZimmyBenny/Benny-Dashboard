@@ -29,12 +29,6 @@ const AREA_COLORS: Record<string, string> = {
   Sonstiges: 'rgba(255,255,255,0.2)',
 };
 
-const PRIORITY_COLORS: Record<string, string> = {
-  niedrig: '#6b7280',
-  mittel: '#60a5fa',
-  hoch: '#fb923c',
-  kritisch: '#f87171',
-};
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
   aktiv: { bg: 'rgba(74,222,128,0.15)', color: '#4ade80' },
@@ -768,10 +762,6 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
                     }
                     return null;
                   })()}
-                  <span style={{
-                    width: '6px', height: '6px', borderRadius: '50%', display: 'inline-block',
-                    flexShrink: 0, background: PRIORITY_COLORS[contract.priority] || '#6b7280',
-                  }} title={contract.priority} />
                 </div>
                 <div style={{ flexShrink: 0, textAlign: 'right', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   <div style={{ textAlign: 'right' }}>

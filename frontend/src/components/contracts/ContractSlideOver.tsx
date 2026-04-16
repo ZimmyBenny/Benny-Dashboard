@@ -507,8 +507,8 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
               </select>
             </div>
 
-            {/* Status + Priorität */}
-            <div>
+            {/* Status */}
+            <div style={{ gridColumn: '1 / -1' }}>
               <label style={LABEL_STYLE}>Status *</label>
               <select
                 className="contract-input"
@@ -521,20 +521,6 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
                 <option value="gekuendigt">Gekündigt</option>
                 <option value="abgelaufen">Abgelaufen</option>
                 <option value="archiviert">Archiviert</option>
-              </select>
-            </div>
-            <div>
-              <label style={LABEL_STYLE}>Priorität</label>
-              <select
-                className="contract-input"
-                style={INPUT_STYLE}
-                value={form.priority}
-                onChange={e => handleChange('priority', e.target.value)}
-              >
-                <option value="niedrig">Niedrig</option>
-                <option value="mittel">Mittel</option>
-                <option value="hoch">Hoch</option>
-                <option value="kritisch">Kritisch</option>
               </select>
             </div>
 
