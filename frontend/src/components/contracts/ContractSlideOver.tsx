@@ -65,6 +65,9 @@ interface FormData {
   vat_rate: string;
   description: string;
   notes: string;
+  cancellation_notice_weeks: string;
+  auto_renews: boolean;
+  last_reviewed_at: string;
 }
 
 function formatFileSize(bytes: number | null): string {
@@ -101,6 +104,9 @@ function contractToForm(contract: Contract | null): FormData {
       vat_rate: '19',
       description: '',
       notes: '',
+      cancellation_notice_weeks: '4',
+      auto_renews: true,
+      last_reviewed_at: '',
     };
   }
   return {
@@ -128,6 +134,9 @@ function contractToForm(contract: Contract | null): FormData {
     vat_rate: String(contract.vat_rate ?? 19),
     description: contract.description ?? '',
     notes: contract.notes ?? '',
+    cancellation_notice_weeks: String(contract.cancellation_notice_weeks ?? 4),
+    auto_renews: contract.auto_renews === 1,
+    last_reviewed_at: contract.last_reviewed_at ?? '',
   };
 }
 
@@ -288,6 +297,9 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
         vat_rate: Number(form.vat_rate) || 19,
         description: form.description || null,
         notes: form.notes || null,
+        cancellation_notice_weeks: Number(form.cancellation_notice_weeks) || 4,
+        auto_renews: form.auto_renews ? 1 : 0,
+        last_reviewed_at: form.last_reviewed_at || null,
       });
       if (!keepOpen) onClose();
       return (saved as Contract) ?? null;
@@ -627,6 +639,52 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
                 {!form.reminder_date && (
                   <span style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-outline)', fontSize: '0.875rem', pointerEvents: 'none' }}>–</span>
                 )}
+              </div>
+            </div>
+
+            {/* Automatische Verlängerung */}
+            <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+              <div>
+                <label style={LABEL_STYLE}>Kündigungsfrist (Wochen)</label>
+                <input
+                  className="contract-input"
+                  style={INPUT_STYLE}
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={form.cancellation_notice_weeks}
+                  onChange={e => handleChange('cancellation_notice_weeks', e.target.value)}
+                  placeholder="4"
+                />
+              </div>
+              <div>
+                <label style={LABEL_STYLE}>Verlängert sich automatisch</label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0' }}>
+                  <input
+                    type="checkbox"
+                    checked={form.auto_renews}
+                    onChange={() => setForm(prev => ({ ...prev, auto_renews: !prev.auto_renews }))}
+                    style={{ accentColor: 'var(--color-primary)', width: '14px', height: '14px', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.78rem', color: 'var(--color-on-surface-variant)' }}>
+                    Ja, jährlich automatisch
+                  </span>
+                </label>
+              </div>
+              <div>
+                <label style={LABEL_STYLE}>Zuletzt geprüft</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    className="contract-input"
+                    style={{ ...INPUT_STYLE, color: form.last_reviewed_at ? 'var(--color-on-surface)' : 'transparent' }}
+                    type="date"
+                    value={form.last_reviewed_at}
+                    onChange={e => handleChange('last_reviewed_at', e.target.value)}
+                  />
+                  {!form.last_reviewed_at && (
+                    <span style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-outline)', fontSize: '0.875rem', pointerEvents: 'none' }}>–</span>
+                  )}
+                </div>
               </div>
             </div>
 

@@ -36,6 +36,15 @@ export interface Contract {
   is_business: number;
   amount_type: string;
   vat_rate: number;
+  // Neue DB-Felder:
+  cancellation_notice_weeks: number;
+  auto_renews: number;          // 0 | 1
+  last_reviewed_at: string | null;
+  // Berechnete Response-Felder (nur im GET):
+  cancellation_window_start: string | null;
+  cancellation_window_end: string | null;
+  is_in_cancellation_window: number;             // 0 | 1
+  days_until_cancellation_window: number | null;
   created_at: string;
   updated_at: string;
 }
