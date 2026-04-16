@@ -46,4 +46,9 @@ app.listen(PORT, () => {
     }, SYNC_INTERVAL_MS);
     console.log(`[calendar] Background sync scheduled every 5 minutes (+ immediate startup sync)`);
   }).catch(err => console.error('[calendar] Failed to load calendarSwift.service:', err));
+
+  // Verträge-Reminder-Job: einmal sofort + alle 24h
+  import('./jobs/contractReminders').then(({ startContractReminderJob }) => {
+    startContractReminderJob();
+  }).catch(err => console.error('[contracts-cron] Failed to load contractReminders:', err));
 });

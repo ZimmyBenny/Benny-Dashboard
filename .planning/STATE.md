@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Executing Phase 3
-stopped_at: Completed quick-260412-vf8-PLAN.md
-last_updated: "2026-04-12T20:48:14.292Z"
+status: unknown
+stopped_at: Completed quick-260416-ndv-PLAN.md
+last_updated: "2026-04-16T15:18:36.102Z"
 progress:
   total_phases: 3
   completed_phases: 3
@@ -35,7 +35,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 [██████░░░░] 60% — 6/10 plans complete
 
-**Stopped at:** Completed quick-260412-vf8-PLAN.md
+**Stopped at:** Completed quick-260416-ndv-PLAN.md
 
 ## Decisions Made
 
@@ -51,6 +51,8 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 - [Phase 02]: module-level redirecting flag in apiClient guards against 401 navigation storm from concurrent requests (02-04)
 - [Phase 02]: PrivateRoute returns null (not spinner) during Zustand persist rehydration — localStorage sync means 1-frame gate with no visible flash (02-05)
 - [Phase 02]: App.tsx repurposed as temp authenticated placeholder for Phase 2 UAT — Phase 3 replaces with AppShell (02-05)
+- [Phase quick-260416-ndv]: COMPUTED_FIELDS_SQL als Konstante in contracts.routes.ts — nicht inline 3x wiederholt
+- [Phase quick-260416-ndv]: Segment 'cancellable' WHERE-Bedingung dupliziert CASE-Ausdruck inline — SQLite erlaubt kein WHERE auf aliasierte computed columns
 
 ## Open Decisions (must resolve before Milestone 2)
 

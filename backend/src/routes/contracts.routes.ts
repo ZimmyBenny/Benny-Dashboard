@@ -46,6 +46,37 @@ const COMPUTED_FIELDS_SQL = `,
     date(
       CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
         THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
+        ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END
+    )
+  ELSE NULL END AS next_anniversary_date,
+  CASE WHEN auto_renews = 1 AND cost_interval = 'jaehrlich' AND start_date IS NOT NULL THEN
+    CAST(julianday(
+      date(
+        CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
+          THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
+          ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END
+      )
+    ) - julianday(date('now')) AS INTEGER)
+  ELSE NULL END AS days_to_anniversary,
+  CASE WHEN auto_renews = 1 AND cost_interval = 'jaehrlich' AND start_date IS NOT NULL THEN
+    date(
+      CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
+        THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
+        ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END,
+      '-56 days')
+  ELSE NULL END AS reminder_date,
+  CASE WHEN auto_renews = 1 AND cost_interval = 'jaehrlich' AND start_date IS NOT NULL THEN
+    date(
+      CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
+        THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
+        ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END,
+      '-' || (cancellation_notice_weeks * 7) || ' days')
+  ELSE NULL END AS cancellation_deadline,
+  /* ── Bestehende Felder unverändert beibehalten (für Rückwärtskompatibilität) ── */
+  CASE WHEN auto_renews = 1 AND cost_interval = 'jaehrlich' AND start_date IS NOT NULL THEN
+    date(
+      CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
+        THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
         ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END,
       '-' || (cancellation_notice_weeks * 7) || ' days')
   ELSE NULL END AS cancellation_window_end,
@@ -127,16 +158,12 @@ router.get('/', (req, res) => {
     conditions.push(`start_date IS NOT NULL`);
     conditions.push(`status = 'aktiv'`);
     conditions.push(`is_archived = 0`);
-    conditions.push(`date('now') BETWEEN
-      date(CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
-        THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
-        ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END,
-        '-' || (cancellation_notice_weeks * 7 + 14) || ' days')
-      AND
-      date(CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
-        THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
-        ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END,
-        '-' || (cancellation_notice_weeks * 7) || ' days')`);
+    // Im Fenster: heute <= anniversary-Datum UND anniversary-heute <= 56 Tage
+    conditions.push(`CAST(julianday(
+      date(CASE WHEN strftime('%m-%d','now') <= strftime('%m-%d',start_date)
+        THEN strftime('%Y','now') || '-' || strftime('%m-%d',start_date)
+        ELSE (CAST(strftime('%Y','now') AS INTEGER) + 1) || '-' || strftime('%m-%d',start_date) END)
+    ) - julianday(date('now')) AS INTEGER) BETWEEN 0 AND 56`);
   } else if (segment === 'archive') {
     conditions.push(`is_archived = 1`);
   } else if (segment === 'gesamt') {
