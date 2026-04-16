@@ -66,9 +66,15 @@ export function RemindersColumn() {
     }
   }
 
-  const filtered = search.trim()
+  const filtered = (search.trim()
     ? reminders.filter((r) => r.title.toLowerCase().includes(search.trim().toLowerCase()))
-    : reminders;
+    : reminders
+  ).slice().sort((a, b) => {
+    if (!a.due_date && !b.due_date) return 0;
+    if (!a.due_date) return 1;
+    if (!b.due_date) return -1;
+    return b.due_date.localeCompare(a.due_date);
+  });
 
   return (
     <div style={{
