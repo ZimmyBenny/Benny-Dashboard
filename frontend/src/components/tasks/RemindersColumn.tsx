@@ -12,8 +12,8 @@ function listColor(name: string): { bg: string; fg: string } {
 }
 
 function formatDueDate(isoDate: string): string {
-  // Manuelles Splitten — kein toLocaleDateString um Browser-Locale-Differenzen zu vermeiden
   const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return isoDate;
   const day   = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const year  = d.getFullYear();
@@ -66,15 +66,9 @@ export function RemindersColumn() {
     }
   }
 
-  const filtered = (search.trim()
+  const filtered = search.trim()
     ? reminders.filter((r) => r.title.toLowerCase().includes(search.trim().toLowerCase()))
-    : reminders
-  ).slice().sort((a, b) => {
-    if (!a.due_date && !b.due_date) return 0;
-    if (!a.due_date) return 1;
-    if (!b.due_date) return -1;
-    return b.due_date.localeCompare(a.due_date);
-  });
+    : reminders;
 
   return (
     <div style={{
