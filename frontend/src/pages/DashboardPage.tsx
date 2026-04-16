@@ -534,8 +534,13 @@ export function DashboardPage() {
                     fontSize: '0.72rem', color: '#fb923c', fontFamily: 'var(--font-body)',
                     flexShrink: 0, fontWeight: 600,
                   }}>
-                    Fenster bis {c.cancellation_window_end
-                      ? (() => { const d = new Date(c.cancellation_window_end); return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`; })()
+                    {c.days_to_anniversary != null
+                      ? (() => {
+                          const noticeDays = (c.cancellation_notice_weeks ?? 4) * 7;
+                          if (c.days_to_anniversary <= noticeDays) return 'Frist verpasst';
+                          const remaining = c.days_to_anniversary - noticeDays;
+                          return `Noch ${remaining} ${remaining === 1 ? 'Tag' : 'Tage'}`;
+                        })()
                       : ''}
                   </span>
                 </div>

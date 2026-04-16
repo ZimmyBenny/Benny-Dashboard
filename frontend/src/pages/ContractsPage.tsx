@@ -165,6 +165,39 @@ function ExpirationBadge({ expiration_date }: { expiration_date: string | null }
 }
 
 // ---------------------------------------------------------------------------
+// Blink-Animation für Kündigungs-Badge
+// ---------------------------------------------------------------------------
+
+function ensureContractBlinkStyles() {
+  if (typeof document === 'undefined') return;
+  if (document.getElementById('contract-blink-styles')) return;
+  const style = document.createElement('style');
+  style.id = 'contract-blink-styles';
+  style.textContent = `
+    @keyframes contractBlink {
+      0%, 100% {
+        opacity: 1;
+        box-shadow: 0 0 4px rgba(248,113,113,0.5), 0 0 8px rgba(248,113,113,0.25);
+      }
+      50% {
+        opacity: 0.55;
+        box-shadow: 0 0 10px rgba(248,113,113,0.9), 0 0 18px rgba(248,113,113,0.45);
+      }
+    }
+    .contract-blink-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #f87171;
+      display: inline-block;
+      flex-shrink: 0;
+      animation: contractBlink 1.6s ease-in-out infinite;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// ---------------------------------------------------------------------------
 // Styles
 // ---------------------------------------------------------------------------
 
@@ -375,6 +408,9 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
   // SlideOver state
   const [isSlideOverOpen, setIsSlideOverOpen] = useState(false);
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
+
+  // Blink-Styles einmalig ins DOM injizieren
+  useEffect(() => { ensureContractBlinkStyles(); }, []);
 
   // Vom Dashboard: navigate('/contracts', { state: { openNew: true } })
   const location = useLocation();
@@ -678,25 +714,60 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
                     fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.04em', fontFamily: 'var(--font-body)',
                     background: statusStyle.bg, color: statusStyle.color, flexShrink: 0, whiteSpace: 'nowrap',
                   }}>{STATUS_LABELS[contract.status] || contract.status}</span>
-                  {contract.is_in_cancellation_window === 1 && (
-                    <span style={{
-                      display: 'inline-block', padding: '0.1rem 0.45rem', borderRadius: '9999px',
-                      fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.04em', fontFamily: 'var(--font-body)',
-                      background: 'rgba(251,146,60,0.18)', color: '#fb923c', flexShrink: 0, whiteSpace: 'nowrap',
-                      border: '1px solid rgba(251,146,60,0.4)',
-                    }}>Jetzt kündbar</span>
-                  )}
-                  {contract.is_in_cancellation_window === 0
-                    && contract.days_until_cancellation_window !== null
-                    && contract.days_until_cancellation_window !== undefined
-                    && contract.days_until_cancellation_window > 0
-                    && contract.days_until_cancellation_window <= 60 && (
-                    <span style={{
-                      display: 'inline-block', padding: '0.1rem 0.45rem', borderRadius: '9999px',
-                      fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.04em', fontFamily: 'var(--font-body)',
-                      background: 'rgba(96,165,250,0.15)', color: '#60a5fa', flexShrink: 0, whiteSpace: 'nowrap',
-                    }}>Kündbar in {contract.days_until_cancellation_window} Tagen</span>
-                  )}
+                  {(() => {
+                    // v2 Badge-Logik basierend auf days_to_anniversary
+                    const dta = contract.days_to_anniversary;
+                    const noticeDays = (contract.cancellation_notice_weeks ?? 4) * 7;
+
+                    if (dta == null) return null;
+
+                    if (dta >= 0 && dta <= noticeDays) {
+                      // Anniversary sehr nahe — Frist bereits verstrichen
+                      return (
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                          padding: '0.1rem 0.5rem', borderRadius: '9999px',
+                          fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.04em',
+                          fontFamily: 'var(--font-body)',
+                          background: 'rgba(248,113,113,0.2)',
+                          color: '#f87171',
+                          border: '1px solid rgba(248,113,113,0.5)',
+                          flexShrink: 0, whiteSpace: 'nowrap',
+                        }}>Frist verpasst</span>
+                      );
+                    } else if (dta > noticeDays && dta <= 56) {
+                      // 8-Wochen-Fenster offen — ROT BLINKEND
+                      const remaining = dta - noticeDays;
+                      return (
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                          padding: '0.1rem 0.5rem', borderRadius: '9999px',
+                          fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.04em',
+                          fontFamily: 'var(--font-body)',
+                          background: 'rgba(248,113,113,0.15)',
+                          color: '#f87171',
+                          border: '1px solid rgba(248,113,113,0.45)',
+                          flexShrink: 0, whiteSpace: 'nowrap',
+                        }}>
+                          <span className="contract-blink-dot" aria-hidden />
+                          Kündbar — noch {remaining} {remaining === 1 ? 'Tag' : 'Tage'}
+                        </span>
+                      );
+                    } else if (dta > 56 && dta <= 60) {
+                      // Vorwarnung — blau
+                      const daysAhead = dta - 56;
+                      return (
+                        <span style={{
+                          display: 'inline-block', padding: '0.1rem 0.45rem', borderRadius: '9999px',
+                          fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.04em',
+                          fontFamily: 'var(--font-body)',
+                          background: 'rgba(96,165,250,0.15)', color: '#60a5fa',
+                          flexShrink: 0, whiteSpace: 'nowrap',
+                        }}>Kündbar in {daysAhead} {daysAhead === 1 ? 'Tag' : 'Tagen'}</span>
+                      );
+                    }
+                    return null;
+                  })()}
                   <span style={{
                     width: '6px', height: '6px', borderRadius: '50%', display: 'inline-block',
                     flexShrink: 0, background: PRIORITY_COLORS[contract.priority] || '#6b7280',

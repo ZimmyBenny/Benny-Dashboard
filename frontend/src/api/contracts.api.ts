@@ -45,6 +45,11 @@ export interface Contract {
   cancellation_window_end: string | null;
   is_in_cancellation_window: number;             // 0 | 1
   days_until_cancellation_window: number | null;
+  // Neue berechnete Felder (v2 — Kündigungs-Reminder):
+  next_anniversary_date: string | null;
+  days_to_anniversary: number | null;
+  reminder_date: string | null;
+  cancellation_deadline: string | null;
   created_at: string;
   updated_at: string;
 }
