@@ -7,6 +7,7 @@ import { fetchTaskStats, createTask, type TaskStats, type Task } from '../api/ta
 import { TaskSlideOver } from '../components/tasks/TaskSlideOver';
 import { fetchContracts, type Contract } from '../api/contracts.api';
 import { fetchSaldo, type HaushaltSaldo } from '../api/haushalt.api';
+import { NeueAnfrageModal } from '../components/dj/NeueAnfrageModal';
 
 function getGreeting(): { time: string; name: string } {
   const hour = new Date().getHours();
@@ -26,6 +27,7 @@ const modules = [
 
   { path: '/finances',      label: 'Finanzen',       icon: 'account_balance_wallet', description: 'Einnahmen · Ausgaben · Budgets' },
   { path: '/haushalt', label: 'Haushalt',   icon: 'family_restroom',        description: 'Ausgaben · Geldübergaben · Abrechnungen', isHaushalt: true as const },
+  { path: '/dj',       label: 'DJ',         icon: 'queue_music',            description: 'Events · Anfragen · Buchungen', isDj: true as const },
 ];
 
 function formatMs(ms: number): string {
@@ -75,6 +77,13 @@ export function DashboardPage() {
     fetchContracts({ segment: 'soon', limit: 5 }).then(r => setUpcomingContracts(r.data)).catch(() => {});
   }, []);
 
+  // Verträge im Kündigungsfenster
+  const [cancellableContracts, setCancellableContracts] = useState<Contract[]>([]);
+
+  useEffect(() => {
+    fetchContracts({ segment: 'cancellable', limit: 5 }).then(r => setCancellableContracts(r.data)).catch(() => {});
+  }, []);
+
   // Haushalt-Saldo
   const [haushaltSaldo, setHaushaltSaldo] = useState<HaushaltSaldo | null>(null);
   useEffect(() => {
@@ -83,6 +92,9 @@ export function DashboardPage() {
 
   // Neue Aufgabe SlideOver
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
+
+  // DJ Neue Anfrage Modal
+  const [isDjAnfrageOpen, setIsDjAnfrageOpen] = useState(false);
 
   async function handleCreateTask(data: Partial<Task> & { title: string }) {
     await createTask(data);
@@ -387,6 +399,26 @@ export function DashboardPage() {
                 </div>
               )}
 
+              {'isDj' in mod && (
+                <div style={{ marginTop: '0.875rem' }}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setIsDjAnfrageOpen(true); }}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                      padding: '0.35rem 0.8rem',
+                      borderRadius: '9999px',
+                      background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+                      color: '#000', border: 'none', cursor: 'pointer',
+                      fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.7rem',
+                      letterSpacing: '0.03em',
+                    }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>add</span>
+                    Neues Event
+                  </button>
+                </div>
+              )}
+
               {'isHaushalt' in mod && (
                 <div style={{ marginTop: '0.875rem' }}>
                   <button
@@ -460,6 +492,59 @@ export function DashboardPage() {
           </button>
         ))}
       </div>
+      {/* ── Jetzt kündbar (Verträge im Kündigungsfenster) ── */}
+      {cancellableContracts.length > 0 && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '2.5rem', marginBottom: '1.25rem' }}>
+            <p style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: '0.65rem',
+              letterSpacing: '0.22em',
+              textTransform: 'uppercase',
+              color: '#fb923c',
+              whiteSpace: 'nowrap',
+            }}>
+              Jetzt kündbar
+            </p>
+            <div style={{
+              flex: 1, height: '1px',
+              background: 'linear-gradient(90deg, rgba(251,146,60,0.4) 0%, transparent 100%)',
+            }} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {cancellableContracts.map(c => (
+              <button
+                key={c.id}
+                className="module-card"
+                onClick={() => navigate('/contracts', { state: { segment: 'cancellable' } })}
+                style={{ textAlign: 'left', padding: '1rem 1.25rem', cursor: 'pointer' }}
+              >
+                <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: '1.25rem', color: '#fb923c', flexShrink: 0 }}>
+                    event_available
+                  </span>
+                  <span style={{
+                    fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '0.85rem',
+                    color: 'var(--color-on-surface)', flex: 1, overflow: 'hidden',
+                    textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {c.title}
+                  </span>
+                  <span style={{
+                    fontSize: '0.72rem', color: '#fb923c', fontFamily: 'var(--font-body)',
+                    flexShrink: 0, fontWeight: 600,
+                  }}>
+                    Fenster bis {c.cancellation_window_end
+                      ? (() => { const d = new Date(c.cancellation_window_end); return `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}`; })()
+                      : ''}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
       {/* ── Bald fällig (Verträge & Fristen) ────────────── */}
       <>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '2.5rem', marginBottom: '1.25rem' }}>
@@ -720,6 +805,12 @@ export function DashboardPage() {
         onSave={handleCreateTask}
         onDelete={async () => {}}
       />
+      {isDjAnfrageOpen && (
+        <NeueAnfrageModal
+          onClose={() => setIsDjAnfrageOpen(false)}
+          onCreated={() => { setIsDjAnfrageOpen(false); navigate('/dj/events'); }}
+        />
+      )}
     </PageWrapper>
   );
 }

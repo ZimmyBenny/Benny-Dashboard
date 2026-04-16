@@ -56,7 +56,7 @@ const EMPTY_STATE_MESSAGES: Record<string, string> = {
   all: 'Noch keine Einträge vorhanden',
   soon: 'Keine Einträge in den nächsten 30 Tagen fällig',
   overdue: 'Keine überfälligen Einträge',
-  cancellable: 'Keine kündbaren Einträge',
+  cancellable: 'Keine Verträge aktuell im Kündigungsfenster',
   archive: 'Archiv ist leer',
   gesamt: 'Noch keine Einträge vorhanden',
   unbefristet: 'Keine unbefristeten Einträge vorhanden',
@@ -182,6 +182,16 @@ const AREA_CHART_COLORS: Record<string, string> = {
   Sonstiges: '#6b7280',
 };
 
+function formatInterval(interval: string | null): string {
+  switch (interval) {
+    case 'monatlich': return 'monatlich';
+    case 'quartalsweise': return 'quartalsweise';
+    case 'jaehrlich': return 'jährlich';
+    case 'einmalig': return 'einmalig';
+    default: return interval ?? '';
+  }
+}
+
 function toMonthly(amount: number, interval: string | null): number {
   switch (interval) {
     case 'monatlich': return amount;
@@ -229,6 +239,10 @@ function KostenUebersicht({ contracts }: { contracts: Contract[] }) {
   }
 
   if (totalMonthly === 0 && totalYearly === 0) return null;
+
+  const countMonatlich = aktiv.filter(c => c.cost_interval === 'monatlich').length;
+  const countJaehrlich = aktiv.filter(c => c.cost_interval === 'jaehrlich').length;
+  const countUnbefristet = contracts.filter(c => c.status === 'aktiv' && c.unbefristet === 1).length;
 
   const cardStyle: React.CSSProperties = {
     background: 'var(--color-surface-container)',
@@ -294,6 +308,30 @@ function KostenUebersicht({ contracts }: { contracts: Contract[] }) {
           <BarChart byArea={byAreaYearly} total={totalYearly} />
         </div>
       </div>
+
+      {/* Vertrags-Zähler */}
+      <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+        {[
+          { label: 'Monatliche Verträge', count: countMonatlich, color: 'var(--color-primary)', sub: 'aktiv' },
+          { label: 'Jährliche Verträge', count: countJaehrlich, color: 'var(--color-secondary)', sub: 'aktiv' },
+          { label: 'Unbefristet', count: countUnbefristet, color: 'var(--color-error, #f87171)', sub: 'kein Enddatum' },
+        ].map(({ label, count, color, sub }) => (
+          <div key={label} style={{
+            background: 'var(--color-surface-container)',
+            border: '1px solid var(--color-surface-container-high)',
+            borderRadius: '0.875rem',
+            padding: '1.25rem',
+            flex: 1,
+            minWidth: 0,
+          }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--color-outline)', marginBottom: '0.25rem' }}>{label}</p>
+            <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '1.5rem', color: 'var(--color-on-surface)', lineHeight: 1.2 }}>
+              {count}
+              <span style={{ fontSize: '0.8rem', fontWeight: 400, color, marginLeft: '0.4rem' }}>{sub}</span>
+            </p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -341,9 +379,14 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
   // Vom Dashboard: navigate('/contracts', { state: { openNew: true } })
   const location = useLocation();
   useEffect(() => {
-    if ((location.state as { openNew?: boolean } | null)?.openNew) {
+    const st = location.state as { openNew?: boolean; segment?: Segment } | null;
+    if (st?.openNew) {
       setEditingContract(null);
       setIsSlideOverOpen(true);
+      window.history.replaceState({}, '');
+    }
+    if (st?.segment) {
+      setSegment(st.segment);
       window.history.replaceState({}, '');
     }
   }, [location.state]);
@@ -635,6 +678,25 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
                     fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.04em', fontFamily: 'var(--font-body)',
                     background: statusStyle.bg, color: statusStyle.color, flexShrink: 0, whiteSpace: 'nowrap',
                   }}>{STATUS_LABELS[contract.status] || contract.status}</span>
+                  {contract.is_in_cancellation_window === 1 && (
+                    <span style={{
+                      display: 'inline-block', padding: '0.1rem 0.45rem', borderRadius: '9999px',
+                      fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.04em', fontFamily: 'var(--font-body)',
+                      background: 'rgba(251,146,60,0.18)', color: '#fb923c', flexShrink: 0, whiteSpace: 'nowrap',
+                      border: '1px solid rgba(251,146,60,0.4)',
+                    }}>Jetzt kündbar</span>
+                  )}
+                  {contract.is_in_cancellation_window === 0
+                    && contract.days_until_cancellation_window !== null
+                    && contract.days_until_cancellation_window !== undefined
+                    && contract.days_until_cancellation_window > 0
+                    && contract.days_until_cancellation_window <= 60 && (
+                    <span style={{
+                      display: 'inline-block', padding: '0.1rem 0.45rem', borderRadius: '9999px',
+                      fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.04em', fontFamily: 'var(--font-body)',
+                      background: 'rgba(96,165,250,0.15)', color: '#60a5fa', flexShrink: 0, whiteSpace: 'nowrap',
+                    }}>Kündbar in {contract.days_until_cancellation_window} Tagen</span>
+                  )}
                   <span style={{
                     width: '6px', height: '6px', borderRadius: '50%', display: 'inline-block',
                     flexShrink: 0, background: PRIORITY_COLORS[contract.priority] || '#6b7280',
@@ -662,12 +724,12 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
                             <span style={{ color: 'var(--color-outline)', fontSize: '0.7rem', marginLeft: '0.25rem' }}>
                               (von {contract.cost_amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR)
                             </span>
-                            {contract.cost_interval ? `/${contract.cost_interval}` : ''}
+                            {contract.cost_interval ? `/${formatInterval(contract.cost_interval)}` : ''}
                           </>
                         ) : (
                           <>
                             {contract.cost_amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {contract.currency}
-                            {contract.cost_interval ? `/${contract.cost_interval}` : ''}
+                            {contract.cost_interval ? `/${formatInterval(contract.cost_interval)}` : ''}
                           </>
                         )}
                       </div>
