@@ -68,9 +68,6 @@ interface QuoteRow {
   tax_total: number;
   total_gross: number;
   finalized_at: string | null;
-  discount_value?: number | null;
-  discount_type?: string | null;
-  discount_description?: string | null;
 }
 
 interface QuoteItem {
@@ -110,54 +107,56 @@ interface EventRow {
 
 function renderFooter(doc: PDFKit.PDFDocument, company: CompanySettings) {
   const pageWidth = doc.page.width;
-  const marginLeft = 71;
-  const marginRight = 57;
-  const usableWidth = pageWidth - marginLeft - marginRight;
+  const mL = 71;
+  const mR = 57;
+  const usableWidth = pageWidth - mL - mR;
   const footerY = doc.page.height - 71;
+  const lineH = 10;
+  const textY = footerY + 8;
 
   // 1pt graue Trennlinie
   doc.save()
-    .moveTo(marginLeft, footerY)
-    .lineTo(pageWidth - marginRight, footerY)
+    .moveTo(mL, footerY)
+    .lineTo(pageWidth - mR, footerY)
     .lineWidth(1)
     .strokeColor('#CCCCCC')
     .stroke()
     .restore();
 
-  const colWidth = usableWidth / 4;
-  const textY = footerY + 8;
-  const lineGap = 2;
-
-  doc.save()
-    .font('Helvetica')
-    .fontSize(8)
-    .fillColor('#666666');
+  const colW = usableWidth / 4;
+  doc.save().font('Helvetica').fontSize(8).fillColor('#666666');
 
   // Spalte 1: Firma + Adresse
-  const col1 = marginLeft;
-  doc.text(company.company, col1, textY, { width: colWidth - 4, lineGap });
-  doc.text(company.name, col1, doc.y, { width: colWidth - 4, lineGap });
-  doc.text(company.address, col1, doc.y, { width: colWidth - 4, lineGap });
-  doc.text(`${company.zip} ${company.city}`, col1, doc.y, { width: colWidth - 4, lineGap });
-
-  // Spalte 2: Kontakt
-  const col2 = marginLeft + colWidth;
-  doc.text(`Tel: ${company.phone}`, col2, textY, { width: colWidth - 4, lineGap });
-  doc.text(company.email, col2, doc.y, { width: colWidth - 4, lineGap });
-  doc.text(company.website, col2, doc.y, { width: colWidth - 4, lineGap });
-
-  // Spalte 3: Steuer
-  const col3 = marginLeft + colWidth * 2;
-  doc.text(`Steuer-Nr: ${company.tax_number}`, col3, textY, { width: colWidth - 4, lineGap });
-  if (company.vat_id) {
-    doc.text(`USt-IdNr: ${company.vat_id}`, col3, doc.y, { width: colWidth - 4, lineGap });
+  const c1 = mL;
+  doc.text(`${company.company} | ${company.name}`, c1, textY, { width: colW - 4, lineBreak: false });
+  doc.text(company.address, c1, textY + lineH, { width: colW - 4, lineBreak: false });
+  doc.text(`${company.zip} ${company.city}`, c1, textY + lineH * 2, { width: colW - 4, lineBreak: false });
+  if (company.country) {
+    doc.text(company.country, c1, textY + lineH * 3, { width: colW - 4, lineBreak: false });
   }
 
-  // Spalte 4: Bank
-  const col4 = marginLeft + colWidth * 3;
-  doc.text(company.bank.name, col4, textY, { width: colWidth, lineGap });
-  doc.text(`IBAN: ${company.bank.iban}`, col4, doc.y, { width: colWidth, lineGap });
-  doc.text(`BIC: ${company.bank.bic}`, col4, doc.y, { width: colWidth, lineGap });
+  // Spalte 2: Kontakt
+  const c2 = mL + colW;
+  doc.text(`Tel. ${company.phone}`, c2, textY, { width: colW - 4, lineBreak: false });
+  doc.text(`E-Mail ${company.email}`, c2, textY + lineH, { width: colW - 4, lineBreak: false });
+  if (company.website) {
+    doc.text(`Web ${company.website}`, c2, textY + lineH * 2, { width: colW - 4, lineBreak: false });
+  }
+
+  // Spalte 3: Steuer + Inhaber
+  const c3 = mL + colW * 2;
+  doc.text(`Steuer-Nr. ${company.tax_number}`, c3, textY, { width: colW - 4, lineBreak: false });
+  if (company.vat_id) {
+    doc.text(`USt-IdNr. ${company.vat_id}`, c3, textY + lineH, { width: colW - 4, lineBreak: false });
+  }
+  doc.text(`Inhaber/-in ${company.name}`, c3, textY + lineH * (company.vat_id ? 2 : 1), { width: colW - 4, lineBreak: false });
+
+  // Spalte 4: Bank (muss IMMER erscheinen — absolute Y-Positionen)
+  const c4 = mL + colW * 3;
+  doc.text(`Bank ${company.bank.name}`, c4, textY, { width: colW, lineBreak: false });
+  doc.text(`Inhaber ${company.bank.holder}`, c4, textY + lineH, { width: colW, lineBreak: false });
+  doc.text(`IBAN ${company.bank.iban}`, c4, textY + lineH * 2, { width: colW, lineBreak: false });
+  doc.text(`BIC ${company.bank.bic}`, c4, textY + lineH * 3, { width: colW, lineBreak: false });
 
   doc.restore();
 }
@@ -235,18 +234,9 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    // Footer auf jeder neuen Seite — Guard verhindert Rekursion:
-    // renderFooter() ruft doc.text() auf, das intern addPage() triggern kann,
-    // was wieder pageAdded feuert → Endlosrekursion → Stack Overflow.
-    let isRenderingFooter = false;
+    // Footer auf jeder neuen Seite
     doc.on('pageAdded', () => {
-      if (isRenderingFooter) return;
-      isRenderingFooter = true;
-      try {
-        renderFooter(doc, company);
-      } finally {
-        isRenderingFooter = false;
-      }
+      renderFooter(doc, company);
     });
 
     const marginLeft = 71;
@@ -264,20 +254,6 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
       .lineWidth(0.5)
       .strokeColor('#999999')
       .stroke();
-
-    // --- Logo oben rechts (über Absenderzeile, absolut positioniert) ---
-    const logoRow = db.prepare("SELECT value FROM dj_settings WHERE key = 'logo_path'").get() as { value: string } | undefined;
-    if (logoRow?.value) {
-      const absLogoPath = path.join(process.cwd(), logoRow.value);
-      if (fs.existsSync(absLogoPath)) {
-        const logoExt = path.extname(absLogoPath).toLowerCase();
-        if (logoExt !== '.svg') {
-          try {
-            doc.image(absLogoPath, pageWidth - marginRight - 110, 10, { fit: [110, 50], align: 'right' });
-          } catch { /* Graceful skip */ }
-        }
-      }
-    }
 
     // --- Empfänger-Block (links) & Meta-Block (rechts) ---
     const recipientStartY = senderBottom + 20;
@@ -332,7 +308,7 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
     doc.font('Helvetica').fontSize(10).fillColor('#000000');
     for (const [label, value] of metaRows) {
       doc.text(label, metaX, metaY, { width: metaLabelWidth, continued: false });
-      doc.text(value, metaX + metaLabelWidth, metaY, { width: metaValueWidth });
+      doc.text(value, metaX + metaLabelWidth, metaY, { width: metaValueWidth, align: 'right' });
       metaY = doc.y;
     }
 
@@ -349,14 +325,7 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
     // --- Kopftext ---
     let currentY = doc.y + 10;
     if (quote.header_text) {
-      const kontaktperson = [contact?.salutation, contact?.first_name, contact?.last_name].filter(Boolean).join(' ');
       const placeholderVars: Record<string, string> = {
-        // Neue Großbuchstaben-Keys
-        KONTAKTPERSON: kontaktperson,
-        DATUM: formatDateDE(quote.quote_date),
-        ANGEBOTSNUMMER: quote.number ?? 'Entwurf',
-        KUNDENNUMMER: contact?.customer_number ?? '',
-        // Abwärtskompatible Keys
         vorname: contact?.first_name ?? '',
         nachname: contact?.last_name ?? '',
         anrede: contact?.salutation ?? '',
@@ -373,11 +342,10 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
     // Spaltenbreiten (relativ zu usableWidth ~467pt)
     const colWidths = [
       usableWidth * 0.08,   // Pos
-      usableWidth * 0.40,   // Beschreibung
-      usableWidth * 0.10,   // Menge
-      usableWidth * 0.12,   // Einheit
-      usableWidth * 0.15,   // Einzelpreis
-      usableWidth * 0.15,   // Gesamt
+      usableWidth * 0.42,   // Beschreibung
+      usableWidth * 0.12,   // Menge
+      usableWidth * 0.19,   // Einzelpreis
+      usableWidth * 0.19,   // Gesamt
     ];
     const colX: number[] = [];
     let cx = marginLeft;
@@ -397,8 +365,8 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
       .restore();
 
     // Header-Text
-    const headers = ['Pos.', 'Beschreibung', 'Menge', 'Einheit', 'Einzelpreis', 'Gesamt'];
-    const headerAligns: Array<'center' | 'left' | 'right'> = ['center', 'left', 'right', 'center', 'right', 'right'];
+    const headers = ['Pos.', 'Beschreibung', 'Menge', 'Einzelpreis', 'Gesamt'];
+    const headerAligns: Array<'center' | 'left' | 'right'> = ['center', 'left', 'right', 'right', 'right'];
 
     doc.font('Helvetica-Bold').fontSize(9).fillColor('#000000');
     for (let i = 0; i < headers.length; i++) {
@@ -411,7 +379,7 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
 
     // Datenzeilen
     let dataY = headerY + rowHeight;
-    const dataAligns: Array<'center' | 'left' | 'right'> = ['center', 'left', 'right', 'center', 'right', 'right'];
+    const dataAligns: Array<'center' | 'left' | 'right'> = ['center', 'left', 'right', 'right', 'right'];
 
     for (let idx = 0; idx < items.length; idx++) {
       const item = items[idx];
@@ -450,7 +418,6 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
         String(item.position),
         item.description,
         new Intl.NumberFormat('de-DE').format(item.quantity),
-        item.unit,
         formatEur(item.price_net),
         formatEur(item.total_net),
       ];
@@ -479,20 +446,10 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
     const sumValueX = marginLeft + usableWidth * 0.80;
     const sumValueWidth = pageWidth - marginRight - sumValueX;
 
-    // Rabatt berechnen (vor MwSt)
-    let discountAmount = 0;
-    if (quote.discount_value != null && quote.discount_value > 0) {
-      discountAmount = quote.discount_type === '€'
-        ? quote.discount_value
-        : quote.subtotal_net * (quote.discount_value / 100);
-    }
-    const netAfterDiscount = Math.max(0, quote.subtotal_net - discountAmount);
-    const discountRatio = quote.subtotal_net > 0 ? netAfterDiscount / quote.subtotal_net : 1;
-
-    // MwSt nach Steuersatz gruppieren (auf reduziertes Netto)
+    // MwSt nach Steuersatz gruppieren
     const taxGroups: Map<number, number> = new Map();
     for (const item of items) {
-      const tax = item.total_net * discountRatio * (item.tax_rate / 100);
+      const tax = item.total_net * (item.tax_rate / 100);
       taxGroups.set(item.tax_rate, (taxGroups.get(item.tax_rate) ?? 0) + tax);
     }
 
@@ -501,23 +458,6 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
     doc.text(formatEur(quote.subtotal_net), sumValueX, sumY, { width: sumValueWidth, align: 'right' });
     sumY = doc.y + 2;
 
-    // Rabatt-Zeilen (nur wenn Rabatt > 0)
-    if (discountAmount > 0) {
-      const discLabel = quote.discount_description
-        ? `\u2212 Rabatt (${quote.discount_description}):`
-        : '\u2212 Rabatt:';
-      doc.fillColor('#CC3333');
-      doc.text(discLabel, sumLabelX, sumY, { width: sumValueX - sumLabelX - 6, align: 'left' });
-      doc.text(`\u2212 ${formatEur(discountAmount)}`, sumValueX, sumY, { width: sumValueWidth, align: 'right' });
-      sumY = doc.y + 2;
-
-      doc.fillColor('#000000');
-      doc.text('Netto nach Rabatt:', sumLabelX, sumY, { width: sumValueX - sumLabelX - 6, align: 'left' });
-      doc.text(formatEur(netAfterDiscount), sumValueX, sumY, { width: sumValueWidth, align: 'right' });
-      sumY = doc.y + 2;
-    }
-
-    doc.fillColor('#000000');
     for (const [rate, taxAmt] of taxGroups) {
       doc.text(`Umsatzsteuer ${rate} %:`, sumLabelX, sumY, { width: sumValueX - sumLabelX - 6, align: 'left' });
       doc.text(formatEur(taxAmt), sumValueX, sumY, { width: sumValueWidth, align: 'right' });
@@ -540,14 +480,7 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
 
     // --- Fußtext ---
     let footerTextY = doc.y + 20;
-    const kontaktpersonFt = [contact?.salutation, contact?.first_name, contact?.last_name].filter(Boolean).join(' ');
     const placeholderVarsFt: Record<string, string> = {
-      // Neue Großbuchstaben-Keys
-      KONTAKTPERSON: kontaktpersonFt,
-      DATUM: formatDateDE(quote.quote_date),
-      ANGEBOTSNUMMER: quote.number ?? 'Entwurf',
-      KUNDENNUMMER: contact?.customer_number ?? '',
-      // Abwärtskompatible Keys
       gueltig_bis: formatDateDE(quote.valid_until),
       valid_until: formatDateDE(quote.valid_until),
     };
@@ -558,6 +491,12 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
 
     doc.font('Helvetica').fontSize(10).fillColor('#000000')
       .text(footerContent, marginLeft, footerTextY, { width: usableWidth, lineGap: 4 });
+
+    // Grußformel
+    footerTextY = doc.y + 16;
+    doc.text('Mit freundlichen Gr\u00fc\u00dfen', marginLeft, footerTextY, { width: usableWidth });
+    doc.text('', marginLeft, doc.y + 4);
+    doc.text(company.name, marginLeft, doc.y, { width: usableWidth });
 
     // Footer auf der ersten Seite rendern
     renderFooter(doc, company);
