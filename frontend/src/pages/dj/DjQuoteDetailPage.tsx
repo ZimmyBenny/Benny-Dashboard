@@ -207,6 +207,11 @@ export function DjQuoteDetailPage() {
   const [headerText, setHeaderText] = useState('');
   const [footerText, setFooterText] = useState('');
 
+  // Gesamtrabatt
+  const [discountValue, setDiscountValue] = useState<number | null>(null);
+  const [discountType, setDiscountType] = useState<'%' | '€'>('%');
+  const [discountDescription, setDiscountDescription] = useState('');
+
   // Positionen
   const [items, setItems] = useState<LocalItem[]>([]);
 
@@ -241,8 +246,14 @@ export function DjQuoteDetailPage() {
     return { ...item, total_net, tax, total_gross: total_net + tax };
   });
   const subtotalNet = computedItems.reduce((s, i) => s + i.total_net, 0);
-  const taxTotal = computedItems.reduce((s, i) => s + i.tax, 0);
-  const totalGross = subtotalNet + taxTotal;
+  const discountAmount = discountValue != null && discountValue > 0
+    ? (discountType === '€' ? Math.min(discountValue, subtotalNet) : subtotalNet * (discountValue / 100))
+    : 0;
+  const netAfterDiscount = Math.max(0, subtotalNet - discountAmount);
+  const ratio = subtotalNet > 0 ? netAfterDiscount / subtotalNet : 1;
+  const taxTotal = computedItems.reduce((s, i) => s + i.total_net * ratio * (i.tax_rate / 100), 0);
+  const totalGross = netAfterDiscount + taxTotal;
+  const discountActive = discountValue != null;
 
   // ---------------------------------------------------------------------------
   // Laden
@@ -267,6 +278,9 @@ export function DjQuoteDetailPage() {
           setAnredeForm((data.anrede_form as 'du' | 'sie') ?? 'du');
           setHeaderText(data.header_text ?? '');
           setFooterText(data.footer_text ?? '');
+          setDiscountValue(data.discount_value ?? null);
+          setDiscountType((data.discount_type as '%' | '€') ?? '%');
+          setDiscountDescription(data.discount_description ?? '');
           setItems(
             (data.items ?? []).map(i => ({
               _key: i.id ?? Date.now(),
@@ -393,6 +407,9 @@ export function DjQuoteDetailPage() {
         anrede_form: anredeForm,
         header_text: headerText,
         footer_text: footerText,
+        discount_value: discountValue,
+        discount_type: discountType,
+        discount_description: discountDescription.trim() || null,
         items: computedItems.map((item, idx) => ({
           position: idx + 1,
           service_id: item.service_id,
@@ -1024,6 +1041,65 @@ export function DjQuoteDetailPage() {
           </div>
         </div>
 
+        {/* Kopftext + Du/Sie-Toggle — direkt nach Betreff, vor Notizen */}
+        <div style={{ marginBottom: '1.5rem', paddingBottom: '1.5rem', borderBottom: '1px solid rgba(148,170,255,0.1)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <label style={{ ...labelStyle, marginBottom: 0 }}>Kopftext</label>
+            {/* Du / Sie Toggle */}
+            <div style={{ display: 'flex', gap: '0.375rem' }}>
+              {(['du', 'sie'] as const).map(form => (
+                <button
+                  key={form}
+                  type="button"
+                  disabled={finalized}
+                  onClick={() => {
+                    if (finalized) return;
+                    const hasContent = headerText.trim() || footerText.trim();
+                    if (hasContent && form !== anredeForm) {
+                      if (window.confirm(`Anrede-Form auf "${form === 'du' ? 'Du' : 'Sie'}" wechseln und Standard-Texte laden? Eigene Änderungen werden überschrieben.`)) {
+                        setAnredeForm(form);
+                        void fetchDjDefaultTexts(form).then(({ header, footer }) => {
+                          setHeaderText(header);
+                          setFooterText(footer);
+                        }).catch(() => {});
+                      }
+                    } else {
+                      setAnredeForm(form);
+                      void fetchDjDefaultTexts(form).then(({ header, footer }) => {
+                        setHeaderText(header);
+                        setFooterText(footer);
+                      }).catch(() => {});
+                    }
+                  }}
+                  style={{
+                    padding: '0.3rem 0.875rem',
+                    background: anredeForm === form ? 'rgba(148,170,255,0.18)' : 'rgba(255,255,255,0.04)',
+                    border: anredeForm === form ? '1px solid rgba(148,170,255,0.5)' : '1px solid rgba(148,170,255,0.15)',
+                    borderRadius: '0.5rem',
+                    color: anredeForm === form ? '#94aaff' : 'var(--color-on-surface-variant)',
+                    fontFamily: 'var(--font-body)',
+                    fontSize: '0.8125rem',
+                    fontWeight: anredeForm === form ? 700 : 500,
+                    cursor: finalized ? 'not-allowed' : 'pointer',
+                    opacity: finalized ? 0.6 : 1,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {form === 'du' ? 'Du' : 'Sie'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <textarea
+            rows={5}
+            value={headerText}
+            onChange={e => setHeaderText(e.target.value)}
+            readOnly={finalized}
+            placeholder="Einleitungstext für das Angebot..."
+            style={{ ...inputStyle, resize: 'vertical' as const, opacity: finalized ? 0.7 : 1 }}
+          />
+        </div>
+
         {/* Sektion 2 — Notizen */}
         <div style={{ display: 'grid', gap: '1rem', marginBottom: '1.5rem' }}>
           <div>
@@ -1240,6 +1316,79 @@ export function DjQuoteDetailPage() {
             </div>
           )}
 
+          {/* Gesamtrabatt — Button oder Zeile */}
+          {!discountActive && !finalized && items.length > 0 && (
+            <div style={{ marginTop: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => { setDiscountValue(0); setDiscountType('%'); setDiscountDescription(''); }}
+                style={{ ...btnSecondary, fontSize: '0.8rem' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>percent</span>
+                Gesamtrabatt hinzufügen
+              </button>
+            </div>
+          )}
+
+          {discountActive && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 100px 80px 120px 40px',
+              gap: '0.5rem',
+              padding: '0.5rem 0.75rem',
+              borderTop: '1px solid rgba(148,170,255,0.2)',
+              alignItems: 'center',
+              marginTop: '0.5rem',
+              background: 'rgba(255,170,148,0.04)',
+            }}>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-on-surface)', minWidth: '3.5rem' }}>Rabatt</span>
+                <textarea
+                  rows={1}
+                  placeholder="Beschreibung (z.B. Treuerabatt)"
+                  value={discountDescription}
+                  onChange={e => setDiscountDescription(e.target.value)}
+                  readOnly={finalized}
+                  style={{ ...inputStyle, fontSize: '0.8rem', padding: '0.375rem 0.625rem', resize: 'vertical', minHeight: '2rem', opacity: finalized ? 0.7 : 1 }}
+                />
+              </div>
+              <input
+                type="number"
+                step={0.01}
+                min={0}
+                value={discountValue ?? 0}
+                onChange={e => setDiscountValue(Number(e.target.value))}
+                readOnly={finalized}
+                style={{ ...inputStyle, fontSize: '0.8rem', padding: '0.375rem 0.5rem', opacity: finalized ? 0.7 : 1 }}
+              />
+              <select
+                value={discountType}
+                onChange={e => setDiscountType(e.target.value as '%' | '€')}
+                disabled={finalized}
+                style={{ ...inputStyle, appearance: 'none' as const, fontSize: '0.8rem', padding: '0.375rem 0.5rem', opacity: finalized ? 0.7 : 1 }}
+              >
+                <option value="%">%</option>
+                <option value="€">€</option>
+              </select>
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.85rem', color: 'var(--color-error)', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                − {formatCurrency(discountAmount)}
+              </span>
+              <button
+                type="button"
+                onClick={() => { setDiscountValue(null); setDiscountType('%'); setDiscountDescription(''); }}
+                disabled={finalized}
+                title="Rabatt entfernen"
+                style={{
+                  background: 'none', border: 'none', cursor: finalized ? 'not-allowed' : 'pointer',
+                  color: 'var(--color-error)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '0.25rem', borderRadius: '0.375rem', opacity: finalized ? 0.4 : 1,
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>delete</span>
+              </button>
+            </div>
+          )}
+
           {/* Summen-Block */}
           {items.length > 0 && (
             <div style={{
@@ -1255,6 +1404,18 @@ export function DjQuoteDetailPage() {
                 <span>Netto:</span>
                 <span style={{ minWidth: '100px', textAlign: 'right' }}>{formatCurrency(subtotalNet)}</span>
               </div>
+              {discountActive && discountAmount > 0 && (
+                <>
+                  <div style={{ display: 'flex', gap: '2rem', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-error)' }}>
+                    <span>− Rabatt{discountDescription.trim() ? ` (${discountDescription.trim()})` : ''}:</span>
+                    <span style={{ minWidth: '100px', textAlign: 'right' }}>− {formatCurrency(discountAmount)}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '2rem', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface-variant)' }}>
+                    <span>Netto nach Rabatt:</span>
+                    <span style={{ minWidth: '100px', textAlign: 'right' }}>{formatCurrency(netAfterDiscount)}</span>
+                  </div>
+                </>
+              )}
               <div style={{ display: 'flex', gap: '2rem', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface-variant)' }}>
                 <span>MwSt:</span>
                 <span style={{ minWidth: '100px', textAlign: 'right' }}>{formatCurrency(taxTotal)}</span>
@@ -1277,81 +1438,18 @@ export function DjQuoteDetailPage() {
           )}
         </div>
 
-        {/* Sektion 4 — Kopf- & Fußtext */}
+        {/* Fußtext — nach Positionen + Rabatt + Summen */}
         <div style={{ marginTop: '1.75rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(148,170,255,0.1)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-            <h2 style={{ fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '1rem', color: 'var(--color-on-surface)', margin: 0 }}>
-              Kopf- &amp; Fußtext
-            </h2>
-            {/* Du / Sie Toggle */}
-            <div style={{ display: 'flex', gap: '0.375rem' }}>
-              {(['du', 'sie'] as const).map(form => (
-                <button
-                  key={form}
-                  type="button"
-                  disabled={finalized}
-                  onClick={() => {
-                    if (finalized) return;
-                    const hasContent = headerText.trim() || footerText.trim();
-                    if (hasContent && form !== anredeForm) {
-                      if (window.confirm(`Anrede-Form auf "${form === 'du' ? 'Du' : 'Sie'}" wechseln und Standard-Texte laden? Eigene Änderungen werden überschrieben.`)) {
-                        setAnredeForm(form);
-                        void fetchDjDefaultTexts(form).then(({ header, footer }) => {
-                          setHeaderText(header);
-                          setFooterText(footer);
-                        }).catch(() => {});
-                      }
-                    } else {
-                      setAnredeForm(form);
-                      void fetchDjDefaultTexts(form).then(({ header, footer }) => {
-                        setHeaderText(header);
-                        setFooterText(footer);
-                      }).catch(() => {});
-                    }
-                  }}
-                  style={{
-                    padding: '0.3rem 0.875rem',
-                    background: anredeForm === form ? 'rgba(148,170,255,0.18)' : 'rgba(255,255,255,0.04)',
-                    border: anredeForm === form ? '1px solid rgba(148,170,255,0.5)' : '1px solid rgba(148,170,255,0.15)',
-                    borderRadius: '0.5rem',
-                    color: anredeForm === form ? '#94aaff' : 'var(--color-on-surface-variant)',
-                    fontFamily: 'var(--font-body)',
-                    fontSize: '0.8125rem',
-                    fontWeight: anredeForm === form ? 700 : 500,
-                    cursor: finalized ? 'not-allowed' : 'pointer',
-                    opacity: finalized ? 0.6 : 1,
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {form === 'du' ? 'Du' : 'Sie'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gap: '1rem' }}>
-            <div>
-              <label style={labelStyle}>Kopftext</label>
-              <textarea
-                rows={5}
-                value={headerText}
-                onChange={e => setHeaderText(e.target.value)}
-                readOnly={finalized}
-                placeholder="Einleitungstext für das Angebot..."
-                style={{ ...inputStyle, resize: 'vertical' as const, opacity: finalized ? 0.7 : 1 }}
-              />
-            </div>
-            <div>
-              <label style={labelStyle}>Fußtext</label>
-              <textarea
-                rows={4}
-                value={footerText}
-                onChange={e => setFooterText(e.target.value)}
-                readOnly={finalized}
-                placeholder="Abschlusstext, Gültigkeitshinweis..."
-                style={{ ...inputStyle, resize: 'vertical' as const, opacity: finalized ? 0.7 : 1 }}
-              />
-            </div>
+          <div>
+            <label style={labelStyle}>Fußtext</label>
+            <textarea
+              rows={4}
+              value={footerText}
+              onChange={e => setFooterText(e.target.value)}
+              readOnly={finalized}
+              placeholder="Abschlusstext, Gültigkeitshinweis..."
+              style={{ ...inputStyle, resize: 'vertical' as const, opacity: finalized ? 0.7 : 1 }}
+            />
           </div>
           <p style={{
             fontFamily: 'var(--font-body)',
