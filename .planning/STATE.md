@@ -93,9 +93,10 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 | 260415-cu5 | DjEventsPage Tabelle Redesign: HTML-Tabelle 7 Spalten, Inline-Status-Picker, Suchfeld | 2026-04-15 | f390c35 | [260415-cu5-djeventspage-tabelle-redesignen-neue-spa](.planning/quick/260415-cu5-djeventspage-tabelle-redesignen-neue-spa/) |
 | 260415-d19 | StatusBadge LED-Glow-Dot + Kalender-Titel mit Kunde/Typ | 2026-04-15 | 71c0b82 | — |
 | 260415-d3w | Datum-Kollisions-Warnung in NeueAnfrageModal | 2026-04-15 | 4c6758d | — |
+| 260417-foa | 3 Fixes Angebot-Formular: Kundenanschrift mit Name, Beschreibung textarea, PDF-Preview Fehlerhandling | 2026-04-17 | 26b82db | [260417-foa-3-fixes-angebot-formular-kundenanschrift](.planning/quick/260417-foa-3-fixes-angebot-formular-kundenanschrift/) |
 
 ---
-*State initialized: 2026-04-07 | Last activity: 2026-04-14 - Completed quick task 260414-wgb: DJ Leistungen-Seite Redesign im Synthetic Conductor Stil*
+*State initialized: 2026-04-07 | Last activity: 2026-04-17 - Completed quick task 260417-foa: 3 Fixes Angebot-Formular*
 | 2026-04-10 | fast | TaskCard onClick → SlideOver fix (PointerSensor distance constraint) | ✅ |
 | 2026-04-10 | fast | TaskSlideOver Backdrop-Klick schließt Panel nicht mehr | ✅ |
 | 2026-04-10 | 260410-v3q | Status-Notiz beim Drag (DragPrompt + DB-Migration + KanbanBoard-Pause) | ✅ |
