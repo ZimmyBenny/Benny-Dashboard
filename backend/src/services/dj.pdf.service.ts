@@ -105,9 +105,28 @@ interface EventRow {
 
 // ── Footer-Renderer ───────────────────────────────────────────────────────────
 
-function renderFooter(doc: PDFKit.PDFDocument, company: CompanySettings) {
-  // Margin temporär auf 0 — Footer-Y (page.height - 71 ≈ 770) liegt sonst außerhalb
-  // der Content-Area (page.height - 120 = 721) → PDFKit würde Seiten hinzufügen
+function renderFooter(doc: PDFKit.PDFDocument) {
+  // 1. Setting laden (DB-Wert ist JSON-String)
+  const footerRow = db.prepare("SELECT value FROM dj_settings WHERE key = 'footer'").get() as { value: string } | undefined;
+  if (!footerRow?.value) return;
+
+  let footer: { col1: string; col2: string; col3: string; col4: string };
+  try {
+    const parsed = JSON.parse(footerRow.value) as Partial<{ col1: string; col2: string; col3: string; col4: string }>;
+    footer = {
+      col1: typeof parsed.col1 === 'string' ? parsed.col1 : '',
+      col2: typeof parsed.col2 === 'string' ? parsed.col2 : '',
+      col3: typeof parsed.col3 === 'string' ? parsed.col3 : '',
+      col4: typeof parsed.col4 === 'string' ? parsed.col4 : '',
+    };
+  } catch {
+    return; // malformed JSON → kein Footer
+  }
+
+  const cols = [footer.col1, footer.col2, footer.col3, footer.col4];
+  if (cols.every(c => !c.trim())) return; // alle 4 leer → kein Footer
+
+  // 2. Margin temporär auf 0 (wie zuvor) — Footer-Y liegt außerhalb Content-Area
   const savedBottom = doc.page.margins.bottom;
   doc.page.margins.bottom = 0;
 
@@ -117,9 +136,8 @@ function renderFooter(doc: PDFKit.PDFDocument, company: CompanySettings) {
   const usableWidth = pageWidth - mL - mR;
   const footerY = doc.page.height - 71;
   const lineH = 13;
-  const textY = footerY + 8;
 
-  // 1pt graue Trennlinie
+  // 3. 1pt graue Trennlinie (unverändert)
   doc.save()
     .moveTo(mL, footerY)
     .lineTo(pageWidth - mR, footerY)
@@ -128,51 +146,19 @@ function renderFooter(doc: PDFKit.PDFDocument, company: CompanySettings) {
     .stroke()
     .restore();
 
-  const colW1 = usableWidth * 0.24;
-  const colW2 = usableWidth * 0.24;
-  const colW3 = usableWidth * 0.22;
-  const colW4 = usableWidth * 0.30;
+  // 4. 4 Spalten rendern, Zeile für Zeile aus \n-getrennten Strings
+  const colWidths = [usableWidth * 0.24, usableWidth * 0.24, usableWidth * 0.22, usableWidth * 0.30];
   doc.save().font('Helvetica').fontSize(8).fillColor('#666666');
 
-  // Kürzt Text auf maxWidth px — zuverlässiger als PDFKit ellipsis bei absoluten Coords
-  const clip = (text: string, maxW: number): string => {
-    if (doc.widthOfString(text) <= maxW) return text;
-    let t = text;
-    while (t.length > 0 && doc.widthOfString(t + '\u2026') > maxW) t = t.slice(0, -1);
-    return t + '\u2026';
-  };
-  const o = (w: number) => ({ width: w, lineBreak: false } as const);
-
-  // Spalte 1: Firma + Adresse
-  const c1 = mL;
-  doc.text(clip(company.name, colW1 - 4), c1, textY, o(colW1 - 4));
-  doc.text(clip(company.address, colW1 - 4), c1, textY + lineH, o(colW1 - 4));
-  doc.text(clip(`${company.zip} ${company.city}`, colW1 - 4), c1, textY + lineH * 2, o(colW1 - 4));
-  if (company.country) {
-    doc.text(clip(company.country, colW1 - 4), c1, textY + lineH * 3, o(colW1 - 4));
+  let colX = mL;
+  for (let i = 0; i < 4; i++) {
+    const lines = cols[i].split('\n').filter(l => l.trim());
+    const w = colWidths[i] - (i < 3 ? 4 : 0); // 4pt Gutter zwischen Spalten, Spalte 4 nutzt volle Breite
+    lines.forEach((line, idx) => {
+      doc.text(line, colX, footerY + 8 + idx * lineH, { width: w, lineBreak: false });
+    });
+    colX += colWidths[i];
   }
-
-  // Spalte 2: Kontakt
-  const c2 = mL + colW1;
-  doc.text(clip(`Tel. ${company.phone}`, colW2 - 4), c2, textY, o(colW2 - 4));
-  doc.text(clip(`E-Mail ${company.email}`, colW2 - 4), c2, textY + lineH, o(colW2 - 4));
-  if (company.website) {
-    doc.text(clip(`Web ${company.website}`, colW2 - 4), c2, textY + lineH * 2, o(colW2 - 4));
-  }
-
-  // Spalte 3: Steuer + Inhaber
-  const c3 = mL + colW1 + colW2;
-  doc.text(clip(`Steuer-Nr. ${company.tax_number}`, colW3 - 4), c3, textY, o(colW3 - 4));
-  if (company.vat_id) {
-    doc.text(clip(`USt-IdNr. ${company.vat_id}`, colW3 - 4), c3, textY + lineH, o(colW3 - 4));
-  }
-  doc.text(clip(`Inhaber/-in ${company.bank.holder}`, colW3 - 4), c3, textY + lineH * (company.vat_id ? 2 : 1), o(colW3 - 4));
-
-  // Spalte 4: Bank
-  const c4 = mL + colW1 + colW2 + colW3;
-  doc.text(clip(company.bank.name, colW4), c4, textY, o(colW4));
-  doc.text(clip(`IBAN ${company.bank.iban}`, colW4), c4, textY + lineH, o(colW4));
-  doc.text(clip(`BIC ${company.bank.bic}`, colW4), c4, textY + lineH * 2, o(colW4));
 
   doc.restore();
   doc.page.margins.bottom = savedBottom;
@@ -535,7 +521,7 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
     const { count } = doc.bufferedPageRange();
     for (let i = 0; i < count; i++) {
       doc.switchToPage(i);
-      renderFooter(doc, company);
+      renderFooter(doc);
     }
 
     doc.flushPages();
