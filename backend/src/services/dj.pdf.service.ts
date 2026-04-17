@@ -253,6 +253,25 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
       .strokeColor('#999999')
       .stroke();
 
+    // --- Logo oben rechts ---
+    const logoRow = db.prepare("SELECT value FROM dj_settings WHERE key = 'logo_path'").get() as { value: string } | undefined;
+    if (logoRow?.value) {
+      const absLogoPath = path.join(process.cwd(), logoRow.value);
+      if (fs.existsSync(absLogoPath)) {
+        const logoExt = path.extname(absLogoPath).toLowerCase();
+        if (logoExt !== '.svg') {
+          try {
+            doc.image(absLogoPath, pageWidth - marginRight - 120, 71, { fit: [120, 60], align: 'right' });
+          } catch {
+            // Graceful skip — Logo nicht renderbar
+          }
+        }
+        // SVG wird von pdfkit nicht unterstützt — silent skip
+      }
+    }
+    // Logo-Rendering bewegt den doc.y-Cursor nicht für nachfolgende Blöcke,
+    // da Empfänger und Meta-Block absolute Y-Koordinaten verwenden.
+
     // --- Empfänger-Block (links) & Meta-Block (rechts) ---
     const recipientStartY = senderBottom + 20;
     const metaX = marginLeft + usableWidth * 0.55;
@@ -323,7 +342,14 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
     // --- Kopftext ---
     let currentY = doc.y + 10;
     if (quote.header_text) {
+      const kontaktperson = [contact?.salutation, contact?.first_name, contact?.last_name].filter(Boolean).join(' ');
       const placeholderVars: Record<string, string> = {
+        // Neue Großbuchstaben-Keys
+        KONTAKTPERSON: kontaktperson,
+        DATUM: formatDateDE(quote.quote_date),
+        ANGEBOTSNUMMER: quote.number ?? 'Entwurf',
+        KUNDENNUMMER: contact?.customer_number ?? '',
+        // Abwärtskompatible Keys
         vorname: contact?.first_name ?? '',
         nachname: contact?.last_name ?? '',
         anrede: contact?.salutation ?? '',
@@ -480,7 +506,14 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
 
     // --- Fußtext ---
     let footerTextY = doc.y + 20;
+    const kontaktpersonFt = [contact?.salutation, contact?.first_name, contact?.last_name].filter(Boolean).join(' ');
     const placeholderVarsFt: Record<string, string> = {
+      // Neue Großbuchstaben-Keys
+      KONTAKTPERSON: kontaktpersonFt,
+      DATUM: formatDateDE(quote.quote_date),
+      ANGEBOTSNUMMER: quote.number ?? 'Entwurf',
+      KUNDENNUMMER: contact?.customer_number ?? '',
+      // Abwärtskompatible Keys
       gueltig_bis: formatDateDE(quote.valid_until),
       valid_until: formatDateDE(quote.valid_until),
     };
