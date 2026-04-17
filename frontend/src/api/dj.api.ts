@@ -112,6 +112,9 @@ export interface DjQuote {
   header_text?: string | null;
   footer_text?: string | null;
   anrede_form?: 'du' | 'sie' | null;
+  discount_value?: number | null;
+  discount_type?: '%' | '€' | null;
+  discount_description?: string | null;
   // joined
   customer_name?: string;
   customer_org?: string;
