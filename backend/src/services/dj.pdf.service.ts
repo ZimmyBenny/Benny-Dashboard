@@ -116,7 +116,7 @@ function renderFooter(doc: PDFKit.PDFDocument, company: CompanySettings) {
   const mR = 57;
   const usableWidth = pageWidth - mL - mR;
   const footerY = doc.page.height - 71;
-  const lineH = 10;
+  const lineH = 13;
   const textY = footerY + 8;
 
   // 1pt graue Trennlinie
@@ -207,8 +207,13 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
   const settingsRow = db.prepare(
     "SELECT value FROM dj_settings WHERE key = 'company'"
   ).get() as { value: string } | undefined;
-  const company: CompanySettings = settingsRow
-    ? (JSON.parse(settingsRow.value) as CompanySettings)
+  const rawCompany = settingsRow ? (JSON.parse(settingsRow.value) as Record<string, unknown>) : null;
+  const company: CompanySettings = rawCompany
+    ? ({
+        ...rawCompany,
+        address: String(rawCompany.address ?? (rawCompany as Record<string, unknown>).street ?? ''),
+        bank: rawCompany.bank ?? { name: String(rawCompany.bank_name ?? ''), iban: String(rawCompany.iban ?? ''), bic: String(rawCompany.bic ?? ''), holder: '' },
+      } as CompanySettings)
     : {
         name: 'Benjamin Zimmermann',
         company: 'Dein Event DJ | Benjamin Zimmermann',
