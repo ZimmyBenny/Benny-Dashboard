@@ -265,7 +265,7 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
       .strokeColor('#999999')
       .stroke();
 
-    // --- Logo oben rechts ---
+    // --- Logo oben rechts (über Absenderzeile, absolut positioniert) ---
     const logoRow = db.prepare("SELECT value FROM dj_settings WHERE key = 'logo_path'").get() as { value: string } | undefined;
     if (logoRow?.value) {
       const absLogoPath = path.join(process.cwd(), logoRow.value);
@@ -273,16 +273,11 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
         const logoExt = path.extname(absLogoPath).toLowerCase();
         if (logoExt !== '.svg') {
           try {
-            doc.image(absLogoPath, pageWidth - marginRight - 120, 71, { fit: [120, 60], align: 'right' });
-          } catch {
-            // Graceful skip — Logo nicht renderbar
-          }
+            doc.image(absLogoPath, pageWidth - marginRight - 110, 10, { fit: [110, 50], align: 'right' });
+          } catch { /* Graceful skip */ }
         }
-        // SVG wird von pdfkit nicht unterstützt — silent skip
       }
     }
-    // Logo-Rendering bewegt den doc.y-Cursor nicht für nachfolgende Blöcke,
-    // da Empfänger und Meta-Block absolute Y-Koordinaten verwenden.
 
     // --- Empfänger-Block (links) & Meta-Block (rechts) ---
     const recipientStartY = senderBottom + 20;
@@ -563,12 +558,6 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
 
     doc.font('Helvetica').fontSize(10).fillColor('#000000')
       .text(footerContent, marginLeft, footerTextY, { width: usableWidth, lineGap: 4 });
-
-    // Grußformel
-    footerTextY = doc.y + 16;
-    doc.text('Mit freundlichen Gr\u00fc\u00dfen', marginLeft, footerTextY, { width: usableWidth });
-    doc.text('', marginLeft, doc.y + 4);
-    doc.text(company.name, marginLeft, doc.y, { width: usableWidth });
 
     // Footer auf der ersten Seite rendern
     renderFooter(doc, company);
