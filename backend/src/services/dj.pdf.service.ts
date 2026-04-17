@@ -106,6 +106,11 @@ interface EventRow {
 // ── Footer-Renderer ───────────────────────────────────────────────────────────
 
 function renderFooter(doc: PDFKit.PDFDocument, company: CompanySettings) {
+  // Margin temporär auf 0 — Footer-Y (page.height - 71 ≈ 770) liegt sonst außerhalb
+  // der Content-Area (page.height - 120 = 721) → PDFKit würde Seiten hinzufügen
+  const savedBottom = doc.page.margins.bottom;
+  doc.page.margins.bottom = 0;
+
   const pageWidth = doc.page.width;
   const mL = 71;
   const mR = 57;
@@ -159,6 +164,7 @@ function renderFooter(doc: PDFKit.PDFDocument, company: CompanySettings) {
   doc.text(`BIC ${company.bank.bic}`, c4, textY + lineH * 3, { width: colW, lineBreak: false });
 
   doc.restore();
+  doc.page.margins.bottom = savedBottom;
 }
 
 // ── Hauptfunktion ─────────────────────────────────────────────────────────────
@@ -234,46 +240,33 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    // Footer auf jeder neuen Seite — Guard verhindert rekursiven pageAdded-Aufruf → Stack Overflow
-    let isRenderingFooter = false;
-    doc.on('pageAdded', () => {
-      if (isRenderingFooter) return;
-      isRenderingFooter = true;
-      try {
-        renderFooter(doc, company);
-      } finally {
-        isRenderingFooter = false;
-      }
-    });
-
     const marginLeft = 71;
     const marginRight = 57;
     const pageWidth = doc.page.width;
     const usableWidth = pageWidth - marginLeft - marginRight;
-
-    // --- Absenderzeile ---
-    const senderText = `${company.name} \u00B7 ${company.address} \u00B7 ${company.zip} ${company.city}`;
-    doc.font('Helvetica').fontSize(8).fillColor('#666666')
-      .text(senderText, marginLeft, 71, { width: usableWidth });
-    const senderBottom = doc.y + 2;
-    doc.moveTo(marginLeft, senderBottom)
-      .lineTo(pageWidth - marginRight, senderBottom)
-      .lineWidth(0.5)
-      .strokeColor('#999999')
-      .stroke();
-
-    // --- Logo (oben rechts) ---
+    // --- Logo (oben rechts, über der Absenderzeile) ---
     const logoRow = db.prepare("SELECT value FROM dj_settings WHERE key = 'logo_path'").get() as { value: string } | undefined;
     if (logoRow?.value) {
       const absLogoPath = path.join(process.cwd(), logoRow.value);
       if (fs.existsSync(absLogoPath) && path.extname(absLogoPath).toLowerCase() !== '.svg') {
         try {
-          doc.image(absLogoPath, pageWidth - marginRight - 120, 71, { fit: [120, 60], align: 'right' });
+          doc.image(absLogoPath, pageWidth - marginRight - 120, 10, { fit: [120, 55], align: 'right' });
         } catch {
           // Logo nicht renderbar — graceful skip
         }
       }
     }
+
+    // --- Absenderzeile ---
+    const senderText = `${company.name} \u00B7 ${company.address} \u00B7 ${company.zip} ${company.city}`;
+    doc.font('Helvetica').fontSize(8).fillColor('#666666')
+      .text(senderText, marginLeft, 71, { width: usableWidth * 0.58, lineBreak: false });
+    const senderBottom = 85;
+    doc.moveTo(marginLeft, senderBottom)
+      .lineTo(pageWidth - marginRight, senderBottom)
+      .lineWidth(0.5)
+      .strokeColor('#999999')
+      .stroke();
 
     // --- Empfänger-Block (links) & Meta-Block (rechts) ---
     const recipientStartY = senderBottom + 20;
@@ -505,22 +498,37 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
       valid_until: formatDateDE(quote.valid_until),
     };
 
-    const footerContent = quote.footer_text
-      ? replacePlaceholders(quote.footer_text, placeholderVarsFt)
-      : `Dieses Angebot ist freibleibend und g\u00fcltig bis ${formatDateDE(quote.valid_until)}.`;
+    // quote.footer_text: null → Settings-Default, '' → kein Fußtext, sonst → eigener Text
+    let footerContent: string;
+    if (quote.footer_text === null || quote.footer_text === undefined) {
+      const defaultFooterRow = db.prepare("SELECT value FROM dj_settings WHERE key = 'default_footer_text'").get() as { value: string } | undefined;
+      footerContent = replacePlaceholders(
+        defaultFooterRow?.value ?? `Dieses Angebot ist freibleibend und g\u00fcltig bis ${formatDateDE(quote.valid_until)}.`,
+        placeholderVarsFt
+      );
+    } else {
+      footerContent = replacePlaceholders(quote.footer_text, placeholderVarsFt);
+    }
 
-    doc.font('Helvetica').fontSize(10).fillColor('#000000')
-      .text(footerContent, marginLeft, footerTextY, { width: usableWidth, lineGap: 4 });
+    if (footerContent) {
+      doc.font('Helvetica').fontSize(10).fillColor('#000000')
+        .text(footerContent, marginLeft, footerTextY, { width: usableWidth, lineGap: 4 });
+      footerTextY = doc.y + 16;
+    }
 
     // Grußformel
-    footerTextY = doc.y + 16;
-    doc.text('Mit freundlichen Gr\u00fc\u00dfen', marginLeft, footerTextY, { width: usableWidth });
-    doc.text('', marginLeft, doc.y + 4);
-    doc.text(company.name, marginLeft, doc.y, { width: usableWidth });
+    doc.font('Helvetica').fontSize(10).fillColor('#000000')
+      .text('Mit freundlichen Gr\u00fc\u00dfen', marginLeft, footerTextY, { width: usableWidth });
+    doc.text(company.name, marginLeft, doc.y + 16, { width: usableWidth });
 
-    // Footer auf der ersten Seite rendern
-    renderFooter(doc, company);
+    // Footer rückwirkend auf alle gebufferten Seiten setzen (kein pageAdded-Handler nötig)
+    const { count } = doc.bufferedPageRange();
+    for (let i = 0; i < count; i++) {
+      doc.switchToPage(i);
+      renderFooter(doc, company);
+    }
 
+    doc.flushPages();
     doc.end();
   });
 }
