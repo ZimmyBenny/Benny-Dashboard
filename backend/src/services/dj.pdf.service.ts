@@ -105,7 +105,7 @@ interface EventRow {
 
 // ── Footer-Renderer ───────────────────────────────────────────────────────────
 
-function renderFooter(doc: PDFKit.PDFDocument) {
+function renderFooter(doc: PDFKit.PDFDocument, pageNum: number, totalPages: number) {
   // 1. Setting laden (DB-Wert ist JSON-String)
   const footerRow = db.prepare("SELECT value FROM dj_settings WHERE key = 'footer'").get() as { value: string } | undefined;
   if (!footerRow?.value) return;
@@ -167,6 +167,10 @@ function renderFooter(doc: PDFKit.PDFDocument) {
     });
     colX += colWidths[i];
   }
+
+  // Seitenzahl rechts über der Footer-Linie
+  const pageLabel = `${pageNum}/${totalPages}`;
+  doc.text(pageLabel, mL, footerY - 14, { width: usableWidth, align: 'right', lineBreak: false });
 
   doc.restore();
   doc.page.margins.bottom = savedBottom;
@@ -529,7 +533,7 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
     const { count } = doc.bufferedPageRange();
     for (let i = 0; i < count; i++) {
       doc.switchToPage(i);
-      renderFooter(doc);
+      renderFooter(doc, i + 1, count);
     }
 
     doc.flushPages();
