@@ -234,9 +234,16 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    // Footer auf jeder neuen Seite
+    // Footer auf jeder neuen Seite — Guard verhindert rekursiven pageAdded-Aufruf → Stack Overflow
+    let isRenderingFooter = false;
     doc.on('pageAdded', () => {
-      renderFooter(doc, company);
+      if (isRenderingFooter) return;
+      isRenderingFooter = true;
+      try {
+        renderFooter(doc, company);
+      } finally {
+        isRenderingFooter = false;
+      }
     });
 
     const marginLeft = 71;
