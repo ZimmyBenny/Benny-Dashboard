@@ -135,7 +135,6 @@ function renderFooter(doc: PDFKit.PDFDocument, pageNum: number, totalPages: numb
   const mR = 57;
   const usableWidth = pageWidth - mL - mR;
   const footerY = doc.page.height - 71;
-  const lineH = 13;
 
   // 3. 1pt graue Trennlinie (unverändert)
   doc.save()
