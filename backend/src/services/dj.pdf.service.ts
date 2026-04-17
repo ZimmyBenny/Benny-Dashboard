@@ -146,25 +146,17 @@ function renderFooter(doc: PDFKit.PDFDocument, pageNum: number, totalPages: numb
     .stroke()
     .restore();
 
-  // 4. 4 Spalten rendern, Zeile für Zeile aus \n-getrennten Strings
+  // 4. 4 Spalten rendern — langer Text umbricht innerhalb der Spalte (kein Abschneiden)
   const colWidths = [usableWidth * 0.24, usableWidth * 0.24, usableWidth * 0.22, usableWidth * 0.30];
   doc.save().font('Helvetica').fontSize(8).fillColor('#666666');
 
-  // Kürzt Text auf maxWidth — PDFKit clippt bei lineBreak:false nicht automatisch
-  const clip = (text: string, maxW: number): string => {
-    if (doc.widthOfString(text) <= maxW) return text;
-    let t = text;
-    while (t.length > 0 && doc.widthOfString(t + '\u2026') > maxW) t = t.slice(0, -1);
-    return t + '\u2026';
-  };
-
   let colX = mL;
   for (let i = 0; i < 4; i++) {
-    const lines = cols[i].split('\n').filter(l => l.trim());
-    const w = colWidths[i] - (i < 3 ? 4 : 0);
-    lines.forEach((line, idx) => {
-      doc.text(clip(line, w), colX, footerY + 8 + idx * lineH, { width: w, lineBreak: false });
-    });
+    const text = cols[i].trim();
+    if (text) {
+      const w = colWidths[i] - (i < 3 ? 4 : 0);
+      doc.text(text, colX, footerY + 8, { width: w, lineGap: 1 });
+    }
     colX += colWidths[i];
   }
 
