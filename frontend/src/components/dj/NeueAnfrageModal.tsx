@@ -3,10 +3,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useDraggableModal } from '../../hooks/useDraggableModal';
 import {
-  createDjEvent, fetchDjCustomers, fetchDjEvent, fetchDjEvents, updateDjEvent,
+  createDjEvent, fetchDjCustomers, fetchDjEvent, fetchDjEvents, updateDjEvent, createDjTrip,
   type DjCustomer, type DjEvent, type EventType, type EventStatus, type StatusHistoryEntry,
 } from '../../api/dj.api';
 import { createContact, type ContactDetail } from '../../api/contacts.api';
+import { createTask } from '../../api/tasks.api';
 import { EVENT_TYPE_LABELS } from './StatusBadge';
 import { formatDate } from '../../lib/format';
 import apiClient from '../../api/client';
@@ -382,6 +383,26 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
   const [statusHistory, setStatusHistory] = useState<StatusHistoryEntry[]>([]);
   const [loadingEvent, setLoadingEvent] = useState(false);
 
+  // Vorgespräch-Felder (nur Edit-Modus)
+  const [vorgStatus, setVorgStatus] = useState<'offen' | 'erledigt' | null>(null);
+  const [vorgDatum, setVorgDatum] = useState('');
+  const [vorgPlz, setVorgPlz] = useState('');
+  const [vorgOrt, setVorgOrt] = useState('');
+  const [vorgNotizen, setVorgNotizen] = useState('');
+
+  // Fahrten-Dialog
+  const [showFahrtenDialog, setShowFahrtenDialog] = useState(false);
+  const [fahrtenStart, setFahrtenStart] = useState('');
+  const [fahrtenKm, setFahrtenKm] = useState('');
+  const [fahrtenSaving, setFahrtenSaving] = useState(false);
+  const [fahrtenError, setFahrtenError] = useState<string | null>(null);
+
+  // Aufgaben-Erstellen
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskDue, setNewTaskDue] = useState('');
+  const [taskSaving, setTaskSaving] = useState(false);
+  const [taskCreatedCount, setTaskCreatedCount] = useState(0);
+
   // Kunden-Picker
   const [customers, setCustomers] = useState<DjCustomer[]>([]);
   const [customerSearch, setCustomerSearch] = useState('');
@@ -437,6 +458,11 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
       setGuests(data.guests != null ? String(data.guests) : '');
       setStatus(data.status);
       setStatusHistory(data.statusHistory ?? []);
+      setVorgStatus(data.vorgespraech_status ?? null);
+      setVorgDatum(data.vorgespraech_datum ?? '');
+      setVorgPlz(data.vorgespraech_plz ?? '');
+      setVorgOrt(data.vorgespraech_ort ?? '');
+      setVorgNotizen(data.vorgespraech_notizen ?? '');
     }).catch(() => {}).finally(() => setLoadingEvent(false));
   }, [eventId]);
 
@@ -495,7 +521,14 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
       };
 
       if (isEdit) {
-        await updateDjEvent(eventId!, { ...payload, status });
+        await updateDjEvent(eventId!, {
+          ...payload,
+          status,
+          vorgespraech_datum: vorgDatum || null,
+          vorgespraech_plz: vorgPlz || null,
+          vorgespraech_ort: vorgOrt || null,
+          vorgespraech_notizen: vorgNotizen || null,
+        } as Parameters<typeof updateDjEvent>[1]);
         await queryClient.invalidateQueries({ queryKey: ['dj-events'] });
         onUpdated?.();
       } else {
@@ -1064,6 +1097,172 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
             </button>
           </div>
 
+          {/* Vorgespräch-Sektion (nur Edit-Modus, wenn Status gesetzt) */}
+          {isEdit && vorgStatus && (
+            <div style={{ borderTop: '1px solid rgba(148,170,255,0.1)', marginTop: '1.5rem', paddingTop: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '1.25rem', color: '#ffc457' }}>forum</span>
+                <h3 style={{ fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '1rem', color: 'var(--color-on-surface)', margin: 0 }}>
+                  Vorgespräch
+                </h3>
+                <span style={{
+                  marginLeft: '0.25rem',
+                  background: vorgStatus === 'offen' ? 'rgba(255,196,87,0.15)' : 'rgba(92,253,128,0.12)',
+                  border: vorgStatus === 'offen' ? '1px solid rgba(255,196,87,0.4)' : '1px solid rgba(92,253,128,0.3)',
+                  borderRadius: '999px', padding: '0.15rem 0.6rem',
+                  fontSize: '0.72rem', fontWeight: 600,
+                  color: vorgStatus === 'offen' ? '#ffc457' : '#5cfd80',
+                  fontFamily: 'var(--font-body)',
+                }}>
+                  {vorgStatus === 'offen' ? 'Offen' : 'Erledigt'}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+                {/* Datum (read-only) */}
+                {vorgDatum && (
+                  <div>
+                    <label style={labelStyle}>Datum</label>
+                    <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface)', padding: '0.5rem 0.875rem', background: 'rgba(255,255,255,0.03)', borderRadius: '0.5rem', border: '1px solid rgba(148,170,255,0.1)' }}>
+                      {new Date(vorgDatum + 'T00:00:00').toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    </div>
+                  </div>
+                )}
+
+                {/* PLZ + Ort */}
+                <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: '0.75rem' }}>
+                  <div>
+                    <label style={labelStyle}>PLZ</label>
+                    <input type="text" value={vorgPlz} onChange={e => setVorgPlz(e.target.value)} placeholder="12345" maxLength={10} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Ort</label>
+                    <input type="text" value={vorgOrt} onChange={e => setVorgOrt(e.target.value)} placeholder="z.B. Café Muster, Videocall, …" style={inputStyle} />
+                  </div>
+                </div>
+
+                {/* Notizen / Ergebnis */}
+                <div>
+                  <label style={labelStyle}>Notizen / Ergebnis</label>
+                  <textarea value={vorgNotizen} onChange={e => setVorgNotizen(e.target.value)} rows={3} placeholder="Themen, Ergebnis, nächste Schritte…" style={{ ...inputStyle, resize: 'vertical' }} />
+                </div>
+
+                {/* Fahrten-Button */}
+                {(vorgDatum || vorgPlz || vorgOrt) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFahrtenStart('');
+                      setFahrtenKm('');
+                      setShowFahrtenDialog(true);
+                    }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '0.5rem',
+                      background: 'rgba(255,196,87,0.08)', border: '1px solid rgba(255,196,87,0.3)',
+                      borderRadius: '0.5rem', padding: '0.5rem 0.875rem',
+                      color: '#ffc457', fontFamily: 'var(--font-body)', fontSize: '0.8rem',
+                      fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start',
+                    }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>directions_car</span>
+                    In Fahrten übernehmen
+                  </button>
+                )}
+              </div>
+
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', marginTop: '0.75rem', marginBottom: 0 }}>
+                Wird beim Speichern übernommen. Status ändern über das Vorgespräch-Menü in der Events-Liste.
+              </p>
+            </div>
+          )}
+
+          {/* Aufgaben (nur Edit-Modus) */}
+          {isEdit && (
+            <div style={{ borderTop: '1px solid rgba(148,170,255,0.1)', marginTop: '1.5rem', paddingTop: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '1.25rem', color: 'var(--color-primary)' }}>task_alt</span>
+                <h3 style={{ fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '1rem', color: 'var(--color-on-surface)', margin: 0 }}>
+                  Aufgabe erstellen
+                </h3>
+                {taskCreatedCount > 0 && (
+                  <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--color-secondary)' }}>
+                    ✓ {taskCreatedCount} erstellt
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Aufgabe</label>
+                  <input
+                    type="text"
+                    value={newTaskTitle}
+                    onChange={e => setNewTaskTitle(e.target.value)}
+                    placeholder="z.B. Angebot schreiben, Vertrag senden…"
+                    onKeyDown={async e => {
+                      if (e.key === 'Enter' && newTaskTitle.trim()) {
+                        e.preventDefault();
+                        setTaskSaving(true);
+                        try {
+                          await createTask({
+                            title: newTaskTitle.trim(),
+                            area: 'dj',
+                            contact_id: customerId ?? null,
+                            project_or_customer: title.trim() || undefined,
+                            due_date: newTaskDue || null,
+                            status: 'open',
+                            priority: 'medium',
+                          });
+                          setNewTaskTitle('');
+                          setNewTaskDue('');
+                          setTaskCreatedCount(n => n + 1);
+                        } catch { /* ignore */ }
+                        finally { setTaskSaving(false); }
+                      }
+                    }}
+                    style={inputStyle}
+                  />
+                </div>
+                <div style={{ width: '140px' }}>
+                  <label style={labelStyle}>Fällig am</label>
+                  <input type="date" value={newTaskDue} onChange={e => setNewTaskDue(e.target.value)} style={{ ...inputStyle, colorScheme: 'dark' }} />
+                </div>
+                <button
+                  type="button"
+                  disabled={!newTaskTitle.trim() || taskSaving}
+                  onClick={async () => {
+                    if (!newTaskTitle.trim()) return;
+                    setTaskSaving(true);
+                    try {
+                      await createTask({
+                        title: newTaskTitle.trim(),
+                        area: 'dj',
+                        contact_id: customerId ?? null,
+                        project_or_customer: title.trim() || undefined,
+                        due_date: newTaskDue || null,
+                        status: 'open',
+                        priority: 'medium',
+                      });
+                      setNewTaskTitle('');
+                      setNewTaskDue('');
+                      setTaskCreatedCount(n => n + 1);
+                    } catch { /* ignore */ }
+                    finally { setTaskSaving(false); }
+                  }}
+                  style={{
+                    background: 'rgba(148,170,255,0.15)', border: '1px solid rgba(148,170,255,0.3)',
+                    borderRadius: '0.5rem', padding: '0.5rem 0.875rem',
+                    color: 'var(--color-primary)', fontFamily: 'var(--font-body)',
+                    fontSize: '0.875rem', fontWeight: 600, cursor: newTaskTitle.trim() ? 'pointer' : 'not-allowed',
+                    opacity: newTaskTitle.trim() ? 1 : 0.4, whiteSpace: 'nowrap',
+                    marginBottom: '1px',
+                  }}
+                >
+                  {taskSaving ? '…' : '+ Hinzufügen'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Status-Verlauf (nur Edit-Modus) */}
           {isEdit && statusHistory.length > 0 && (
             <div style={{ borderTop: '1px solid rgba(148,170,255,0.1)', marginTop: '1.5rem', paddingTop: '1.25rem' }}>
@@ -1124,6 +1323,101 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
           </>)}
         </div>
       </div>
+
+      {/* Fahrten-Dialog */}
+      {showFahrtenDialog && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 10100,
+          background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+        }} onClick={e => { if (e.target === e.currentTarget) setShowFahrtenDialog(false); }}>
+          <div style={{
+            background: '#0d1526', border: '1px solid rgba(255,196,87,0.2)',
+            borderRadius: '1rem', padding: '2rem', width: '100%', maxWidth: '440px',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.8)',
+          }}>
+            <h2 style={{ fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '1.15rem', color: 'var(--color-on-surface)', margin: 0, marginBottom: '1.25rem' }}>
+              Fahrt eintragen
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+              <div>
+                <label style={labelStyle}>Startort</label>
+                <input type="text" value={fahrtenStart} onChange={e => setFahrtenStart(e.target.value)} placeholder="z.B. 12345 Heimatort" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Ziel</label>
+                <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface)', padding: '0.5rem 0.875rem', background: 'rgba(255,255,255,0.03)', borderRadius: '0.5rem', border: '1px solid rgba(148,170,255,0.1)' }}>
+                  {[vorgPlz, vorgOrt].filter(Boolean).join(' ') || '—'}
+                </div>
+              </div>
+              <div>
+                <label style={labelStyle}>Datum</label>
+                <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface)', padding: '0.5rem 0.875rem', background: 'rgba(255,255,255,0.03)', borderRadius: '0.5rem', border: '1px solid rgba(148,170,255,0.1)' }}>
+                  {vorgDatum ? new Date(vorgDatum + 'T00:00:00').toLocaleDateString('de-DE') : new Date().toLocaleDateString('de-DE')}
+                </div>
+              </div>
+              <div>
+                <label style={labelStyle}>Kilometer (einfache Strecke)</label>
+                <input type="number" min="1" step="1" value={fahrtenKm} onChange={e => setFahrtenKm(e.target.value)} placeholder="z.B. 35" style={inputStyle} />
+                {fahrtenKm && Number(fahrtenKm) > 0 && (
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.78rem', color: 'var(--color-secondary)', marginTop: '0.375rem', marginBottom: 0 }}>
+                    → {(Math.round(Number(fahrtenKm)) * 0.30).toFixed(2)} € Fahrtkosten (0,30 €/km)
+                  </p>
+                )}
+              </div>
+            </div>
+            {fahrtenError && (
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: '#ff6b6b', marginTop: '0.75rem', marginBottom: 0 }}>
+                Fehler: {fahrtenError}
+              </p>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
+              <button type="button" onClick={() => setShowFahrtenDialog(false)} style={{ background: 'transparent', border: '1px solid rgba(148,170,255,0.2)', borderRadius: '0.5rem', padding: '0.625rem 1.25rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.875rem', cursor: 'pointer' }}>
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                disabled={!fahrtenKm || Number(fahrtenKm) <= 0 || fahrtenSaving}
+                onClick={async () => {
+                  const km = Math.round(Number(fahrtenKm));
+                  if (!km || km <= 0) return;
+                  setFahrtenSaving(true);
+                  setFahrtenError(null);
+                  try {
+                    const ziel = [vorgPlz, vorgOrt].filter(Boolean).join(' ') || 'Vorgespräch';
+                    const eventName = title.trim() || (selectedCustomer ? [selectedCustomer.first_name, selectedCustomer.last_name].filter(Boolean).join(' ') || selectedCustomer.organization_name : '') || 'Event';
+                    const dateStr = vorgDatum || new Date().toISOString().slice(0, 10);
+                    const rate = 0.30;
+                    await createDjTrip({
+                      expense_date: dateStr,
+                      start_location: fahrtenStart || 'Heimatort',
+                      end_location: ziel,
+                      distance_km: km,
+                      purpose: `Vorgespräch – ${eventName}`,
+                      rate_per_km: rate,
+                      reimbursement_amount: Math.round(km * rate * 100) / 100,
+                    });
+                    setShowFahrtenDialog(false);
+                    setFahrtenKm('');
+                  } catch (err: unknown) {
+                    setFahrtenError(err instanceof Error ? err.message : 'Fehler beim Speichern');
+                  }
+                  finally { setFahrtenSaving(false); }
+                }}
+                style={{
+                  background: 'rgba(255,196,87,0.15)', border: '1px solid rgba(255,196,87,0.5)',
+                  borderRadius: '0.5rem', padding: '0.625rem 1.25rem',
+                  color: '#ffc457', fontFamily: 'var(--font-body)', fontSize: '0.875rem', fontWeight: 600,
+                  cursor: fahrtenKm && Number(fahrtenKm) > 0 ? 'pointer' : 'not-allowed',
+                  opacity: fahrtenKm && Number(fahrtenKm) > 0 ? 1 : 0.4,
+                }}
+              >
+                {fahrtenSaving ? 'Speichern…' : 'Fahrt eintragen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* KundeErstellenModal (Sub-Modal) */}
       {showKundeModal && (

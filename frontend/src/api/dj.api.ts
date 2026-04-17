@@ -44,6 +44,13 @@ export interface DjEvent {
   created_at: string;
   updated_at: string;
   calendar_uid?: string | null;
+  vorgespraech_status?: 'offen' | 'erledigt' | null;
+  vorgespraech_datum?: string | null;
+  vorgespraech_plz?: string | null;
+  vorgespraech_ort?: string | null;
+  vorgespraech_notizen?: string | null;
+  vorgespraech_km?: number | null;
+  vorgespraech_calendar_uid?: string | null;
   // joined
   customer_name?: string;
   customer_org?: string;
@@ -102,6 +109,9 @@ export interface DjQuote {
   total_gross: number;
   finalized_at: string | null;
   created_at: string;
+  header_text?: string | null;
+  footer_text?: string | null;
+  anrede_form?: 'du' | 'sie' | null;
   // joined
   customer_name?: string;
   customer_org?: string;
@@ -212,6 +222,7 @@ export interface DjOverview {
   open_requests: number;
   pending_quotes: number;
   confirmed_events: number;
+  open_vorgespraeche: number;
   completed_events: number;
   revenue_year: number;
   revenue_year_net: number;
@@ -249,6 +260,12 @@ export const updateDjEvent = (id: number, data: Partial<DjEvent>): Promise<DjEve
 
 export const deleteDjEvent = (id: number): Promise<void> =>
   apiClient.delete(`/dj/events/${id}`).then(() => undefined);
+
+export const setDjEventVorgespraech = (
+  id: number,
+  data: { action: 'offen' | 'erledigt'; datum?: string; plz?: string; ort?: string; notizen?: string; km?: number; calendar_uid?: string | null }
+): Promise<DjEvent> =>
+  apiClient.patch(`/dj/events/${id}/vorgespraech`, data).then(r => r.data);
 
 // Leistungen & Pakete
 export const fetchDjServices = (): Promise<DjService[]> =>
@@ -352,7 +369,7 @@ export const createDjTrip = (data: {
 }): Promise<DjExpense> =>
   apiClient.post('/dj/expenses', {
     expense_date: data.expense_date,
-    category: 'fahrt',
+    category: 'fahrzeug',
     description: data.purpose,
     amount_gross: data.reimbursement_amount,
     tax_rate: 0,
@@ -369,7 +386,7 @@ export const fetchDjSettings = () =>
   apiClient.get('/dj/settings').then(r => r.data);
 
 export const updateDjSetting = (key: string, value: unknown) =>
-  apiClient.patch(`/dj/settings/${key}`, value).then(r => r.data);
+  apiClient.patch(`/dj/settings/${key}`, { value }).then(r => r.data);
 
 // ── Settings-Typen ─────────────────────────────────────────────────────────────
 
@@ -411,6 +428,47 @@ export const fetchDjSettingByKey = <T>(key: string): Promise<T> =>
 
 export const fetchDjSequences = (): Promise<DjNumberSequence[]> =>
   apiClient.get('/dj/settings/sequences/all').then(r => r.data);
+
+// Logo
+export const uploadDjLogo = async (file: File): Promise<{ ok: true; path: string }> => {
+  const fd = new FormData();
+  fd.append('file', file);
+  // fetch statt Axios — Axios-Default-Header 'Content-Type: application/json' würde
+  // den multipart/form-data-Header mit boundary überschreiben und multer kaputt machen
+  const token = (await import('../store/authStore')).useAuthStore.getState().token;
+  const res = await fetch('/api/dj/settings/logo', {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: fd,
+  });
+  if (!res.ok) throw Object.assign(new Error(`Request failed with status code ${res.status}`), { response: { status: res.status } });
+  return res.json();
+};
+
+export const deleteDjLogo = (): Promise<void> =>
+  apiClient.delete('/dj/settings/logo').then(() => undefined);
+
+export const djLogoUrl = (): string =>
+  `${apiClient.defaults.baseURL ?? '/api'}/dj/settings/logo`;
+
+export const fetchDjLogoPath = (): Promise<string | null> =>
+  fetchDjSettingByKey<string>('logo_path').catch(() => null);
+
+// Default-Textbausteine (legacy)
+export const fetchDjDefaultHeaderText = (): Promise<string> =>
+  fetchDjSettingByKey<string>('default_header_text').catch(() => '');
+
+export const fetchDjDefaultFooterText = (): Promise<string> =>
+  fetchDjSettingByKey<string>('default_footer_text').catch(() => '');
+
+// Default-Textbausteine Du/Sie-Form
+export const fetchDjDefaultTexts = async (form: 'du' | 'sie'): Promise<{ header: string; footer: string }> => {
+  const [header, footer] = await Promise.all([
+    fetchDjSettingByKey<string>(`default_header_text_${form}`).catch(() => ''),
+    fetchDjSettingByKey<string>(`default_footer_text_${form}`).catch(() => ''),
+  ]);
+  return { header: header ?? '', footer: footer ?? '' };
+};
 
 // Angebot PDF / Vorschau / Status / Revision
 export const previewDjQuote = (id: number): string =>

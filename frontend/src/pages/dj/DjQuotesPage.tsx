@@ -69,7 +69,7 @@ function QuoteRow({
     fontSize: '0.7rem',
     fontWeight: 500,
     fontFamily: 'var(--font-body)',
-    background: 'var(--color-surface-container-high)',
+    background: 'rgba(255,255,255,0.05)',
     color: 'var(--color-on-surface-variant)',
     whiteSpace: 'nowrap',
   };
@@ -89,7 +89,7 @@ function QuoteRow({
         gridTemplateColumns: '110px 90px 1fr 1fr 110px 110px 110px 100px',
         gap: '0.75rem',
         padding: '0.75rem 1.25rem',
-        borderTop: isFirst ? 'none' : '1px solid var(--color-outline-variant)',
+        borderTop: isFirst ? 'none' : '1px solid rgba(148,170,255,0.15)',
         cursor: 'pointer',
         background: hovered ? 'rgba(255,255,255,0.05)' : 'transparent',
         alignItems: 'center',
@@ -299,18 +299,6 @@ export function DjQuotesPage() {
               }}>
                 ANGEBOTE
               </h1>
-              <p style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 500,
-                fontSize: '0.7rem',
-                letterSpacing: '0.15em',
-                textTransform: 'uppercase',
-                color: 'var(--color-on-surface-variant)',
-                marginTop: '0.375rem',
-                marginBottom: 0,
-              }}>
-                SYNTHETIC CONDUCTOR
-              </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}>
               {/* Jahr-Dropdown */}
@@ -318,7 +306,7 @@ export function DjQuotesPage() {
                 value={selectedYear}
                 onChange={ev => setSelectedYear(Number(ev.target.value))}
                 style={{
-                  background: 'var(--color-surface-container-high)',
+                  background: 'rgba(255,255,255,0.05)',
                   color: 'var(--color-on-surface)',
                   border: 'none',
                   borderRadius: '0.5rem',
@@ -363,7 +351,7 @@ export function DjQuotesPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
 
             {/* Entwurf */}
-            <div style={{ background: 'var(--color-surface-container)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.375rem' }}>
                   Entwurf
@@ -376,7 +364,7 @@ export function DjQuotesPage() {
             </div>
 
             {/* Versendet */}
-            <div style={{ background: 'var(--color-surface-container)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.375rem' }}>
                   Versendet
@@ -389,7 +377,7 @@ export function DjQuotesPage() {
             </div>
 
             {/* Angenommen */}
-            <div style={{ background: 'var(--color-surface-container)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.375rem' }}>
                   Angenommen
@@ -402,7 +390,7 @@ export function DjQuotesPage() {
             </div>
 
             {/* Abgelaufen */}
-            <div style={{ background: 'var(--color-surface-container)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.375rem' }}>
                   Abgelaufen
@@ -426,8 +414,8 @@ export function DjQuotesPage() {
                   type="button"
                   onClick={() => setStatusFilter(tab.value)}
                   style={{
-                    background: active ? 'rgba(148,170,255,0.15)' : 'var(--color-surface-container)',
-                    border: active ? '1px solid var(--color-primary)' : '1px solid var(--color-outline-variant)',
+                    background: active ? 'rgba(148,170,255,0.15)' : 'rgba(255,255,255,0.03)',
+                    border: active ? '1px solid var(--color-primary)' : '1px solid rgba(148,170,255,0.15)',
                     borderRadius: '999px',
                     color: active ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
                     padding: '0.375rem 1rem',
@@ -451,7 +439,7 @@ export function DjQuotesPage() {
               Lade...
             </div>
           ) : (
-            <div style={{ background: 'var(--color-surface-container)', borderRadius: '0.75rem', overflow: 'hidden' }}>
+            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', overflow: 'hidden' }}>
 
               {/* Header-Zeile */}
               {filtered.length > 0 && (
@@ -460,7 +448,7 @@ export function DjQuotesPage() {
                   gridTemplateColumns: '110px 90px 1fr 1fr 110px 110px 110px 100px',
                   gap: '0.75rem',
                   padding: '0.75rem 1.25rem',
-                  borderBottom: '1px solid var(--color-outline-variant)',
+                  borderBottom: '1px solid rgba(148,170,255,0.15)',
                   background: 'rgba(255,255,255,0.03)',
                 }}>
                   {['Datum', 'Nr.', 'Betreff', 'Kunde', 'Gültig bis', 'Netto', 'Status', ''].map((col, i) => (

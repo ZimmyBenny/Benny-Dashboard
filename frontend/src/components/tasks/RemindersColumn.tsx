@@ -114,13 +114,11 @@ export function RemindersColumn() {
     setSyncError(null);
     try {
       await triggerRemindersSync();
-      setLoading(true);
       await fetchReminders().then(setReminders);
     } catch {
       setSyncError('Sync fehlgeschlagen');
     } finally {
       setSyncing(false);
-      setLoading(false);
     }
   }
 
@@ -391,11 +389,12 @@ export function RemindersColumn() {
                         fontFamily: 'var(--font-body)',
                         fontWeight: 600,
                         fontSize: '0.8125rem',
-                        color: 'var(--color-on-surface)',
+                        color: r.title.trim() ? 'var(--color-on-surface)' : 'var(--color-on-surface-variant)',
                         flex: 1,
                         lineHeight: 1.35,
+                        fontStyle: r.title.trim() ? 'normal' : 'italic',
                       }}>
-                        {r.title}
+                        {r.title.trim() || '(Kein Titel)'}
                       </span>
                       <button
                         onClick={() => handleComplete(r.apple_uid)}

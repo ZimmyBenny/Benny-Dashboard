@@ -31,6 +31,10 @@ router.get('/overview', (req, res) => {
     "SELECT COUNT(*) AS count FROM dj_events WHERE status = 'bestaetigt' AND deleted_at IS NULL"
   ).get() as { count: number };
 
+  const openVorgespraeche = db.prepare(
+    "SELECT COUNT(*) AS count FROM dj_events WHERE vorgespraech_status = 'offen' AND deleted_at IS NULL"
+  ).get() as { count: number };
+
   const completedEvents = db.prepare(`
     SELECT COUNT(*) AS count FROM dj_invoices
     WHERE is_cancellation = 0
@@ -77,6 +81,7 @@ router.get('/overview', (req, res) => {
     open_requests: openRequests.count,
     pending_quotes: pendingQuotes.count,
     confirmed_events: confirmedEvents.count,
+    open_vorgespraeche: openVorgespraeche.count,
     completed_events: completedEvents.count,
     revenue_year: revenueYear.total,
     revenue_year_net: revenueYear.net,

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db/connection';
 import { logAudit } from '../services/dj.audit.service';
+import { deleteEvent as deleteCalEvent } from '../services/calendarSwift.service';
 
 const router = Router();
 
@@ -122,7 +123,10 @@ router.patch('/:id', (req, res) => {
     guests, status, contact_on_site_name, contact_on_site_phone,
     contact_on_site_email, notes, cancellation_reason, source_channel,
     venue_name, venue_street, venue_zip, venue_city, calendar_uid,
+    vorgespraech_datum, vorgespraech_ort, vorgespraech_notizen, vorgespraech_plz,
   } = req.body as Record<string, unknown>;
+
+  const body = req.body as object;
 
   db.prepare(`
     UPDATE dj_events SET
@@ -147,7 +151,11 @@ router.patch('/:id', (req, res) => {
       venue_street = COALESCE(?, venue_street),
       venue_zip = COALESCE(?, venue_zip),
       venue_city = COALESCE(?, venue_city),
-      calendar_uid = ?
+      calendar_uid = ?,
+      vorgespraech_datum = ?,
+      vorgespraech_ort = ?,
+      vorgespraech_notizen = ?,
+      vorgespraech_plz = ?
     WHERE id = ?
   `).run(
     customer_id ?? null, location_id ?? null, title ?? null, event_type ?? null,
@@ -157,8 +165,11 @@ router.patch('/:id', (req, res) => {
     contact_on_site_email ?? null, notes ?? null, cancellation_reason ?? null,
     source_channel ?? null,
     venue_name ?? null, venue_street ?? null, venue_zip ?? null, venue_city ?? null,
-    // calendar_uid: explicit null clears it; undefined keeps existing value
-    'calendar_uid' in (req.body as object) ? (calendar_uid ?? null) : (existing.calendar_uid ?? null),
+    'calendar_uid' in body ? (calendar_uid ?? null) : (existing.calendar_uid ?? null),
+    'vorgespraech_datum' in body ? (vorgespraech_datum ?? null) : (existing.vorgespraech_datum ?? null),
+    'vorgespraech_ort' in body ? (vorgespraech_ort ?? null) : (existing.vorgespraech_ort ?? null),
+    'vorgespraech_notizen' in body ? (vorgespraech_notizen ?? null) : (existing.vorgespraech_notizen ?? null),
+    'vorgespraech_plz' in body ? (vorgespraech_plz ?? null) : (existing.vorgespraech_plz ?? null),
     id,
   );
 
@@ -170,6 +181,74 @@ router.patch('/:id', (req, res) => {
   }
 
   logAudit(req, 'event', id, 'update', existing, req.body);
+  res.json(loadEvent(id));
+});
+
+// PATCH /api/dj/events/:id/vorgespraech — Vorgespräch-Status setzen
+router.patch('/:id/vorgespraech', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) { res.status(400).json({ error: 'Ungültige ID' }); return; }
+
+  const event = db.prepare('SELECT * FROM dj_events WHERE id = ? AND deleted_at IS NULL').get(id) as Record<string, unknown> | undefined;
+  if (!event) { res.status(404).json({ error: 'Event nicht gefunden' }); return; }
+
+  const { action, datum, ort, notizen, plz, km, calendar_uid } = req.body as {
+    action: 'offen' | 'erledigt';
+    datum?: string;
+    ort?: string;
+    notizen?: string;
+    plz?: string;
+    km?: number;
+    calendar_uid?: string | null;
+  };
+
+  if (action === 'offen') {
+    db.prepare(`
+      UPDATE dj_events SET
+        vorgespraech_status = 'offen',
+        vorgespraech_datum = ?,
+        vorgespraech_ort = ?,
+        vorgespraech_notizen = ?,
+        vorgespraech_plz = COALESCE(?, vorgespraech_plz),
+        vorgespraech_calendar_uid = COALESCE(?, vorgespraech_calendar_uid)
+      WHERE id = ?
+    `).run(datum ?? null, ort ?? null, notizen ?? null, plz ?? null, calendar_uid ?? null, id);
+  }
+
+  if (action === 'erledigt') {
+    // Kalender-Eintrag löschen falls vorhanden
+    const calUid = event.vorgespraech_calendar_uid as string | null;
+    if (calUid) {
+      await deleteCalEvent(calUid).catch(() => null);
+    }
+
+    db.prepare(`
+      UPDATE dj_events SET
+        vorgespraech_status = 'erledigt',
+        vorgespraech_km = ?,
+        vorgespraech_calendar_uid = NULL
+      WHERE id = ?
+    `).run(km ?? null, id);
+
+    // Fahrt-Ausgabe erstellen (0,30 € / km)
+    if (km && km > 0) {
+      const kmRound = Math.round(km);
+      const amountGross = Math.round(kmRound * 0.30 * 100) / 100;
+      const eventTitle = event.title as string || `Event #${id}`;
+      const dateStr = (datum ?? new Date().toISOString().slice(0, 10));
+      db.prepare(`
+        INSERT INTO dj_expenses (expense_date, category, description, amount_gross, tax_rate, amount_net, vat_amount, notes)
+        VALUES (?, 'fahrzeug', ?, ?, 0, ?, 0, ?)
+      `).run(
+        dateStr,
+        `Fahrt Vorgespräch – ${eventTitle}`,
+        amountGross,
+        amountGross,
+        `${kmRound} km × 0,30 €`,
+      );
+    }
+  }
+
   res.json(loadEvent(id));
 });
 

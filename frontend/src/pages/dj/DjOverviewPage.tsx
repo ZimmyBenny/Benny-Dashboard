@@ -397,15 +397,21 @@ export function DjOverviewPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
 
             {/* Offene Vorgespräche */}
-            <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '0.75rem', padding: '1.5rem', minHeight: '160px' }}>
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.75rem' }}>
+            <div
+              onClick={() => navigate('/dj/events?filter=_vorgespraeche')}
+              style={{ background: 'rgba(255,196,87,0.07)', borderRadius: '0.75rem', padding: '1.5rem', minHeight: '160px', cursor: 'pointer', border: '1px solid rgba(255,196,87,0.15)', transition: 'background 150ms' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,196,87,0.12)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,196,87,0.07)')}
+            >
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,196,87,0.7)', margin: 0, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '0.9rem' }}>forum</span>
                 Offene Vorgespräche
               </p>
-              <p style={{ fontFamily: 'var(--font-headline)', fontSize: '2.5rem', fontWeight: 700, color: 'var(--color-on-surface)', lineHeight: 1, margin: 0, marginBottom: '0.5rem' }}>
-                {overviewLoading ? '–' : (overview?.confirmed_events ?? 0)}
+              <p style={{ fontFamily: 'var(--font-headline)', fontSize: '2.5rem', fontWeight: 700, color: '#ffc457', lineHeight: 1, margin: 0, marginBottom: '0.5rem' }}>
+                {overviewLoading ? '–' : (overview?.open_vorgespraeche ?? 0)}
               </p>
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', margin: 0 }}>
-                Bestätigte Events in Planung
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'rgba(255,196,87,0.6)', margin: 0 }}>
+                → Zu den Events
               </p>
             </div>
 
@@ -414,9 +420,28 @@ export function DjOverviewPage() {
               <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.75rem' }}>
                 Gespielte Veranstaltungen {selectedYear}
               </p>
-              <p style={{ fontFamily: 'var(--font-headline)', fontSize: '2rem', fontWeight: 700, color: 'var(--color-on-surface)', lineHeight: 1, margin: 0, marginBottom: '0.875rem' }}>
+              <p style={{ fontFamily: 'var(--font-headline)', fontSize: '2rem', fontWeight: 700, color: 'var(--color-on-surface)', lineHeight: 1, margin: 0, marginBottom: '0.5rem' }}>
                 {overviewLoading ? '–' : (overview?.completed_events ?? 0)}
               </p>
+              {!overviewLoading && (overview?.completed_events ?? 0) > 0 && (
+                <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.68rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.3rem' }}>
+                    Ø Gage
+                  </p>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.82rem', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.1rem' }}>
+                    Brutto{' '}
+                    <span style={{ color: '#4ade80', fontWeight: 600 }}>
+                      {formatCurrency((overview!.revenue_year ?? 0) / overview!.completed_events)}
+                    </span>
+                  </p>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.82rem', color: 'var(--color-on-surface-variant)', margin: 0 }}>
+                    Netto{' '}
+                    <span style={{ color: '#4ade80', fontWeight: 600 }}>
+                      {formatCurrency((overview!.revenue_year_net ?? 0) / overview!.completed_events)}
+                    </span>
+                  </p>
+                </div>
+              )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                 {(overview?.recent_completed ?? []).slice(0, 3).map(ev => (
                   <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

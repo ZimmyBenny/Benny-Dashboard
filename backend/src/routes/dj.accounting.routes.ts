@@ -107,35 +107,18 @@ router.get('/trips', (req, res) => {
   const settings = db.prepare("SELECT value FROM dj_settings WHERE key = 'tax'").get() as { value: string } | undefined;
   const tax = settings ? JSON.parse(settings.value) : {};
   const mileageRate: number = tax.mileage_rate_per_km ?? 0.30;
-  const meal8h: number = tax.meal_allowance_8h ?? 14;
-  const meal24h: number = tax.meal_allowance_24h ?? 28;
 
-  // Event-basierte Fahrten aus View
-  const eventRows = (db.prepare(
-    `SELECT * FROM v_dj_trips WHERE year = ? ORDER BY date`
-  ).all(Number(year)) as Array<Record<string, unknown>>).map((r) => ({
-    source: 'event' as const,
-    id: null,                          // nicht löschbar
-    event_id: r.event_id,
-    date: r.date,
-    event_name: r.event_name,
-    start_location: null,
-    end_location: null,
-    distance_km: r.total_km,          // Hin+Rückfahrt
-    purpose: null,
-    reimbursement_amount: r.deductible_value,
-    mileage_rate: mileageRate,
-    meal_allowance:
-      (r.absence_hours as number) >= 24 ? meal24h :
-      (r.absence_hours as number) >= 8  ? meal8h  : 0,
-  }));
+  // Event-basierte Fahrten werden nicht mehr automatisch gelistet.
+  // Fahrten werden manuell beim Finalisieren der Rechnung erfasst.
+  const eventRows: never[] = [];
 
-  // Manuelle Fahrten aus dj_expenses(category='fahrt')
+  // Manuelle Fahrten aus dj_expenses(category='fahrzeug') mit JSON-notes
   const manualRows = (db.prepare(`
     SELECT id, expense_date, description, amount_gross, notes
     FROM dj_expenses
-    WHERE category = 'fahrt'
+    WHERE category = 'fahrzeug'
       AND deleted_at IS NULL
+      AND notes LIKE '{%'
       AND strftime('%Y', expense_date) = ?
     ORDER BY expense_date
   `).all(year) as Array<Record<string, unknown>>).map((r) => {

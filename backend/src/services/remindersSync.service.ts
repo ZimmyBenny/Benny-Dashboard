@@ -122,7 +122,7 @@ function parseTsv(raw: string): RawReminder[] {
         notes: notes.trim() || null,
       };
     })
-    .filter(r => r.id.length > 0);
+    .filter(r => r.id.startsWith('x-apple-reminder://'));
 }
 
 // ── syncReminders ─────────────────────────────────────────────────────────────

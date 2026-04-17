@@ -143,13 +143,6 @@ export function DjTripsPage() {
           {/* Page Header */}
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
-              <p style={{
-                fontFamily: 'var(--font-body)', fontSize: '0.6875rem', fontWeight: 600,
-                color: 'var(--color-primary)', letterSpacing: '0.12em', textTransform: 'uppercase',
-                margin: '0 0 0.375rem',
-              }}>
-                KILOMETERNACHWEIS
-              </p>
               <h1 style={{
                 fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2.25rem',
                 color: 'var(--color-on-surface)', margin: 0, letterSpacing: '-0.02em', lineHeight: 1,
@@ -249,12 +242,12 @@ export function DjTripsPage() {
                         {t.event_name ?? <span style={{ color: 'var(--color-on-surface-variant)', fontStyle: 'italic' }}>Manuelle Fahrt</span>}
                       </td>
                       <td style={{ padding: '0.75rem 1rem' }}>
-                        {t.event_type ? (
+                        {t.purpose ? (
                           <span style={{
                             background: 'rgba(148,170,255,0.15)', color: '#94aaff',
                             borderRadius: '0.375rem', padding: '0.125rem 0.5rem',
                             fontSize: '0.7rem', fontWeight: 600, whiteSpace: 'nowrap',
-                          }}>{t.event_type}</span>
+                          }}>{t.purpose}</span>
                         ) : <span style={{ color: 'var(--color-on-surface-variant)' }}>–</span>}
                       </td>
                       <td style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)' }}>
@@ -351,8 +344,8 @@ export function DjTripsPage() {
             data-draggable-modal
             style={{
               position: 'fixed', top: 80, right: 32, width: '420px',
-              background: 'var(--color-surface-container)',
-              border: '1px solid rgba(148,170,255,0.15)',
+              background: 'rgb(14, 20, 40)',
+              border: '1px solid rgba(148,170,255,0.25)',
               borderRadius: '0.75rem',
               boxShadow: '0 8px 40px rgba(0,0,0,0.5), 0 0 60px rgba(148,170,255,0.05)',
               zIndex: 50, ...modalStyle,
@@ -447,7 +440,7 @@ export function DjTripsPage() {
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 60 }} />
           <div style={{
             position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-            background: 'var(--color-surface-container)',
+            background: 'rgba(255,255,255,0.03)',
             border: '1px solid rgba(255,80,80,0.2)',
             borderRadius: '0.75rem', padding: '1.5rem', width: '360px',
             zIndex: 70, boxShadow: '0 8px 40px rgba(0,0,0,0.5)',

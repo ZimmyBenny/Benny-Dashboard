@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageWrapper } from '../../components/layout/PageWrapper';
-import { fetchDjEvents, fetchDjEvent, deleteDjEvent, updateDjEvent, type DjEvent, type EventStatus } from '../../api/dj.api';
+import { fetchDjEvents, fetchDjEvent, deleteDjEvent, updateDjEvent, setDjEventVorgespraech, type DjEvent, type EventStatus } from '../../api/dj.api';
 import { StatusBadge, EVENT_TYPE_LABELS } from '../../components/dj/StatusBadge';
 import { formatDate } from '../../lib/format';
 import { NeueAnfrageModal } from '../../components/dj/NeueAnfrageModal';
@@ -9,10 +10,13 @@ import apiClient from '../../api/client';
 
 // ── Filter-Konfiguration ───────────────────────────────────────────────────────
 
+const VORG_FILTER = '_vorgespraeche';
+
 const FILTER_TABS: { label: string; value: string }[] = [
   { label: 'Alle', value: '' },
   { label: 'Anfrage', value: 'anfrage' },
   { label: 'Vorgespräch', value: 'vorgespraech_vereinbart' },
+  { label: 'Offene Vorgespräche', value: VORG_FILTER },
   { label: 'Angebot', value: 'angebot_gesendet' },
   { label: 'Bestätigt', value: 'bestaetigt' },
   { label: 'Abgeschlossen', value: 'abgeschlossen' },
@@ -33,9 +37,10 @@ const STATUS_OPTIONS: EventStatus[] = [
 export function DjEventsPage() {
   const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();
+  const [searchParams] = useSearchParams();
 
   const [selectedYear, setSelectedYear] = useState(currentYear);
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get('filter') ?? '');
   const [showNeueAnfrage, setShowNeueAnfrage] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
@@ -45,6 +50,23 @@ export function DjEventsPage() {
   const [calError, setCalError] = useState<string | null>(null);
   const [djCalendarId, setDjCalendarId] = useState<string | null>(null);
   const djCalendarIdRef = useRef<string | null>(null);
+
+  // 3-Punkt-Menü
+  const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+
+  // Vorgespräch-Dialog (planen / bearbeiten)
+  const [vorgDialogEvent, setVorgDialogEvent] = useState<DjEvent | null>(null);
+  const [vorgDatum, setVorgDatum] = useState('');
+  const [vorgUhrzeit, setVorgUhrzeit] = useState('');
+  const [vorgPlz, setVorgPlz] = useState('');
+  const [vorgOrt, setVorgOrt] = useState('');
+  const [vorgNotizen, setVorgNotizen] = useState('');
+
+  // Vorgespräch-Erledigt-Dialog
+  const [vorgErledigtEvent, setVorgErledigtEvent] = useState<DjEvent | null>(null);
+  const [vorgKm, setVorgKm] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   // DJ-Kalender-ID vorab laden — Ref für stableCallback, State für UI
   useEffect(() => {
@@ -165,6 +187,25 @@ export function DjEventsPage() {
     },
   });
 
+  // Vorgespräch-Mutation
+  const vorgMut = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Parameters<typeof setDjEventVorgespraech>[1] }) =>
+      setDjEventVorgespraech(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dj-events'] });
+      queryClient.invalidateQueries({ queryKey: ['dj-overview'] });
+      setVorgDialogEvent(null);
+      setVorgErledigtEvent(null);
+      setIsSaving(false);
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Unbekannter Fehler';
+      setCalError(`Vorgespräch konnte nicht gespeichert werden: ${msg}`);
+      setTimeout(() => setCalError(null), 6000);
+      setIsSaving(false);
+    },
+  });
+
   // Klick außerhalb schließt Status-Dropdown
   useEffect(() => {
     if (statusPickerId === null) return;
@@ -176,9 +217,21 @@ export function DjEventsPage() {
     return () => document.removeEventListener('mousedown', handler);
   }, [statusPickerId]);
 
+  // Klick außerhalb schließt 3-Punkt-Menü
+  useEffect(() => {
+    if (menuOpenId === null) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-vorg-menu]')) { setMenuOpenId(null); setMenuPos(null); }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [menuOpenId]);
+
   // Client-seitige Filterung nach Status
   const filtered = useMemo(() => {
     if (!statusFilter) return allEvents;
+    if (statusFilter === VORG_FILTER) return allEvents.filter(e => e.vorgespraech_status === 'offen');
     return allEvents.filter(e => e.status === statusFilter);
   }, [allEvents, statusFilter]);
 
@@ -202,6 +255,7 @@ export function DjEventsPage() {
       '': allEvents.length,
       anfrage: allEvents.filter(e => e.status === 'anfrage').length,
       vorgespraech_vereinbart: allEvents.filter(e => e.status === 'vorgespraech_vereinbart').length,
+      [VORG_FILTER]: allEvents.filter(e => e.vorgespraech_status === 'offen').length,
       angebot_gesendet: allEvents.filter(e => e.status === 'angebot_gesendet').length,
       bestaetigt: allEvents.filter(e => e.status === 'bestaetigt').length,
       abgeschlossen: allEvents.filter(e => e.status === 'abgeschlossen').length,
@@ -217,6 +271,78 @@ export function DjEventsPage() {
   // Jahres-Optionen: aktuelles Jahr - 2 bis + 2
   const yearOptions = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1, currentYear + 2];
 
+  // Hilfsfunktion: Vorgespräch-Dialog öffnen
+  const openVorgDialog = (ev: DjEvent) => {
+    setVorgDatum(ev.vorgespraech_datum ?? '');
+    setVorgUhrzeit('');
+    setVorgPlz(ev.vorgespraech_plz ?? '');
+    setVorgOrt(ev.vorgespraech_ort ?? '');
+    setVorgNotizen(ev.vorgespraech_notizen ?? '');
+    setVorgDialogEvent(ev);
+    setMenuOpenId(null);
+    setMenuPos(null);
+  };
+
+  // Hilfsfunktion: Vorgespräch speichern
+  const saveVorgespraech = async () => {
+    if (!vorgDialogEvent || isSaving) return;
+    setIsSaving(true);
+    const calId = djCalendarIdRef.current;
+    let calUid: string | null | undefined = undefined; // undefined = nicht ändern
+
+    // Kalender-Eintrag erstellen wenn Datum gesetzt
+    if (vorgDatum && calId) {
+      const uhr = vorgUhrzeit || '10:00';
+      const endH = (parseInt(uhr.split(':')[0]) + 1) % 24;
+      const endUhr = `${String(endH).padStart(2, '0')}:${uhr.split(':')[1] ?? '00'}`;
+      const offsetMin = -new Date().getTimezoneOffset();
+      const tzSign = offsetMin >= 0 ? '+' : '-';
+      const tzH = String(Math.floor(Math.abs(offsetMin) / 60)).padStart(2, '0');
+      const tzM = String(Math.abs(offsetMin) % 60).padStart(2, '0');
+      const tz = `${tzSign}${tzH}:${tzM}`;
+
+      const kundenLabel = vorgDialogEvent.customer_name || vorgDialogEvent.customer_org || 'Unbekannt';
+      const calTitle = `Vorgespräch – ${kundenLabel}`;
+      const notes = [
+        vorgOrt ? `Ort: ${vorgOrt}` : '',
+        vorgNotizen ? `Notiz: ${vorgNotizen}` : '',
+      ].filter(Boolean).join('\n');
+
+      // Alten Eintrag löschen falls vorhanden
+      if (vorgDialogEvent.vorgespraech_calendar_uid) {
+        await apiClient.delete(`/calendar/events/${encodeURIComponent(vorgDialogEvent.vorgespraech_calendar_uid)}`).catch(() => {});
+      }
+
+      try {
+        const res = await apiClient.post('/calendar/events', {
+          calendar_id: calId,
+          title: calTitle,
+          start_at: `${vorgDatum}T${uhr}:00${tz}`,
+          end_at: `${vorgDatum}T${endUhr}:00${tz}`,
+          notes: notes || undefined,
+        });
+        calUid = (res.data as { event?: { apple_uid?: string } })?.event?.apple_uid ?? null;
+        setCalToast(`Kalender: "${calTitle}" eingetragen.`);
+        setTimeout(() => setCalToast(null), 5000);
+      } catch {
+        setCalError('Vorgespräch-Kalendertermin konnte nicht erstellt werden.');
+        setTimeout(() => setCalError(null), 6000);
+      }
+    }
+
+    vorgMut.mutate({
+      id: vorgDialogEvent.id,
+      data: {
+        action: 'offen',
+        datum: vorgDatum || undefined,
+        plz: vorgPlz || undefined,
+        ort: vorgOrt || undefined,
+        notizen: vorgNotizen || undefined,
+        calendar_uid: calUid,
+      },
+    });
+  };
+
   return (
     <PageWrapper>
       <style>{`
@@ -231,6 +357,9 @@ export function DjEventsPage() {
         }
         .dj-status-option:hover {
           background: rgba(255,255,255,0.05) !important;
+        }
+        .dj-vorg-menu-item:hover {
+          background: rgba(255,255,255,0.06) !important;
         }
       `}</style>
 
@@ -378,16 +507,23 @@ export function DjEventsPage() {
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
             {FILTER_TABS.map(tab => {
               const active = statusFilter === tab.value;
+              const isVorgTab = tab.value === VORG_FILTER;
               return (
                 <button
                   key={tab.value}
                   type="button"
                   onClick={() => setStatusFilter(tab.value)}
                   style={{
-                    background: active ? 'rgba(148,170,255,0.15)' : 'rgba(255,255,255,0.03)',
-                    border: active ? '1px solid var(--color-primary)' : '1px solid rgba(148,170,255,0.15)',
+                    background: active
+                      ? (isVorgTab ? 'rgba(255,196,87,0.15)' : 'rgba(148,170,255,0.15)')
+                      : 'rgba(255,255,255,0.03)',
+                    border: active
+                      ? (isVorgTab ? '1px solid rgba(255,196,87,0.6)' : '1px solid var(--color-primary)')
+                      : '1px solid rgba(148,170,255,0.15)',
                     borderRadius: '999px',
-                    color: active ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
+                    color: active
+                      ? (isVorgTab ? '#ffc457' : 'var(--color-primary)')
+                      : 'var(--color-on-surface-variant)',
                     padding: '0.375rem 1rem',
                     cursor: 'pointer',
                     fontFamily: 'var(--font-body)',
@@ -399,12 +535,16 @@ export function DjEventsPage() {
                   {tab.label}
                   <span style={{
                     marginLeft: '0.375rem',
-                    background: active ? 'rgba(148,170,255,0.3)' : 'rgba(148,170,255,0.12)',
+                    background: active
+                      ? (isVorgTab ? 'rgba(255,196,87,0.25)' : 'rgba(148,170,255,0.3)')
+                      : 'rgba(148,170,255,0.12)',
                     borderRadius: '999px',
                     padding: '0.05rem 0.45rem',
                     fontSize: '0.7rem',
                     fontWeight: 700,
-                    color: active ? '#94aaff' : 'var(--color-on-surface-variant)',
+                    color: active
+                      ? (isVorgTab ? '#ffc457' : '#94aaff')
+                      : 'var(--color-on-surface-variant)',
                   }}>
                     {tabCounts[tab.value] ?? 0}
                   </span>
@@ -517,6 +657,8 @@ export function DjEventsPage() {
                       const eventDateStr = formatDate(e.event_date) +
                         (e.time_start ? ' / ' + e.time_start.substring(0, 5) : '');
 
+                      const hasVorg = e.vorgespraech_status === 'offen';
+
                       return (
                         <tr key={e.id} style={{ background: rowBg[e.status] ?? 'transparent' }}>
                           {/* Spalte 1: Eventdatum */}
@@ -554,7 +696,7 @@ export function DjEventsPage() {
                             {e.venue_name || e.location_name || '—'}
                           </td>
 
-                          {/* Spalte 5: Status (klickbar mit Inline-Dropdown) */}
+                          {/* Spalte 6: Status (klickbar mit Inline-Dropdown) */}
                           <td style={{ ...tdStyle }}>
                             <div
                               data-status-picker={statusPickerId === e.id ? 'open' : undefined}
@@ -623,7 +765,7 @@ export function DjEventsPage() {
                             </div>
                           </td>
 
-                          {/* Spalte 6: Eingang */}
+                          {/* Spalte 7: Eingang */}
                           <td
                             style={{ ...tdStyle, whiteSpace: 'nowrap' }}
                             title={new Date(e.created_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
@@ -631,9 +773,121 @@ export function DjEventsPage() {
                             {formatDate(e.created_at)}
                           </td>
 
-                          {/* Spalte 7: Aktionen */}
+                          {/* Spalte 8: Aktionen */}
                           <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
-                            <div style={{ display: 'flex', gap: '0.375rem' }}>
+                            <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'center' }}>
+                              {/* Vorgespräch-Button */}
+                              <div data-vorg-menu={menuOpenId === e.id ? 'open' : undefined} style={{ position: 'relative' }}>
+                                <button
+                                  type="button"
+                                  className="dj-edit-btn"
+                                  title={hasVorg ? 'Vorgespräch offen' : 'Vorgespräch'}
+                                  onClick={(evt) => {
+                                    if (menuOpenId === e.id) {
+                                      setMenuOpenId(null);
+                                      setMenuPos(null);
+                                    } else {
+                                      const rect = (evt.currentTarget as HTMLElement).getBoundingClientRect();
+                                      setMenuPos({ top: rect.bottom + 4, left: rect.right - 200 });
+                                      setMenuOpenId(e.id);
+                                    }
+                                  }}
+                                  style={{
+                                    background: hasVorg ? 'rgba(255,196,87,0.15)' : 'rgba(255,255,255,0.06)',
+                                    border: hasVorg ? '1px solid rgba(255,196,87,0.4)' : '1px solid rgba(148,170,255,0.15)',
+                                    borderRadius: '0.375rem',
+                                    padding: '0.375rem',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                  }}
+                                >
+                                  <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: hasVorg ? '#ffc457' : 'var(--color-on-surface-variant)' }}>
+                                    forum
+                                  </span>
+                                </button>
+
+                                {/* 3-Punkt-Dropdown */}
+                                {menuOpenId === e.id && menuPos && (
+                                  <div
+                                    data-vorg-menu="dropdown"
+                                    style={{
+                                      position: 'fixed',
+                                      top: menuPos.top,
+                                      left: menuPos.left,
+                                      zIndex: 9999,
+                                      background: '#0d1526',
+                                      border: '1px solid rgba(148,170,255,0.2)',
+                                      borderRadius: '0.5rem',
+                                      padding: '0.375rem',
+                                      minWidth: '200px',
+                                      boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      className="dj-vorg-menu-item"
+                                      onClick={() => openVorgDialog(e)}
+                                      style={{
+                                        display: 'flex',
+                                        width: '100%',
+                                        padding: '0.5rem 0.75rem',
+                                        border: 'none',
+                                        background: 'transparent',
+                                        cursor: 'pointer',
+                                        borderRadius: '0.375rem',
+                                        alignItems: 'center',
+                                        gap: '0.5rem',
+                                        color: 'var(--color-on-surface)',
+                                        fontFamily: 'var(--font-body)',
+                                        fontSize: '0.875rem',
+                                        textAlign: 'left',
+                                      }}
+                                    >
+                                      <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: '#ffc457' }}>
+                                        {hasVorg ? 'edit_calendar' : 'calendar_add_on'}
+                                      </span>
+                                      {hasVorg ? 'Vorgespräch bearbeiten' : 'Vorgespräch planen'}
+                                    </button>
+
+                                    {hasVorg && (
+                                      <button
+                                        type="button"
+                                        className="dj-vorg-menu-item"
+                                        onClick={() => {
+                                          setVorgKm('');
+                                          setVorgErledigtEvent(e);
+                                          setMenuOpenId(null);
+                                          setMenuPos(null);
+                                        }}
+                                        style={{
+                                          display: 'flex',
+                                          width: '100%',
+                                          padding: '0.5rem 0.75rem',
+                                          border: 'none',
+                                          background: 'transparent',
+                                          cursor: 'pointer',
+                                          borderRadius: '0.375rem',
+                                          alignItems: 'center',
+                                          gap: '0.5rem',
+                                          color: 'var(--color-on-surface)',
+                                          fontFamily: 'var(--font-body)',
+                                          fontSize: '0.875rem',
+                                          textAlign: 'left',
+                                        }}
+                                      >
+                                        <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: 'var(--color-secondary)' }}>
+                                          check_circle
+                                        </span>
+                                        Als erledigt markieren
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Bearbeiten */}
                               <button
                                 type="button"
                                 className="dj-edit-btn"
@@ -654,6 +908,8 @@ export function DjEventsPage() {
                                   edit_note
                                 </span>
                               </button>
+
+                              {/* Löschen */}
                               <button
                                 type="button"
                                 className="dj-edit-btn"
@@ -694,10 +950,10 @@ export function DjEventsPage() {
         </div>{/* /content-wrapper */}
       </div>
 
-      {/* Kalender-Bestätigung Toast */}
+      {/* ── Toasts ─────────────────────────────────────────────────── */}
       {calToast && (
         <div style={{
-          position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 9000,
+          position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 10500,
           background: 'rgba(92,253,128,0.12)', border: '1px solid #5cfd80',
           borderRadius: '0.75rem', padding: '0.875rem 1.25rem',
           display: 'flex', alignItems: 'center', gap: '0.75rem',
@@ -712,10 +968,9 @@ export function DjEventsPage() {
         </div>
       )}
 
-      {/* Kalender-Fehler Toast */}
       {calError && (
         <div style={{
-          position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 9000,
+          position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 10500,
           background: 'rgba(255,110,132,0.12)', border: '1px solid rgba(255,110,132,0.6)',
           borderRadius: '0.75rem', padding: '0.875rem 1.25rem',
           display: 'flex', alignItems: 'center', gap: '0.75rem',
@@ -730,6 +985,269 @@ export function DjEventsPage() {
         </div>
       )}
 
+      {/* ── Vorgespräch-Dialog (planen / bearbeiten) ──────────────── */}
+      {vorgDialogEvent && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 10000,
+          background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '1rem',
+        }} onClick={(evt) => { if (evt.target === evt.currentTarget) { setVorgDialogEvent(null); setIsSaving(false); } }}>
+          <div style={{
+            background: '#0d1526',
+            border: '1px solid rgba(148,170,255,0.2)',
+            borderRadius: '1rem',
+            padding: '2rem',
+            width: '100%',
+            maxWidth: '480px',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.8)',
+          }}>
+            <h2 style={{
+              fontFamily: 'var(--font-headline)', fontWeight: 700,
+              fontSize: '1.25rem', color: 'var(--color-on-surface)',
+              margin: 0, marginBottom: '0.375rem',
+            }}>
+              {vorgDialogEvent.vorgespraech_status === 'offen' ? 'Vorgespräch bearbeiten' : 'Vorgespräch planen'}
+            </h2>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.85rem', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '1.5rem' }}>
+              {vorgDialogEvent.customer_name || vorgDialogEvent.customer_org || `Event #${vorgDialogEvent.id}`}
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {/* Datum + Uhrzeit nebeneinander */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: '0.375rem' }}>
+                    Datum
+                  </label>
+                  <input
+                    type="date"
+                    value={vorgDatum}
+                    onChange={ev => setVorgDatum(ev.target.value)}
+                    style={{
+                      width: '100%', background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(148,170,255,0.2)', borderRadius: '0.5rem',
+                      padding: '0.625rem 0.875rem', color: 'var(--color-on-surface)',
+                      fontFamily: 'var(--font-body)', fontSize: '0.875rem', outline: 'none',
+                      boxSizing: 'border-box', colorScheme: 'dark',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: '0.375rem' }}>
+                    Uhrzeit
+                  </label>
+                  <input
+                    type="time"
+                    value={vorgUhrzeit}
+                    onChange={ev => setVorgUhrzeit(ev.target.value)}
+                    style={{
+                      width: '100%', background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(148,170,255,0.2)', borderRadius: '0.5rem',
+                      padding: '0.625rem 0.875rem', color: 'var(--color-on-surface)',
+                      fontFamily: 'var(--font-body)', fontSize: '0.875rem', outline: 'none',
+                      boxSizing: 'border-box', colorScheme: 'dark',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* PLZ + Ort nebeneinander */}
+              <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: '0.375rem' }}>
+                    PLZ
+                  </label>
+                  <input
+                    type="text"
+                    value={vorgPlz}
+                    onChange={ev => setVorgPlz(ev.target.value)}
+                    placeholder="12345"
+                    maxLength={10}
+                    style={{
+                      width: '100%', background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(148,170,255,0.2)', borderRadius: '0.5rem',
+                      padding: '0.625rem 0.875rem', color: 'var(--color-on-surface)',
+                      fontFamily: 'var(--font-body)', fontSize: '0.875rem', outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: '0.375rem' }}>
+                    Ort
+                  </label>
+                  <input
+                    type="text"
+                    value={vorgOrt}
+                    onChange={ev => setVorgOrt(ev.target.value)}
+                    placeholder="z.B. Café Muster, Videocall, …"
+                    style={{
+                      width: '100%', background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(148,170,255,0.2)', borderRadius: '0.5rem',
+                      padding: '0.625rem 0.875rem', color: 'var(--color-on-surface)',
+                      fontFamily: 'var(--font-body)', fontSize: '0.875rem', outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Notizen */}
+              <div>
+                <label style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: '0.375rem' }}>
+                  Notizen
+                </label>
+                <textarea
+                  value={vorgNotizen}
+                  onChange={ev => setVorgNotizen(ev.target.value)}
+                  rows={3}
+                  placeholder="Themen, Fragen, Anmerkungen…"
+                  style={{
+                    width: '100%', background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(148,170,255,0.2)', borderRadius: '0.5rem',
+                    padding: '0.625rem 0.875rem', color: 'var(--color-on-surface)',
+                    fontFamily: 'var(--font-body)', fontSize: '0.875rem', outline: 'none',
+                    resize: 'vertical', boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+            </div>
+
+            {vorgDatum && djCalendarId && (
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.78rem', color: 'rgba(255,196,87,0.8)', marginTop: '0.875rem', marginBottom: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>event</span>
+                Wird im Kalender eingetragen.
+              </p>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
+              <button
+                type="button"
+                onClick={() => { setVorgDialogEvent(null); setIsSaving(false); }}
+                style={{
+                  background: 'transparent', border: '1px solid rgba(148,170,255,0.2)',
+                  borderRadius: '0.5rem', padding: '0.625rem 1.25rem',
+                  color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)',
+                  fontSize: '0.875rem', cursor: 'pointer',
+                }}
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={() => void saveVorgespraech()}
+                style={{
+                  background: 'rgba(255,196,87,0.15)', border: '1px solid rgba(255,196,87,0.5)',
+                  borderRadius: '0.5rem', padding: '0.625rem 1.25rem',
+                  color: '#ffc457', fontFamily: 'var(--font-body)',
+                  fontSize: '0.875rem', fontWeight: 600, cursor: isSaving ? 'not-allowed' : 'pointer',
+                  opacity: isSaving ? 0.6 : 1,
+                }}
+              >
+                {isSaving ? 'Speichern…' : 'Speichern'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Vorgespräch-Erledigt-Dialog ───────────────────────────── */}
+      {vorgErledigtEvent && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 10000,
+          background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '1rem',
+        }} onClick={(evt) => { if (evt.target === evt.currentTarget) setVorgErledigtEvent(null); }}>
+          <div style={{
+            background: '#0d1526',
+            border: '1px solid rgba(92,253,128,0.2)',
+            borderRadius: '1rem',
+            padding: '2rem',
+            width: '100%',
+            maxWidth: '400px',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.8)',
+          }}>
+            <h2 style={{
+              fontFamily: 'var(--font-headline)', fontWeight: 700,
+              fontSize: '1.25rem', color: 'var(--color-on-surface)',
+              margin: 0, marginBottom: '0.375rem',
+            }}>
+              Vorgespräch erledigt
+            </h2>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.85rem', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '1.5rem' }}>
+              {vorgErledigtEvent.customer_name || vorgErledigtEvent.customer_org || `Event #${vorgErledigtEvent.id}`}
+            </p>
+
+            <div>
+              <label style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: '0.375rem' }}>
+                Gefahrene Kilometer (optional)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={vorgKm}
+                onChange={ev => setVorgKm(ev.target.value)}
+                placeholder="z.B. 42"
+                style={{
+                  width: '100%', background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(148,170,255,0.2)', borderRadius: '0.5rem',
+                  padding: '0.625rem 0.875rem', color: 'var(--color-on-surface)',
+                  fontFamily: 'var(--font-body)', fontSize: '0.875rem', outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+              />
+              {vorgKm && Number(vorgKm) > 0 && (
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.78rem', color: 'var(--color-secondary)', marginTop: '0.5rem', marginBottom: 0 }}>
+                  → {(Math.round(Number(vorgKm)) * 0.30).toFixed(2)} € Fahrtkosten werden als Ausgabe eingetragen.
+                </p>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
+              <button
+                type="button"
+                onClick={() => setVorgErledigtEvent(null)}
+                style={{
+                  background: 'transparent', border: '1px solid rgba(148,170,255,0.2)',
+                  borderRadius: '0.5rem', padding: '0.625rem 1.25rem',
+                  color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)',
+                  fontSize: '0.875rem', cursor: 'pointer',
+                }}
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                disabled={vorgMut.isPending}
+                onClick={() => {
+                  vorgMut.mutate({
+                    id: vorgErledigtEvent.id,
+                    data: {
+                      action: 'erledigt',
+                      km: vorgKm ? Number(vorgKm) : undefined,
+                    },
+                  });
+                }}
+                style={{
+                  background: 'rgba(92,253,128,0.12)', border: '1px solid rgba(92,253,128,0.4)',
+                  borderRadius: '0.5rem', padding: '0.625rem 1.25rem',
+                  color: '#5cfd80', fontFamily: 'var(--font-body)',
+                  fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer',
+                  opacity: vorgMut.isPending ? 0.6 : 1,
+                }}
+              >
+                {vorgMut.isPending ? 'Speichern…' : 'Als erledigt markieren'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Event-Modals ─────────────────────────────────────────── */}
       {showNeueAnfrage && !selectedEventId && (
         <NeueAnfrageModal
           key="create"

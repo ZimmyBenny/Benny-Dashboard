@@ -878,18 +878,35 @@ function DaySlideOver({ date, events, calendars, onClose, onEventDeleted, onEven
 
 // ── SyncNotificationPopup ──────────────────────────────────────────────────────
 
-const SYNC_ACK_KEY = 'cal_last_ack_time';
+const SYNC_SEEN_KEY = 'cal_seen_event_ids';
+
+function getSeenIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(SYNC_SEEN_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch { return new Set(); }
+}
+
+function markAsSeen(events: CalendarEvent[]): void {
+  const seen = getSeenIds();
+  // apple_uid ist die stabile Apple-Calendar-ID — nicht die SQLite-Zeilen-ID
+  events.forEach(evt => {
+    if (evt.apple_uid) seen.add(evt.apple_uid);
+    seen.add(String(evt.id));
+  });
+  const arr = Array.from(seen);
+  localStorage.setItem(SYNC_SEEN_KEY, JSON.stringify(arr.slice(-500)));
+}
 
 function detectNewEvents(events: CalendarEvent[]): CalendarEvent[] {
-  const lastAck = localStorage.getItem(SYNC_ACK_KEY);
-  const cutoff = lastAck ? new Date(lastAck) : null;
-  // Nur Events die innerhalb der letzten 2h ERSTMALS angelegt wurden
-  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+  const seen = getSeenIds();
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
   return events.filter(evt => {
     if (!evt.created_at) return false;
-    const createdAt = new Date(evt.created_at);
-    if (createdAt < twoHoursAgo) return false;           // zu alt
-    if (cutoff && createdAt <= cutoff) return false;     // bereits bestätigt
+    if (new Date(evt.created_at) < oneDayAgo) return false;
+    // Beide Keys prüfen — apple_uid ist stabiler als DB-id
+    if (evt.apple_uid && seen.has(evt.apple_uid)) return false;
+    if (seen.has(String(evt.id))) return false;
     return true;
   });
 }
@@ -1127,8 +1144,14 @@ export function CalendarPage() {
 
   const [newSyncedEvents, setNewSyncedEvents] = useState<CalendarEvent[]>([]);
 
+  // Sobald der Popup erscheint, IDs sofort als gesehen markieren — kein erneutes Anzeigen
+  useEffect(() => {
+    if (newSyncedEvents.length > 0) {
+      markAsSeen(newSyncedEvents);
+    }
+  }, [newSyncedEvents]);
+
   function handleAck() {
-    localStorage.setItem(SYNC_ACK_KEY, new Date().toISOString());
     setNewSyncedEvents([]);
   }
 

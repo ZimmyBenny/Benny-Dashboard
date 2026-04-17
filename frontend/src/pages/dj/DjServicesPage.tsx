@@ -13,7 +13,7 @@ import { formatCurrency } from '../../lib/format';
 
 const inputStyle: React.CSSProperties = {
   background: 'rgba(255,255,255,0.06)',
-  border: '1px solid var(--color-outline-variant)',
+  border: '1px solid rgba(148,170,255,0.2)',
   borderRadius: '0.5rem',
   color: 'var(--color-on-surface)',
   padding: '0.5rem 0.875rem',
@@ -33,24 +33,25 @@ const labelStyle: React.CSSProperties = {
 };
 
 const btnPrimary: React.CSSProperties = {
-  background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+  background: 'linear-gradient(135deg, #94aaff 0%, #5cfd80 100%)',
   border: 'none',
   borderRadius: '0.5rem',
-  color: '#000',
+  color: '#060e20',
   padding: '0.5rem 1.25rem',
   cursor: 'pointer',
   fontFamily: 'var(--font-body)',
   fontSize: '0.875rem',
-  fontWeight: 600,
+  fontWeight: 700,
   display: 'inline-flex',
   alignItems: 'center',
   gap: '0.375rem',
   whiteSpace: 'nowrap' as const,
+  boxShadow: '0 0 16px rgba(148,170,255,0.3)',
 };
 
 const btnSecondary: React.CSSProperties = {
   background: 'rgba(255,255,255,0.06)',
-  border: '1px solid var(--color-outline-variant)',
+  border: '1px solid rgba(148,170,255,0.2)',
   borderRadius: '0.5rem',
   color: 'var(--color-on-surface)',
   padding: '0.5rem 1rem',
@@ -74,7 +75,7 @@ function StatusPill({ active }: { active: number }) {
       fontSize: '0.75rem',
       fontFamily: 'var(--font-body)',
       fontWeight: 600,
-      background: active === 1 ? 'rgba(92,253,128,0.15)' : 'var(--color-surface-container-high)',
+      background: active === 1 ? 'rgba(92,253,128,0.15)' : 'rgba(255,255,255,0.05)',
       color: active === 1 ? 'var(--color-secondary)' : 'var(--color-on-surface-variant)',
     }}>
       {active === 1 ? 'Aktiv' : 'Inaktiv'}
@@ -153,7 +154,7 @@ function ServiceSlideOver({
     left: '50%',
     transform: 'translate(-50%, -50%)',
     width: 'min(480px, 92vw)',
-    background: 'var(--color-surface-container)',
+    background: 'rgba(255,255,255,0.03)',
     borderRadius: '1rem',
     boxShadow: '0 16px 64px rgba(0,0,0,0.7)',
     zIndex: 9001,
@@ -173,7 +174,7 @@ function ServiceSlideOver({
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '1.25rem 1.5rem',
-            borderBottom: '1px solid var(--color-outline-variant)',
+            borderBottom: '1px solid rgba(148,170,255,0.2)',
           }}
         >
           <span style={{ fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '1.1rem', color: 'var(--color-on-surface)' }}>
@@ -229,7 +230,7 @@ function ServiceSlideOver({
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', padding: '1rem 1.5rem', borderTop: '1px solid var(--color-outline-variant)' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', padding: '1rem 1.5rem', borderTop: '1px solid rgba(148,170,255,0.2)' }}>
           <button type="button" onClick={onClose} style={btnSecondary}>Abbrechen</button>
           <button type="button" onClick={() => void handleSave()} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.7 : 1 }}>
             {saving ? 'Speichern...' : 'Speichern'}
@@ -302,7 +303,7 @@ function PackageSlideOver({ services, onClose, onSaved }: { services: DjService[
     transform: 'translate(-50%, -50%)',
     width: 'min(520px, 92vw)',
     maxHeight: '90vh',
-    background: 'var(--color-surface-container)',
+    background: 'rgba(255,255,255,0.03)',
     borderRadius: '1rem',
     boxShadow: '0 16px 64px rgba(0,0,0,0.7)',
     zIndex: 9001,
@@ -324,7 +325,7 @@ function PackageSlideOver({ services, onClose, onSaved }: { services: DjService[
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '1.25rem 1.5rem',
-            borderBottom: '1px solid var(--color-outline-variant)',
+            borderBottom: '1px solid rgba(148,170,255,0.2)',
             flexShrink: 0,
           }}
         >
@@ -403,7 +404,7 @@ function PackageSlideOver({ services, onClose, onSaved }: { services: DjService[
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', padding: '1rem 1.5rem', borderTop: '1px solid var(--color-outline-variant)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', padding: '1rem 1.5rem', borderTop: '1px solid rgba(148,170,255,0.2)', flexShrink: 0 }}>
           <button type="button" onClick={onClose} style={btnSecondary}>Abbrechen</button>
           <button type="button" onClick={() => void handleSave()} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.7 : 1 }}>
             {saving ? 'Speichern...' : 'Speichern'}
@@ -545,18 +546,6 @@ export function DjServicesPage() {
               }}>
                 Leistungen &amp; Pakete
               </h1>
-              <p style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 500,
-                fontSize: '0.7rem',
-                letterSpacing: '0.15em',
-                textTransform: 'uppercase',
-                color: 'var(--color-on-surface-variant)',
-                marginTop: '0.375rem',
-                marginBottom: 0,
-              }}>
-                SYNTHETIC CONDUCTOR
-              </p>
             </div>
 
             {/* Header-Buttons */}
@@ -565,9 +554,9 @@ export function DjServicesPage() {
                 type="button"
                 onClick={() => setServiceSlideOver({ open: true, editing: null })}
                 style={{
-                  background: 'var(--color-surface-container-high)',
+                  background: 'rgba(255,255,255,0.05)',
                   color: 'var(--color-on-surface)',
-                  border: '1px solid var(--color-outline-variant)',
+                  border: '1px solid rgba(148,170,255,0.2)',
                   borderRadius: '0.75rem',
                   padding: '0.625rem 1.25rem',
                   fontSize: '0.875rem',
@@ -610,7 +599,7 @@ export function DjServicesPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
 
             {/* Aktive Leistungen */}
-            <div style={{ background: 'var(--color-surface-container)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.375rem' }}>
                   Aktive Leistungen
@@ -623,7 +612,7 @@ export function DjServicesPage() {
             </div>
 
             {/* Pakete */}
-            <div style={{ background: 'var(--color-surface-container)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.375rem' }}>
                   Pakete
@@ -636,7 +625,7 @@ export function DjServicesPage() {
             </div>
 
             {/* Ø Stundensatz */}
-            <div style={{ background: 'var(--color-surface-container)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.375rem' }}>
                   Ø Stundensatz
@@ -654,7 +643,7 @@ export function DjServicesPage() {
           <div style={{ marginBottom: '1.5rem' }}>
             <div style={{
               display: 'inline-flex',
-              background: 'var(--color-surface-container)',
+              background: 'rgba(255,255,255,0.03)',
               borderRadius: '0.5rem',
               padding: '0.25rem',
               gap: 0,
@@ -713,7 +702,7 @@ export function DjServicesPage() {
                           key={pkg.id}
                           onClick={() => setSelectedPackageId(pkg.id)}
                           style={{
-                            background: isSelected ? 'var(--color-surface-container-high)' : 'var(--color-surface-container)',
+                            background: isSelected ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.03)',
                             borderRadius: '0.75rem',
                             padding: '1rem 1.25rem',
                             cursor: 'pointer',
@@ -725,10 +714,10 @@ export function DjServicesPage() {
                             transition: 'background 120ms',
                           }}
                           onMouseEnter={e => {
-                            if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'var(--color-surface-container-high)';
+                            if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)';
                           }}
                           onMouseLeave={e => {
-                            if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'var(--color-surface-container)';
+                            if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)';
                           }}
                         >
                           <div style={{ minWidth: 0 }}>
@@ -740,7 +729,7 @@ export function DjServicesPage() {
                             </div>
                           </div>
                           <div style={{
-                            background: 'var(--color-surface-container-highest)',
+                            background: 'rgba(255,255,255,0.08)',
                             borderRadius: '999px',
                             padding: '0.25rem 0.75rem',
                             fontFamily: 'var(--font-body)',
@@ -772,7 +761,7 @@ export function DjServicesPage() {
               <div>
                 {selectedPackage === null ? (
                   <div style={{
-                    background: 'var(--color-surface-container)',
+                    background: 'rgba(255,255,255,0.03)',
                     borderRadius: '0.75rem',
                     padding: '3rem',
                     display: 'flex',
@@ -789,7 +778,7 @@ export function DjServicesPage() {
                   </div>
                 ) : (
                   <div style={{
-                    background: 'var(--color-surface-container)',
+                    background: 'rgba(255,255,255,0.03)',
                     borderRadius: '0.75rem',
                     padding: '1.5rem',
                   }}>
@@ -818,7 +807,7 @@ export function DjServicesPage() {
                     </div>
 
                     {/* Separator */}
-                    <div style={{ borderTop: '1px solid var(--color-outline-variant)', margin: '1rem 0' }} />
+                    <div style={{ borderTop: '1px solid rgba(148,170,255,0.2)', margin: '1rem 0' }} />
 
                     {/* Enthaltene Leistungen */}
                     <div>
@@ -867,7 +856,7 @@ export function DjServicesPage() {
                     <div
                       key={cat}
                       style={{
-                        borderBottom: '1px solid var(--color-outline-variant)',
+                        borderBottom: '1px solid rgba(148,170,255,0.2)',
                       }}
                     >
                       {/* Kategorie-Header */}

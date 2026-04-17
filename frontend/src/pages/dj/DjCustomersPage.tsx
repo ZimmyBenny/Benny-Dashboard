@@ -9,7 +9,7 @@ import { fetchDjCustomers, type DjCustomer } from '../../api/dj.api';
 function KpiCard({ label, value, icon }: { label: string; value: number; icon: string }) {
   return (
     <div style={{
-      background: 'var(--color-surface-container)',
+      background: 'rgba(255,255,255,0.03)',
       borderRadius: '0.75rem',
       padding: '1.25rem 1.5rem',
       display: 'flex',
@@ -94,7 +94,7 @@ export function DjCustomersPage() {
   // ---------------------------------------------------------------------------
   const inputStyle: React.CSSProperties = {
     background: 'rgba(255,255,255,0.06)',
-    border: '1px solid var(--color-outline-variant)',
+    border: '1px solid rgba(148,170,255,0.2)',
     borderRadius: '0.5rem',
     color: 'var(--color-on-surface)',
     padding: '0.5rem 0.875rem',
@@ -105,7 +105,7 @@ export function DjCustomersPage() {
 
   const btnSecondary: React.CSSProperties = {
     background: 'rgba(255,255,255,0.06)',
-    border: '1px solid var(--color-outline-variant)',
+    border: '1px solid rgba(148,170,255,0.2)',
     borderRadius: '0.5rem',
     color: 'var(--color-on-surface)',
     padding: '0.5rem 1rem',
@@ -119,19 +119,20 @@ export function DjCustomersPage() {
   };
 
   const btnPrimary: React.CSSProperties = {
-    background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+    background: 'linear-gradient(135deg, #94aaff 0%, #5cfd80 100%)',
     border: 'none',
     borderRadius: '0.5rem',
-    color: '#000',
+    color: '#060e20',
     padding: '0.5rem 1.25rem',
     cursor: 'pointer',
     fontFamily: 'var(--font-body)',
     fontSize: '0.875rem',
-    fontWeight: 600,
+    fontWeight: 700,
     display: 'inline-flex',
     alignItems: 'center',
     gap: '0.375rem',
     whiteSpace: 'nowrap' as const,
+    boxShadow: '0 0 16px rgba(148,170,255,0.3)',
   };
 
   // ---------------------------------------------------------------------------
@@ -203,7 +204,7 @@ export function DjCustomersPage() {
       )}
 
       {!loading && !error && (
-        <div style={{ background: 'var(--color-surface-container)', borderRadius: '0.75rem', overflow: 'hidden' }}>
+        <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', overflow: 'hidden' }}>
           {filtered.length === 0 ? (
             <div style={{ padding: '3rem', textAlign: 'center' }}>
               <span className="material-symbols-outlined" style={{ fontSize: '3rem', color: 'var(--color-on-surface-variant)', display: 'block', marginBottom: '1rem' }}>
@@ -243,7 +244,7 @@ export function DjCustomersPage() {
                       gap: '1rem',
                       padding: '0.875rem 1.25rem',
                       cursor: 'pointer',
-                      borderTop: idx === 0 ? 'none' : '1px solid var(--color-outline-variant)',
+                      borderTop: idx === 0 ? 'none' : '1px solid rgba(148,170,255,0.2)',
                       transition: 'background 120ms',
                     }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.07)'; }}
