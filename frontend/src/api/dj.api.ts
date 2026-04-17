@@ -44,6 +44,13 @@ export interface DjEvent {
   created_at: string;
   updated_at: string;
   calendar_uid?: string | null;
+  vorgespraech_status?: 'offen' | 'erledigt' | null;
+  vorgespraech_datum?: string | null;
+  vorgespraech_plz?: string | null;
+  vorgespraech_ort?: string | null;
+  vorgespraech_notizen?: string | null;
+  vorgespraech_km?: number | null;
+  vorgespraech_calendar_uid?: string | null;
   // joined
   customer_name?: string;
   customer_org?: string;
@@ -212,6 +219,7 @@ export interface DjOverview {
   open_requests: number;
   pending_quotes: number;
   confirmed_events: number;
+  open_vorgespraeche: number;
   completed_events: number;
   revenue_year: number;
   revenue_year_net: number;
@@ -249,6 +257,12 @@ export const updateDjEvent = (id: number, data: Partial<DjEvent>): Promise<DjEve
 
 export const deleteDjEvent = (id: number): Promise<void> =>
   apiClient.delete(`/dj/events/${id}`).then(() => undefined);
+
+export const setDjEventVorgespraech = (
+  id: number,
+  data: { action: 'offen' | 'erledigt'; datum?: string; plz?: string; ort?: string; notizen?: string; km?: number; calendar_uid?: string | null }
+): Promise<DjEvent> =>
+  apiClient.patch(`/dj/events/${id}/vorgespraech`, data).then(r => r.data);
 
 // Leistungen & Pakete
 export const fetchDjServices = (): Promise<DjService[]> =>
@@ -352,7 +366,7 @@ export const createDjTrip = (data: {
 }): Promise<DjExpense> =>
   apiClient.post('/dj/expenses', {
     expense_date: data.expense_date,
-    category: 'fahrt',
+    category: 'fahrzeug',
     description: data.purpose,
     amount_gross: data.reimbursement_amount,
     tax_rate: 0,
@@ -411,6 +425,31 @@ export const fetchDjSettingByKey = <T>(key: string): Promise<T> =>
 
 export const fetchDjSequences = (): Promise<DjNumberSequence[]> =>
   apiClient.get('/dj/settings/sequences/all').then(r => r.data);
+
+// Logo
+export const uploadDjLogo = (file: File): Promise<{ ok: true; path: string }> => {
+  const fd = new FormData();
+  fd.append('file', file);
+  return apiClient.post('/dj/settings/logo', fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data);
+};
+
+export const deleteDjLogo = (): Promise<void> =>
+  apiClient.delete('/dj/settings/logo').then(() => undefined);
+
+export const djLogoUrl = (): string =>
+  `${apiClient.defaults.baseURL ?? '/api'}/dj/settings/logo`;
+
+export const fetchDjLogoPath = (): Promise<string | null> =>
+  fetchDjSettingByKey<string>('logo_path').catch(() => null);
+
+// Default-Textbausteine
+export const fetchDjDefaultHeaderText = (): Promise<string> =>
+  fetchDjSettingByKey<string>('default_header_text').catch(() => '');
+
+export const fetchDjDefaultFooterText = (): Promise<string> =>
+  fetchDjSettingByKey<string>('default_footer_text').catch(() => '');
 
 // Angebot PDF / Vorschau / Status / Revision
 export const previewDjQuote = (id: number): string =>

@@ -6,9 +6,11 @@ import {
   fetchDjQuote, fetchDjCustomers, fetchDjEvents, fetchDjServices,
   createDjQuote, updateDjQuote, finalizeDjQuote,
   updateDjQuoteStatus, createDjQuoteRevision,
+  djLogoUrl,
   type DjQuote, type DjCustomer, type DjEvent, type DjService,
 } from '../../api/dj.api';
 import { StatusBadge } from '../../components/dj/StatusBadge';
+import { PdfPreviewModal } from '../../components/dj/PdfPreviewModal';
 import { formatDate, formatCurrency } from '../../lib/format';
 
 // ---------------------------------------------------------------------------
@@ -103,8 +105,8 @@ function ServiceSearchPicker({
       {open && filtered.length > 0 && (
         <div style={{
           position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
-          background: 'var(--color-surface-container-high)',
-          border: '1px solid var(--color-outline-variant)',
+          background: 'rgba(255,255,255,0.05)',
+          border: '1px solid rgba(148,170,255,0.2)',
           borderRadius: '0.5rem',
           marginTop: '0.25rem',
           maxHeight: '200px',
@@ -136,8 +138,8 @@ function ServiceSearchPicker({
       {open && query.length > 0 && filtered.length === 0 && (
         <div style={{
           position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
-          background: 'var(--color-surface-container-high)',
-          border: '1px solid var(--color-outline-variant)',
+          background: 'rgba(255,255,255,0.05)',
+          border: '1px solid rgba(148,170,255,0.2)',
           borderRadius: '0.5rem', marginTop: '0.25rem',
           padding: '0.5rem 0.75rem',
           color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.8rem',
@@ -166,17 +168,18 @@ interface LocalItem {
 // ---------------------------------------------------------------------------
 // PDF-Hilfsfunktionen (Blob-basiert, sendet JWT-Header via apiClient)
 // ---------------------------------------------------------------------------
-async function openQuotePdf(id: string, mode: 'preview' | 'download') {
-  const res = await apiClient.get(`/dj/quotes/${id}/${mode === 'preview' ? 'preview' : 'pdf'}`, { responseType: 'blob' });
+async function openPreview(id: string): Promise<string> {
+  const res = await apiClient.get(`/dj/quotes/${id}/preview`, { responseType: 'blob' });
+  return URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+}
+
+async function downloadPdf(id: string): Promise<void> {
+  const res = await apiClient.get(`/dj/quotes/${id}/pdf`, { responseType: 'blob' });
   const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
-  if (mode === 'preview') {
-    window.open(url, '_blank');
-  } else {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Angebot-${id}.pdf`;
-    a.click();
-  }
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Angebot-${id}.pdf`;
+  a.click();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
@@ -215,6 +218,7 @@ export function DjQuoteDetailPage() {
   const [saving, setSaving] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   // Kontakt-Picker
   const [customerSearch, setCustomerSearch] = useState('');
@@ -439,7 +443,7 @@ export function DjQuoteDetailPage() {
   // ---------------------------------------------------------------------------
   const inputStyle: React.CSSProperties = {
     background: 'rgba(255,255,255,0.06)',
-    border: '1px solid var(--color-outline-variant)',
+    border: '1px solid rgba(148,170,255,0.2)',
     borderRadius: '0.5rem',
     color: 'var(--color-on-surface)',
     padding: '0.5rem 0.875rem',
@@ -467,7 +471,7 @@ export function DjQuoteDetailPage() {
   };
 
   const btnPrimary: React.CSSProperties = {
-    background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+    background: 'linear-gradient(135deg, #94aaff 0%, #5cfd80 100%)',
     border: 'none',
     borderRadius: '0.5rem',
     color: '#000',
@@ -484,7 +488,7 @@ export function DjQuoteDetailPage() {
 
   const btnSecondary: React.CSSProperties = {
     background: 'rgba(255,255,255,0.06)',
-    border: '1px solid var(--color-outline-variant)',
+    border: '1px solid rgba(148,170,255,0.2)',
     borderRadius: '0.5rem',
     color: 'var(--color-on-surface)',
     padding: '0.5rem 1rem',
@@ -497,7 +501,7 @@ export function DjQuoteDetailPage() {
   };
 
   const cardStyle: React.CSSProperties = {
-    background: 'var(--color-surface-container)',
+    background: 'rgba(255,255,255,0.03)',
     borderRadius: '0.75rem',
     padding: '1.5rem',
   };
@@ -567,7 +571,7 @@ export function DjQuoteDetailPage() {
             <button
               type="button"
               style={btnSecondary}
-              onClick={() => void openQuotePdf(id!, 'preview')}
+              onClick={() => { void openPreview(id!).then(url => setPreviewUrl(url)); }}
               title="PDF-Vorschau im neuen Tab öffnen"
             >
               <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>picture_as_pdf</span>
@@ -581,7 +585,7 @@ export function DjQuoteDetailPage() {
               onClick={() => void handleFinalize()}
               disabled={finalizing}
               style={{
-                background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+                background: 'linear-gradient(135deg, #94aaff 0%, #5cfd80 100%)',
                 border: 'none',
                 borderRadius: '0.5rem',
                 color: '#000',
@@ -659,7 +663,7 @@ export function DjQuoteDetailPage() {
           gap: '0.75rem',
           alignItems: 'center',
           padding: '0.75rem 1rem',
-          background: 'var(--color-surface-container)',
+          background: 'rgba(255,255,255,0.03)',
           borderRadius: '0.75rem',
           marginBottom: '1.5rem',
           flexWrap: 'wrap',
@@ -673,7 +677,7 @@ export function DjQuoteDetailPage() {
               type="button"
               onClick={() => void handleStatusChange(s)}
               style={{
-                background: quote?.status === s ? 'var(--color-primary)' : 'var(--color-surface-container-high)',
+                background: quote?.status === s ? 'var(--color-primary)' : 'rgba(255,255,255,0.05)',
                 color: quote?.status === s ? '#000' : 'var(--color-on-surface-variant)',
                 border: 'none',
                 borderRadius: '999px',
@@ -770,8 +774,8 @@ export function DjQuoteDetailPage() {
               left: 0,
               right: 0,
               marginTop: '0.25rem',
-              background: 'var(--color-surface-container)',
-              border: '1px solid var(--color-outline-variant)',
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(148,170,255,0.2)',
               borderRadius: '0.75rem',
               padding: '0.75rem',
               boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
@@ -963,7 +967,7 @@ export function DjQuoteDetailPage() {
                   gridTemplateColumns: '2fr 80px 120px 100px 80px 120px 40px',
                   gap: '0.5rem',
                   padding: '0.5rem 0.75rem',
-                  borderTop: '1px solid var(--color-outline-variant)',
+                  borderTop: '1px solid rgba(148,170,255,0.2)',
                   alignItems: 'center',
                 }}>
                   {/* Leistung: Suchfeld + Beschreibungs-Input */}
@@ -1085,7 +1089,7 @@ export function DjQuoteDetailPage() {
             <div style={{
               padding: '2rem',
               textAlign: 'center',
-              border: '1px dashed var(--color-outline-variant)',
+              border: '1px dashed rgba(148,170,255,0.2)',
               borderRadius: '0.5rem',
               color: 'var(--color-on-surface-variant)',
               fontFamily: 'var(--font-body)',
@@ -1104,7 +1108,7 @@ export function DjQuoteDetailPage() {
               gap: '0.375rem',
               marginTop: '1.25rem',
               paddingTop: '1rem',
-              borderTop: '1px solid var(--color-outline-variant)',
+              borderTop: '1px solid rgba(148,170,255,0.2)',
             }}>
               <div style={{ display: 'flex', gap: '2rem', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface-variant)' }}>
                 <span>Netto:</span>
@@ -1123,7 +1127,7 @@ export function DjQuoteDetailPage() {
                 color: 'var(--color-primary)',
                 marginTop: '0.25rem',
                 paddingTop: '0.375rem',
-                borderTop: '1px solid var(--color-outline-variant)',
+                borderTop: '1px solid rgba(148,170,255,0.2)',
               }}>
                 <span>Gesamt:</span>
                 <span style={{ minWidth: '100px', textAlign: 'right' }}>{formatCurrency(totalGross)}</span>
@@ -1141,7 +1145,7 @@ export function DjQuoteDetailPage() {
             <button
               type="button"
               style={btnSecondary}
-              onClick={() => void openQuotePdf(id!, 'preview')}
+              onClick={() => { void openPreview(id!).then(url => setPreviewUrl(url)); }}
               title="PDF-Vorschau im neuen Tab öffnen"
             >
               <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>picture_as_pdf</span>
@@ -1159,6 +1163,15 @@ export function DjQuoteDetailPage() {
           </button>
         </div>
       </div>
+
+      {previewUrl && (
+        <PdfPreviewModal
+          pdfUrl={previewUrl}
+          logoUrl={djLogoUrl()}
+          onClose={() => { URL.revokeObjectURL(previewUrl); setPreviewUrl(null); }}
+          onDownload={() => { void downloadPdf(id!); }}
+        />
+      )}
     </PageWrapper>
   );
 }

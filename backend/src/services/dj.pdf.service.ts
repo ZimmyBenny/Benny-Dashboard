@@ -4,8 +4,6 @@ import crypto from 'crypto';
 import PDFDocument from 'pdfkit';
 import db from '../db/connection';
 
-const LOGO_DIR = path.join(process.cwd(), 'uploads', 'logo');
-
 const PDF_ARCHIVE_DIR = path.join(process.cwd(), 'backups', 'invoices');
 const QUOTE_ARCHIVE_DIR = path.join(process.cwd(), 'backups', 'quotes');
 

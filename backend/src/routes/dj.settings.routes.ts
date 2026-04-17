@@ -67,7 +67,7 @@ router.post('/logo', logoUpload.single('file'), (req, res) => {
 });
 
 // GET /api/dj/settings/logo — Logo-Datei ausliefern
-router.get('/logo', (req, res) => {
+router.get('/logo', (_req, res) => {
   const row = db.prepare("SELECT value FROM dj_settings WHERE key = 'logo_path'").get() as { value: string } | undefined;
   if (!row) {
     res.status(404).json({ error: 'Kein Logo hinterlegt' });
@@ -94,7 +94,7 @@ router.get('/logo', (req, res) => {
 });
 
 // DELETE /api/dj/settings/logo — Logo löschen
-router.delete('/logo', (req, res) => {
+router.delete('/logo', (_req, res) => {
   const row = db.prepare("SELECT value FROM dj_settings WHERE key = 'logo_path'").get() as { value: string } | undefined;
   if (row) {
     const absPath = path.join(process.cwd(), row.value);

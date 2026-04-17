@@ -1,10 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import {
   fetchDjSettingByKey,
   fetchDjSequences,
   updateDjSetting,
+  uploadDjLogo,
+  deleteDjLogo,
+  djLogoUrl,
+  fetchDjLogoPath,
+  fetchDjDefaultHeaderText,
+  fetchDjDefaultFooterText,
   type DjCompanySettings,
   type DjTaxSettings,
   type DjPaymentTermsSettings,
@@ -101,6 +107,292 @@ function FocusInput({ type = 'text', value, onChange, placeholder }: {
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
     />
+  );
+}
+
+// ── Logo ───────────────────────────────────────────────────────────────────────
+
+function LogoSection() {
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [cacheBust, setCacheBust] = useState(Date.now());
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const { data: logoPath } = useQuery<string | null>({
+    queryKey: ['dj-setting', 'logo_path'],
+    queryFn: fetchDjLogoPath,
+  });
+
+  const hasLogo = !!logoPath;
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadError(null);
+    try {
+      await uploadDjLogo(file);
+      setCacheBust(Date.now());
+      await queryClient.invalidateQueries({ queryKey: ['dj-setting', 'logo_path'] });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unbekannter Fehler';
+      setUploadError(`Upload fehlgeschlagen: ${msg}`);
+    }
+    // Input zurücksetzen damit dieselbe Datei erneut gewählt werden kann
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  async function handleDelete() {
+    if (!window.confirm('Logo wirklich entfernen?')) return;
+    setUploadError(null);
+    try {
+      await deleteDjLogo();
+      setCacheBust(Date.now());
+      await queryClient.invalidateQueries({ queryKey: ['dj-setting', 'logo_path'] });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unbekannter Fehler';
+      setUploadError(`Löschen fehlgeschlagen: ${msg}`);
+    }
+  }
+
+  return (
+    <div style={cardStyle}>
+      <SectionHeading icon="image" title="Logo" />
+
+      {/* Logo-Vorschau */}
+      <div style={{
+        marginBottom: '1rem',
+        padding: '1rem',
+        background: 'rgba(255,255,255,0.03)',
+        border: '1px solid rgba(148,170,255,0.1)',
+        borderRadius: '0.5rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100px',
+      }}>
+        {hasLogo ? (
+          <img
+            src={`${djLogoUrl()}?t=${cacheBust}`}
+            alt="Firmenlogo"
+            style={{ maxWidth: '200px', maxHeight: '80px', objectFit: 'contain' }}
+            onError={e => {
+              (e.currentTarget as HTMLImageElement).style.display = 'none';
+            }}
+          />
+        ) : (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '0.375rem',
+            color: 'var(--color-on-surface-variant)',
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.8125rem',
+          }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '2rem', opacity: 0.4 }}>image_not_supported</span>
+            Kein Logo hinterlegt
+          </div>
+        )}
+      </div>
+
+      {/* Fehler-Anzeige */}
+      {uploadError && (
+        <p style={{
+          color: 'var(--color-error)',
+          fontFamily: 'var(--font-body)',
+          fontSize: '0.8125rem',
+          marginBottom: '0.75rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.375rem',
+        }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>error</span>
+          {uploadError}
+        </p>
+      )}
+
+      {/* Aktions-Buttons */}
+      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          style={{
+            padding: '0.5rem 1.25rem',
+            background: 'linear-gradient(135deg, #94aaff 0%, #5cfd80 100%)',
+            color: '#060e20',
+            border: 'none',
+            borderRadius: '0.5rem',
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.875rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.375rem',
+          }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>upload</span>
+          Logo hochladen
+        </button>
+
+        {hasLogo && (
+          <button
+            type="button"
+            onClick={() => void handleDelete()}
+            style={{
+              padding: '0.5rem 1.25rem',
+              background: 'rgba(255,110,132,0.12)',
+              color: 'var(--color-error)',
+              border: '1px solid rgba(255,110,132,0.3)',
+              borderRadius: '0.5rem',
+              fontFamily: 'var(--font-body)',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.375rem',
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>delete</span>
+            Logo entfernen
+          </button>
+        )}
+      </div>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/svg+xml,image/webp"
+        style={{ display: 'none' }}
+        onChange={e => void handleFileChange(e)}
+      />
+
+      <p style={{
+        fontFamily: 'var(--font-body)',
+        fontSize: '0.75rem',
+        color: 'var(--color-on-surface-variant)',
+        marginTop: '0.75rem',
+        marginBottom: 0,
+      }}>
+        PNG, JPEG, SVG oder WebP — max. 2 MB. SVG wird im PDF nicht dargestellt.
+      </p>
+    </div>
+  );
+}
+
+// ── Textbausteine ──────────────────────────────────────────────────────────────
+
+function TextBausteineSection() {
+  const queryClient = useQueryClient();
+
+  const { data: headerData } = useQuery<string>({
+    queryKey: ['dj-setting', 'default_header_text'],
+    queryFn: fetchDjDefaultHeaderText,
+  });
+  const { data: footerData } = useQuery<string>({
+    queryKey: ['dj-setting', 'default_footer_text'],
+    queryFn: fetchDjDefaultFooterText,
+  });
+
+  const [headerLocal, setHeaderLocal] = useState('');
+  const [footerLocal, setFooterLocal] = useState('');
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  useEffect(() => { if (headerData !== undefined) setHeaderLocal(headerData ?? ''); }, [headerData]);
+  useEffect(() => { if (footerData !== undefined) setFooterLocal(footerData ?? ''); }, [footerData]);
+
+  const isDirty =
+    headerLocal !== (headerData ?? '') ||
+    footerLocal !== (footerData ?? '');
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      await Promise.all([
+        updateDjSetting('default_header_text', headerLocal),
+        updateDjSetting('default_footer_text', footerLocal),
+      ]);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dj-setting', 'default_header_text'] });
+      queryClient.invalidateQueries({ queryKey: ['dj-setting', 'default_footer_text'] });
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    },
+  });
+
+  return (
+    <div style={cardStyle}>
+      <SectionHeading icon="description" title="Textbausteine" />
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.875rem', maxWidth: '720px' }}>
+        <div>
+          <label style={labelStyle}>Standard-Kopftext</label>
+          <textarea
+            rows={6}
+            value={headerLocal}
+            onChange={e => setHeaderLocal(e.target.value)}
+            style={{
+              ...inputBase,
+              resize: 'vertical',
+              ...(focusedField === 'header' ? inputFocusStyle : {}),
+            }}
+            onFocus={() => setFocusedField('header')}
+            onBlur={() => setFocusedField(null)}
+            placeholder="z.B. Sehr geehrte(r) {{KONTAKTPERSON}},&#10;&#10;vielen Dank für Ihre Anfrage..."
+          />
+        </div>
+
+        <div>
+          <label style={labelStyle}>Standard-Fußtext</label>
+          <textarea
+            rows={6}
+            value={footerLocal}
+            onChange={e => setFooterLocal(e.target.value)}
+            style={{
+              ...inputBase,
+              resize: 'vertical',
+              ...(focusedField === 'footer' ? inputFocusStyle : {}),
+            }}
+            onFocus={() => setFocusedField('footer')}
+            onBlur={() => setFocusedField(null)}
+            placeholder="z.B. Dieses Angebot ist gültig bis {{DATUM}}."
+          />
+        </div>
+      </div>
+
+      <p style={{
+        fontFamily: 'var(--font-body)',
+        fontSize: '0.775rem',
+        color: 'var(--color-on-surface-variant)',
+        marginTop: '0.75rem',
+        marginBottom: 0,
+        fontStyle: 'italic',
+      }}>
+        Platzhalter: <code style={{ background: 'rgba(148,170,255,0.1)', padding: '0.1em 0.3em', borderRadius: '0.25rem', fontSize: '0.875em' }}>{'{{KONTAKTPERSON}}'}</code>,{' '}
+        <code style={{ background: 'rgba(148,170,255,0.1)', padding: '0.1em 0.3em', borderRadius: '0.25rem', fontSize: '0.875em' }}>{'{{DATUM}}'}</code>,{' '}
+        <code style={{ background: 'rgba(148,170,255,0.1)', padding: '0.1em 0.3em', borderRadius: '0.25rem', fontSize: '0.875em' }}>{'{{ANGEBOTSNUMMER}}'}</code>,{' '}
+        <code style={{ background: 'rgba(148,170,255,0.1)', padding: '0.1em 0.3em', borderRadius: '0.25rem', fontSize: '0.875em' }}>{'{{KUNDENNUMMER}}'}</code>{' '}
+        — werden beim PDF-Export automatisch ersetzt.
+      </p>
+
+      {saveSuccess && !isDirty && (
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: '#5cfd80', marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>check_circle</span>
+          Gespeichert
+        </p>
+      )}
+
+      <button
+        disabled={!isDirty || mutation.isPending}
+        style={saveButtonStyle(isDirty && !mutation.isPending)}
+        onClick={() => mutation.mutate()}
+      >
+        {mutation.isPending ? 'Speichert…' : 'Speichern'}
+      </button>
+    </div>
   );
 }
 
@@ -398,14 +690,7 @@ export function DjSettingsPage() {
 
           {/* Page Header */}
           <div style={{ marginBottom: '2.5rem' }}>
-            <p style={{
-              fontFamily: 'var(--font-body)', fontSize: '0.6875rem', fontWeight: 600,
-              color: 'var(--color-primary)', letterSpacing: '0.12em', textTransform: 'uppercase',
-              margin: '0 0 0.375rem',
-            }}>
-              SYSTEM CONFIG
-            </p>
-            <h1 style={{
+<h1 style={{
               fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2.25rem',
               color: 'var(--color-on-surface)', margin: 0, letterSpacing: '-0.02em', lineHeight: 1,
             }}>
@@ -417,8 +702,10 @@ export function DjSettingsPage() {
           </div>
 
           <CompanySection />
+          <LogoSection />
           <TaxSection />
           <PaymentTermsSection />
+          <TextBausteineSection />
           <SequencesSection />
 
         </div>
