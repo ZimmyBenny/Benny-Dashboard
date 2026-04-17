@@ -133,7 +133,7 @@ function renderFooter(doc: PDFKit.PDFDocument, company: CompanySettings) {
 
   // Spalte 1: Firma + Adresse
   const c1 = mL;
-  doc.text(`${company.company} | ${company.name}`, c1, textY, { width: colW - 4, lineBreak: false });
+  doc.text(company.name, c1, textY, { width: colW - 4, lineBreak: false });
   doc.text(company.address, c1, textY + lineH, { width: colW - 4, lineBreak: false });
   doc.text(`${company.zip} ${company.city}`, c1, textY + lineH * 2, { width: colW - 4, lineBreak: false });
   if (company.country) {
@@ -154,7 +154,7 @@ function renderFooter(doc: PDFKit.PDFDocument, company: CompanySettings) {
   if (company.vat_id) {
     doc.text(`USt-IdNr. ${company.vat_id}`, c3, textY + lineH, { width: colW - 4, lineBreak: false });
   }
-  doc.text(`Inhaber/-in ${company.name}`, c3, textY + lineH * (company.vat_id ? 2 : 1), { width: colW - 4, lineBreak: false });
+  doc.text(`Inhaber/-in ${company.bank.holder}`, c3, textY + lineH * (company.vat_id ? 2 : 1), { width: colW - 4, lineBreak: false });
 
   // Spalte 4: Bank (muss IMMER erscheinen — absolute Y-Positionen)
   const c4 = mL + colW * 3;
