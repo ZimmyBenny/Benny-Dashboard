@@ -23,10 +23,6 @@ backend/dist/
 # Cal-tool compiled binary (Swift EventKit CLI)
 backend/src/scripts/cal-tool
 
-# Uploads — Logo-Dateien nicht einchecken, aber Verzeichnisstruktur behalten
-backend/uploads/logo/*
-!backend/uploads/logo/.gitkeep
-
 # macOS
 .DS_Store
 

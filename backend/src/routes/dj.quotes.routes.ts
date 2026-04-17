@@ -154,35 +154,12 @@ router.post('/:id/revision', (req, res) => {
   res.status(201).json(loadQuote(newId));
 });
 
-// Hilfsfunktion: Default-Textbaustein aus dj_settings laden
-function loadDefaultText(key: string): string | null {
-  const row = db.prepare('SELECT value FROM dj_settings WHERE key = ?').get(key) as { value: string } | undefined;
-  if (!row) return null;
-  try {
-    const v = JSON.parse(row.value);
-    return typeof v === 'string' && v.length > 0 ? v : null;
-  } catch {
-    return row.value || null;
-  }
-}
-
 // POST /api/dj/quotes — Neues Angebot (Entwurf)
 router.post('/', (req, res) => {
-  const { customer_id, event_id, subject, header_text, footer_text, payment_terms, distance_km, trips, items, anrede_form, quote_date, reference_number } =
+  const { customer_id, event_id, subject, header_text, footer_text, payment_terms, distance_km, trips, items } =
     req.body as Record<string, unknown>;
 
   if (!customer_id) { res.status(400).json({ error: 'customer_id erforderlich' }); return; }
-
-  // Auto-Fill: Default-Textbausteine passend zur Anrede-Form
-  const form = (anrede_form === 'sie') ? 'sie' : 'du';
-  const headerKey = `default_header_text_${form}`;
-  const footerKey = `default_footer_text_${form}`;
-  const effectiveHeader = (header_text !== undefined && header_text !== null)
-    ? header_text as string
-    : (loadDefaultText(headerKey) ?? loadDefaultText('default_header_text'));
-  const effectiveFooter = (footer_text !== undefined && footer_text !== null)
-    ? footer_text as string
-    : (loadDefaultText(footerKey) ?? loadDefaultText('default_footer_text'));
 
   const validUntil = new Date();
   validUntil.setDate(validUntil.getDate() + 30);
@@ -191,14 +168,12 @@ router.post('/', (req, res) => {
   const txn = db.transaction(() => {
     const result = db.prepare(`
       INSERT INTO dj_quotes
-        (customer_id, event_id, subject, header_text, footer_text, payment_terms, distance_km, trips, valid_until, anrede_form, quote_date, reference_number)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (customer_id, event_id, subject, header_text, footer_text, payment_terms, distance_km, trips, valid_until)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       customer_id, event_id ?? null, subject ?? null,
-      effectiveHeader, effectiveFooter, payment_terms ?? null,
-      distance_km ?? null, trips ?? 2, validUntilStr, form,
-      (quote_date as string | undefined) ?? new Date().toISOString().slice(0, 10),
-      reference_number ?? null,
+      header_text ?? null, footer_text ?? null, payment_terms ?? null,
+      distance_km ?? null, trips ?? 2, validUntilStr,
     );
     const newId = Number(result.lastInsertRowid);
 
@@ -237,7 +212,7 @@ router.patch('/:id', (req, res) => {
     return;
   }
 
-  const { subject, header_text, footer_text, payment_terms, distance_km, trips, valid_until, items, anrede_form, quote_date, reference_number } =
+  const { subject, header_text, footer_text, payment_terms, distance_km, trips, valid_until, items } =
     req.body as Record<string, unknown>;
 
   const txn = db.transaction(() => {
@@ -246,18 +221,12 @@ router.patch('/:id', (req, res) => {
         subject = COALESCE(?, subject), header_text = COALESCE(?, header_text),
         footer_text = COALESCE(?, footer_text), payment_terms = COALESCE(?, payment_terms),
         distance_km = COALESCE(?, distance_km), trips = COALESCE(?, trips),
-        valid_until = COALESCE(?, valid_until),
-        anrede_form = COALESCE(?, anrede_form),
-        quote_date = COALESCE(?, quote_date),
-        reference_number = ?
+        valid_until = COALESCE(?, valid_until)
       WHERE id = ?
     `).run(
       subject ?? null, header_text ?? null, footer_text ?? null,
       payment_terms ?? null, distance_km ?? null, trips ?? null,
-      valid_until ?? null, anrede_form ?? null,
-      (quote_date as string | undefined) ?? null,
-      reference_number !== undefined ? (reference_number as string | null) : null,
-      id,
+      valid_until ?? null, id,
     );
 
     if (Array.isArray(items)) {

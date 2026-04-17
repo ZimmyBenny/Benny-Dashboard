@@ -225,6 +225,7 @@ export function DjQuoteDetailPage() {
   const [finalizing, setFinalizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   // Kontakt-Picker
   const [customerSearch, setCustomerSearch] = useState('');
@@ -353,6 +354,21 @@ export function DjQuoteDetailPage() {
   function updateItem(key: number, patch: Partial<LocalItem>) {
     setItems(prev => prev.map(i => (i._key === key ? { ...i, ...patch } : i)));
   }
+
+  // ---------------------------------------------------------------------------
+  // PDF-Vorschau mit Fehlerhandling
+  // ---------------------------------------------------------------------------
+  const handleOpenPreview = async () => {
+    if (!id) return;
+    setPreviewError(null);
+    try {
+      const url = await openPreview(id);
+      setPreviewUrl(url);
+    } catch (err) {
+      console.error('PDF-Vorschau fehlgeschlagen:', err);
+      setPreviewError('Vorschau konnte nicht geladen werden');
+    }
+  };
 
   // ---------------------------------------------------------------------------
   // Speichern
@@ -593,12 +609,28 @@ export function DjQuoteDetailPage() {
             <button
               type="button"
               style={btnSecondary}
-              onClick={() => { void openPreview(id!).then(url => setPreviewUrl(url)); }}
+              onClick={() => void handleOpenPreview()}
               title="PDF-Vorschau im neuen Tab öffnen"
             >
               <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>picture_as_pdf</span>
               Vorschau
             </button>
+          )}
+          {previewError && (
+            <span style={{
+              fontSize: '0.75rem',
+              color: '#ff6b6b',
+              background: 'rgba(255,107,107,0.1)',
+              border: '1px solid rgba(255,107,107,0.3)',
+              borderRadius: '0.375rem',
+              padding: '0.25rem 0.5rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+            }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '0.9rem' }}>error</span>
+              {previewError}
+            </span>
           )}
           {/* Finalisieren-Button: nur sichtbar wenn !isNew && !finalized && status=entwurf */}
           {!isNew && !finalized && quote?.status === 'entwurf' && (
@@ -872,20 +904,23 @@ export function DjQuoteDetailPage() {
                 fontSize: '0.8rem',
                 lineHeight: '1.5',
                 background: 'rgba(255,255,255,0.03)',
-                color: selectedCustomer && (selectedCustomer.street || selectedCustomer.city)
+                color: selectedCustomer && (displayCustomerName(selectedCustomer) || selectedCustomer.street || selectedCustomer.city)
                   ? 'var(--color-on-surface-variant)'
                   : 'rgba(148,170,255,0.35)',
                 cursor: 'default',
                 whiteSpace: 'pre-line' as const,
               }}>
                 {selectedCustomer
-                  ? (selectedCustomer.street || selectedCustomer.postal_code || selectedCustomer.city || selectedCustomer.country)
-                    ? [
-                        selectedCustomer.street,
-                        [selectedCustomer.postal_code, selectedCustomer.city].filter(Boolean).join(' '),
+                  ? (() => {
+                      const name = displayCustomerName(selectedCustomer);
+                      const addressLines = [
+                        name || null,
+                        selectedCustomer.street || null,
+                        [selectedCustomer.postal_code, selectedCustomer.city].filter(Boolean).join(' ') || null,
                         selectedCustomer.country && selectedCustomer.country !== 'Deutschland' ? selectedCustomer.country : null,
-                      ].filter(Boolean).join('\n')
-                    : 'Keine Anschrift hinterlegt'
+                      ].filter(Boolean);
+                      return addressLines.length > 0 ? addressLines.join('\n') : 'Keine Anschrift hinterlegt';
+                    })()
                   : 'Keine Anschrift hinterlegt'}
               </div>
             </div>
@@ -1094,8 +1129,8 @@ export function DjQuoteDetailPage() {
                         }
                       }}
                     />
-                    <input
-                      type="text"
+                    <textarea
+                      rows={2}
                       placeholder="Beschreibung..."
                       value={item.description}
                       onChange={e => updateItem(item._key, { description: e.target.value })}
@@ -1105,6 +1140,9 @@ export function DjQuoteDetailPage() {
                         fontSize: '0.8rem',
                         padding: '0.375rem 0.625rem',
                         opacity: (finalized || !!item.service_id) ? 0.7 : 1,
+                        resize: 'vertical',
+                        fontFamily: 'inherit',
+                        minHeight: '2.25rem',
                       }}
                     />
                   </div>
@@ -1339,12 +1377,28 @@ export function DjQuoteDetailPage() {
             <button
               type="button"
               style={btnSecondary}
-              onClick={() => { void openPreview(id!).then(url => setPreviewUrl(url)); }}
+              onClick={() => void handleOpenPreview()}
               title="PDF-Vorschau im neuen Tab öffnen"
             >
               <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>picture_as_pdf</span>
               Vorschau
             </button>
+          )}
+          {previewError && (
+            <span style={{
+              fontSize: '0.75rem',
+              color: '#ff6b6b',
+              background: 'rgba(255,107,107,0.1)',
+              border: '1px solid rgba(255,107,107,0.3)',
+              borderRadius: '0.375rem',
+              padding: '0.25rem 0.5rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+            }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '0.9rem' }}>error</span>
+              {previewError}
+            </span>
           )}
           <button
             type="button"

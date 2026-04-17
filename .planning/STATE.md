@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed quick/260417-dm2
-last_updated: "2026-04-17T07:56:30.227Z"
+stopped_at: Completed quick-260416-ndv-PLAN.md
+last_updated: "2026-04-16T15:18:36.102Z"
 progress:
   total_phases: 3
   completed_phases: 3
@@ -35,7 +35,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 [██████░░░░] 60% — 6/10 plans complete
 
-**Stopped at:** Completed quick/260417-dm2
+**Stopped at:** Completed quick-260416-ndv-PLAN.md
 
 ## Decisions Made
 
@@ -53,8 +53,6 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 - [Phase 02]: App.tsx repurposed as temp authenticated placeholder for Phase 2 UAT — Phase 3 replaces with AppShell (02-05)
 - [Phase quick-260416-ndv]: COMPUTED_FIELDS_SQL als Konstante in contracts.routes.ts — nicht inline 3x wiederholt
 - [Phase quick-260416-ndv]: Segment 'cancellable' WHERE-Bedingung dupliziert CASE-Ausdruck inline — SQLite erlaubt kein WHERE auf aliasierte computed columns
-- [Phase quick-260416-uyy]: LIST_PRIORITY als Modul-Konstante mit Unicode-Escapes — verhindert Encoding-Probleme auf iCloud Drive Pfad
-- [Phase quick-260416-uyy]: collapsed[name] === undefined = aufgeklappt — kein separater Default-State; isSearching ignoriert Collapse nur in Anzeige ohne State-Reset
 
 ## Open Decisions (must resolve before Milestone 2)
 
@@ -95,11 +93,9 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 | 260415-cu5 | DjEventsPage Tabelle Redesign: HTML-Tabelle 7 Spalten, Inline-Status-Picker, Suchfeld | 2026-04-15 | f390c35 | [260415-cu5-djeventspage-tabelle-redesignen-neue-spa](.planning/quick/260415-cu5-djeventspage-tabelle-redesignen-neue-spa/) |
 | 260415-d19 | StatusBadge LED-Glow-Dot + Kalender-Titel mit Kunde/Typ | 2026-04-15 | 71c0b82 | — |
 | 260415-d3w | Datum-Kollisions-Warnung in NeueAnfrageModal | 2026-04-15 | 4c6758d | — |
-| 260416-uku | Sync-Button und Suche für Erinnerungen-Spalte in der Aufgaben-Seite | 2026-04-16 | 45510b3 | [260416-uku-sync-button-und-suche-f-r-erinnerungen-s](.planning/quick/260416-uku-sync-button-und-suche-f-r-erinnerungen-s/) |
-| 260416-uyy | Erinnerungen-Spalte: Gruppierung nach Liste (faltbar) + Notizen anzeigen | 2026-04-16 | 6b96ca4 | [260416-uyy-erinnerungen-spalte-gruppierung-nach-lis](.planning/quick/260416-uyy-erinnerungen-spalte-gruppierung-nach-lis/) |
 
 ---
-*State initialized: 2026-04-07 | Last activity: 2026-04-16 - Completed quick task 260416-uyy: Erinnerungen-Spalte Gruppierung nach Liste + Notizen*
+*State initialized: 2026-04-07 | Last activity: 2026-04-14 - Completed quick task 260414-wgb: DJ Leistungen-Seite Redesign im Synthetic Conductor Stil*
 | 2026-04-10 | fast | TaskCard onClick → SlideOver fix (PointerSensor distance constraint) | ✅ |
 | 2026-04-10 | fast | TaskSlideOver Backdrop-Klick schließt Panel nicht mehr | ✅ |
 | 2026-04-10 | 260410-v3q | Status-Notiz beim Drag (DragPrompt + DB-Migration + KanbanBoard-Pause) | ✅ |
