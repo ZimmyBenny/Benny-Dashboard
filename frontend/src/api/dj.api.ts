@@ -430,10 +430,19 @@ export const fetchDjSequences = (): Promise<DjNumberSequence[]> =>
   apiClient.get('/dj/settings/sequences/all').then(r => r.data);
 
 // Logo
-export const uploadDjLogo = (file: File): Promise<{ ok: true; path: string }> => {
+export const uploadDjLogo = async (file: File): Promise<{ ok: true; path: string }> => {
   const fd = new FormData();
   fd.append('file', file);
-  return apiClient.post('/dj/settings/logo', fd).then(r => r.data);
+  // fetch statt Axios — Axios-Default-Header 'Content-Type: application/json' würde
+  // den multipart/form-data-Header mit boundary überschreiben und multer kaputt machen
+  const token = (await import('../store/authStore')).useAuthStore.getState().token;
+  const res = await fetch('/api/dj/settings/logo', {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: fd,
+  });
+  if (!res.ok) throw Object.assign(new Error(`Request failed with status code ${res.status}`), { response: { status: res.status } });
+  return res.json();
 };
 
 export const deleteDjLogo = (): Promise<void> =>
