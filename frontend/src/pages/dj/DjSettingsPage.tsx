@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import apiClient from '../../api/client';
@@ -10,7 +10,6 @@ import {
   deleteDjLogo,
   fetchDjLogoPath,
   fetchDjDefaultTexts,
-  type DjCompanySettings,
   type DjTaxSettings,
   type DjPaymentTermsSettings,
   type DjNumberSequence,
@@ -469,39 +468,115 @@ function TextBausteineSection() {
 
 // ── Firmendaten ────────────────────────────────────────────────────────────────
 
-const defaultCompany: DjCompanySettings = {
-  name: '', street: '', zip: '', city: '', country: '',
-  phone: '', email: '', website: '', tax_id: '',
-  bank_name: '', iban: '', bic: '',
+interface DjCompany {
+  name: string;
+  address: string;
+  zip: string;
+  city: string;
+  country: string;
+  phone: string;
+  email: string;
+  website: string;
+  tax_number: string;
+  vat_id?: string;
+  bank: {
+    name: string;
+    iban: string;
+    bic: string;
+    holder: string;
+  };
+}
+
+const defaultCompany: DjCompany = {
+  name: '',
+  address: '',
+  zip: '',
+  city: '',
+  country: 'Deutschland',
+  phone: '',
+  email: '',
+  website: '',
+  tax_number: '',
+  vat_id: '',
+  bank: { name: '', iban: '', bic: '', holder: '' },
+};
+
+function normalizeCompany(raw: unknown): DjCompany {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const bankRaw = (r.bank && typeof r.bank === 'object') ? r.bank as Record<string, unknown> : null;
+  return {
+    name: String(r.name ?? ''),
+    address: String(r.address ?? r.street ?? ''),
+    zip: String(r.zip ?? ''),
+    city: String(r.city ?? ''),
+    country: String(r.country ?? '') || 'Deutschland',
+    phone: String(r.phone ?? ''),
+    email: String(r.email ?? ''),
+    website: String(r.website ?? ''),
+    tax_number: String(r.tax_number ?? r.tax_id ?? ''),
+    vat_id: String(r.vat_id ?? ''),
+    bank: {
+      name: String(bankRaw?.name ?? r.bank_name ?? ''),
+      iban: String(bankRaw?.iban ?? r.iban ?? ''),
+      bic: String(bankRaw?.bic ?? r.bic ?? ''),
+      holder: String(bankRaw?.holder ?? r.name ?? ''),
+    },
+  };
+}
+
+const groupHeadingStyle: React.CSSProperties = {
+  fontFamily: 'var(--font-body)',
+  fontSize: '0.75rem',
+  fontWeight: 700,
+  color: '#94aaff',
+  letterSpacing: '0.08em',
+  textTransform: 'uppercase',
+  margin: '0 0 0.75rem 0',
 };
 
 function CompanySection() {
   const queryClient = useQueryClient();
-  const { data: queryData, isError } = useQuery<DjCompanySettings>({
+  const { data: rawData, isError } = useQuery<unknown>({
     queryKey: ['dj-setting', 'company'],
-    queryFn: () => fetchDjSettingByKey<DjCompanySettings>('company'),
+    queryFn: () => fetchDjSettingByKey<unknown>('company'),
   });
+  const queryData = useMemo<DjCompany>(() => normalizeCompany(rawData), [rawData]);
 
-  const [local, setLocal] = useState<DjCompanySettings>(defaultCompany);
-  useEffect(() => { if (queryData) setLocal(queryData); }, [queryData]);
+  const [local, setLocal] = useState<DjCompany>(defaultCompany);
+  useEffect(() => { setLocal(queryData); }, [queryData]);
 
-  const isDirty = JSON.stringify(local) !== JSON.stringify(queryData ?? defaultCompany);
+  const isDirty = JSON.stringify(local) !== JSON.stringify(queryData);
 
   const mutation = useMutation({
-    mutationFn: (data: DjCompanySettings) => updateDjSetting('company', data),
+    mutationFn: (data: unknown) => updateDjSetting('company', data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dj-setting', 'company'] }),
   });
 
-  const f = (key: keyof DjCompanySettings, label: string, type = 'text') => (
-    <div key={key}>
-      <label style={labelStyle}>{label}</label>
-      <FocusInput
-        type={type}
-        value={local[key]}
-        onChange={v => setLocal(prev => ({ ...prev, [key]: v }))}
-      />
-    </div>
-  );
+  function flatField<K extends keyof DjCompany>(key: K, label: string, type = 'text') {
+    const val = local[key];
+    return (
+      <div key={key}>
+        <label style={labelStyle}>{label}</label>
+        <FocusInput
+          type={type}
+          value={typeof val === 'string' ? val : (val ?? '')}
+          onChange={v => setLocal(prev => ({ ...prev, [key]: v }))}
+        />
+      </div>
+    );
+  }
+
+  function bankField<K extends keyof DjCompany['bank']>(key: K, label: string) {
+    return (
+      <div key={key}>
+        <label style={labelStyle}>{label}</label>
+        <FocusInput
+          value={local.bank[key]}
+          onChange={v => setLocal(prev => ({ ...prev, bank: { ...prev.bank, [key]: v } }))}
+        />
+      </div>
+    );
+  }
 
   if (isError) return (
     <div style={cardStyle}>
@@ -513,27 +588,38 @@ function CompanySection() {
   return (
     <div style={cardStyle}>
       <SectionHeading icon="business" title="Firmendaten" />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.875rem' }}>
-        {f('name', 'Firmenname')}
-        {f('street', 'Straße & Hausnummer')}
-        {f('zip', 'PLZ')}
-        {f('city', 'Stadt')}
-        {f('country', 'Land')}
-        {f('phone', 'Telefon')}
-        {f('email', 'E-Mail', 'email')}
-        {f('website', 'Website')}
-        {f('tax_id', 'Steuernummer / USt-ID')}
-        {f('bank_name', 'Bank')}
-        {f('iban', 'IBAN')}
-        {f('bic', 'BIC')}
+
+      {/* Gruppe 1: Firma & Kontakt */}
+      <h3 style={groupHeadingStyle}>Firma &amp; Kontakt</h3>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.875rem', marginBottom: '1.5rem' }}>
+        {flatField('name', 'Firmenname')}
+        {flatField('address', 'Straße & Hausnummer')}
+        {flatField('zip', 'PLZ')}
+        {flatField('city', 'Stadt')}
+        {flatField('country', 'Land')}
+        {flatField('phone', 'Telefon')}
+        {flatField('email', 'E-Mail', 'email')}
+        {flatField('website', 'Website')}
+        {flatField('tax_number', 'Steuernummer')}
+        {flatField('vat_id', 'USt-IdNr. (optional)')}
       </div>
+
+      {/* Gruppe 2: Bankverbindung */}
+      <h3 style={groupHeadingStyle}>Bankverbindung</h3>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.875rem' }}>
+        {bankField('holder', 'Kontoinhaber/-in')}
+        {bankField('name', 'Bank')}
+        {bankField('iban', 'IBAN')}
+        {bankField('bic', 'BIC')}
+      </div>
+
       {mutation.isSuccess && !isDirty && (
         <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: '#5cfd80', marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
           <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>check_circle</span>
           Gespeichert
         </p>
       )}
-      <button disabled={!isDirty} style={saveButtonStyle(isDirty)} onClick={() => mutation.mutate(local)}>
+      <button disabled={!isDirty} style={saveButtonStyle(isDirty)} onClick={() => mutation.mutate({ ...local, company: local.name })}>
         {mutation.isPending ? 'Speichert…' : 'Speichern'}
       </button>
     </div>
