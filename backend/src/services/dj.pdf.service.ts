@@ -128,40 +128,42 @@ function renderFooter(doc: PDFKit.PDFDocument, company: CompanySettings) {
     .stroke()
     .restore();
 
-  const colW = usableWidth / 4;
+  const colW1 = usableWidth * 0.24;
+  const colW2 = usableWidth * 0.24;
+  const colW3 = usableWidth * 0.22;
+  const colW4 = usableWidth * 0.30;
   doc.save().font('Helvetica').fontSize(8).fillColor('#666666');
 
   // Spalte 1: Firma + Adresse
   const c1 = mL;
-  doc.text(company.name, c1, textY, { width: colW - 4, lineBreak: false });
-  doc.text(company.address, c1, textY + lineH, { width: colW - 4, lineBreak: false });
-  doc.text(`${company.zip} ${company.city}`, c1, textY + lineH * 2, { width: colW - 4, lineBreak: false });
+  doc.text(company.name, c1, textY, { width: colW1 - 4, lineBreak: false });
+  doc.text(company.address, c1, textY + lineH, { width: colW1 - 4, lineBreak: false });
+  doc.text(`${company.zip} ${company.city}`, c1, textY + lineH * 2, { width: colW1 - 4, lineBreak: false });
   if (company.country) {
-    doc.text(company.country, c1, textY + lineH * 3, { width: colW - 4, lineBreak: false });
+    doc.text(company.country, c1, textY + lineH * 3, { width: colW1 - 4, lineBreak: false });
   }
 
   // Spalte 2: Kontakt
-  const c2 = mL + colW;
-  doc.text(`Tel. ${company.phone}`, c2, textY, { width: colW - 4, lineBreak: false });
-  doc.text(`E-Mail ${company.email}`, c2, textY + lineH, { width: colW - 4, lineBreak: false });
+  const c2 = mL + colW1;
+  doc.text(`Tel. ${company.phone}`, c2, textY, { width: colW2 - 4, lineBreak: false });
+  doc.text(`E-Mail ${company.email}`, c2, textY + lineH, { width: colW2 - 4, lineBreak: false });
   if (company.website) {
-    doc.text(`Web ${company.website}`, c2, textY + lineH * 2, { width: colW - 4, lineBreak: false });
+    doc.text(`Web ${company.website}`, c2, textY + lineH * 2, { width: colW2 - 4, lineBreak: false });
   }
 
   // Spalte 3: Steuer + Inhaber
-  const c3 = mL + colW * 2;
-  doc.text(`Steuer-Nr. ${company.tax_number}`, c3, textY, { width: colW - 4, lineBreak: false });
+  const c3 = mL + colW1 + colW2;
+  doc.text(`Steuer-Nr. ${company.tax_number}`, c3, textY, { width: colW3 - 4, lineBreak: false });
   if (company.vat_id) {
-    doc.text(`USt-IdNr. ${company.vat_id}`, c3, textY + lineH, { width: colW - 4, lineBreak: false });
+    doc.text(`USt-IdNr. ${company.vat_id}`, c3, textY + lineH, { width: colW3 - 4, lineBreak: false });
   }
-  doc.text(`Inhaber/-in ${company.bank.holder}`, c3, textY + lineH * (company.vat_id ? 2 : 1), { width: colW - 4, lineBreak: false });
+  doc.text(`Inhaber/-in ${company.bank.holder}`, c3, textY + lineH * (company.vat_id ? 2 : 1), { width: colW3 - 4, lineBreak: false });
 
   // Spalte 4: Bank (muss IMMER erscheinen — absolute Y-Positionen)
-  const c4 = mL + colW * 3;
-  doc.text(`Bank ${company.bank.name}`, c4, textY, { width: colW, lineBreak: false });
-  doc.text(`Inhaber ${company.bank.holder}`, c4, textY + lineH, { width: colW, lineBreak: false });
-  doc.text(`IBAN ${company.bank.iban}`, c4, textY + lineH * 2, { width: colW, lineBreak: false });
-  doc.text(`BIC ${company.bank.bic}`, c4, textY + lineH * 3, { width: colW, lineBreak: false });
+  const c4 = mL + colW1 + colW2 + colW3;
+  doc.text(company.bank.name, c4, textY, { width: colW4, lineBreak: false });
+  doc.text(`IBAN ${company.bank.iban}`, c4, textY + lineH, { width: colW4, lineBreak: false });
+  doc.text(`BIC ${company.bank.bic}`, c4, textY + lineH * 2, { width: colW4, lineBreak: false });
 
   doc.restore();
   doc.page.margins.bottom = savedBottom;
