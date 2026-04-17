@@ -7,7 +7,6 @@ import {
   createDjQuote, updateDjQuote, finalizeDjQuote,
   updateDjQuoteStatus, createDjQuoteRevision,
   fetchDjDefaultTexts,
-  djLogoUrl,
   type DjQuote, type DjCustomer, type DjEvent, type DjService,
 } from '../../api/dj.api';
 import { StatusBadge } from '../../components/dj/StatusBadge';
@@ -231,6 +230,7 @@ export function DjQuoteDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [logoBlobUrl, setLogoBlobUrl] = useState<string | null>(null);
 
   // Kontakt-Picker
   const [customerSearch, setCustomerSearch] = useState('');
@@ -305,6 +305,23 @@ export function DjQuoteDetailPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // Logo als Blob laden — img-Tag kann keinen JWT-Header senden
+  useEffect(() => {
+    let revoked = false;
+    apiClient.get('/dj/settings/logo', { responseType: 'blob' })
+      .then(r => {
+        if (!revoked) {
+          const url = URL.createObjectURL(r.data as Blob);
+          setLogoBlobUrl(url);
+        }
+      })
+      .catch(() => setLogoBlobUrl(null));
+    return () => {
+      revoked = true;
+      setLogoBlobUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
+    };
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Picker: Außerhalb-Klick + Escape
@@ -1513,7 +1530,7 @@ export function DjQuoteDetailPage() {
       {previewUrl && (
         <PdfPreviewModal
           pdfUrl={previewUrl}
-          logoUrl={djLogoUrl()}
+          logoUrl={logoBlobUrl}
           onClose={() => { URL.revokeObjectURL(previewUrl); setPreviewUrl(null); }}
           onDownload={() => { void downloadPdf(id!); }}
         />
