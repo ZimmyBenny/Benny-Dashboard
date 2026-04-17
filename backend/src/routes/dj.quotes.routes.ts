@@ -154,12 +154,32 @@ router.post('/:id/revision', (req, res) => {
   res.status(201).json(loadQuote(newId));
 });
 
+// Hilfsfunktion: Default-Textbaustein aus dj_settings laden
+function loadDefaultText(key: string): string | null {
+  const row = db.prepare('SELECT value FROM dj_settings WHERE key = ?').get(key) as { value: string } | undefined;
+  if (!row) return null;
+  try {
+    const v = JSON.parse(row.value);
+    return typeof v === 'string' && v.length > 0 ? v : null;
+  } catch {
+    return row.value || null;
+  }
+}
+
 // POST /api/dj/quotes — Neues Angebot (Entwurf)
 router.post('/', (req, res) => {
   const { customer_id, event_id, subject, header_text, footer_text, payment_terms, distance_km, trips, items } =
     req.body as Record<string, unknown>;
 
   if (!customer_id) { res.status(400).json({ error: 'customer_id erforderlich' }); return; }
+
+  // Auto-Fill: Default-Textbausteine wenn kein expliziter Wert übergeben wurde
+  const effectiveHeader = (header_text !== undefined && header_text !== null)
+    ? header_text as string
+    : loadDefaultText('default_header_text');
+  const effectiveFooter = (footer_text !== undefined && footer_text !== null)
+    ? footer_text as string
+    : loadDefaultText('default_footer_text');
 
   const validUntil = new Date();
   validUntil.setDate(validUntil.getDate() + 30);
@@ -172,7 +192,7 @@ router.post('/', (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       customer_id, event_id ?? null, subject ?? null,
-      header_text ?? null, footer_text ?? null, payment_terms ?? null,
+      effectiveHeader, effectiveFooter, payment_terms ?? null,
       distance_km ?? null, trips ?? 2, validUntilStr,
     );
     const newId = Number(result.lastInsertRowid);
