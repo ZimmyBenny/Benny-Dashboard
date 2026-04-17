@@ -111,7 +111,7 @@ router.post('/:id/revision', (req, res) => {
   const newSubject = baseSubject ? `${baseSubject} (Rev. ${nextRev})` : `(Rev. ${nextRev})`;
 
   const validUntil = new Date();
-  validUntil.setDate(validUntil.getDate() + 30);
+  validUntil.setDate(validUntil.getDate() + 14);
   const validUntilStr = validUntil.toISOString().slice(0, 10);
 
   const txn = db.transaction(() => {
@@ -186,7 +186,7 @@ router.post('/', (req, res) => {
     : (loadDefaultText(footerKey) ?? loadDefaultText('default_footer_text'));
 
   const validUntil = new Date();
-  validUntil.setDate(validUntil.getDate() + 30);
+  validUntil.setDate(validUntil.getDate() + 14);
   const validUntilStr = validUntil.toISOString().slice(0, 10);
 
   const txn = db.transaction(() => {

@@ -455,8 +455,8 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
 
     // --- Summen-Block ---
     let sumY = dataY + 14;
-    const sumLabelX = marginLeft + usableWidth * 0.55;
-    const sumValueX = marginLeft + usableWidth * 0.80;
+    const sumLabelX = marginLeft + usableWidth * 0.48;
+    const sumValueX = marginLeft + usableWidth * 0.78;
     const sumValueWidth = pageWidth - marginRight - sumValueX;
 
     // MwSt nach Steuersatz gruppieren
@@ -513,13 +513,7 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
     if (footerContent) {
       doc.font('Helvetica').fontSize(10).fillColor('#000000')
         .text(footerContent, marginLeft, footerTextY, { width: usableWidth, lineGap: 4 });
-      footerTextY = doc.y + 16;
     }
-
-    // Grußformel
-    doc.font('Helvetica').fontSize(10).fillColor('#000000')
-      .text('Mit freundlichen Gr\u00fc\u00dfen', marginLeft, footerTextY, { width: usableWidth });
-    doc.text(company.name, marginLeft, doc.y + 16, { width: usableWidth });
 
     // Footer rückwirkend auf alle gebufferten Seiten setzen (kein pageAdded-Handler nötig)
     const { count } = doc.bufferedPageRange();
