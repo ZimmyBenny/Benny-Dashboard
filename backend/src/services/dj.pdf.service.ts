@@ -265,8 +265,8 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
     // --- Absenderzeile ---
     const senderText = `${company.name} \u00B7 ${company.address} \u00B7 ${company.zip} ${company.city}`;
     doc.font('Helvetica').fontSize(8).fillColor('#666666')
-      .text(senderText, marginLeft, 71, { width: usableWidth * 0.58, lineBreak: false });
-    const senderBottom = 85;
+      .text(senderText, marginLeft, 100, { width: usableWidth * 0.58, lineBreak: false });
+    const senderBottom = 115;
     doc.moveTo(marginLeft, senderBottom)
       .lineTo(pageWidth - marginRight, senderBottom)
       .lineWidth(0.5)
@@ -332,7 +332,7 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
 
     // --- Titelzeile ---
     const blockBottom = Math.max(recipientY, metaY);
-    const titleY = blockBottom + 20;
+    const titleY = blockBottom + 40;
     const titleText = quote.number
       ? `Angebot Nr. ${quote.number}`
       : 'Angebot (Entwurf)';
@@ -341,7 +341,7 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
       .text(titleText, marginLeft, titleY, { width: usableWidth });
 
     // --- Kopftext ---
-    let currentY = doc.y + 10;
+    let currentY = doc.y + 25;
     if (quote.header_text) {
       const placeholderVars: Record<string, string> = {
         vorname: contact?.first_name ?? '',
@@ -351,8 +351,8 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
         gueltig_bis: formatDateDE(quote.valid_until),
       };
       const headerText = replacePlaceholders(quote.header_text, placeholderVars);
-      doc.font('Helvetica').fontSize(10).fillColor('#000000')
-        .text(headerText, marginLeft, currentY, { width: usableWidth, lineGap: 4 });
+      doc.font('Helvetica').fontSize(9).fillColor('#000000')
+        .text(headerText, marginLeft, currentY, { width: usableWidth, lineGap: 3 });
       currentY = doc.y + 10;
     }
 
