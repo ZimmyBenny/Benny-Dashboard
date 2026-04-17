@@ -109,6 +109,9 @@ export interface DjQuote {
   total_gross: number;
   finalized_at: string | null;
   created_at: string;
+  header_text?: string | null;
+  footer_text?: string | null;
+  anrede_form?: 'du' | 'sie' | null;
   // joined
   customer_name?: string;
   customer_org?: string;
@@ -444,12 +447,21 @@ export const djLogoUrl = (): string =>
 export const fetchDjLogoPath = (): Promise<string | null> =>
   fetchDjSettingByKey<string>('logo_path').catch(() => null);
 
-// Default-Textbausteine
+// Default-Textbausteine (legacy)
 export const fetchDjDefaultHeaderText = (): Promise<string> =>
   fetchDjSettingByKey<string>('default_header_text').catch(() => '');
 
 export const fetchDjDefaultFooterText = (): Promise<string> =>
   fetchDjSettingByKey<string>('default_footer_text').catch(() => '');
+
+// Default-Textbausteine Du/Sie-Form
+export const fetchDjDefaultTexts = async (form: 'du' | 'sie'): Promise<{ header: string; footer: string }> => {
+  const [header, footer] = await Promise.all([
+    fetchDjSettingByKey<string>(`default_header_text_${form}`).catch(() => ''),
+    fetchDjSettingByKey<string>(`default_footer_text_${form}`).catch(() => ''),
+  ]);
+  return { header: header ?? '', footer: footer ?? '' };
+};
 
 // Angebot PDF / Vorschau / Status / Revision
 export const previewDjQuote = (id: number): string =>

@@ -6,6 +6,7 @@ import {
   fetchDjQuote, fetchDjCustomers, fetchDjEvents, fetchDjServices,
   createDjQuote, updateDjQuote, finalizeDjQuote,
   updateDjQuoteStatus, createDjQuoteRevision,
+  fetchDjDefaultTexts,
   djLogoUrl,
   type DjQuote, type DjCustomer, type DjEvent, type DjService,
 } from '../../api/dj.api';
@@ -200,6 +201,9 @@ export function DjQuoteDetailPage() {
   const [validUntil, setValidUntil] = useState('');
   const [notes, setNotes] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
+  const [anredeForm, setAnredeForm] = useState<'du' | 'sie'>('du');
+  const [headerText, setHeaderText] = useState('');
+  const [footerText, setFooterText] = useState('');
 
   // Positionen
   const [items, setItems] = useState<LocalItem[]>([]);
@@ -255,6 +259,9 @@ export function DjQuoteDetailPage() {
           setSubject(data.subject ?? '');
           setValidUntil(data.valid_until ?? '');
           setFinalized(!!data.finalized_at);
+          setAnredeForm((data.anrede_form as 'du' | 'sie') ?? 'du');
+          setHeaderText(data.header_text ?? '');
+          setFooterText(data.footer_text ?? '');
           setItems(
             (data.items ?? []).map(i => ({
               _key: i.id ?? Date.now(),
@@ -270,6 +277,12 @@ export function DjQuoteDetailPage() {
         })
         .catch(() => setError('Fehler beim Laden des Angebots'))
         .finally(() => setLoading(false));
+    } else if (isNew) {
+      // Neues Angebot: Default-Texte für Du-Form laden
+      void fetchDjDefaultTexts('du').then(({ header, footer }) => {
+        setHeaderText(header);
+        setFooterText(footer);
+      }).catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
@@ -355,6 +368,9 @@ export function DjQuoteDetailPage() {
         valid_until: validUntil || null,
         notes: notes.trim() || null,
         internal_notes: internalNotes.trim() || null,
+        anrede_form: anredeForm,
+        header_text: headerText,
+        footer_text: footerText,
         items: computedItems.map((item, idx) => ({
           position: idx + 1,
           service_id: item.service_id,
@@ -1134,6 +1150,97 @@ export function DjQuoteDetailPage() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Sektion 4 — Kopf- & Fußtext */}
+        <div style={{ marginTop: '1.75rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(148,170,255,0.1)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <h2 style={{ fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '1rem', color: 'var(--color-on-surface)', margin: 0 }}>
+              Kopf- &amp; Fußtext
+            </h2>
+            {/* Du / Sie Toggle */}
+            <div style={{ display: 'flex', gap: '0.375rem' }}>
+              {(['du', 'sie'] as const).map(form => (
+                <button
+                  key={form}
+                  type="button"
+                  disabled={finalized}
+                  onClick={() => {
+                    if (finalized) return;
+                    const hasContent = headerText.trim() || footerText.trim();
+                    if (hasContent && form !== anredeForm) {
+                      if (window.confirm(`Anrede-Form auf "${form === 'du' ? 'Du' : 'Sie'}" wechseln und Standard-Texte laden? Eigene Änderungen werden überschrieben.`)) {
+                        setAnredeForm(form);
+                        void fetchDjDefaultTexts(form).then(({ header, footer }) => {
+                          setHeaderText(header);
+                          setFooterText(footer);
+                        }).catch(() => {});
+                      }
+                    } else {
+                      setAnredeForm(form);
+                      void fetchDjDefaultTexts(form).then(({ header, footer }) => {
+                        setHeaderText(header);
+                        setFooterText(footer);
+                      }).catch(() => {});
+                    }
+                  }}
+                  style={{
+                    padding: '0.3rem 0.875rem',
+                    background: anredeForm === form ? 'rgba(148,170,255,0.18)' : 'rgba(255,255,255,0.04)',
+                    border: anredeForm === form ? '1px solid rgba(148,170,255,0.5)' : '1px solid rgba(148,170,255,0.15)',
+                    borderRadius: '0.5rem',
+                    color: anredeForm === form ? '#94aaff' : 'var(--color-on-surface-variant)',
+                    fontFamily: 'var(--font-body)',
+                    fontSize: '0.8125rem',
+                    fontWeight: anredeForm === form ? 700 : 500,
+                    cursor: finalized ? 'not-allowed' : 'pointer',
+                    opacity: finalized ? 0.6 : 1,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {form === 'du' ? 'Du' : 'Sie'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gap: '1rem' }}>
+            <div>
+              <label style={labelStyle}>Kopftext</label>
+              <textarea
+                rows={5}
+                value={headerText}
+                onChange={e => setHeaderText(e.target.value)}
+                readOnly={finalized}
+                placeholder="Einleitungstext für das Angebot..."
+                style={{ ...inputStyle, resize: 'vertical' as const, opacity: finalized ? 0.7 : 1 }}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Fußtext</label>
+              <textarea
+                rows={4}
+                value={footerText}
+                onChange={e => setFooterText(e.target.value)}
+                readOnly={finalized}
+                placeholder="Abschlusstext, Gültigkeitshinweis..."
+                style={{ ...inputStyle, resize: 'vertical' as const, opacity: finalized ? 0.7 : 1 }}
+              />
+            </div>
+          </div>
+          <p style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.775rem',
+            color: 'var(--color-on-surface-variant)',
+            marginTop: '0.625rem',
+            marginBottom: 0,
+            fontStyle: 'italic',
+          }}>
+            Platzhalter:{' '}
+            <code style={{ background: 'rgba(148,170,255,0.1)', padding: '0.1em 0.3em', borderRadius: '0.25rem', fontSize: '0.875em' }}>{'{{KONTAKTPERSON}}'}</code>,{' '}
+            <code style={{ background: 'rgba(148,170,255,0.1)', padding: '0.1em 0.3em', borderRadius: '0.25rem', fontSize: '0.875em' }}>{'{{DATUM}}'}</code>,{' '}
+            <code style={{ background: 'rgba(148,170,255,0.1)', padding: '0.1em 0.3em', borderRadius: '0.25rem', fontSize: '0.875em' }}>{'{{ANGEBOTSNUMMER}}'}</code>
+          </p>
         </div>
 
         {/* Aktions-Buttons unten */}

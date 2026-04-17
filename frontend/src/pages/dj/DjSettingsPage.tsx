@@ -9,8 +9,7 @@ import {
   deleteDjLogo,
   djLogoUrl,
   fetchDjLogoPath,
-  fetchDjDefaultHeaderText,
-  fetchDjDefaultFooterText,
+  fetchDjDefaultTexts,
   type DjCompanySettings,
   type DjTaxSettings,
   type DjPaymentTermsSettings,
@@ -286,50 +285,111 @@ function LogoSection() {
 
 function TextBausteineSection() {
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<'du' | 'sie'>('du');
 
-  const { data: headerData } = useQuery<string>({
-    queryKey: ['dj-setting', 'default_header_text'],
-    queryFn: fetchDjDefaultHeaderText,
+  const { data: duData } = useQuery<{ header: string; footer: string }>({
+    queryKey: ['dj-setting', 'textbausteine', 'du'],
+    queryFn: () => fetchDjDefaultTexts('du'),
   });
-  const { data: footerData } = useQuery<string>({
-    queryKey: ['dj-setting', 'default_footer_text'],
-    queryFn: fetchDjDefaultFooterText,
+  const { data: sieData } = useQuery<{ header: string; footer: string }>({
+    queryKey: ['dj-setting', 'textbausteine', 'sie'],
+    queryFn: () => fetchDjDefaultTexts('sie'),
   });
 
-  const [headerLocal, setHeaderLocal] = useState('');
-  const [footerLocal, setFooterLocal] = useState('');
+  const [duHeader, setDuHeader] = useState('');
+  const [duFooter, setDuFooter] = useState('');
+  const [sieHeader, setSieHeader] = useState('');
+  const [sieFooter, setSieFooter] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  useEffect(() => { if (headerData !== undefined) setHeaderLocal(headerData ?? ''); }, [headerData]);
-  useEffect(() => { if (footerData !== undefined) setFooterLocal(footerData ?? ''); }, [footerData]);
+  useEffect(() => { if (duData) { setDuHeader(duData.header ?? ''); setDuFooter(duData.footer ?? ''); } }, [duData]);
+  useEffect(() => { if (sieData) { setSieHeader(sieData.header ?? ''); setSieFooter(sieData.footer ?? ''); } }, [sieData]);
 
-  const isDirty =
-    headerLocal !== (headerData ?? '') ||
-    footerLocal !== (footerData ?? '');
+  const isDirtyDu = duHeader !== (duData?.header ?? '') || duFooter !== (duData?.footer ?? '');
+  const isDirtySie = sieHeader !== (sieData?.header ?? '') || sieFooter !== (sieData?.footer ?? '');
+  const isDirty = activeTab === 'du' ? isDirtyDu : isDirtySie;
 
   const mutation = useMutation({
     mutationFn: async () => {
-      await Promise.all([
-        updateDjSetting('default_header_text', headerLocal),
-        updateDjSetting('default_footer_text', footerLocal),
-      ]);
+      if (activeTab === 'du') {
+        await Promise.all([
+          updateDjSetting('default_header_text_du', duHeader),
+          updateDjSetting('default_footer_text_du', duFooter),
+        ]);
+      } else {
+        await Promise.all([
+          updateDjSetting('default_header_text_sie', sieHeader),
+          updateDjSetting('default_footer_text_sie', sieFooter),
+        ]);
+      }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['dj-setting', 'default_header_text'] });
-      queryClient.invalidateQueries({ queryKey: ['dj-setting', 'default_footer_text'] });
+      queryClient.invalidateQueries({ queryKey: ['dj-setting', 'textbausteine', activeTab] });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     },
   });
 
+  const codeStyle: React.CSSProperties = {
+    background: 'rgba(148,170,255,0.1)',
+    padding: '0.1em 0.3em',
+    borderRadius: '0.25rem',
+    fontSize: '0.875em',
+  };
+
+  const tabBtnStyle = (active: boolean): React.CSSProperties => ({
+    padding: '0.375rem 1.125rem',
+    background: active ? 'rgba(148,170,255,0.15)' : 'transparent',
+    border: active ? '1px solid rgba(148,170,255,0.4)' : '1px solid rgba(148,170,255,0.12)',
+    borderRadius: '0.5rem',
+    color: active ? '#94aaff' : 'var(--color-on-surface-variant)',
+    fontFamily: 'var(--font-body)',
+    fontSize: '0.875rem',
+    fontWeight: active ? 700 : 500,
+    cursor: 'pointer',
+    transition: 'all 0.15s',
+  });
+
+  const headerLocal = activeTab === 'du' ? duHeader : sieHeader;
+  const footerLocal = activeTab === 'du' ? duFooter : sieFooter;
+  const setHeaderLocal = activeTab === 'du' ? setDuHeader : setSieHeader;
+  const setFooterLocal = activeTab === 'du' ? setDuFooter : setSieFooter;
+
+  const headerPlaceholder = activeTab === 'du'
+    ? 'z.B. Hey {{KONTAKTPERSON}},\n\nvielen Dank für deine Anfrage...'
+    : 'z.B. Sehr geehrte(r) {{KONTAKTPERSON}},\n\nvielen Dank für Ihre Anfrage...';
+  const footerPlaceholder = activeTab === 'du'
+    ? 'z.B. Das Angebot gilt bis {{DATUM}}.'
+    : 'z.B. Dieses Angebot ist gültig bis {{DATUM}}.';
+
   return (
     <div style={cardStyle}>
       <SectionHeading icon="description" title="Textbausteine" />
 
+      {/* Tab-Leiste */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
+        <button type="button" style={tabBtnStyle(activeTab === 'du')} onClick={() => setActiveTab('du')}>
+          Du-Form
+        </button>
+        <button type="button" style={tabBtnStyle(activeTab === 'sie')} onClick={() => setActiveTab('sie')}>
+          Sie-Form
+        </button>
+        {isDirtyDu && activeTab !== 'du' && (
+          <span style={{ fontSize: '0.75rem', color: '#f5a623', alignSelf: 'center', fontFamily: 'var(--font-body)' }}>
+            • Du-Form hat ungespeicherte Änderungen
+          </span>
+        )}
+        {isDirtySie && activeTab !== 'sie' && (
+          <span style={{ fontSize: '0.75rem', color: '#f5a623', alignSelf: 'center', fontFamily: 'var(--font-body)' }}>
+            • Sie-Form hat ungespeicherte Änderungen
+          </span>
+        )}
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.875rem', maxWidth: '720px' }}>
         <div>
-          <label style={labelStyle}>Standard-Kopftext</label>
+          <label style={labelStyle}>Standard-Kopftext ({activeTab === 'du' ? 'Du-Form' : 'Sie-Form'})</label>
           <textarea
             rows={6}
             value={headerLocal}
@@ -341,12 +401,12 @@ function TextBausteineSection() {
             }}
             onFocus={() => setFocusedField('header')}
             onBlur={() => setFocusedField(null)}
-            placeholder="z.B. Sehr geehrte(r) {{KONTAKTPERSON}},&#10;&#10;vielen Dank für Ihre Anfrage..."
+            placeholder={headerPlaceholder}
           />
         </div>
 
         <div>
-          <label style={labelStyle}>Standard-Fußtext</label>
+          <label style={labelStyle}>Standard-Fußtext ({activeTab === 'du' ? 'Du-Form' : 'Sie-Form'})</label>
           <textarea
             rows={6}
             value={footerLocal}
@@ -358,7 +418,7 @@ function TextBausteineSection() {
             }}
             onFocus={() => setFocusedField('footer')}
             onBlur={() => setFocusedField(null)}
-            placeholder="z.B. Dieses Angebot ist gültig bis {{DATUM}}."
+            placeholder={footerPlaceholder}
           />
         </div>
       </div>
@@ -371,10 +431,10 @@ function TextBausteineSection() {
         marginBottom: 0,
         fontStyle: 'italic',
       }}>
-        Platzhalter: <code style={{ background: 'rgba(148,170,255,0.1)', padding: '0.1em 0.3em', borderRadius: '0.25rem', fontSize: '0.875em' }}>{'{{KONTAKTPERSON}}'}</code>,{' '}
-        <code style={{ background: 'rgba(148,170,255,0.1)', padding: '0.1em 0.3em', borderRadius: '0.25rem', fontSize: '0.875em' }}>{'{{DATUM}}'}</code>,{' '}
-        <code style={{ background: 'rgba(148,170,255,0.1)', padding: '0.1em 0.3em', borderRadius: '0.25rem', fontSize: '0.875em' }}>{'{{ANGEBOTSNUMMER}}'}</code>,{' '}
-        <code style={{ background: 'rgba(148,170,255,0.1)', padding: '0.1em 0.3em', borderRadius: '0.25rem', fontSize: '0.875em' }}>{'{{KUNDENNUMMER}}'}</code>{' '}
+        Platzhalter: <code style={codeStyle}>{'{{KONTAKTPERSON}}'}</code>,{' '}
+        <code style={codeStyle}>{'{{DATUM}}'}</code>,{' '}
+        <code style={codeStyle}>{'{{ANGEBOTSNUMMER}}'}</code>,{' '}
+        <code style={codeStyle}>{'{{KUNDENNUMMER}}'}</code>{' '}
         — werden beim PDF-Export automatisch ersetzt.
       </p>
 
@@ -390,7 +450,7 @@ function TextBausteineSection() {
         style={saveButtonStyle(isDirty && !mutation.isPending)}
         onClick={() => mutation.mutate()}
       >
-        {mutation.isPending ? 'Speichert…' : 'Speichern'}
+        {mutation.isPending ? 'Speichert…' : `${activeTab === 'du' ? 'Du-Form' : 'Sie-Form'} speichern`}
       </button>
     </div>
   );
