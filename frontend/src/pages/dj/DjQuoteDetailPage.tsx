@@ -106,8 +106,8 @@ function ServiceSearchPicker({
       {open && filtered.length > 0 && (
         <div style={{
           position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
-          background: 'rgba(255,255,255,0.05)',
-          border: '1px solid rgba(148,170,255,0.2)',
+          background: '#1a1b2e',
+          border: '1px solid rgba(148,170,255,0.35)',
           borderRadius: '0.5rem',
           marginTop: '0.25rem',
           maxHeight: '200px',
@@ -139,8 +139,8 @@ function ServiceSearchPicker({
       {open && query.length > 0 && filtered.length === 0 && (
         <div style={{
           position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
-          background: 'rgba(255,255,255,0.05)',
-          border: '1px solid rgba(148,170,255,0.2)',
+          background: '#1a1b2e',
+          border: '1px solid rgba(148,170,255,0.35)',
           borderRadius: '0.5rem', marginTop: '0.25rem',
           padding: '0.5rem 0.75rem',
           color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.8rem',
@@ -790,11 +790,11 @@ export function DjQuoteDetailPage() {
               left: 0,
               right: 0,
               marginTop: '0.25rem',
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(148,170,255,0.2)',
+              background: '#1a1b2e',
+              border: '1px solid rgba(148,170,255,0.35)',
               borderRadius: '0.75rem',
               padding: '0.75rem',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.7)',
             }}>
               <input
                 type="text"
