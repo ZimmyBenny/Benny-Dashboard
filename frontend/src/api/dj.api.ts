@@ -16,7 +16,10 @@ export interface DjCustomer {
   organization_name: string | null;
   customer_number: string | null;
   area: string;
+  street: string | null;
+  postal_code: string | null;
   city: string | null;
+  country: string | null;
   email: string | null;
   phone: string | null;
   event_count?: number;
@@ -104,6 +107,7 @@ export interface DjQuote {
   status: QuoteStatus;
   quote_date: string;
   valid_until: string | null;
+  reference_number?: string | null;
   subtotal_net: number;
   tax_total: number;
   total_gross: number;

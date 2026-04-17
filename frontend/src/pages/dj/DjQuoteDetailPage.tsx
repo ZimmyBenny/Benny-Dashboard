@@ -199,6 +199,8 @@ export function DjQuoteDetailPage() {
   const [eventId, setEventId] = useState<number | null>(null);
   const [subject, setSubject] = useState('');
   const [validUntil, setValidUntil] = useState('');
+  const [quoteDate, setQuoteDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [referenceNumber, setReferenceNumber] = useState('');
   const [notes, setNotes] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
   const [anredeForm, setAnredeForm] = useState<'du' | 'sie'>('du');
@@ -258,6 +260,8 @@ export function DjQuoteDetailPage() {
           setEventId(data.event_id ?? null);
           setSubject(data.subject ?? '');
           setValidUntil(data.valid_until ?? '');
+          setQuoteDate(data.quote_date ?? new Date().toISOString().slice(0, 10));
+          setReferenceNumber(data.reference_number ?? '');
           setFinalized(!!data.finalized_at);
           setAnredeForm((data.anrede_form as 'du' | 'sie') ?? 'du');
           setHeaderText(data.header_text ?? '');
@@ -366,6 +370,8 @@ export function DjQuoteDetailPage() {
         event_id: eventId,
         subject: subject.trim() || null,
         valid_until: validUntil || null,
+        quote_date: quoteDate || new Date().toISOString().slice(0, 10),
+        reference_number: referenceNumber.trim() || null,
         notes: notes.trim() || null,
         internal_notes: internalNotes.trim() || null,
         anrede_form: anredeForm,
@@ -722,142 +728,248 @@ export function DjQuoteDetailPage() {
       {/* Formular-Karte */}
       <div style={cardStyle}>
 
-        {/* Sektion 1 — Stammdaten */}
-        {/* Kontakt-Picker (volle Breite) */}
-        <div style={{ marginBottom: '1.25rem', position: 'relative' }} ref={pickerRef}>
-          <label style={labelStyle}>Kunde *</label>
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={() => {
-              if (finalized) return;
-              setPickerOpen(v => !v);
-              setCustomerSearch('');
-            }}
-            onKeyDown={e => {
-              if (finalized) return;
-              if (e.key === 'Enter' || e.key === ' ') {
-                setPickerOpen(v => !v);
-                setCustomerSearch('');
-              }
-            }}
-            style={{
-              ...inputStyle,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              cursor: finalized ? 'default' : 'pointer',
-              userSelect: 'none',
-              opacity: finalized ? 0.7 : 1,
-            }}
-          >
-            <span style={{ color: selectedCustomer ? 'var(--color-on-surface)' : 'var(--color-on-surface-variant)' }}>
-              {selectedCustomer ? displayCustomerName(selectedCustomer) : 'Kontakt wählen...'}
-            </span>
-            {!finalized && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                {selectedCustomer && (
-                  <button
-                    type="button"
-                    onClick={e => { e.stopPropagation(); setCustomerId(null); }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: 'var(--color-on-surface-variant)',
-                      display: 'flex',
-                      padding: '0',
-                      lineHeight: 1,
-                    }}
-                    title="Kontakt entfernen"
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>close</span>
-                  </button>
-                )}
-                <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: 'var(--color-on-surface-variant)' }}>
-                  {pickerOpen ? 'expand_less' : 'expand_more'}
-                </span>
-              </div>
-            )}
-          </div>
+        {/* Sektion 1 — Stammdaten (sevDesk-Layout: 2 Spalten) */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.25rem' }}>
 
-          {/* Picker-Dropdown */}
-          {pickerOpen && !finalized && (
-            <div style={{
-              position: 'absolute',
-              zIndex: 100,
-              top: '100%',
-              left: 0,
-              right: 0,
-              marginTop: '0.25rem',
-              background: '#1a1b2e',
-              border: '1px solid rgba(148,170,255,0.35)',
-              borderRadius: '0.75rem',
-              padding: '0.75rem',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.7)',
-            }}>
-              <input
-                type="text"
-                autoFocus
-                placeholder="Kontakt suchen..."
-                value={customerSearch}
-                onChange={e => setCustomerSearch(e.target.value)}
-                style={{ ...inputStyle, marginBottom: '0.5rem' }}
-              />
-              {filteredCustomers.length === 0 ? (
-                <p style={{ color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.8rem', margin: '0.25rem 0' }}>
-                  Keine DJ-Kunden gefunden.
-                </p>
-              ) : (
-                <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
-                  {filteredCustomers.map(c => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => { setCustomerId(c.id); setPickerOpen(false); }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.625rem',
-                        width: '100%',
-                        background: c.id === customerId ? 'rgba(148,170,255,0.1)' : 'none',
-                        border: 'none',
-                        borderRadius: '0.5rem',
-                        padding: '0.5rem 0.625rem',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        color: 'var(--color-on-surface)',
-                        fontFamily: 'var(--font-body)',
-                        fontSize: '0.875rem',
-                        transition: 'background 120ms',
-                      }}
-                      onMouseEnter={e => { if (c.id !== customerId) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.07)'; }}
-                      onMouseLeave={e => { if (c.id !== customerId) (e.currentTarget as HTMLElement).style.background = 'none'; }}
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: 'var(--color-primary)', flexShrink: 0 }}>
-                        {c.contact_kind === 'organization' ? 'apartment' : 'person'}
-                      </span>
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {displayCustomerName(c)}
-                      </span>
-                      {c.id === customerId && (
-                        <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: 'var(--color-primary)', marginLeft: 'auto' }}>check</span>
-                      )}
-                    </button>
-                  ))}
+          {/* Linke Spalte: Kunde + Anschrift */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {/* Kontakt-Picker */}
+            <div style={{ position: 'relative' }} ref={pickerRef}>
+              <label style={labelStyle}>Kunde *</label>
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  if (finalized) return;
+                  setPickerOpen(v => !v);
+                  setCustomerSearch('');
+                }}
+                onKeyDown={e => {
+                  if (finalized) return;
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    setPickerOpen(v => !v);
+                    setCustomerSearch('');
+                  }
+                }}
+                style={{
+                  ...inputStyle,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: finalized ? 'default' : 'pointer',
+                  userSelect: 'none',
+                  opacity: finalized ? 0.7 : 1,
+                }}
+              >
+                <span style={{ color: selectedCustomer ? 'var(--color-on-surface)' : 'var(--color-on-surface-variant)' }}>
+                  {selectedCustomer ? displayCustomerName(selectedCustomer) : 'Kontakt wählen...'}
+                </span>
+                {!finalized && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    {selectedCustomer && (
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); setCustomerId(null); }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: 'var(--color-on-surface-variant)',
+                          display: 'flex',
+                          padding: '0',
+                          lineHeight: 1,
+                        }}
+                        title="Kontakt entfernen"
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>close</span>
+                      </button>
+                    )}
+                    <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: 'var(--color-on-surface-variant)' }}>
+                      {pickerOpen ? 'expand_less' : 'expand_more'}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Picker-Dropdown */}
+              {pickerOpen && !finalized && (
+                <div style={{
+                  position: 'absolute',
+                  zIndex: 100,
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  marginTop: '0.25rem',
+                  background: '#1a1b2e',
+                  border: '1px solid rgba(148,170,255,0.35)',
+                  borderRadius: '0.75rem',
+                  padding: '0.75rem',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.7)',
+                }}>
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="Kontakt suchen..."
+                    value={customerSearch}
+                    onChange={e => setCustomerSearch(e.target.value)}
+                    style={{ ...inputStyle, marginBottom: '0.5rem' }}
+                  />
+                  {filteredCustomers.length === 0 ? (
+                    <p style={{ color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.8rem', margin: '0.25rem 0' }}>
+                      Keine DJ-Kunden gefunden.
+                    </p>
+                  ) : (
+                    <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
+                      {filteredCustomers.map(c => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => { setCustomerId(c.id); setPickerOpen(false); }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.625rem',
+                            width: '100%',
+                            background: c.id === customerId ? 'rgba(148,170,255,0.1)' : 'none',
+                            border: 'none',
+                            borderRadius: '0.5rem',
+                            padding: '0.5rem 0.625rem',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            color: 'var(--color-on-surface)',
+                            fontFamily: 'var(--font-body)',
+                            fontSize: '0.875rem',
+                            transition: 'background 120ms',
+                          }}
+                          onMouseEnter={e => { if (c.id !== customerId) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.07)'; }}
+                          onMouseLeave={e => { if (c.id !== customerId) (e.currentTarget as HTMLElement).style.background = 'none'; }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: 'var(--color-primary)', flexShrink: 0 }}>
+                            {c.contact_kind === 'organization' ? 'apartment' : 'person'}
+                          </span>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {displayCustomerName(c)}
+                          </span>
+                          {c.id === customerId && (
+                            <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: 'var(--color-primary)', marginLeft: 'auto' }}>check</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
+
+            {/* Kundenanschrift — readonly Anzeige */}
+            <div>
+              <label style={labelStyle}>Kundenanschrift</label>
+              <div style={{
+                ...inputStyle,
+                minHeight: '80px',
+                verticalAlign: 'top' as const,
+                display: 'block',
+                fontSize: '0.8rem',
+                lineHeight: '1.5',
+                background: 'rgba(255,255,255,0.03)',
+                color: selectedCustomer && (selectedCustomer.street || selectedCustomer.city)
+                  ? 'var(--color-on-surface-variant)'
+                  : 'rgba(148,170,255,0.35)',
+                cursor: 'default',
+                whiteSpace: 'pre-line' as const,
+              }}>
+                {selectedCustomer
+                  ? (selectedCustomer.street || selectedCustomer.postal_code || selectedCustomer.city || selectedCustomer.country)
+                    ? [
+                        selectedCustomer.street,
+                        [selectedCustomer.postal_code, selectedCustomer.city].filter(Boolean).join(' '),
+                        selectedCustomer.country && selectedCustomer.country !== 'Deutschland' ? selectedCustomer.country : null,
+                      ].filter(Boolean).join('\n')
+                    : 'Keine Anschrift hinterlegt'
+                  : 'Keine Anschrift hinterlegt'}
+              </div>
+            </div>
+          </div>
+
+          {/* Rechte Spalte: Angebotsnummer, Datum, Gültig bis, Referenz */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem 1rem', alignContent: 'start' }}>
+            {/* Angebotsnummer — readonly */}
+            <div>
+              <label style={labelStyle}>Angebotsnummer</label>
+              <div style={{
+                ...inputStyle,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.375rem',
+                background: 'rgba(255,255,255,0.03)',
+                color: 'var(--color-on-surface-variant)',
+                cursor: 'default',
+                fontSize: '0.875rem',
+              }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '0.9rem', flexShrink: 0, opacity: 0.6 }}>lock</span>
+                <span>{isNew ? 'wird vergeben' : (quote?.number ?? 'wird vergeben')}</span>
+              </div>
+            </div>
+
+            {/* Angebotsdatum */}
+            <div>
+              <label style={labelStyle}>Angebotsdatum</label>
+              <input
+                type="date"
+                value={quoteDate}
+                onChange={e => setQuoteDate(e.target.value)}
+                readOnly={finalized}
+                style={finalized ? inputReadonlyStyle : inputStyle}
+              />
+            </div>
+
+            {/* Gültig bis */}
+            <div>
+              <label style={labelStyle}>Gültig bis</label>
+              <input
+                type="date"
+                value={validUntil}
+                onChange={e => setValidUntil(e.target.value)}
+                readOnly={finalized}
+                style={finalized ? inputReadonlyStyle : inputStyle}
+              />
+            </div>
+
+            {/* Referenz / Bestellnummer */}
+            <div>
+              <label style={labelStyle}>Referenz / Bestellnr.</label>
+              <input
+                type="text"
+                placeholder="optional"
+                value={referenceNumber}
+                onChange={e => setReferenceNumber(e.target.value)}
+                readOnly={finalized}
+                style={finalized ? inputReadonlyStyle : inputStyle}
+              />
+            </div>
+          </div>
         </div>
 
-        {/* 2-Spalten-Grid */}
+        {/* Betreff + Event — volle Breite */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
           gap: '1rem 1.5rem',
           marginBottom: '1.25rem',
         }}>
+          {/* Betreff */}
+          <div>
+            <label style={labelStyle}>Betreff</label>
+            <input
+              type="text"
+              placeholder="z.B. DJ-Auftritt Hochzeit"
+              value={subject}
+              onChange={e => setSubject(e.target.value)}
+              readOnly={finalized}
+              style={finalized ? inputReadonlyStyle : inputStyle}
+            />
+          </div>
+
           {/* Event-Dropdown */}
           <div>
             <label style={labelStyle}>Event (optional)</label>
@@ -874,31 +986,6 @@ export function DjQuoteDetailPage() {
                 </option>
               ))}
             </select>
-          </div>
-
-          {/* Betreff */}
-          <div>
-            <label style={labelStyle}>Betreff</label>
-            <input
-              type="text"
-              placeholder="z.B. DJ-Auftritt Hochzeit"
-              value={subject}
-              onChange={e => setSubject(e.target.value)}
-              readOnly={finalized}
-              style={finalized ? inputReadonlyStyle : inputStyle}
-            />
-          </div>
-
-          {/* Gültig bis */}
-          <div>
-            <label style={labelStyle}>Gültig bis</label>
-            <input
-              type="date"
-              value={validUntil}
-              onChange={e => setValidUntil(e.target.value)}
-              readOnly={finalized}
-              style={finalized ? inputReadonlyStyle : inputStyle}
-            />
           </div>
         </div>
 

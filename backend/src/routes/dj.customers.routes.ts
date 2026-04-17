@@ -23,7 +23,10 @@ router.get('/', (_req, res) => {
     SELECT
       c.id, c.contact_kind, c.salutation, c.first_name, c.last_name,
       c.organization_name, c.customer_number, c.area,
+      (SELECT street FROM contact_addresses WHERE contact_id = c.id AND is_primary = 1 LIMIT 1) AS street,
+      (SELECT postal_code FROM contact_addresses WHERE contact_id = c.id AND is_primary = 1 LIMIT 1) AS postal_code,
       (SELECT city FROM contact_addresses WHERE contact_id = c.id AND is_primary = 1 LIMIT 1) AS city,
+      (SELECT country FROM contact_addresses WHERE contact_id = c.id AND is_primary = 1 LIMIT 1) AS country,
       (SELECT email FROM contact_emails WHERE contact_id = c.id AND is_primary = 1 LIMIT 1) AS email,
       (SELECT phone FROM contact_phones WHERE contact_id = c.id AND is_primary = 1 LIMIT 1) AS phone,
       (SELECT COUNT(*) FROM dj_events WHERE customer_id = c.id AND deleted_at IS NULL) AS event_count
