@@ -433,9 +433,7 @@ export const fetchDjSequences = (): Promise<DjNumberSequence[]> =>
 export const uploadDjLogo = (file: File): Promise<{ ok: true; path: string }> => {
   const fd = new FormData();
   fd.append('file', file);
-  return apiClient.post('/dj/settings/logo', fd, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  }).then(r => r.data);
+  return apiClient.post('/dj/settings/logo', fd).then(r => r.data);
 };
 
 export const deleteDjLogo = (): Promise<void> =>
