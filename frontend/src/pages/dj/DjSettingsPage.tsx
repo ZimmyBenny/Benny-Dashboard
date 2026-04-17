@@ -466,6 +466,112 @@ function TextBausteineSection() {
   );
 }
 
+// ── Fußzeile ───────────────────────────────────────────────────────────────────
+
+interface DjFooterSettings {
+  col1: string;
+  col2: string;
+  col3: string;
+  col4: string;
+}
+
+const defaultFooter: DjFooterSettings = { col1: '', col2: '', col3: '', col4: '' };
+
+function normalizeFooter(raw: unknown): DjFooterSettings {
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw);
+    } catch {
+      return defaultFooter;
+    }
+  }
+  if (!raw || typeof raw !== 'object') return defaultFooter;
+  const r = raw as Record<string, unknown>;
+  return {
+    col1: typeof r.col1 === 'string' ? r.col1 : '',
+    col2: typeof r.col2 === 'string' ? r.col2 : '',
+    col3: typeof r.col3 === 'string' ? r.col3 : '',
+    col4: typeof r.col4 === 'string' ? r.col4 : '',
+  };
+}
+
+function FooterSection() {
+  const queryClient = useQueryClient();
+  const { data: rawData } = useQuery<unknown>({
+    queryKey: ['dj-setting', 'footer'],
+    queryFn: () => fetchDjSettingByKey<unknown>('footer').catch(() => defaultFooter),
+  });
+  const queryData = useMemo<DjFooterSettings>(() => normalizeFooter(rawData), [rawData]);
+
+  const [local, setLocal] = useState<DjFooterSettings>(defaultFooter);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  useEffect(() => { setLocal(queryData); }, [queryData]);
+
+  const isDirty = JSON.stringify(local) !== JSON.stringify(queryData);
+
+  const mutation = useMutation({
+    mutationFn: (data: DjFooterSettings) => updateDjSetting('footer', data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dj-setting', 'footer'] }),
+  });
+
+  const cols: Array<{ key: keyof DjFooterSettings; label: string; placeholder: string }> = [
+    { key: 'col1', label: 'Spalte 1 (Firma)', placeholder: 'Firmenname\nStraße\nPLZ Ort\nLand' },
+    { key: 'col2', label: 'Spalte 2 (Kontakt)', placeholder: 'Tel. 0171...\nE-Mail ...\nWeb ...' },
+    { key: 'col3', label: 'Spalte 3 (Steuer/Inhaber)', placeholder: 'Steuer-Nr. ...\nUSt-IdNr. ...\nInhaber/-in ...' },
+    { key: 'col4', label: 'Spalte 4 (Bank)', placeholder: 'Bankname\nIBAN DE...\nBIC ...' },
+  ];
+
+  return (
+    <div style={cardStyle}>
+      <SectionHeading icon="article" title="Fußzeile (PDF)" accent="148,170,255" />
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.875rem' }}>
+        {cols.map(({ key, label, placeholder }) => (
+          <div key={key}>
+            <label style={labelStyle}>{label}</label>
+            <textarea
+              rows={4}
+              value={local[key]}
+              onChange={e => setLocal(prev => ({ ...prev, [key]: e.target.value }))}
+              placeholder={placeholder}
+              style={{
+                ...inputBase,
+                resize: 'vertical',
+                ...(focusedField === key ? inputFocusStyle : {}),
+              }}
+              onFocus={() => setFocusedField(key)}
+              onBlur={() => setFocusedField(null)}
+            />
+          </div>
+        ))}
+      </div>
+
+      <p style={{
+        fontFamily: 'var(--font-body)',
+        fontSize: '0.775rem',
+        color: 'var(--color-on-surface-variant)',
+        marginTop: '0.75rem',
+        marginBottom: 0,
+        fontStyle: 'italic',
+      }}>
+        Eine Zeile pro Eingabe-Zeile. Leere Spalten werden im PDF weggelassen.
+      </p>
+
+      {mutation.isSuccess && !isDirty && (
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: '#5cfd80', marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>check_circle</span>
+          Gespeichert
+        </p>
+      )}
+
+      <button disabled={!isDirty} style={saveButtonStyle(isDirty)} onClick={() => mutation.mutate(local)}>
+        {mutation.isPending ? 'Speichert…' : 'Speichern'}
+      </button>
+    </div>
+  );
+}
+
 // ── Firmendaten ────────────────────────────────────────────────────────────────
 
 interface DjCompany {
@@ -859,6 +965,7 @@ export function DjSettingsPage() {
           </div>
 
           <CompanySection />
+          <FooterSection />
           <LogoSection />
           <TaxSection />
           <PaymentTermsSection />
