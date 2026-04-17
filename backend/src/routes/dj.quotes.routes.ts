@@ -168,7 +168,8 @@ function loadDefaultText(key: string): string | null {
 
 // POST /api/dj/quotes — Neues Angebot (Entwurf)
 router.post('/', (req, res) => {
-  const { customer_id, event_id, subject, header_text, footer_text, payment_terms, distance_km, trips, items, anrede_form } =
+  const { customer_id, event_id, subject, header_text, footer_text, payment_terms, distance_km, trips, items, anrede_form,
+          discount_value, discount_type, discount_description } =
     req.body as Record<string, unknown>;
 
   if (!customer_id) { res.status(400).json({ error: 'customer_id erforderlich' }); return; }
@@ -191,12 +192,14 @@ router.post('/', (req, res) => {
   const txn = db.transaction(() => {
     const result = db.prepare(`
       INSERT INTO dj_quotes
-        (customer_id, event_id, subject, header_text, footer_text, payment_terms, distance_km, trips, valid_until, anrede_form)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (customer_id, event_id, subject, header_text, footer_text, payment_terms, distance_km, trips, valid_until, anrede_form,
+         discount_value, discount_type, discount_description)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       customer_id, event_id ?? null, subject ?? null,
       effectiveHeader, effectiveFooter, payment_terms ?? null,
       distance_km ?? null, trips ?? 2, validUntilStr, form,
+      discount_value ?? null, (discount_type === '€' ? '€' : '%'), discount_description ?? null,
     );
     const newId = Number(result.lastInsertRowid);
 
@@ -235,7 +238,8 @@ router.patch('/:id', (req, res) => {
     return;
   }
 
-  const { subject, header_text, footer_text, payment_terms, distance_km, trips, valid_until, items, anrede_form } =
+  const { subject, header_text, footer_text, payment_terms, distance_km, trips, valid_until, items, anrede_form,
+          discount_value, discount_type, discount_description } =
     req.body as Record<string, unknown>;
 
   const txn = db.transaction(() => {
@@ -252,6 +256,17 @@ router.patch('/:id', (req, res) => {
       payment_terms ?? null, distance_km ?? null, trips ?? null,
       valid_until ?? null, anrede_form ?? null, id,
     );
+
+    // Rabatt: explizit setzen wenn key vorhanden (auch null = Rabatt löschen)
+    if ('discount_value' in (req.body as Record<string, unknown>)) {
+      db.prepare('UPDATE dj_quotes SET discount_value = ?, discount_type = ?, discount_description = ? WHERE id = ?')
+        .run(
+          (discount_value as number | null) ?? null,
+          (discount_type as string) === '€' ? '€' : '%',
+          (discount_description as string | null) ?? null,
+          id,
+        );
+    }
 
     if (Array.isArray(items)) {
       db.prepare('DELETE FROM dj_quote_items WHERE quote_id = ?').run(id);
@@ -321,9 +336,24 @@ function updateQuoteTotals(quoteId: number) {
   const items = db.prepare('SELECT * FROM dj_quote_items WHERE quote_id = ?').all(quoteId) as Array<{
     total_net: number; tax_rate: number; discount_pct: number;
   }>;
+  const row = db.prepare('SELECT discount_value, discount_type FROM dj_quotes WHERE id = ?').get(quoteId) as {
+    discount_value: number | null; discount_type: string | null;
+  } | undefined;
+
   const subtotalNet = items.reduce((s, i) => s + i.total_net, 0);
-  const taxTotal = items.reduce((s, i) => s + i.total_net * (i.tax_rate / 100), 0);
-  const totalGross = subtotalNet + taxTotal;
+
+  let discountAmount = 0;
+  if (row?.discount_value != null && row.discount_value > 0) {
+    discountAmount = row.discount_type === '€'
+      ? row.discount_value
+      : subtotalNet * (row.discount_value / 100);
+  }
+
+  const netAfterDiscount = Math.max(0, subtotalNet - discountAmount);
+  const ratio = subtotalNet > 0 ? netAfterDiscount / subtotalNet : 1;
+  const taxTotal = items.reduce((s, i) => s + i.total_net * ratio * (i.tax_rate / 100), 0);
+  const totalGross = netAfterDiscount + taxTotal;
+
   db.prepare('UPDATE dj_quotes SET subtotal_net = ?, tax_total = ?, total_gross = ? WHERE id = ?')
     .run(subtotalNet, taxTotal, totalGross, quoteId);
 }

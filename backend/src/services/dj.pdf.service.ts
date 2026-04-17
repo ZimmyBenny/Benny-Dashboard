@@ -68,6 +68,9 @@ interface QuoteRow {
   tax_total: number;
   total_gross: number;
   finalized_at: string | null;
+  discount_value?: number | null;
+  discount_type?: string | null;
+  discount_description?: string | null;
 }
 
 interface QuoteItem {
@@ -472,10 +475,20 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
     const sumValueX = marginLeft + usableWidth * 0.80;
     const sumValueWidth = pageWidth - marginRight - sumValueX;
 
-    // MwSt nach Steuersatz gruppieren
+    // Rabatt berechnen (vor MwSt)
+    let discountAmount = 0;
+    if (quote.discount_value != null && quote.discount_value > 0) {
+      discountAmount = quote.discount_type === '€'
+        ? quote.discount_value
+        : quote.subtotal_net * (quote.discount_value / 100);
+    }
+    const netAfterDiscount = Math.max(0, quote.subtotal_net - discountAmount);
+    const discountRatio = quote.subtotal_net > 0 ? netAfterDiscount / quote.subtotal_net : 1;
+
+    // MwSt nach Steuersatz gruppieren (auf reduziertes Netto)
     const taxGroups: Map<number, number> = new Map();
     for (const item of items) {
-      const tax = item.total_net * (item.tax_rate / 100);
+      const tax = item.total_net * discountRatio * (item.tax_rate / 100);
       taxGroups.set(item.tax_rate, (taxGroups.get(item.tax_rate) ?? 0) + tax);
     }
 
@@ -484,6 +497,23 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
     doc.text(formatEur(quote.subtotal_net), sumValueX, sumY, { width: sumValueWidth, align: 'right' });
     sumY = doc.y + 2;
 
+    // Rabatt-Zeilen (nur wenn Rabatt > 0)
+    if (discountAmount > 0) {
+      const discLabel = quote.discount_description
+        ? `\u2212 Rabatt (${quote.discount_description}):`
+        : '\u2212 Rabatt:';
+      doc.fillColor('#CC3333');
+      doc.text(discLabel, sumLabelX, sumY, { width: sumValueX - sumLabelX - 6, align: 'left' });
+      doc.text(`\u2212 ${formatEur(discountAmount)}`, sumValueX, sumY, { width: sumValueWidth, align: 'right' });
+      sumY = doc.y + 2;
+
+      doc.fillColor('#000000');
+      doc.text('Netto nach Rabatt:', sumLabelX, sumY, { width: sumValueX - sumLabelX - 6, align: 'left' });
+      doc.text(formatEur(netAfterDiscount), sumValueX, sumY, { width: sumValueWidth, align: 'right' });
+      sumY = doc.y + 2;
+    }
+
+    doc.fillColor('#000000');
     for (const [rate, taxAmt] of taxGroups) {
       doc.text(`Umsatzsteuer ${rate} %:`, sumLabelX, sumY, { width: sumValueX - sumLabelX - 6, align: 'left' });
       doc.text(formatEur(taxAmt), sumValueX, sumY, { width: sumValueWidth, align: 'right' });
