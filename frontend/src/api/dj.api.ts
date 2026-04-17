@@ -386,7 +386,7 @@ export const fetchDjSettings = () =>
   apiClient.get('/dj/settings').then(r => r.data);
 
 export const updateDjSetting = (key: string, value: unknown) =>
-  apiClient.patch(`/dj/settings/${key}`, value).then(r => r.data);
+  apiClient.patch(`/dj/settings/${key}`, { value }).then(r => r.data);
 
 // ── Settings-Typen ─────────────────────────────────────────────────────────────
 

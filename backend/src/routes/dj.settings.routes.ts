@@ -134,7 +134,11 @@ router.get('/:key', (req, res) => {
 // PATCH /api/dj/settings/:key
 router.patch('/:key', (req, res) => {
   const { key } = req.params;
-  const newValue = req.body;
+  const raw = req.body;
+  // Frontend wraps string values as { value: "..." } to avoid express.json strict mode rejection
+  const newValue = (raw !== null && typeof raw === 'object' && Object.prototype.hasOwnProperty.call(raw, 'value'))
+    ? raw.value
+    : raw;
 
   const existing = db.prepare('SELECT value FROM dj_settings WHERE key = ?').get(key) as { value: string } | undefined;
   const valueStr = typeof newValue === 'string' ? newValue : JSON.stringify(newValue);
