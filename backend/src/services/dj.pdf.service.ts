@@ -134,38 +134,45 @@ function renderFooter(doc: PDFKit.PDFDocument, company: CompanySettings) {
   const colW4 = usableWidth * 0.30;
   doc.save().font('Helvetica').fontSize(8).fillColor('#666666');
 
-  const o = (w: number) => ({ width: w, lineBreak: false, ellipsis: true } as const);
+  // Kürzt Text auf maxWidth px — zuverlässiger als PDFKit ellipsis bei absoluten Coords
+  const clip = (text: string, maxW: number): string => {
+    if (doc.widthOfString(text) <= maxW) return text;
+    let t = text;
+    while (t.length > 0 && doc.widthOfString(t + '\u2026') > maxW) t = t.slice(0, -1);
+    return t + '\u2026';
+  };
+  const o = (w: number) => ({ width: w, lineBreak: false } as const);
 
   // Spalte 1: Firma + Adresse
   const c1 = mL;
-  doc.text(company.name, c1, textY, o(colW1 - 4));
-  doc.text(company.address, c1, textY + lineH, o(colW1 - 4));
-  doc.text(`${company.zip} ${company.city}`, c1, textY + lineH * 2, o(colW1 - 4));
+  doc.text(clip(company.name, colW1 - 4), c1, textY, o(colW1 - 4));
+  doc.text(clip(company.address, colW1 - 4), c1, textY + lineH, o(colW1 - 4));
+  doc.text(clip(`${company.zip} ${company.city}`, colW1 - 4), c1, textY + lineH * 2, o(colW1 - 4));
   if (company.country) {
-    doc.text(company.country, c1, textY + lineH * 3, o(colW1 - 4));
+    doc.text(clip(company.country, colW1 - 4), c1, textY + lineH * 3, o(colW1 - 4));
   }
 
   // Spalte 2: Kontakt
   const c2 = mL + colW1;
-  doc.text(`Tel. ${company.phone}`, c2, textY, o(colW2 - 4));
-  doc.text(`E-Mail ${company.email}`, c2, textY + lineH, o(colW2 - 4));
+  doc.text(clip(`Tel. ${company.phone}`, colW2 - 4), c2, textY, o(colW2 - 4));
+  doc.text(clip(`E-Mail ${company.email}`, colW2 - 4), c2, textY + lineH, o(colW2 - 4));
   if (company.website) {
-    doc.text(`Web ${company.website}`, c2, textY + lineH * 2, o(colW2 - 4));
+    doc.text(clip(`Web ${company.website}`, colW2 - 4), c2, textY + lineH * 2, o(colW2 - 4));
   }
 
   // Spalte 3: Steuer + Inhaber
   const c3 = mL + colW1 + colW2;
-  doc.text(`Steuer-Nr. ${company.tax_number}`, c3, textY, o(colW3 - 4));
+  doc.text(clip(`Steuer-Nr. ${company.tax_number}`, colW3 - 4), c3, textY, o(colW3 - 4));
   if (company.vat_id) {
-    doc.text(`USt-IdNr. ${company.vat_id}`, c3, textY + lineH, o(colW3 - 4));
+    doc.text(clip(`USt-IdNr. ${company.vat_id}`, colW3 - 4), c3, textY + lineH, o(colW3 - 4));
   }
-  doc.text(`Inhaber/-in ${company.bank.holder}`, c3, textY + lineH * (company.vat_id ? 2 : 1), o(colW3 - 4));
+  doc.text(clip(`Inhaber/-in ${company.bank.holder}`, colW3 - 4), c3, textY + lineH * (company.vat_id ? 2 : 1), o(colW3 - 4));
 
   // Spalte 4: Bank
   const c4 = mL + colW1 + colW2 + colW3;
-  doc.text(company.bank.name, c4, textY, o(colW4));
-  doc.text(`IBAN ${company.bank.iban}`, c4, textY + lineH, o(colW4));
-  doc.text(`BIC ${company.bank.bic}`, c4, textY + lineH * 2, o(colW4));
+  doc.text(clip(company.bank.name, colW4), c4, textY, o(colW4));
+  doc.text(clip(`IBAN ${company.bank.iban}`, colW4), c4, textY + lineH, o(colW4));
+  doc.text(clip(`BIC ${company.bank.bic}`, colW4), c4, textY + lineH * 2, o(colW4));
 
   doc.restore();
   doc.page.margins.bottom = savedBottom;
