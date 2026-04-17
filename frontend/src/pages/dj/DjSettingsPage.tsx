@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageWrapper } from '../../components/layout/PageWrapper';
+import apiClient from '../../api/client';
 import {
   fetchDjSettingByKey,
   fetchDjSequences,
   updateDjSetting,
   uploadDjLogo,
   deleteDjLogo,
-  djLogoUrl,
   fetchDjLogoPath,
   fetchDjDefaultTexts,
   type DjCompanySettings,
@@ -114,8 +114,8 @@ function FocusInput({ type = 'text', value, onChange, placeholder }: {
 function LogoSection() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [cacheBust, setCacheBust] = useState(Date.now());
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [logoBlobUrl, setLogoBlobUrl] = useState<string | null>(null);
 
   const { data: logoPath } = useQuery<string | null>({
     queryKey: ['dj-setting', 'logo_path'],
@@ -124,19 +124,33 @@ function LogoSection() {
 
   const hasLogo = !!logoPath;
 
+  // Logo via Axios (mit Auth-Token) laden und als Blob-URL anzeigen
+  // <img src="..."> würde keinen Bearer-Token senden → 401
+  useEffect(() => {
+    if (!hasLogo) { setLogoBlobUrl(null); return; }
+    let revoked = false;
+    apiClient.get('/dj/settings/logo', { responseType: 'blob' })
+      .then(r => {
+        if (revoked) return;
+        const url = URL.createObjectURL(r.data as Blob);
+        setLogoBlobUrl(url);
+      })
+      .catch(() => setLogoBlobUrl(null));
+    return () => { revoked = true; if (logoBlobUrl) URL.revokeObjectURL(logoBlobUrl); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasLogo, logoPath]);
+
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadError(null);
     try {
       await uploadDjLogo(file);
-      setCacheBust(Date.now());
       await queryClient.invalidateQueries({ queryKey: ['dj-setting', 'logo_path'] });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unbekannter Fehler';
       setUploadError(`Upload fehlgeschlagen: ${msg}`);
     }
-    // Input zurücksetzen damit dieselbe Datei erneut gewählt werden kann
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
@@ -145,7 +159,7 @@ function LogoSection() {
     setUploadError(null);
     try {
       await deleteDjLogo();
-      setCacheBust(Date.now());
+      setLogoBlobUrl(null);
       await queryClient.invalidateQueries({ queryKey: ['dj-setting', 'logo_path'] });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unbekannter Fehler';
@@ -169,14 +183,11 @@ function LogoSection() {
         justifyContent: 'center',
         minHeight: '100px',
       }}>
-        {hasLogo ? (
+        {hasLogo && logoBlobUrl ? (
           <img
-            src={`${djLogoUrl()}?t=${cacheBust}`}
+            src={logoBlobUrl}
             alt="Firmenlogo"
             style={{ maxWidth: '200px', maxHeight: '80px', objectFit: 'contain' }}
-            onError={e => {
-              (e.currentTarget as HTMLImageElement).style.display = 'none';
-            }}
           />
         ) : (
           <div style={{
