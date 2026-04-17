@@ -262,6 +262,19 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
       .strokeColor('#999999')
       .stroke();
 
+    // --- Logo (oben rechts) ---
+    const logoRow = db.prepare("SELECT value FROM dj_settings WHERE key = 'logo_path'").get() as { value: string } | undefined;
+    if (logoRow?.value) {
+      const absLogoPath = path.join(process.cwd(), logoRow.value);
+      if (fs.existsSync(absLogoPath) && path.extname(absLogoPath).toLowerCase() !== '.svg') {
+        try {
+          doc.image(absLogoPath, pageWidth - marginRight - 120, 71, { fit: [120, 60], align: 'right' });
+        } catch {
+          // Logo nicht renderbar — graceful skip
+        }
+      }
+    }
+
     // --- Empfänger-Block (links) & Meta-Block (rechts) ---
     const recipientStartY = senderBottom + 20;
     const metaX = marginLeft + usableWidth * 0.55;
