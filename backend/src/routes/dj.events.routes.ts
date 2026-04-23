@@ -51,7 +51,8 @@ router.get('/', (req, res) => {
     sql += " AND strftime('%Y', e.event_date) = ?";
     params.push(year);
   } else {
-    sql += " AND date(e.event_date) >= date('now')";
+    // Zukünftige Events ODER offene Anfragen/Vorgespräche (unabhängig vom Datum)
+    sql += " AND (date(e.event_date) >= date('now') OR e.status IN ('anfrage','vorgespraech_vereinbart','angebot_gesendet'))";
   }
   if (status) { sql += ' AND e.status = ?'; params.push(status); }
   if (event_type) { sql += ' AND e.event_type = ?'; params.push(event_type); }
