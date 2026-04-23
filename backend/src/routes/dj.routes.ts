@@ -20,7 +20,7 @@ router.get('/overview', (req, res) => {
   ).get(year) as { count: number };
 
   const openRequests = db.prepare(
-    "SELECT COUNT(*) AS count FROM dj_events WHERE status IN ('neu','vorgespraech_vereinbart') AND deleted_at IS NULL"
+    "SELECT COUNT(*) AS count FROM dj_events WHERE status IN ('anfrage','neu','vorgespraech_vereinbart') AND deleted_at IS NULL"
   ).get() as { count: number };
 
   const pendingQuotes = db.prepare(
