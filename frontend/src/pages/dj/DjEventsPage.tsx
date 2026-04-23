@@ -39,7 +39,7 @@ export function DjEventsPage() {
   const currentYear = new Date().getFullYear();
   const [searchParams] = useSearchParams();
 
-  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get('filter') ?? '');
   const [showNeueAnfrage, setShowNeueAnfrage] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
@@ -79,8 +79,8 @@ export function DjEventsPage() {
 
   // Datenladen
   const { data: allEvents = [], isLoading } = useQuery<DjEvent[]>({
-    queryKey: ['dj-events', selectedYear],
-    queryFn: () => fetchDjEvents({ year: selectedYear }),
+    queryKey: ['dj-events', selectedYear ?? 'upcoming'],
+    queryFn: () => fetchDjEvents(selectedYear ? { year: selectedYear } : {}),
   });
 
   const deleteMut = useMutation({
@@ -268,8 +268,8 @@ export function DjEventsPage() {
   const kpiBestaetigt = allEvents.filter(e => e.status === 'bestaetigt').length;
   const kpiAbgeschlossen = allEvents.filter(e => e.status === 'abgeschlossen').length;
 
-  // Jahres-Optionen: aktuelles Jahr - 2 bis + 2
-  const yearOptions = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1, currentYear + 2];
+  // Jahres-Optionen: aktuelles Jahr - 1 bis + 3
+  const yearOptions = [currentYear - 1, currentYear, currentYear + 1, currentYear + 2, currentYear + 3];
 
   // Hilfsfunktion: Vorgespräch-Dialog öffnen
   const openVorgDialog = (ev: DjEvent) => {
@@ -410,8 +410,8 @@ export function DjEventsPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}>
               {/* Jahr-Dropdown */}
               <select
-                value={selectedYear}
-                onChange={ev => setSelectedYear(Number(ev.target.value))}
+                value={selectedYear ?? ''}
+                onChange={ev => setSelectedYear(ev.target.value === '' ? null : Number(ev.target.value))}
                 style={{
                   background: 'rgba(255,255,255,0.05)',
                   color: 'var(--color-on-surface)',
@@ -424,6 +424,7 @@ export function DjEventsPage() {
                   outline: 'none',
                 }}
               >
+                <option value="">Alle kommenden</option>
                 {yearOptions.map(y => (
                   <option key={y} value={y}>{y}</option>
                 ))}
