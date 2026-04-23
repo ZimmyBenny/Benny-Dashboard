@@ -17,6 +17,8 @@ export function errorHandler(
   const code = err.code ?? 'INTERNAL_ERROR';
 
   console.error(`[${new Date().toISOString()}] ${status} ${req.method} ${req.path} — ${message}`);
-
+  if (err.stack) {
+    console.error(err.stack);
+  }
   res.status(status).json({ "error": message, "code": code });
 }
