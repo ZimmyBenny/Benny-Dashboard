@@ -47,7 +47,12 @@ router.get('/', (req, res) => {
   `;
   const params: unknown[] = [];
 
-  if (year) { sql += ' AND strftime(\'%Y\', e.event_date) = ?'; params.push(year); }
+  if (year) {
+    sql += " AND strftime('%Y', e.event_date) = ?";
+    params.push(year);
+  } else {
+    sql += " AND date(e.event_date) >= date('now')";
+  }
   if (status) { sql += ' AND e.status = ?'; params.push(status); }
   if (event_type) { sql += ' AND e.event_type = ?'; params.push(event_type); }
   if (q) {
@@ -56,7 +61,7 @@ router.get('/', (req, res) => {
     params.push(like, like, like, like, like);
   }
 
-  sql += ' ORDER BY e.event_date DESC';
+  sql += year ? ' ORDER BY e.event_date DESC' : ' ORDER BY e.event_date ASC';
   res.json(db.prepare(sql).all(...params));
 });
 
