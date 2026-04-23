@@ -8,6 +8,8 @@ import { TaskSlideOver } from '../components/tasks/TaskSlideOver';
 import { fetchContracts, type Contract } from '../api/contracts.api';
 import { fetchSaldo, type HaushaltSaldo } from '../api/haushalt.api';
 import { NeueAnfrageModal } from '../components/dj/NeueAnfrageModal';
+import { fetchDjOverview, type DjOverview } from '../api/dj.api';
+import { fetchEvents, type CalendarEvent } from '../api/calendar.api';
 
 function getGreeting(): { time: string; name: string } {
   const hour = new Date().getHours();
@@ -95,6 +97,24 @@ export function DashboardPage() {
 
   // DJ Neue Anfrage Modal
   const [isDjAnfrageOpen, setIsDjAnfrageOpen] = useState(false);
+
+  // DJ Offene Anfragen
+  const [djOverview, setDjOverview] = useState<DjOverview | null>(null);
+  useEffect(() => {
+    fetchDjOverview(new Date().getFullYear()).then(setDjOverview).catch(() => {});
+  }, []);
+
+  // Kalender-Agenda: Heute bis in 7 Tagen
+  const [agendaEvents, setAgendaEvents] = useState<CalendarEvent[] | null>(null);
+  useEffect(() => {
+    const today = new Date();
+    const from = today.toISOString().slice(0, 10);
+    const to = new Date(today.getTime() + 7 * 86400000).toISOString().slice(0, 10);
+    fetchEvents(from, to).then(evs => {
+      const sorted = [...evs].sort((a, b) => a.start_at.localeCompare(b.start_at));
+      setAgendaEvents(sorted);
+    }).catch(() => setAgendaEvents([]));
+  }, []);
 
   async function handleCreateTask(data: Partial<Task> & { title: string }) {
     await createTask(data);
@@ -400,7 +420,7 @@ export function DashboardPage() {
               )}
 
               {'isDj' in mod && (
-                <div style={{ marginTop: '0.875rem' }}>
+                <div style={{ marginTop: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.625rem', justifyContent: 'space-between' }}>
                   <button
                     onClick={(e) => { e.stopPropagation(); setIsDjAnfrageOpen(true); }}
                     style={{
@@ -416,6 +436,24 @@ export function DashboardPage() {
                     <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>add</span>
                     Neues Event
                   </button>
+                  {djOverview !== null && (
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem' }}>
+                      <span style={{
+                        fontFamily: 'var(--font-headline)', fontWeight: 800,
+                        fontSize: '1.25rem', letterSpacing: '-0.02em',
+                        color: 'var(--color-on-surface)', lineHeight: 1,
+                      }}>
+                        {djOverview.open_requests ?? 0}
+                      </span>
+                      <span style={{
+                        fontFamily: 'var(--font-body)', fontSize: '0.7rem',
+                        color: 'var(--color-on-surface-variant)',
+                        letterSpacing: '0.04em', textTransform: 'uppercase',
+                      }}>
+                        offen
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -492,6 +530,91 @@ export function DashboardPage() {
           </button>
         ))}
       </div>
+      {/* ── Kalender-Agenda (Timeline-Streifen) ─────────── */}
+      {agendaEvents !== null && (() => {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        // 7 Tages-Slots aufbauen
+        const days = Array.from({ length: 7 }, (_, i) => {
+          const d = new Date(Date.now() + i * 86400000);
+          return d.toISOString().slice(0, 10);
+        });
+
+        const grouped: Record<string, CalendarEvent[]> = {};
+        agendaEvents.forEach(ev => {
+          const day = ev.start_at.slice(0, 10);
+          if (!grouped[day]) grouped[day] = [];
+          grouped[day].push(ev);
+        });
+
+        const shortDay = (iso: string) => new Date(iso + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'short' }).toUpperCase().replace('.', '');
+        const shortDate = (iso: string) => { const d = new Date(iso + 'T12:00:00'); return `${d.getDate()}.${d.getMonth() + 1}.`; };
+
+        return (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '2.5rem', marginBottom: '1.25rem' }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.65rem', letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--color-outline)', whiteSpace: 'nowrap' }}>
+                Diese Woche
+              </p>
+              <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg, var(--color-outline-variant) 0%, transparent 100%)' }} />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '0.5rem' }}>
+              {days.map(day => {
+                const isToday = day === todayStr;
+                const evs = grouped[day] ?? [];
+                return (
+                  <div
+                    key={day}
+                    style={{
+                      background: isToday ? 'rgba(148,170,255,0.08)' : 'rgba(255,255,255,0.025)',
+                      border: `1px solid ${isToday ? 'rgba(148,170,255,0.25)' : 'rgba(255,255,255,0.06)'}`,
+                      borderRadius: '0.75rem',
+                      padding: '0.75rem 0.625rem',
+                      minHeight: '90px',
+                    }}
+                  >
+                    {/* Tag-Header */}
+                    <div style={{ marginBottom: '0.5rem' }}>
+                      <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', color: isToday ? 'var(--color-primary)' : 'var(--color-on-surface-variant)', margin: 0 }}>
+                        {isToday ? 'HEUTE' : shortDay(day)}
+                      </p>
+                      <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '1.1rem', color: isToday ? 'var(--color-primary)' : 'var(--color-on-surface)', lineHeight: 1.1, margin: 0 }}>
+                        {shortDate(day)}
+                      </p>
+                    </div>
+
+                    {/* Events */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                      {evs.length === 0 ? (
+                        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.68rem', color: 'var(--color-outline)', fontStyle: 'italic', margin: 0 }}>–</p>
+                      ) : evs.map(ev => {
+                        const timeStr = ev.is_all_day ? null : new Date(ev.start_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                        return (
+                          <div key={ev.id} style={{
+                            background: isToday ? 'rgba(148,170,255,0.1)' : 'rgba(255,255,255,0.04)',
+                            borderRadius: '0.35rem',
+                            padding: '0.25rem 0.4rem',
+                          }}>
+                            {timeStr && (
+                              <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.62rem', fontWeight: 700, color: isToday ? 'var(--color-primary)' : 'var(--color-on-surface-variant)', margin: 0, lineHeight: 1.2 }}>
+                                {timeStr}
+                              </p>
+                            )}
+                            <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.72rem', color: 'var(--color-on-surface)', margin: 0, lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                              {ev.title}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        );
+      })()}
+
       {/* ── Jetzt kündbar (Verträge im Kündigungsfenster) ── */}
       {cancellableContracts.length > 0 && (
         <>

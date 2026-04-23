@@ -637,6 +637,16 @@ export function DjEventsPage() {
                     </tr>
                   ) : (
                     searchFiltered.map(e => {
+                      // Tage bis Event
+                      const daysUntil = (() => {
+                        if (!e.event_date || e.status === 'abgesagt' || e.status === 'abgeschlossen') return null;
+                        const today = new Date(); today.setHours(0, 0, 0, 0);
+                        const d = new Date(e.event_date + 'T00:00:00');
+                        if (isNaN(d.getTime())) return null;
+                        const diff = Math.round((d.getTime() - today.getTime()) / 86400000);
+                        return diff >= 0 ? diff : null;
+                      })();
+
                       const rowBg: Record<string, string> = {
                         anfrage:                 'rgba(148,170,255,0.06)',
                         vorgespraech_vereinbart: 'rgba(148,170,255,0.06)',
@@ -664,7 +674,41 @@ export function DjEventsPage() {
                         <tr key={e.id} style={{ background: rowBg[e.status] ?? 'transparent' }}>
                           {/* Spalte 1: Eventdatum */}
                           <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
-                            {eventDateStr}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              {eventDateStr}
+                              {daysUntil !== null && (
+                                <span style={{
+                                  background: daysUntil === 0
+                                    ? 'rgba(255,110,132,0.2)'
+                                    : daysUntil <= 7
+                                      ? 'rgba(255,110,132,0.15)'
+                                      : daysUntil <= 30
+                                        ? 'rgba(255,196,87,0.15)'
+                                        : 'rgba(148,170,255,0.1)',
+                                  border: `1px solid ${daysUntil === 0
+                                    ? 'rgba(255,110,132,0.7)'
+                                    : daysUntil <= 7
+                                      ? 'rgba(255,110,132,0.5)'
+                                      : daysUntil <= 30
+                                        ? 'rgba(255,196,87,0.5)'
+                                        : 'rgba(148,170,255,0.3)'}`,
+                                  color: daysUntil === 0
+                                    ? '#ff6e84'
+                                    : daysUntil <= 7
+                                      ? '#ff6e84'
+                                      : daysUntil <= 30
+                                        ? '#ffc457'
+                                        : 'rgba(148,170,255,0.7)',
+                                  borderRadius: '999px',
+                                  padding: '0.1rem 0.5rem',
+                                  fontSize: '0.72rem',
+                                  fontWeight: 600,
+                                  fontFamily: 'var(--font-body)',
+                                }}>
+                                  {daysUntil === 0 ? 'Heute' : daysUntil === 1 ? '1 Tag' : `${daysUntil} Tage`}
+                                </span>
+                              )}
+                            </div>
                           </td>
 
                           {/* Spalte 2: Kunde */}

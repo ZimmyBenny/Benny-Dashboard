@@ -18,7 +18,7 @@ export function DjOverviewPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();
-  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const selectedYear = currentYear;
   const [showNeueAnfrage, setShowNeueAnfrage] = useState(false);
 
   const { data: overview, isLoading: overviewLoading } =
@@ -121,26 +121,6 @@ export function DjOverviewPage() {
               </h1>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}>
-              {/* Jahres-Filter */}
-              <select
-                value={selectedYear}
-                onChange={e => setSelectedYear(Number(e.target.value))}
-                style={{
-                  background: 'rgba(255,255,255,0.05)',
-                  color: 'var(--color-on-surface)',
-                  border: 'none',
-                  borderRadius: '0.5rem',
-                  padding: '0.5rem 0.875rem',
-                  fontSize: '0.875rem',
-                  fontFamily: 'var(--font-body)',
-                  cursor: 'pointer',
-                  outline: 'none',
-                }}
-              >
-                {[currentYear - 1, currentYear, currentYear + 1].map(y => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
               <button
                 onClick={() => setShowNeueAnfrage(true)}
                 style={{

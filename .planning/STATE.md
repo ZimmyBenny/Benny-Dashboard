@@ -97,9 +97,11 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 | 260417-fwl | 2 Features Angebot-Formular: Gesamtrabatt-Zeile (vor MwSt) + Kopftext-Reihenfolge | 2026-04-17 | 86cea1e | [260417-fwl-2-features-angebot-formular-gesamtrabatt](.planning/quick/260417-fwl-2-features-angebot-formular-gesamtrabatt/) |
 | 260417-lhw | DJ Settings Firma-Formular: alle Felder editierbar + PDF-Footer sync | 2026-04-17 | caa64ac | [260417-lhw](.planning/quick/) |
 | 260417-lq1 | Footer-Spalten fixieren: proportionale Breiten + kein Text-Overflow | 2026-04-17 | 1c99368 | [260417-lq1-footer-spalten-fixieren-proportionale-br](.planning/quick/260417-lq1-footer-spalten-fixieren-proportionale-br/) |
+| 260417-nw6 | DJ Einstellungen: Fußzeile-Tab mit 4 editierbaren Spalten + PDF liest aus Settings | 2026-04-17 | 03cad7b | [260417-nw6-dj-einstellungen-fu-zeile-tab-mit-4-edit](.planning/quick/260417-nw6-dj-einstellungen-fu-zeile-tab-mit-4-edit/) |
+| 260423-l2b | DjEventsPage: Alle kommenden als Standard-Filter + vergangene Events ausblenden | 2026-04-23 | dafff9f | [260423-l2b-djeventspage-alle-kommenden-als-standard](.planning/quick/260423-l2b-djeventspage-alle-kommenden-als-standard/) |
 
 ---
-*State initialized: 2026-04-07 | Last activity: 2026-04-17 - Completed quick task 260417-lq1: Footer-Spalten fixieren (proportionale Breiten)*
+*State initialized: 2026-04-07 | Last activity: 2026-04-23 - Completed quick task 260423-l2b: DjEventsPage Alle kommenden Filter*
 | 2026-04-10 | fast | TaskCard onClick → SlideOver fix (PointerSensor distance constraint) | ✅ |
 | 2026-04-10 | fast | TaskSlideOver Backdrop-Klick schließt Panel nicht mehr | ✅ |
 | 2026-04-10 | 260410-v3q | Status-Notiz beim Drag (DragPrompt + DB-Migration + KanbanBoard-Pause) | ✅ |

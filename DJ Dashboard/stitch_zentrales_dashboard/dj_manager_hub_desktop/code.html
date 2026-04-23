@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Pulse Console - DJ Manager Hub</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "error-dim": "#d73357",
+              "surface-container-low": "#091328",
+              "surface-bright": "#1f2b49",
+              "inverse-surface": "#faf8ff",
+              "on-secondary": "#005d22",
+              "surface-container-highest": "#192540",
+              "surface": "#060e20",
+              "on-background": "#dee5ff",
+              "surface-tint": "#94aaff",
+              "primary-dim": "#3367ff",
+              "on-error": "#490013",
+              "outline-variant": "#40485d",
+              "secondary-dim": "#4bee74",
+              "on-error-container": "#ffb2b9",
+              "tertiary-dim": "#7e51ff",
+              "inverse-on-surface": "#4d556b",
+              "surface-container-lowest": "#000000",
+              "on-primary-fixed": "#000000",
+              "on-tertiary-container": "#ffffff",
+              "on-primary-container": "#001b61",
+              "primary": "#94aaff",
+              "primary-container": "#809bff",
+              "on-primary-fixed-variant": "#002376",
+              "secondary": "#5cfd80",
+              "on-surface-variant": "#a3aac4",
+              "on-secondary-fixed-variant": "#006827",
+              "secondary-container": "#006e2a",
+              "primary-fixed": "#809bff",
+              "on-secondary-fixed": "#004819",
+              "on-primary": "#00257b",
+              "primary-fixed-dim": "#6c8cff",
+              "tertiary": "#a68cff",
+              "secondary-fixed": "#5cfd80",
+              "surface-dim": "#060e20",
+              "on-tertiary-fixed-variant": "#4000ad",
+              "outline": "#6d758c",
+              "secondary-fixed-dim": "#4bee74",
+              "background": "#060e20",
+              "tertiary-container": "#7c4dff",
+              "on-secondary-container": "#e4ffe1",
+              "surface-container-high": "#141f38",
+              "on-tertiary": "#25006b",
+              "error": "#ff6e84",
+              "tertiary-fixed": "#b8a3ff",
+              "on-tertiary-fixed": "#1c0055",
+              "on-surface": "#dee5ff",
+              "inverse-primary": "#004eea",
+              "error-container": "#a70138",
+              "tertiary-fixed-dim": "#ab93ff",
+              "surface-variant": "#192540",
+              "surface-container": "#0f1930"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .glass-card {
+        background: rgba(25, 37, 64, 0.4);
+        backdrop-filter: blur(24px);
+        background-image: linear-gradient(45deg, rgba(148, 170, 255, 0.1), transparent);
+      }
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: #060e20; }
+      ::-webkit-scrollbar-thumb { background: #192540; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary/30">
+<!-- SideNavBar (Rail to Drawer) -->
+<aside class="fixed left-0 top-0 h-full z-40 flex flex-col py-6 bg-[#091328] dark:bg-[#091328] h-screen w-64 border-r-0">
+<div class="px-6 mb-10">
+<h1 class="text-2xl font-black text-[#94aaff] tracking-tighter font-headline">Pulse Console</h1>
+<p class="text-[0.7rem] text-slate-400 font-medium tracking-wider uppercase mt-1">The Synthetic Conductor</p>
+</div>
+<nav class="flex-1 px-3 space-y-1">
+<a class="flex items-center px-4 py-3 rounded-xl transition-all duration-300 text-slate-400 hover:text-[#94aaff]/80 hover:bg-[#192540]/50 group" href="#">
+<span class="material-symbols-outlined mr-3">storefront</span>
+<span class="text-[0.75rem] font-medium tracking-wider uppercase">Amazon Store</span>
+</a>
+<a class="flex items-center px-4 py-3 rounded-xl transition-all duration-300 text-[#94aaff] font-bold border-r-2 border-[#3367ff] bg-gradient-to-r from-[#3367ff]/10 to-transparent group" href="#">
+<span class="material-symbols-outlined mr-3" style="font-variation-settings: 'FILL' 1;">equalizer</span>
+<span class="text-[0.75rem] font-medium tracking-wider uppercase">DJ Performance</span>
+</a>
+<a class="flex items-center px-4 py-3 rounded-xl transition-all duration-300 text-slate-400 hover:text-[#94aaff]/80 hover:bg-[#192540]/50 group" href="#">
+<span class="material-symbols-outlined mr-3">payments</span>
+<span class="text-[0.75rem] font-medium tracking-wider uppercase">Cashback Insights</span>
+</a>
+<a class="flex items-center px-4 py-3 rounded-xl transition-all duration-300 text-slate-400 hover:text-[#94aaff]/80 hover:bg-[#192540]/50 group" href="#">
+<span class="material-symbols-outlined mr-3">inventory_2</span>
+<span class="text-[0.75rem] font-medium tracking-wider uppercase">Inventory</span>
+</a>
+<a class="flex items-center px-4 py-3 rounded-xl transition-all duration-300 text-slate-400 hover:text-[#94aaff]/80 hover:bg-[#192540]/50 group" href="#">
+<span class="material-symbols-outlined mr-3">bar_chart</span>
+<span class="text-[0.75rem] font-medium tracking-wider uppercase">Analytics</span>
+</a>
+<a class="flex items-center px-4 py-3 rounded-xl transition-all duration-300 text-slate-400 hover:text-[#94aaff]/80 hover:bg-[#192540]/50 group" href="#">
+<span class="material-symbols-outlined mr-3">settings</span>
+<span class="text-[0.75rem] font-medium tracking-wider uppercase">Settings</span>
+</a>
+</nav>
+<div class="px-6 mt-6">
+<button class="w-full py-3 bg-primary-container text-on-primary-container rounded-xl font-bold text-sm transition-transform active:scale-95 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">add</span>
+                Add New Stream
+            </button>
+</div>
+<div class="px-3 mt-auto pt-6 space-y-1">
+<a class="flex items-center px-4 py-3 rounded-xl transition-all duration-300 text-slate-400 hover:text-[#94aaff]/80 hover:bg-[#192540]/50 group" href="#">
+<span class="material-symbols-outlined mr-3">help</span>
+<span class="text-[0.75rem] font-medium tracking-wider uppercase">Help</span>
+</a>
+<a class="flex items-center px-4 py-3 rounded-xl transition-all duration-300 text-slate-400 hover:text-[#94aaff]/80 hover:bg-[#192540]/50 group" href="#">
+<span class="material-symbols-outlined mr-3 text-error">logout</span>
+<span class="text-[0.75rem] font-medium tracking-wider uppercase">Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Wrapper -->
+<main class="ml-64 min-h-screen bg-surface flex flex-col">
+<!-- TopNavBar -->
+<header class="sticky top-0 right-0 z-30 flex justify-between items-center px-8 w-full h-16 bg-gradient-to-b from-[#060e20] to-transparent backdrop-blur-xl">
+<div class="flex items-center gap-8">
+<div class="relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline text-sm">search</span>
+<input class="bg-surface-container-highest border-none rounded-full py-1.5 pl-10 pr-4 text-sm w-64 focus:ring-2 focus:ring-primary/50 placeholder:text-outline" placeholder="Search tracks or equipment..." type="text"/>
+</div>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-[#94aaff] border-b-2 border-[#3367ff] pb-1 text-sm font-medium" href="#">Dashboard</a>
+<a class="text-slate-400 font-medium hover:text-[#94aaff] transition-colors text-sm" href="#">Reports</a>
+<a class="text-slate-400 font-medium hover:text-[#94aaff] transition-colors text-sm" href="#">Live Feed</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="bg-primary-container/10 border border-primary/20 text-primary px-4 py-1.5 rounded-full text-xs font-bold hover:bg-primary-container/20 transition-all">
+                    Sync Data
+                </button>
+<div class="flex items-center gap-2 border-l border-outline-variant/30 pl-4 ml-2">
+<button class="material-symbols-outlined text-outline hover:text-primary transition-colors">notifications</button>
+<button class="material-symbols-outlined text-outline hover:text-primary transition-colors">dark_mode</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest border border-primary/20 overflow-hidden ml-2">
+<img alt="DJ and Seller Profile" class="w-full h-full object-cover" data-alt="close-up portrait of a professional DJ with headphones around neck in a dimly lit studio environment with neon blue highlights" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBT8GSiazQNs8R7ulv4wcB5v4a6eRVv8TdmTDlZRcN3xBVdC9tz98CTgEEzXU1TbImzt7lHoLExrUCY3EDvpWrSrpTh-qJQfg6yXxSAtUDsit1cqD9jSnzy-8ezKev5x0WGSnYUUZC1O5ZZle4ODOXCYmpljIr1nUQHXxssOdyUB5-Wexkuq8ByZlb_tptDugpYaawBr-tEg6Iemz4lSz3i1ZU_uNr8sNJ7cjBMuv87rzuatQ8Ene9KOeot8jEvz4OFTh_A00Z3XxQ"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Hub Canvas -->
+<div class="p-8 grid grid-cols-12 gap-8 flex-1">
+<!-- Left Column: Live Status & Technical Setup -->
+<div class="col-span-12 lg:col-span-4 space-y-8">
+<!-- Current Venue Card -->
+<section class="glass-card rounded-xl p-6 relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-32 h-32 bg-secondary/10 blur-[60px] rounded-full -mr-16 -mt-16 group-hover:bg-secondary/20 transition-all duration-700"></div>
+<div class="flex items-center justify-between mb-8">
+<div>
+<span class="text-[0.7rem] font-bold text-secondary tracking-widest uppercase flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+                                Live Performance
+                            </span>
+<h2 class="text-3xl font-black font-headline mt-1">Elysium Noir</h2>
+</div>
+<span class="material-symbols-outlined text-4xl text-outline-variant/50">location_on</span>
+</div>
+<div class="space-y-4">
+<div class="flex justify-between items-end border-b border-outline-variant/10 pb-4">
+<div>
+<p class="text-[0.65rem] text-on-surface-variant uppercase tracking-tighter">Current Slot</p>
+<p class="text-lg font-bold">23:00 - 02:30</p>
+</div>
+<div class="text-right">
+<p class="text-[0.65rem] text-on-surface-variant uppercase tracking-tighter">Capacity</p>
+<p class="text-lg font-bold">85%</p>
+</div>
+</div>
+<div class="flex items-center gap-4 pt-2">
+<div class="flex-1 bg-surface-container-lowest h-1 rounded-full overflow-hidden">
+<div class="bg-secondary h-full w-[65%]" style="box-shadow: 0 0 12px #5cfd80;"></div>
+</div>
+<span class="text-xs font-mono text-secondary">01:42:15 REMAINING</span>
+</div>
+</div>
+</section>
+<!-- Sound Configuration -->
+<section class="bg-surface-container-low rounded-xl p-6">
+<h3 class="text-sm font-bold font-headline text-on-surface-variant uppercase tracking-widest mb-6">Sound Architecture</h3>
+<div class="space-y-8">
+<!-- Master Output -->
+<div class="space-y-3">
+<div class="flex justify-between items-center">
+<label class="text-xs font-medium text-slate-400">Master Output</label>
+<span class="text-xs font-mono text-primary">+2.4 dB</span>
+</div>
+<div class="relative h-12 flex items-center">
+<div class="absolute w-full h-1.5 bg-surface-container-highest rounded-full"></div>
+<div class="absolute w-[72%] h-1.5 bg-gradient-to-r from-primary-dim to-primary rounded-full shadow-[0_0_15px_rgba(148,170,255,0.4)]"></div>
+<div class="absolute left-[72%] w-4 h-8 bg-on-background rounded-sm -ml-2 cursor-pointer border border-primary"></div>
+</div>
+</div>
+<!-- Resonance -->
+<div class="space-y-3">
+<div class="flex justify-between items-center">
+<label class="text-xs font-medium text-slate-400">Resonance (Q)</label>
+<span class="text-xs font-mono text-tertiary">42%</span>
+</div>
+<div class="relative h-12 flex items-center">
+<div class="absolute w-full h-1.5 bg-surface-container-highest rounded-full"></div>
+<div class="absolute w-[42%] h-1.5 bg-gradient-to-r from-tertiary-dim to-tertiary rounded-full"></div>
+<div class="absolute left-[42%] w-4 h-8 bg-on-background rounded-sm -ml-2 cursor-pointer border border-tertiary"></div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-surface-container-highest p-4 rounded-xl border-b-2 border-primary">
+<p class="text-[0.6rem] text-on-surface-variant uppercase mb-1">Low Pass</p>
+<p class="text-xl font-black font-headline text-primary">OFF</p>
+</div>
+<div class="bg-surface-container-highest p-4 rounded-xl border-b-2 border-secondary">
+<p class="text-[0.6rem] text-on-surface-variant uppercase mb-1">Sidechain</p>
+<p class="text-xl font-black font-headline text-secondary">ACTIVE</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Equipment Checklist -->
+<section class="bg-surface-container-low rounded-xl p-6">
+<div class="flex justify-between items-center mb-6">
+<h3 class="text-sm font-bold font-headline text-on-surface-variant uppercase tracking-widest">Hardware Rack</h3>
+<span class="text-[0.65rem] bg-surface-bright px-2 py-0.5 rounded text-primary-fixed">6/8 OK</span>
+</div>
+<ul class="space-y-3">
+<li class="flex items-center justify-between p-3 rounded-lg hover:bg-surface-container-high transition-colors group">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-sm font-medium">CDJ-3000 Link 1</span>
+</div>
+<div class="w-10 h-5 bg-secondary-container rounded-full relative p-1 flex items-center justify-end">
+<div class="w-3 h-3 bg-on-secondary-container rounded-full shadow-sm"></div>
+</div>
+</li>
+<li class="flex items-center justify-between p-3 rounded-lg hover:bg-surface-container-high transition-colors group">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-sm font-medium">CDJ-3000 Link 2</span>
+</div>
+<div class="w-10 h-5 bg-secondary-container rounded-full relative p-1 flex items-center justify-end">
+<div class="w-3 h-3 bg-on-secondary-container rounded-full shadow-sm"></div>
+</div>
+</li>
+<li class="flex items-center justify-between p-3 rounded-lg hover:bg-surface-container-high transition-colors group">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-error-dim">warning</span>
+<span class="text-sm font-medium text-error">RMX-1000 FX Unit</span>
+</div>
+<div class="w-10 h-5 bg-surface-container-highest rounded-full relative p-1 flex items-center justify-start">
+<div class="w-3 h-3 bg-outline rounded-full shadow-sm"></div>
+</div>
+</li>
+</ul>
+</section>
+</div>
+<!-- Right Column: Active Crate & Playlist -->
+<div class="col-span-12 lg:col-span-8">
+<section class="bg-surface-container-low rounded-xl h-full flex flex-col overflow-hidden">
+<div class="p-8 flex justify-between items-end border-b border-outline-variant/10">
+<div>
+<span class="text-[0.7rem] font-bold text-primary tracking-widest uppercase">Currently Spinning</span>
+<h2 class="text-4xl font-black font-headline mt-1 tracking-tight">Main Peak Hour Crate</h2>
+</div>
+<div class="flex gap-4">
+<button class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-surface-container-highest border border-outline-variant/20 hover:border-primary/40 transition-all">
+<span class="material-symbols-outlined text-primary">shuffle</span>
+</button>
+<button class="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-surface-container-highest border border-outline-variant/20 hover:border-primary/40 transition-all">
+<span class="material-symbols-outlined text-primary">filter_list</span>
+</button>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto px-4 py-2">
+<table class="w-full text-left">
+<thead>
+<tr class="text-[0.65rem] font-bold text-on-surface-variant uppercase tracking-tighter border-b border-outline-variant/10">
+<th class="py-4 pl-4">Status</th>
+<th class="py-4">Track Details</th>
+<th class="py-4 text-center">BPM</th>
+<th class="py-4 text-center">Key</th>
+<th class="py-4 text-right pr-4">Intensity</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/5">
+<!-- Track 1: Active -->
+<tr class="bg-primary/5 group cursor-pointer">
+<td class="py-5 pl-4">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</td>
+<td class="py-5">
+<p class="font-bold text-primary">Synthetic Conduct</p>
+<p class="text-xs text-on-surface-variant">The Glitch Protocol (Original Mix)</p>
+</td>
+<td class="py-5 text-center font-mono font-bold">128.00</td>
+<td class="py-5 text-center">
+<span class="px-2 py-1 bg-primary/10 text-primary-container text-xs rounded border border-primary/20">8A</span>
+</td>
+<td class="py-5 text-right pr-4">
+<div class="flex justify-end gap-0.5">
+<div class="w-1.5 h-3 bg-secondary rounded-full"></div>
+<div class="w-1.5 h-3 bg-secondary rounded-full"></div>
+<div class="w-1.5 h-3 bg-secondary rounded-full"></div>
+<div class="w-1.5 h-3 bg-secondary rounded-full"></div>
+<div class="w-1.5 h-3 bg-outline/20 rounded-full"></div>
+</div>
+</td>
+</tr>
+<!-- Track 2 -->
+<tr class="hover:bg-surface-container-high transition-colors group cursor-pointer">
+<td class="py-5 pl-4">
+<span class="text-xs font-mono text-outline group-hover:text-primary transition-colors">02</span>
+</td>
+<td class="py-5">
+<p class="font-bold">Pressure Chamber</p>
+<p class="text-xs text-on-surface-variant">Liquid Dreams (Sub Bass Edit)</p>
+</td>
+<td class="py-5 text-center font-mono">127.50</td>
+<td class="py-5 text-center">
+<span class="px-2 py-1 bg-surface-container-highest text-on-surface-variant text-xs rounded border border-outline-variant/20">9B</span>
+</td>
+<td class="py-5 text-right pr-4">
+<div class="flex justify-end gap-0.5">
+<div class="w-1.5 h-3 bg-primary rounded-full"></div>
+<div class="w-1.5 h-3 bg-primary rounded-full"></div>
+<div class="w-1.5 h-3 bg-outline/20 rounded-full"></div>
+<div class="w-1.5 h-3 bg-outline/20 rounded-full"></div>
+<div class="w-1.5 h-3 bg-outline/20 rounded-full"></div>
+</div>
+</td>
+</tr>
+<!-- Track 3 -->
+<tr class="hover:bg-surface-container-high transition-colors group cursor-pointer">
+<td class="py-5 pl-4">
+<span class="text-xs font-mono text-outline group-hover:text-primary transition-colors">03</span>
+</td>
+<td class="py-5">
+<p class="font-bold text-on-surface/90">Neon Horizon</p>
+<p class="text-xs text-on-surface-variant">Cyber Architect (Extended Mix)</p>
+</td>
+<td class="py-5 text-center font-mono">130.00</td>
+<td class="py-5 text-center">
+<span class="px-2 py-1 bg-tertiary/10 text-tertiary text-xs rounded border border-tertiary/20">4A</span>
+</td>
+<td class="py-5 text-right pr-4">
+<div class="flex justify-end gap-0.5">
+<div class="w-1.5 h-3 bg-secondary rounded-full"></div>
+<div class="w-1.5 h-3 bg-secondary rounded-full"></div>
+<div class="w-1.5 h-3 bg-secondary rounded-full"></div>
+<div class="w-1.5 h-3 bg-secondary rounded-full"></div>
+<div class="w-1.5 h-3 bg-secondary rounded-full"></div>
+</div>
+</td>
+</tr>
+<!-- Track 4 -->
+<tr class="hover:bg-surface-container-high transition-colors group cursor-pointer">
+<td class="py-5 pl-4">
+<span class="text-xs font-mono text-outline group-hover:text-primary transition-colors">04</span>
+</td>
+<td class="py-5">
+<p class="font-bold">Deep Sea Rhythm</p>
+<p class="text-xs text-on-surface-variant">Abyssal Sound (Instrumental)</p>
+</td>
+<td class="py-5 text-center font-mono">124.00</td>
+<td class="py-5 text-center">
+<span class="px-2 py-1 bg-surface-container-highest text-on-surface-variant text-xs rounded border border-outline-variant/20">11A</span>
+</td>
+<td class="py-5 text-right pr-4">
+<div class="flex justify-end gap-0.5">
+<div class="w-1.5 h-3 bg-primary rounded-full"></div>
+<div class="w-1.5 h-3 bg-outline/20 rounded-full"></div>
+<div class="w-1.5 h-3 bg-outline/20 rounded-full"></div>
+<div class="w-1.5 h-3 bg-outline/20 rounded-full"></div>
+<div class="w-1.5 h-3 bg-outline/20 rounded-full"></div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-6 bg-surface-container-low/80 backdrop-blur-md flex items-center gap-8 border-t border-outline-variant/10">
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface">skip_previous</button>
+<button class="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-on-primary shadow-[0_0_20px_rgba(148,170,255,0.4)]">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">pause</span>
+</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-on-surface">skip_next</button>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-center mb-1">
+<span class="text-[0.6rem] font-mono text-primary">04:22</span>
+<span class="text-[0.6rem] font-mono text-outline">-02:18</span>
+</div>
+<div class="h-1 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[65%]"></div>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-outline text-sm">volume_up</span>
+<div class="w-24 h-1 bg-surface-container-highest rounded-full">
+<div class="w-3/4 h-full bg-outline rounded-full"></div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+</body></html>
