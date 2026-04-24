@@ -424,6 +424,20 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
   const [allEvents, setAllEvents] = useState<DjEvent[]>([]);
   const [conflictingEvents, setConflictingEvents] = useState<DjEvent[]>([]);
 
+  // Original-Snapshot für Kalender-Sync im Edit-Modus
+  const originalRef = useRef<{
+    event_date: string | null;
+    time_start: string | null;
+    time_end: string | null;
+    calendar_uid: string | null;
+    status: EventStatus;
+    event_type: EventType;
+    venue_name: string | null;
+    location_name: string | null;
+    customer_name: string | null;
+    customer_org: string | null;
+  } | null>(null);
+
   useEffect(() => {
     void fetchDjCustomers().then(setCustomers).catch(() => {});
     void fetchDjEvents().then(setAllEvents).catch(() => {});
@@ -463,6 +477,19 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
       setVorgPlz(data.vorgespraech_plz ?? '');
       setVorgOrt(data.vorgespraech_ort ?? '');
       setVorgNotizen(data.vorgespraech_notizen ?? '');
+      // Original-Snapshot für Kalender-Sync merken
+      originalRef.current = {
+        event_date: data.event_date ?? null,
+        time_start: data.time_start ?? null,
+        time_end: data.time_end ?? null,
+        calendar_uid: data.calendar_uid ?? null,
+        status: data.status,
+        event_type: data.event_type,
+        venue_name: data.venue_name ?? null,
+        location_name: data.location_name ?? null,
+        customer_name: data.customer_name ?? null,
+        customer_org: data.customer_org ?? null,
+      };
     }).catch(() => {}).finally(() => setLoadingEvent(false));
   }, [eventId]);
 
@@ -536,6 +563,104 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
           vorgespraech_ort: vorgOrt || null,
           vorgespraech_notizen: vorgNotizen || null,
         } as Parameters<typeof updateDjEvent>[1]);
+
+        // Kalender-Sync: Nur wenn Event einen Kalender-Eintrag hat und sich Datum/Zeit geändert hat.
+        const orig = originalRef.current;
+        const dateChanged = orig && orig.event_date !== eventDate;
+        const startChanged = orig && (orig.time_start ?? '') !== (timeStart ?? '');
+        const endChanged = orig && (orig.time_end ?? '') !== (timeEnd ?? '');
+        if (orig?.calendar_uid && eventDate && (dateChanged || startChanged || endChanged)) {
+          async function syncCalendarOnEdit(oldUid: string) {
+            // 1. Kalender-ID bestimmen — selectedCalendarId ist nur im Create-Modus gefüllt.
+            let calId = selectedCalendarId;
+            if (!calId) {
+              const r = await apiClient.get('/calendar/calendars');
+              const list = r.data as { id: string; title: string }[];
+              const djCal = list.find(c => c.title.toLowerCase().replace(/[-\s]/g, '') === 'djtermine') ?? list[0];
+              calId = djCal?.id ?? '';
+              if (!calId) throw new Error('Kalender "DJ-Termine" nicht gefunden');
+            }
+
+            // 2. Alten Eintrag löschen (Fehler ignorieren — kann bereits manuell gelöscht sein)
+            await apiClient.delete(`/calendar/events/${encodeURIComponent(oldUid)}`).catch(() => {});
+
+            // 3. Neuen Eintrag anlegen
+            const typLabel = EVENT_TYPE_LABELS[eventType] || eventType;
+            const kundenLabel = selectedCustomer
+              ? displayName(selectedCustomer)
+              : (orig?.customer_name || orig?.customer_org || null);
+
+            const prefix = status === 'bestaetigt' ? 'Gebucht' : 'Anfrage';
+            const calTitle = kundenLabel
+              ? `${prefix} – ${typLabel} | ${kundenLabel}`
+              : `${prefix} – ${typLabel}`;
+
+            const startTime = (timeStart || '12:00').substring(0, 5);
+            const endRaw = timeEnd ? timeEnd.substring(0, 5) : null;
+
+            // TZ-Offset
+            const offsetMin = -new Date().getTimezoneOffset();
+            const tzSign = offsetMin >= 0 ? '+' : '-';
+            const tzH = String(Math.floor(Math.abs(offsetMin) / 60)).padStart(2, '0');
+            const tzM = String(Math.abs(offsetMin) % 60).padStart(2, '0');
+            const tz = `${tzSign}${tzH}:${tzM}`;
+
+            // Mitternacht-Crossing
+            let endDate = eventDate;
+            let endTime: string;
+            const nextDay = () => {
+              const d = new Date(eventDate + 'T00:00:00Z');
+              d.setUTCDate(d.getUTCDate() + 1);
+              return d.toISOString().substring(0, 10);
+            };
+            if (!endRaw) {
+              const [h, m] = startTime.split(':').map(Number);
+              const newH = h + 3;
+              endTime = `${String(newH % 24).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+              if (newH >= 24) endDate = nextDay();
+            } else if (endRaw <= startTime) {
+              endTime = endRaw;
+              endDate = nextDay();
+            } else {
+              endTime = endRaw;
+            }
+
+            const locationLabel = venueName || orig?.location_name || '';
+            const notesBlock = [
+              `Kunde: ${kundenLabel ?? 'Unbekannt'}`,
+              `Veranstaltungstyp: ${typLabel}`,
+              locationLabel ? `Location: ${locationLabel}` : '',
+            ].filter(Boolean).join('\n');
+
+            const res = await apiClient.post('/calendar/events', {
+              calendar_id: calId,
+              title: calTitle,
+              start_at: `${eventDate}T${startTime}:00${tz}`,
+              end_at: `${endDate}T${endTime}:00${tz}`,
+              notes: notesBlock,
+            });
+            const newUid = (res.data as { event?: { apple_uid?: string } })?.event?.apple_uid;
+            if (newUid) {
+              await updateDjEvent(eventId!, { calendar_uid: newUid } as Partial<DjEvent>);
+              // Ref aktualisieren falls User nochmal speichert
+              if (originalRef.current) {
+                originalRef.current.calendar_uid = newUid;
+                originalRef.current.event_date = eventDate;
+                originalRef.current.time_start = timeStart || null;
+                originalRef.current.time_end = timeEnd || null;
+              }
+            }
+          }
+
+          try {
+            await syncCalendarOnEdit(orig.calendar_uid);
+          } catch (calErr) {
+            const msg = calErr instanceof Error ? calErr.message : String(calErr);
+            setError(`Gespeichert, aber Kalender konnte nicht aktualisiert werden: ${msg}`);
+            return; // setSaving(false) wird im finally erledigt
+          }
+        }
+
         await queryClient.invalidateQueries({ queryKey: ['dj-events'] });
         onUpdated?.();
       } else {

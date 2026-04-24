@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed quick-260416-ndv-PLAN.md
-last_updated: "2026-04-16T15:18:36.102Z"
+stopped_at: Completed quick-260424-rzd-PLAN.md
+last_updated: "2026-04-24T18:13:21.933Z"
 progress:
   total_phases: 3
   completed_phases: 3
@@ -35,7 +35,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 [██████░░░░] 60% — 6/10 plans complete
 
-**Stopped at:** Completed quick-260416-ndv-PLAN.md
+**Stopped at:** Completed quick-260424-rzd-PLAN.md
 
 ## Decisions Made
 
@@ -99,9 +99,11 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 | 260417-lq1 | Footer-Spalten fixieren: proportionale Breiten + kein Text-Overflow | 2026-04-17 | 1c99368 | [260417-lq1-footer-spalten-fixieren-proportionale-br](.planning/quick/260417-lq1-footer-spalten-fixieren-proportionale-br/) |
 | 260417-nw6 | DJ Einstellungen: Fußzeile-Tab mit 4 editierbaren Spalten + PDF liest aus Settings | 2026-04-17 | 03cad7b | [260417-nw6-dj-einstellungen-fu-zeile-tab-mit-4-edit](.planning/quick/260417-nw6-dj-einstellungen-fu-zeile-tab-mit-4-edit/) |
 | 260423-l2b | DjEventsPage: Alle kommenden als Standard-Filter + vergangene Events ausblenden | 2026-04-23 | dafff9f | [260423-l2b-djeventspage-alle-kommenden-als-standard](.planning/quick/260423-l2b-djeventspage-alle-kommenden-als-standard/) |
+| 260424-rj7 | Fix timezone boundary in DjOverviewPage upcomingEvents filter | 2026-04-24 | 019a80f | [260424-rj7-fix-timezone-boundary-in-djoverviewpage-](.planning/quick/260424-rj7-fix-timezone-boundary-in-djoverviewpage-/) |
+| 260424-rzd | Fix event_date Bug: Pflichtfeld-Guard + NULL-Normalisierung + bestaetigt in GET-Filter | 2026-04-24 | 2d2a188 | [260424-rzd-fix-event-date-bug-in-neueanfragemodal-u](.planning/quick/260424-rzd-fix-event-date-bug-in-neueanfragemodal-u/) |
 
 ---
-*State initialized: 2026-04-07 | Last activity: 2026-04-23 - Completed quick task 260423-l2b: DjEventsPage Alle kommenden Filter*
+*State initialized: 2026-04-07 | Last activity: 2026-04-24 - Completed quick task 260424-rzd: Fix event_date Bug in NeueAnfrageModal*
 | 2026-04-10 | fast | TaskCard onClick → SlideOver fix (PointerSensor distance constraint) | ✅ |
 | 2026-04-10 | fast | TaskSlideOver Backdrop-Klick schließt Panel nicht mehr | ✅ |
 | 2026-04-10 | 260410-v3q | Status-Notiz beim Drag (DragPrompt + DB-Migration + KanbanBoard-Pause) | ✅ |
