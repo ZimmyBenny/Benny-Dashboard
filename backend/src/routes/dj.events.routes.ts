@@ -52,7 +52,7 @@ router.get('/', (req, res) => {
     params.push(year);
   } else {
     // Zukünftige Events ODER offene Anfragen/Vorgespräche (unabhängig vom Datum)
-    sql += " AND (date(e.event_date) >= date('now') OR e.status IN ('anfrage','vorgespraech_vereinbart','angebot_gesendet'))";
+    sql += " AND (date(e.event_date) >= date('now') OR e.status IN ('anfrage','vorgespraech_vereinbart','angebot_gesendet','bestaetigt'))";
   }
   if (status) { sql += ' AND e.status = ?'; params.push(status); }
   if (event_type) { sql += ' AND e.event_type = ?'; params.push(event_type); }
@@ -90,6 +90,9 @@ router.post('/', (req, res) => {
     return;
   }
 
+  const eventDateNormalized =
+    typeof event_date === 'string' && event_date.trim() === '' ? null : (event_date ?? null);
+
   const result = db.prepare(`
     INSERT INTO dj_events
       (customer_id, location_id, title, event_type, event_date, time_start, time_end,
@@ -98,7 +101,7 @@ router.post('/', (req, res) => {
        venue_name, venue_street, venue_zip, venue_city)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    customer_id ?? null, location_id ?? null, title ?? null, event_type, event_date,
+    customer_id ?? null, location_id ?? null, title ?? null, event_type, eventDateNormalized,
     time_start ?? null, time_end ?? null, setup_minutes ?? 90, teardown_minutes ?? 90,
     guests ?? null, status, contact_on_site_name ?? null,
     contact_on_site_phone ?? null, contact_on_site_email ?? null, notes ?? null,
@@ -134,6 +137,9 @@ router.patch('/:id', (req, res) => {
 
   const body = req.body as object;
 
+  const eventDateNormalized =
+    typeof event_date === 'string' && event_date.trim() === '' ? null : (event_date ?? null);
+
   db.prepare(`
     UPDATE dj_events SET
       customer_id = COALESCE(?, customer_id),
@@ -165,7 +171,7 @@ router.patch('/:id', (req, res) => {
     WHERE id = ?
   `).run(
     customer_id ?? null, location_id ?? null, title ?? null, event_type ?? null,
-    event_date ?? null, time_start ?? null, time_end ?? null,
+    eventDateNormalized, time_start ?? null, time_end ?? null,
     setup_minutes ?? null, teardown_minutes ?? null, guests ?? null,
     status ?? null, contact_on_site_name ?? null, contact_on_site_phone ?? null,
     contact_on_site_email ?? null, notes ?? null, cancellation_reason ?? null,
