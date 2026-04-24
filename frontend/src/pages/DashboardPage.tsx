@@ -136,20 +136,30 @@ export function DashboardPage() {
     return () => clearInterval(id);
   }, [timerStatus, getElapsedMs]);
 
+  const btnStyle: React.CSSProperties = {
+    display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+    padding: '0.3rem 0.65rem',
+    borderRadius: '9999px',
+    background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+    color: '#000', border: 'none', cursor: 'pointer',
+    fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.65rem',
+    letterSpacing: '0.03em',
+  };
+
   return (
     <PageWrapper>
       {/* ── Hero ─────────────────────────────────────────── */}
-      <div style={{ position: 'relative', marginBottom: '3rem', paddingTop: '0.5rem', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+      <div style={{ position: 'relative', marginBottom: '2rem', paddingTop: '0.25rem', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         {/* Ambient glows */}
         <div aria-hidden style={{
-          position: 'absolute', top: '-80px', right: '-100px',
-          width: '420px', height: '420px', borderRadius: '50%',
+          position: 'absolute', top: '-60px', right: '-80px',
+          width: '280px', height: '280px', borderRadius: '50%',
           background: 'radial-gradient(circle, rgba(204,151,255,0.09) 0%, transparent 65%)',
           pointerEvents: 'none',
         }} />
         <div aria-hidden style={{
-          position: 'absolute', bottom: '-40px', left: '25%',
-          width: '300px', height: '300px', borderRadius: '50%',
+          position: 'absolute', bottom: '-20px', left: '25%',
+          width: '180px', height: '180px', borderRadius: '50%',
           background: 'radial-gradient(circle, rgba(52,181,250,0.07) 0%, transparent 65%)',
           pointerEvents: 'none',
         }} />
@@ -157,14 +167,14 @@ export function DashboardPage() {
         {/* Left: Greeting */}
         <div>
           <h1 className="display-text" style={{
-            fontSize: 'clamp(2.6rem, 5.5vw, 5rem)',
+            fontSize: 'clamp(1.6rem, 3vw, 2.75rem)',
             color: 'var(--color-on-surface)',
             marginBottom: '0.05em',
           }}>
             {greeting.time}
           </h1>
           <h1 className="display-text gradient-text" style={{
-            fontSize: 'clamp(2.6rem, 5.5vw, 5rem)',
+            fontSize: 'clamp(1.6rem, 3vw, 2.75rem)',
           }}>
             {greeting.name}
           </h1>
@@ -175,17 +185,17 @@ export function DashboardPage() {
           <p style={{
             fontFamily: 'var(--font-headline)',
             fontWeight: 800,
-            fontSize: 'clamp(2rem, 3.5vw, 3.5rem)',
+            fontSize: 'clamp(1.5rem, 2.5vw, 2.5rem)',
             letterSpacing: '-0.03em',
             color: 'var(--color-on-surface)',
             lineHeight: 1,
-            marginBottom: '0.4rem',
+            marginBottom: '0.3rem',
           }}>
             {time}
           </p>
           <p style={{
             fontFamily: 'var(--font-body)',
-            fontSize: 'clamp(0.8rem, 1.2vw, 1rem)',
+            fontSize: 'clamp(0.7rem, 1vw, 0.85rem)',
             letterSpacing: '0.1em',
             textTransform: 'uppercase',
             color: 'var(--color-outline)',
@@ -193,6 +203,64 @@ export function DashboardPage() {
             {dateStr}
           </p>
         </div>
+      </div>
+
+      {/* ── KPI-Streifen (Option C) ──────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.625rem', marginBottom: '1.5rem' }}>
+
+        {/* Offene Aufgaben */}
+        <button onClick={() => navigate('/tasks')} style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '0.75rem', padding: '0.875rem 1rem', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', color: 'var(--color-primary)', flexShrink: 0 }}>task_alt</span>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '1.5rem', color: 'var(--color-on-surface)', margin: 0, lineHeight: 1 }}>{taskStats?.open_count ?? '–'}</p>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)', margin: 0, marginTop: '0.15rem' }}>Aufgaben offen</p>
+          </div>
+          {(taskStats?.overdue_count ?? 0) > 0 && (
+            <span style={{ marginLeft: 'auto', background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.4)', borderRadius: '999px', padding: '0.1rem 0.45rem', fontSize: '0.62rem', color: '#f87171', fontWeight: 700, fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              {taskStats!.overdue_count} überfällig
+            </span>
+          )}
+        </button>
+
+        {/* DJ-Anfragen */}
+        <button onClick={() => navigate('/dj/events')} style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '0.75rem', padding: '0.875rem 1rem', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', color: 'var(--color-tertiary)', flexShrink: 0 }}>queue_music</span>
+          <div>
+            <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '1.5rem', color: 'var(--color-on-surface)', margin: 0, lineHeight: 1 }}>{djOverview?.open_requests ?? '–'}</p>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)', margin: 0, marginTop: '0.15rem' }}>DJ-Anfragen</p>
+          </div>
+        </button>
+
+        {/* In Arbeit */}
+        <button onClick={() => navigate('/tasks')} style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '0.75rem', padding: '0.875rem 1rem', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', color: 'var(--color-secondary)', flexShrink: 0 }}>pending</span>
+          <div>
+            <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '1.5rem', color: 'var(--color-secondary)', margin: 0, lineHeight: 1 }}>{taskStats?.in_progress_count ?? '–'}</p>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)', margin: 0, marginTop: '0.15rem' }}>In Arbeit</p>
+          </div>
+        </button>
+
+        {/* Heute-Termine */}
+        <div style={{ background: 'rgba(148,170,255,0.05)', border: '1px solid rgba(148,170,255,0.15)', borderRadius: '0.75rem', padding: '0.875rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', overflow: 'hidden' }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-primary)', margin: 0 }}>Heute</p>
+          {(() => {
+            const todayStr = new Date().toISOString().slice(0, 10);
+            const todayEvs = (agendaEvents ?? []).filter(ev => ev.start_at.slice(0, 10) === todayStr);
+            if (!agendaEvents) return <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.72rem', color: 'var(--color-outline)' }}>Lade…</p>;
+            if (todayEvs.length === 0) return <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.72rem', color: 'var(--color-outline)', fontStyle: 'italic' }}>Keine Termine</p>;
+            return todayEvs.slice(0, 2).map(ev => (
+              <div key={ev.id} style={{ display: 'flex', alignItems: 'baseline', gap: '0.375rem' }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.65rem', fontWeight: 700, color: 'var(--color-primary)', whiteSpace: 'nowrap' }}>
+                  {ev.is_all_day ? '–' : new Date(ev.start_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.72rem', color: 'var(--color-on-surface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {ev.title}
+                </span>
+              </div>
+            ));
+          })()}
+        </div>
+
       </div>
 
       {/* ── Aktiver Timer Widget ─────────────────────────── */}
@@ -270,20 +338,20 @@ export function DashboardPage() {
       {/* ── Module grid ──────────────────────────────────── */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-        gap: '0.875rem',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(195px, 1fr))',
+        gap: '0.625rem',
       }}>
         {modules.map((mod) => (
           <button
             key={mod.path}
             className="module-card"
             onClick={() => navigate(mod.path)}
-            style={{ textAlign: 'left', padding: '1.5rem 1.5rem 1.25rem', cursor: 'pointer' }}
+            style={{ textAlign: 'left', padding: '0.875rem 1rem', cursor: 'pointer' }}
           >
             {/* Ghost icon backdrop */}
             <span className="material-symbols-outlined" aria-hidden style={{
-              position: 'absolute', bottom: '0.5rem', right: '0.75rem',
-              fontSize: '4.5rem', lineHeight: 1,
+              position: 'absolute', bottom: '0.25rem', right: '0.5rem',
+              fontSize: '3rem', lineHeight: 1,
               color: 'var(--color-primary)', opacity: 0.06,
               pointerEvents: 'none',
             }}>
@@ -293,234 +361,128 @@ export function DashboardPage() {
             {/* Content */}
             <div style={{ position: 'relative', zIndex: 1 }}>
               <span className="material-symbols-outlined" style={{
-                fontSize: '1.375rem',
+                fontSize: '1.1rem',
                 color: 'var(--color-primary)',
                 display: 'block',
-                marginBottom: '0.875rem',
+                marginBottom: '0.5rem',
               }}>
                 {mod.icon}
               </span>
               <p style={{
                 fontFamily: 'var(--font-headline)',
                 fontWeight: 700,
-                fontSize: '0.875rem',
+                fontSize: '0.75rem',
                 letterSpacing: '0.08em',
                 textTransform: 'uppercase',
                 color: 'var(--color-on-surface)',
-                marginBottom: '0.375rem',
+                marginBottom: '0.2rem',
               }}>
                 {mod.label}
               </p>
               <p style={{
                 fontFamily: 'var(--font-body)',
-                fontSize: '0.75rem',
+                fontSize: '0.65rem',
                 color: 'var(--color-on-surface-variant)',
-                lineHeight: 1.5,
+                lineHeight: 1.4,
               }}>
                 {mod.description}
               </p>
 
 {'isTasks' in mod && (
-                <div style={{ marginTop: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.625rem', justifyContent: 'space-between' }}>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setIsNewTaskOpen(true); }}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
-                      padding: '0.35rem 0.8rem',
-                      borderRadius: '9999px',
-                      background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
-                      color: '#000', border: 'none', cursor: 'pointer',
-                      fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.7rem',
-                      letterSpacing: '0.03em',
-                    }}
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>add</span>
-                    Neue Aufgabe
-                  </button>
+                <div style={{ marginTop: '0.625rem' }}>
                   {taskStats !== null && (
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem' }}>
-                      <span style={{
-                        fontFamily: 'var(--font-headline)', fontWeight: 800,
-                        fontSize: '1.25rem', letterSpacing: '-0.02em',
-                        color: 'var(--color-on-surface)',
-                        lineHeight: 1,
-                      }}>
-                        {taskStats.open_count ?? 0}
-                      </span>
-                      <span style={{
-                        fontFamily: 'var(--font-body)', fontSize: '0.7rem',
-                        color: 'var(--color-on-surface-variant)',
-                        letterSpacing: '0.04em', textTransform: 'uppercase',
-                      }}>
-                        offen
-                      </span>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.2rem', marginBottom: '0.4rem' }}>
+                      <span style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '1.1rem', color: 'var(--color-on-surface)', lineHeight: 1 }}>{taskStats.open_count ?? 0}</span>
+                      <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.6rem', color: 'var(--color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>offen</span>
                     </div>
                   )}
+                  <button onClick={(e) => { e.stopPropagation(); setIsNewTaskOpen(true); }} style={btnStyle}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>add</span>
+                    Neue Aufgabe
+                  </button>
                 </div>
               )}
 
               {'isCalendar' in mod && (
-                <div style={{ marginTop: '0.875rem' }}>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); navigate('/calendar', { state: { openNewEvent: true } }); }}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
-                      padding: '0.35rem 0.8rem',
-                      borderRadius: '9999px',
-                      background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
-                      color: '#000', border: 'none', cursor: 'pointer',
-                      fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.7rem',
-                      letterSpacing: '0.03em',
-                    }}
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>add</span>
+                <div style={{ marginTop: '0.625rem' }}>
+                  {agendaEvents !== null && (() => {
+                    const todayStr = new Date().toISOString().slice(0, 10);
+                    const count = agendaEvents.filter(ev => ev.start_at.slice(0, 10) === todayStr).length;
+                    return (
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.2rem', marginBottom: '0.4rem' }}>
+                        <span style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '1.1rem', color: 'var(--color-on-surface)', lineHeight: 1 }}>{count}</span>
+                        <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.6rem', color: 'var(--color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>heute</span>
+                      </div>
+                    );
+                  })()}
+                  <button onClick={(e) => { e.stopPropagation(); navigate('/calendar', { state: { openNewEvent: true } }); }} style={btnStyle}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>add</span>
                     Neuer Termin
                   </button>
                 </div>
               )}
 
               {'isContacts' in mod && (
-                <div style={{ marginTop: '0.875rem' }}>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); navigate('/contacts/new'); }}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
-                      padding: '0.35rem 0.8rem',
-                      borderRadius: '9999px',
-                      background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
-                      color: '#000', border: 'none', cursor: 'pointer',
-                      fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.7rem',
-                      letterSpacing: '0.03em',
-                    }}
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>add</span>
+                <div style={{ marginTop: '0.625rem' }}>
+                  <button onClick={(e) => { e.stopPropagation(); navigate('/contacts/new'); }} style={btnStyle}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>add</span>
                     Neuer Kontakt
                   </button>
                 </div>
               )}
 
               {'isContracts' in mod && (
-                <div style={{ marginTop: '0.875rem' }}>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); navigate('/contracts', { state: { openNew: true } }); }}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
-                      padding: '0.35rem 0.8rem',
-                      borderRadius: '9999px',
-                      background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
-                      color: '#000', border: 'none', cursor: 'pointer',
-                      fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.7rem',
-                      letterSpacing: '0.03em',
-                    }}
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>add</span>
+                <div style={{ marginTop: '0.625rem' }}>
+                  <button onClick={(e) => { e.stopPropagation(); navigate('/contracts', { state: { openNew: true } }); }} style={btnStyle}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>add</span>
                     Neuer Eintrag
                   </button>
                 </div>
               )}
 
               {'isDj' in mod && (
-                <div style={{ marginTop: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.625rem', justifyContent: 'space-between' }}>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setIsDjAnfrageOpen(true); }}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
-                      padding: '0.35rem 0.8rem',
-                      borderRadius: '9999px',
-                      background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
-                      color: '#000', border: 'none', cursor: 'pointer',
-                      fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.7rem',
-                      letterSpacing: '0.03em',
-                    }}
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>add</span>
-                    Neues Event
-                  </button>
+                <div style={{ marginTop: '0.625rem' }}>
                   {djOverview !== null && (
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem' }}>
-                      <span style={{
-                        fontFamily: 'var(--font-headline)', fontWeight: 800,
-                        fontSize: '1.25rem', letterSpacing: '-0.02em',
-                        color: 'var(--color-on-surface)', lineHeight: 1,
-                      }}>
-                        {djOverview.open_requests ?? 0}
-                      </span>
-                      <span style={{
-                        fontFamily: 'var(--font-body)', fontSize: '0.7rem',
-                        color: 'var(--color-on-surface-variant)',
-                        letterSpacing: '0.04em', textTransform: 'uppercase',
-                      }}>
-                        offen
-                      </span>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.2rem', marginBottom: '0.4rem' }}>
+                      <span style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '1.1rem', color: 'var(--color-on-surface)', lineHeight: 1 }}>{djOverview.open_requests ?? 0}</span>
+                      <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.6rem', color: 'var(--color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>offen</span>
                     </div>
                   )}
+                  <button onClick={(e) => { e.stopPropagation(); setIsDjAnfrageOpen(true); }} style={btnStyle}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>add</span>
+                    Neues Event
+                  </button>
                 </div>
               )}
 
               {'isHaushalt' in mod && (
-                <div style={{ marginTop: '0.875rem' }}>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); navigate('/haushalt', { state: { openNew: true } }); }}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
-                      padding: '0.35rem 0.8rem',
-                      borderRadius: '9999px',
-                      background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
-                      color: '#000', border: 'none', cursor: 'pointer',
-                      fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.7rem',
-                      letterSpacing: '0.03em',
-                    }}
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>add</span>
+                <div style={{ marginTop: '0.625rem' }}>
+                  <button onClick={(e) => { e.stopPropagation(); navigate('/haushalt', { state: { openNew: true } }); }} style={btnStyle}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>add</span>
                     Neuer Eintrag
                   </button>
                   {haushaltSaldo !== null && haushaltSaldo.saldo !== 0 && (
-                    <p style={{
-                      fontFamily: 'var(--font-body)', fontSize: '0.7rem',
-                      color: haushaltSaldo.saldo > 0 ? 'var(--color-primary)' : '#fb923c',
-                      marginTop: '0.5rem', letterSpacing: '0.01em',
-                    }}>
-                      {Math.abs(haushaltSaldo.saldo).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € offen —{' '}
-                      {haushaltSaldo.saldo > 0 ? 'Julia → Benny' : 'Benny → Julia'}
+                    <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.65rem', color: haushaltSaldo.saldo > 0 ? 'var(--color-primary)' : '#fb923c', marginTop: '0.375rem' }}>
+                      {Math.abs(haushaltSaldo.saldo).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € — {haushaltSaldo.saldo > 0 ? 'Julia → Benny' : 'Benny → Julia'}
                     </p>
                   )}
                 </div>
               )}
 
               {'isTimer' in mod && (
-                <div style={{ marginTop: '0.875rem' }}>
+                <div style={{ marginTop: '0.625rem' }}>
                   {timerActive ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       {timerStatus === 'running' && (
-                        <span style={{
-                          width: '6px', height: '6px', borderRadius: '50%',
-                          background: 'var(--color-secondary)',
-                          boxShadow: '0 0 6px rgba(52,181,250,0.7)',
-                          flexShrink: 0,
-                        }} />
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--color-secondary)', boxShadow: '0 0 6px rgba(52,181,250,0.7)', flexShrink: 0 }} />
                       )}
-                      <span style={{
-                        fontFamily: 'var(--font-headline)', fontWeight: 800,
-                        fontSize: '1.1rem', letterSpacing: '-0.02em',
-                        color: timerStatus === 'running' ? 'var(--color-secondary)' : 'var(--color-primary)',
-                      }}>
+                      <span style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '0.95rem', letterSpacing: '-0.02em', color: timerStatus === 'running' ? 'var(--color-secondary)' : 'var(--color-primary)' }}>
                         {formatMs(timerDisplay)}
                       </span>
                     </div>
                   ) : (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); startTimer(); navigate('/zeiterfassung'); }}
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
-                        padding: '0.35rem 0.8rem',
-                        borderRadius: '9999px',
-                        background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
-                        color: '#000', border: 'none', cursor: 'pointer',
-                        fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.7rem',
-                        letterSpacing: '0.03em',
-                      }}
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>play_arrow</span>
+                    <button onClick={(e) => { e.stopPropagation(); startTimer(); navigate('/zeiterfassung'); }} style={btnStyle}>
+                      <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>play_arrow</span>
                       Starten
                     </button>
                   )}
