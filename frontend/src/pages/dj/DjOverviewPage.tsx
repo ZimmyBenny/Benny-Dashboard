@@ -42,7 +42,7 @@ export function DjOverviewPage() {
     return (events ?? [])
       .filter(e => {
         if (e.status === 'abgesagt') return false;
-        const d = new Date(e.event_date);
+        const d = new Date(e.event_date + 'T00:00:00');
         return d >= today && d <= end;
       })
       .sort((a, b) => a.event_date.localeCompare(b.event_date));
