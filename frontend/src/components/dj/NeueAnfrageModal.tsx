@@ -496,6 +496,13 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
   async function handleSave() {
     setSaving(true);
     setError(null);
+
+    if (!eventDate || !eventDate.trim()) {
+      setError('Bitte ein Eventdatum auswählen.');
+      setSaving(false);
+      return;
+    }
+
     try {
       const combinedNotes = isEdit
         ? (notes.trim() || null)
@@ -822,7 +829,7 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
 
             {/* Eventdatum */}
             <div>
-              <label style={labelStyle}>Eventdatum</label>
+              <label style={labelStyle}>Eventdatum *</label>
               <input
                 type={eventDate ? 'date' : 'text'}
                 value={eventDate}
