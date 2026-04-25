@@ -1,7 +1,7 @@
 #!/bin/bash
 # ─────────────────────────────────────────────
 # Benny Dashboard — Starter (Doppelklick im Finder)
-# Startet Backend + Frontend und öffnet den Browser.
+# Startet Backend + Frontend und öffnet den Browser bzw. die installierte PWA.
 # ─────────────────────────────────────────────
 
 BASE="$(cd "$(dirname "$0")" && pwd)"
@@ -15,6 +15,9 @@ OLD_BACKEND=$(lsof -ti :3001 2>/dev/null)
 OLD_FRONTEND=$(lsof -ti :5173 2>/dev/null)
 [ -n "$OLD_BACKEND" ]  && kill $OLD_BACKEND  2>/dev/null && echo "   Backend (Port 3001) gestoppt."
 [ -n "$OLD_FRONTEND" ] && kill $OLD_FRONTEND 2>/dev/null && echo "   Frontend (Port 5173) gestoppt."
+# Fallback: pkill für Fälle wo lsof allein nicht ausreicht (z. B. mehrere tsx-Instanzen)
+pkill -f "tsx watch.*backend/src/server.ts" 2>/dev/null
+pkill -f "vite.*frontend" 2>/dev/null
 sleep 1
 
 # ── Frontend starten (einmalig, Vite läuft stabil) ──
@@ -52,8 +55,22 @@ if [ -n "$BACKEND_OK" ] && [ -n "$FRONTEND_OK" ]; then
   echo "✅ Backend  läuft  (Port 3001)"
   echo "✅ Frontend läuft  (Port 5173)"
   echo ""
-  echo "🌐 Öffne Browser..."
-  open "http://localhost:5173"
+
+  # ── PWA-aware Open-Logik ──
+  # Suche zuerst nach einer installierten "Benny*.app" PWA (Chrome oder Edge)
+  FOUND_PWA=$(find "$HOME/Applications" -maxdepth 3 -name "Benny*.app" -type d 2>/dev/null | head -1)
+
+  if [ -n "$FOUND_PWA" ]; then
+    echo "🪟 Öffne PWA: $FOUND_PWA"
+    open -a "$FOUND_PWA"
+  else
+    echo "🌐 Öffne im Browser (PWA noch nicht installiert)..."
+    echo "   Tipp: Im URL-Bar auf 'Installieren' klicken um Benny als App zu installieren."
+    open "http://localhost:5173"
+    echo ""
+    echo "   💡 Erst-Installation: Im Browser → URL-Bar → ⊕-Icon → 'Benny Dashboard installieren'"
+  fi
+
   echo ""
   echo "────────────────────────────────────"
   echo " Das Dashboard ist bereit."
