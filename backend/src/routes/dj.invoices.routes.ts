@@ -3,6 +3,7 @@ import db from '../db/connection';
 import { logAudit } from '../services/dj.audit.service';
 import { nextNumber } from '../services/dj.number.service';
 import { gobdGuardInvoice } from '../middleware/dj.gobd.middleware';
+import { todayLocal, addDaysLocal } from '../lib/dates';
 
 const router = Router();
 
@@ -72,8 +73,9 @@ router.post('/', (req, res) => {
 
   const settings = db.prepare("SELECT value FROM dj_settings WHERE key = 'tax'").get() as { value: string } | undefined;
   const tax = settings ? JSON.parse(settings.value) : { default_payment_term_days: 14 };
-  const dueDate = new Date();
-  dueDate.setDate(dueDate.getDate() + (tax.default_payment_term_days ?? 14));
+  // Lokales Datum verwenden — sonst zwischen 00:00 und 02:00 lokaler Zeit
+  // (CEST) waere das Faelligkeitsdatum um 1 Tag verschoben.
+  const dueDateStr = addDaysLocal(todayLocal(), tax.default_payment_term_days ?? 14);
 
   const txn = db.transaction(() => {
     const result = db.prepare(`
@@ -85,7 +87,7 @@ router.post('/', (req, res) => {
       customer_id, event_id ?? null, quote_id ?? null, subject ?? null,
       header_text ?? null, footer_text ?? null, payment_method ?? null,
       distance_km ?? null, trips ?? 2, delivery_date ?? null,
-      dueDate.toISOString().slice(0, 10),
+      dueDateStr,
     );
     const newId = Number(result.lastInsertRowid);
 

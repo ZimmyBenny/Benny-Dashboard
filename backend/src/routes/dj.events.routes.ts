@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db/connection';
 import { logAudit } from '../services/dj.audit.service';
 import { deleteEvent as deleteCalEvent } from '../services/calendarSwift.service';
+import { todayLocal } from '../lib/dates';
 
 const router = Router();
 
@@ -247,7 +248,7 @@ router.patch('/:id/vorgespraech', async (req, res) => {
       const kmRound = Math.round(km);
       const amountGross = Math.round(kmRound * 0.30 * 100) / 100;
       const eventTitle = event.title as string || `Event #${id}`;
-      const dateStr = (datum ?? new Date().toISOString().slice(0, 10));
+      const dateStr = (datum ?? todayLocal());
       db.prepare(`
         INSERT INTO dj_expenses (expense_date, category, description, amount_gross, tax_rate, amount_net, vat_amount, notes)
         VALUES (?, 'fahrzeug', ?, ?, 0, ?, 0, ?)

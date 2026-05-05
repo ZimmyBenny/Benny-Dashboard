@@ -1,4 +1,5 @@
 import db from '../db/connection';
+import { todayLocal } from '../lib/dates';
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -12,40 +13,42 @@ interface ContractRow {
 }
 
 function runContractReminderPass(): void {
-  const today = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+  // Lokales Datum verwenden — wenn der Cron-Job nachts laeuft, waere
+  // UTC-`now` der Vortag und alle Vergleiche/Berechnungen verschoben.
+  const today = todayLocal(); // 'YYYY-MM-DD'
 
   const rows = db.prepare(`
     SELECT
       id, title,
       CASE WHEN auto_renews = 1 AND cost_interval = 'jaehrlich' AND start_date IS NOT NULL THEN
         date(
-          CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
-            THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
-            ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END
+          CASE WHEN strftime('%m-%d', 'now', 'localtime') <= strftime('%m-%d', start_date)
+            THEN strftime('%Y', 'now', 'localtime') || '-' || strftime('%m-%d', start_date)
+            ELSE (CAST(strftime('%Y', 'now', 'localtime') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END
         )
       ELSE NULL END AS next_anniversary_date,
       CASE WHEN auto_renews = 1 AND cost_interval = 'jaehrlich' AND start_date IS NOT NULL THEN
         date(
-          CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
-            THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
-            ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END,
+          CASE WHEN strftime('%m-%d', 'now', 'localtime') <= strftime('%m-%d', start_date)
+            THEN strftime('%Y', 'now', 'localtime') || '-' || strftime('%m-%d', start_date)
+            ELSE (CAST(strftime('%Y', 'now', 'localtime') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END,
           '-56 days')
       ELSE NULL END AS reminder_date,
       CASE WHEN auto_renews = 1 AND cost_interval = 'jaehrlich' AND start_date IS NOT NULL THEN
         date(
-          CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
-            THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
-            ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END,
+          CASE WHEN strftime('%m-%d', 'now', 'localtime') <= strftime('%m-%d', start_date)
+            THEN strftime('%Y', 'now', 'localtime') || '-' || strftime('%m-%d', start_date)
+            ELSE (CAST(strftime('%Y', 'now', 'localtime') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END,
           '-' || (cancellation_notice_weeks * 7) || ' days')
       ELSE NULL END AS cancellation_deadline,
       CASE WHEN auto_renews = 1 AND cost_interval = 'jaehrlich' AND start_date IS NOT NULL THEN
         CAST(julianday(
           date(
-            CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
-              THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
-              ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END
+            CASE WHEN strftime('%m-%d', 'now', 'localtime') <= strftime('%m-%d', start_date)
+              THEN strftime('%Y', 'now', 'localtime') || '-' || strftime('%m-%d', start_date)
+              ELSE (CAST(strftime('%Y', 'now', 'localtime') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END
           )
-        ) - julianday(date('now')) AS INTEGER)
+        ) - julianday(date('now', 'localtime')) AS INTEGER)
       ELSE NULL END AS days_to_anniversary
     FROM contracts_and_deadlines
     WHERE auto_renews = 1

@@ -3,6 +3,7 @@ import db from '../db/connection';
 import { logAudit } from '../services/dj.audit.service';
 import { nextNumber } from '../services/dj.number.service';
 import { generateQuotePreviewPdf } from '../services/dj.pdf.service';
+import { todayLocal, addDaysLocal } from '../lib/dates';
 
 const router = Router();
 
@@ -110,9 +111,9 @@ router.post('/:id/revision', (req, res) => {
   const baseSubject = revMatch ? origSubject.replace(/\s*\(Rev\.\s*\d+\)$/, '') : origSubject;
   const newSubject = baseSubject ? `${baseSubject} (Rev. ${nextRev})` : `(Rev. ${nextRev})`;
 
-  const validUntil = new Date();
-  validUntil.setDate(validUntil.getDate() + 14);
-  const validUntilStr = validUntil.toISOString().slice(0, 10);
+  // Lokales Datum verwenden — sonst zwischen 00:00 und 02:00 lokaler Zeit
+  // (CEST) faellt das berechnete Datum um 1 Tag zurueck.
+  const validUntilStr = addDaysLocal(todayLocal(), 14);
 
   const txn = db.transaction(() => {
     const result = db.prepare(`
@@ -185,9 +186,9 @@ router.post('/', (req, res) => {
     ? footer_text as string
     : (loadDefaultText(footerKey) ?? loadDefaultText('default_footer_text'));
 
-  const validUntil = new Date();
-  validUntil.setDate(validUntil.getDate() + 14);
-  const validUntilStr = validUntil.toISOString().slice(0, 10);
+  // Lokales Datum verwenden — sonst zwischen 00:00 und 02:00 lokaler Zeit
+  // (CEST) faellt das berechnete Datum um 1 Tag zurueck.
+  const validUntilStr = addDaysLocal(todayLocal(), 14);
 
   const txn = db.transaction(() => {
     const result = db.prepare(`
