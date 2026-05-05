@@ -10,6 +10,7 @@ import { createContact, type ContactDetail } from '../../api/contacts.api';
 import { createTask } from '../../api/tasks.api';
 import { EVENT_TYPE_LABELS } from './StatusBadge';
 import { formatDate } from '../../lib/format';
+import { todayLocal, addDaysLocal } from '../../lib/dates';
 import apiClient from '../../api/client';
 
 // ── Status-Labels ─────────────────────────────────────────────────────────────
@@ -608,11 +609,7 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
             // Mitternacht-Crossing
             let endDate = eventDate;
             let endTime: string;
-            const nextDay = () => {
-              const d = new Date(eventDate + 'T00:00:00Z');
-              d.setUTCDate(d.getUTCDate() + 1);
-              return d.toISOString().substring(0, 10);
-            };
+            const nextDay = () => addDaysLocal(eventDate, 1);
             if (!endRaw) {
               const [h, m] = startTime.split(':').map(Number);
               const newH = h + 3;
@@ -1518,7 +1515,7 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
                   try {
                     const ziel = [vorgPlz, vorgOrt].filter(Boolean).join(' ') || 'Vorgespräch';
                     const eventName = title.trim() || (selectedCustomer ? [selectedCustomer.first_name, selectedCustomer.last_name].filter(Boolean).join(' ') || selectedCustomer.organization_name : '') || 'Event';
-                    const dateStr = vorgDatum || new Date().toISOString().slice(0, 10);
+                    const dateStr = vorgDatum || todayLocal();
                     const rate = 0.30;
                     await createDjTrip({
                       expense_date: dateStr,

@@ -12,6 +12,7 @@ import {
 import { StatusBadge } from '../../components/dj/StatusBadge';
 import { PdfPreviewModal } from '../../components/dj/PdfPreviewModal';
 import { formatDate, formatCurrency } from '../../lib/format';
+import { todayLocal } from '../../lib/dates';
 
 // ---------------------------------------------------------------------------
 // Hilfsfunktion Kundenname
@@ -198,7 +199,7 @@ export function DjQuoteDetailPage() {
   const [eventId, setEventId] = useState<number | null>(null);
   const [subject, setSubject] = useState('');
   const [validUntil, setValidUntil] = useState('');
-  const [quoteDate, setQuoteDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [quoteDate, setQuoteDate] = useState(() => todayLocal());
   const [referenceNumber, setReferenceNumber] = useState('');
   const [notes, setNotes] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
@@ -272,7 +273,7 @@ export function DjQuoteDetailPage() {
           setEventId(data.event_id ?? null);
           setSubject(data.subject ?? '');
           setValidUntil(data.valid_until ?? '');
-          setQuoteDate(data.quote_date ?? new Date().toISOString().slice(0, 10));
+          setQuoteDate(data.quote_date ?? todayLocal());
           setReferenceNumber(data.reference_number ?? '');
           setFinalized(!!data.finalized_at);
           setAnredeForm((data.anrede_form as 'du' | 'sie') ?? 'du');
@@ -417,7 +418,7 @@ export function DjQuoteDetailPage() {
         event_id: eventId,
         subject: subject.trim() || null,
         valid_until: validUntil || null,
-        quote_date: quoteDate || new Date().toISOString().slice(0, 10),
+        quote_date: quoteDate || todayLocal(),
         reference_number: referenceNumber.trim() || null,
         notes: notes.trim() || null,
         internal_notes: internalNotes.trim() || null,

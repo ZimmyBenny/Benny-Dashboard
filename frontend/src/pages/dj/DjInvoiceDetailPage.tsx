@@ -9,6 +9,7 @@ import {
 } from '../../api/dj.api';
 import { StatusBadge } from '../../components/dj/StatusBadge';
 import { formatDate, formatCurrency } from '../../lib/format';
+import { todayLocal } from '../../lib/dates';
 
 // ---------------------------------------------------------------------------
 // Hilfsfunktion Kundenname
@@ -290,7 +291,7 @@ export function DjInvoiceDetailPage() {
       if (eventId) {
         const event = events.find(e => e.id === eventId);
         const ziel = [event?.venue_zip, event?.venue_city].filter(Boolean).join(' ') || event?.venue_name || '';
-        const datum = event?.event_date ?? new Date().toISOString().slice(0, 10);
+        const datum = event?.event_date ?? todayLocal();
         const zweck = event?.title || event?.customer_name || `Event #${eventId}`;
         setFahrtZiel(ziel);
         setFahrtDatum(datum);
@@ -356,7 +357,7 @@ export function DjInvoiceDetailPage() {
   function openPayModal() {
     const openAmount = (invoice?.total_gross ?? 0) - (invoice?.paid_amount ?? 0);
     setPayAmount(Math.max(0, openAmount));
-    setPayDate(new Date().toISOString().slice(0, 10));
+    setPayDate(todayLocal());
     setPayMethodVal('Überweisung');
     setPayModalOpen(true);
   }

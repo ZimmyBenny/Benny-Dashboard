@@ -11,6 +11,7 @@ import {
 } from '../../api/dj.api';
 import { NeueAnfrageModal } from '../../components/dj/NeueAnfrageModal';
 import { StatusBadge, EVENT_TYPE_LABELS } from '../../components/dj/StatusBadge';
+import { isoDateLocal, parseLocalDate } from '../../lib/dates';
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 
@@ -57,14 +58,15 @@ export function DjOverviewPage() {
     const bookedWeekends = new Set<string>();
     (events ?? []).forEach(ev => {
       if (ev.status !== 'bestaetigt') return;
-      const d = new Date(ev.event_date);
+      // event_date als lokale Mitternacht parsen (sonst wird Wochentag in UTC+2 verschoben)
+      const d = parseLocalDate(ev.event_date);
       if (d < today || d > end) return;
       const dow = d.getDay(); // 5=Fr, 6=Sa
       if (dow === 5 || dow === 6) {
         // Wochenende-Schlüssel: Montag der Woche
         const monday = new Date(d);
         monday.setDate(d.getDate() - ((dow + 1) % 7));
-        bookedWeekends.add(monday.toISOString().split('T')[0]);
+        bookedWeekends.add(isoDateLocal(monday));
       }
     });
     const booked = bookedWeekends.size;
@@ -246,9 +248,9 @@ export function DjOverviewPage() {
                       color: 'var(--color-on-surface)',
                     };
                     const dateStr = formatDate(e.event_date) + (e.time_start ? ' · ' + e.time_start.substring(0, 5) : '');
-                    // Countdown berechnen
+                    // Countdown berechnen — event_date als lokale Mitternacht parsen
                     const today = new Date(); today.setHours(0, 0, 0, 0);
-                    const evDay = new Date(e.event_date); evDay.setHours(0, 0, 0, 0);
+                    const evDay = parseLocalDate(e.event_date);
                     const diffDays = Math.round((evDay.getTime() - today.getTime()) / 86400000);
                     const countdownLabel = diffDays === 0 ? 'Heute' : diffDays === 1 ? 'Morgen' : `${diffDays} Tage`;
                     const countdownUrgent = diffDays <= 3;

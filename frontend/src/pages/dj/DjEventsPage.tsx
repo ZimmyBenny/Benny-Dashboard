@@ -6,6 +6,7 @@ import { fetchDjEvents, fetchDjEvent, deleteDjEvent, updateDjEvent, setDjEventVo
 import { StatusBadge, EVENT_TYPE_LABELS } from '../../components/dj/StatusBadge';
 import { formatDate } from '../../lib/format';
 import { NeueAnfrageModal } from '../../components/dj/NeueAnfrageModal';
+import { addDaysLocal } from '../../lib/dates';
 import apiClient from '../../api/client';
 
 // ── Filter-Konfiguration ───────────────────────────────────────────────────────
@@ -143,11 +144,7 @@ export function DjEventsPage() {
         // Mitternacht-Crossing: end < start → end ist am Folgetag
         let endDate = event.event_date;
         let endTime: string;
-        const nextDay = () => {
-          const d = new Date(event.event_date + 'T00:00:00Z');
-          d.setUTCDate(d.getUTCDate() + 1);
-          return d.toISOString().substring(0, 10);
-        };
+        const nextDay = () => addDaysLocal(event.event_date, 1);
         if (!endRaw) {
           const [h, m] = startTime.split(':').map(Number);
           const newH = h + 3;

@@ -10,6 +10,7 @@ import {
   type InvoiceStatus,
 } from '../../api/dj.api';
 import { formatDate, formatCurrency } from '../../lib/format';
+import { todayLocal } from '../../lib/dates';
 
 const STATUS_STYLES: Record<InvoiceStatus, { bg: string; color: string; label: string }> = {
   entwurf:      { bg: 'rgba(148,170,255,0.15)', color: 'var(--color-primary)',    label: 'Entwurf' },
@@ -132,7 +133,7 @@ export function DjInvoicesPage() {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState<number | 0>(currentYear);
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | ''>('');
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocal();
 
   const { data: allInvoices = [], isLoading } = useQuery<DjInvoice[]>({
     queryKey: ['dj-invoices', selectedYear],
@@ -326,7 +327,7 @@ export function DjInvoicesPage() {
                     onMarkPaid={() => {
                       const rest = inv.total_gross - inv.paid_amount;
                       if (window.confirm(`Restbetrag von ${formatCurrency(rest)} als bezahlt markieren?`)) {
-                        payMut.mutate({ id: inv.id, data: { payment_date: new Date().toISOString().slice(0, 10), amount: rest } });
+                        payMut.mutate({ id: inv.id, data: { payment_date: todayLocal(), amount: rest } });
                       }
                     }}
                   />
