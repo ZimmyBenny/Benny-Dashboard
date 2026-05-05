@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Task } from '../../api/tasks.api';
 import { fetchContacts, type Contact } from '../../api/contacts.api';
+import { todayLocal } from '../../lib/dates';
 
 // Convert UTC ISO (e.g. "2026-04-11 18:30:00" or "2026-04-11T18:30:00Z") to local datetime-local value "YYYY-MM-DDTHH:mm"
 function toLocalInputValue(iso: string): string {
@@ -222,7 +223,7 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
     const reminderTime = rawTime.trim() ? normalizeTime(rawTime) : '';
 
     // If a time is set but no date → default to today (common case: same-day reminder).
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = todayLocal();
     const effectiveDate = reminderDate || (reminderTime ? todayStr : '');
 
     // Allow date-only reminder: if a date is set but no time, default to 08:00.

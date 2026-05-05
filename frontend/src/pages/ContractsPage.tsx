@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { fetchContracts, archiveContract, deleteContract, createContract, updateContract, type Contract } from '../api/contracts.api';
 import { ContractSlideOver } from '../components/contracts/ContractSlideOver';
+import { todayLocal } from '../lib/dates';
 
 // ---------------------------------------------------------------------------
 // Konstanten
@@ -100,7 +101,7 @@ function exportContractsCsv(contracts: Contract[]) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `vertraege-fristen_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `vertraege-fristen_${todayLocal()}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }

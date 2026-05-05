@@ -2,13 +2,14 @@ import { useState } from 'react';
 import type { HaushaltEintrag } from '../../api/haushalt.api';
 import { createEintrag, updateEintrag } from '../../api/haushalt.api';
 import { useDraggableModal } from '../../hooks/useDraggableModal';
+import { todayLocal } from '../../lib/dates';
 
 // ---------------------------------------------------------------------------
 // Hilfsfunktionen
 // ---------------------------------------------------------------------------
 
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocal();
 }
 
 // ---------------------------------------------------------------------------

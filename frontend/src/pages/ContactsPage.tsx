@@ -8,6 +8,7 @@ import {
   type Contact,
   type ContactListResponse,
 } from '../api/contacts.api';
+import { todayLocal } from '../lib/dates';
 
 // ---------------------------------------------------------------------------
 // Farben fuer Bereich-Badges
@@ -107,7 +108,7 @@ export function ContactsPage() {
       if (type) params['type'] = type;
       if (area) params['area'] = area;
       const blob = await exportCsv(params);
-      const date = new Date().toISOString().slice(0, 10);
+      const date = todayLocal();
       triggerDownload(blob, `kontakte-export-${date}.csv`);
     } catch (err) {
       console.error('CSV-Export fehlgeschlagen', err);

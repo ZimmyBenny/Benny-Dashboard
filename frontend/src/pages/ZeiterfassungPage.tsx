@@ -9,6 +9,7 @@ import {
 import { fetchContacts, type Contact } from '../api/contacts.api';
 import { exportCsv, type ExportRow } from '../lib/exportCsv';
 import { exportPdf } from '../lib/exportPdf';
+import { todayLocal } from '../lib/dates';
 
 // ── Hilfsfunktionen ────────────────────────────────────────────────────────────
 
@@ -30,7 +31,7 @@ function formatDuration(seconds: number): string {
 }
 
 function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocal();
 }
 
 // ── Input-Stil ─────────────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Task } from '../../api/tasks.api';
+import { todayLocal } from '../../lib/dates';
 
 interface TaskCardProps {
   task: Task;
@@ -20,7 +21,7 @@ const PRIORITY_STYLES: Record<Task['priority'], { color: string; bg: string; lab
 
 function isOverdue(dueDate: string | null, status: Task['status']): boolean {
   if (!dueDate || status === 'done') return false;
-  return dueDate < new Date().toISOString().slice(0, 10);
+  return dueDate < todayLocal();
 }
 
 export function TaskCard({ task, onClick, isDragging = false, onArchive, onDelete }: TaskCardProps) {
