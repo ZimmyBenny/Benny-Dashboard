@@ -3,6 +3,7 @@ import multer from 'multer';
 import PDFDocument from 'pdfkit';
 import db from '../db/connection';
 import { createBackup } from '../db/backup';
+import { todayLocal } from '../lib/dates';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -186,7 +187,7 @@ router.get('/export/csv', (req, res) => {
     lines.push(row.join(';'));
   }
 
-  const date = new Date().toISOString().slice(0, 10);
+  const date = todayLocal();
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="kontakte-export-${date}.csv"`);
   res.send(lines.join('\r\n'));

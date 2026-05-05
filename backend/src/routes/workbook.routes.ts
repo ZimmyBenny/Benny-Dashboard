@@ -5,6 +5,7 @@ import os from 'os';
 import fs from 'fs';
 import PDFDocument from 'pdfkit';
 import db from '../db/connection';
+import { todayLocal } from '../lib/dates';
 
 // ── Upload storage ─────────────────────────────────────────────────────────────
 
@@ -66,7 +67,7 @@ router.get('/export', (req: Request, res: Response) => {
     section_name: string | null;
   }>;
 
-  const ts = new Date().toISOString().slice(0, 10);
+  const ts = todayLocal();
   const baseName = `arbeitsmappe-export-${ts}`;
 
   if (format === 'csv') {

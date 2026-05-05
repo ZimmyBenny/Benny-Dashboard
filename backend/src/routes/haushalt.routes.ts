@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import db from '../db/connection';
+import { todayLocal } from '../lib/dates';
 
 const router = Router();
 
@@ -201,7 +202,7 @@ router.get('/export/csv', (req, res) => {
   ].join(';'));
 
   const csv = [headers.join(';'), ...csvRows].join('\r\n');
-  const filename = `haushalt-${scope}-${new Date().toISOString().slice(0, 10)}.csv`;
+  const filename = `haushalt-${scope}-${todayLocal()}.csv`;
 
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
