@@ -4,6 +4,7 @@ import {
   fetchEvents, fetchCalendars, createEvent, updateEvent, deleteEvent, forceSync, updateCalendarVisibility,
   type CalendarEvent, type Calendar, type CreateEventPayload,
 } from '../api/calendar.api';
+import { isoDateLocal } from '../lib/dates';
 
 // ── Konstanten ─────────────────────────────────────────────────────────────────
 
@@ -28,10 +29,6 @@ const labelStyle: React.CSSProperties = {
 };
 
 // ── Hilfsfunktionen ────────────────────────────────────────────────────────────
-
-function isoDateLocal(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
 
 function toLocalTimeStr(isoUtc: string): string {
   return new Date(isoUtc).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });

@@ -10,6 +10,7 @@ import { fetchSaldo, type HaushaltSaldo } from '../api/haushalt.api';
 import { NeueAnfrageModal } from '../components/dj/NeueAnfrageModal';
 import { fetchDjOverview, type DjOverview } from '../api/dj.api';
 import { fetchEvents, type CalendarEvent } from '../api/calendar.api';
+import { isoDateLocal, todayLocal, addDaysLocal } from '../lib/dates';
 
 function getGreeting(): { time: string; name: string } {
   const hour = new Date().getHours();
@@ -107,9 +108,8 @@ export function DashboardPage() {
   // Kalender-Agenda: Heute bis in 7 Tagen
   const [agendaEvents, setAgendaEvents] = useState<CalendarEvent[] | null>(null);
   useEffect(() => {
-    const today = new Date();
-    const from = today.toISOString().slice(0, 10);
-    const to = new Date(today.getTime() + 7 * 86400000).toISOString().slice(0, 10);
+    const from = todayLocal();
+    const to = addDaysLocal(from, 7);
     fetchEvents(from, to).then(evs => {
       const sorted = [...evs].sort((a, b) => a.start_at.localeCompare(b.start_at));
       setAgendaEvents(sorted);
@@ -215,11 +215,6 @@ export function DashboardPage() {
             <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '1.5rem', color: 'var(--color-on-surface)', margin: 0, lineHeight: 1 }}>{taskStats?.open_count ?? '–'}</p>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)', margin: 0, marginTop: '0.15rem' }}>Aufgaben offen</p>
           </div>
-          {(taskStats?.overdue_count ?? 0) > 0 && (
-            <span style={{ marginLeft: 'auto', background: 'rgba(248,113,113,0.15)', border: '1px solid rgba(248,113,113,0.4)', borderRadius: '999px', padding: '0.1rem 0.45rem', fontSize: '0.62rem', color: '#f87171', fontWeight: 700, fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', flexShrink: 0 }}>
-              {taskStats!.overdue_count} überfällig
-            </span>
-          )}
         </button>
 
         {/* DJ-Anfragen */}
@@ -244,8 +239,8 @@ export function DashboardPage() {
         <div style={{ background: 'rgba(148,170,255,0.05)', border: '1px solid rgba(148,170,255,0.15)', borderRadius: '0.75rem', padding: '0.875rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', overflow: 'hidden' }}>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-primary)', margin: 0 }}>Heute</p>
           {(() => {
-            const todayStr = new Date().toISOString().slice(0, 10);
-            const todayEvs = (agendaEvents ?? []).filter(ev => ev.start_at.slice(0, 10) === todayStr);
+            const todayStr = todayLocal();
+            const todayEvs = (agendaEvents ?? []).filter(ev => isoDateLocal(new Date(ev.start_at)) === todayStr);
             if (!agendaEvents) return <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.72rem', color: 'var(--color-outline)' }}>Lade…</p>;
             if (todayEvs.length === 0) return <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.72rem', color: 'var(--color-outline)', fontStyle: 'italic' }}>Keine Termine</p>;
             return todayEvs.slice(0, 2).map(ev => (
@@ -406,8 +401,8 @@ export function DashboardPage() {
               {'isCalendar' in mod && (
                 <div style={{ marginTop: '0.625rem' }}>
                   {agendaEvents !== null && (() => {
-                    const todayStr = new Date().toISOString().slice(0, 10);
-                    const count = agendaEvents.filter(ev => ev.start_at.slice(0, 10) === todayStr).length;
+                    const todayStr = todayLocal();
+                    const count = agendaEvents.filter(ev => isoDateLocal(new Date(ev.start_at)) === todayStr).length;
                     return (
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.2rem', marginBottom: '0.4rem' }}>
                         <span style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '1.1rem', color: 'var(--color-on-surface)', lineHeight: 1 }}>{count}</span>
@@ -494,16 +489,15 @@ export function DashboardPage() {
       </div>
       {/* ── Kalender-Agenda (Timeline-Streifen) ─────────── */}
       {agendaEvents !== null && (() => {
-        const todayStr = new Date().toISOString().slice(0, 10);
-        // 7 Tages-Slots aufbauen
-        const days = Array.from({ length: 7 }, (_, i) => {
-          const d = new Date(Date.now() + i * 86400000);
-          return d.toISOString().slice(0, 10);
-        });
+        const todayStr = todayLocal();
+        // 7 Tages-Slots aufbauen — lokale Zeitzone
+        const days = Array.from({ length: 7 }, (_, i) => addDaysLocal(todayStr, i));
 
         const grouped: Record<string, CalendarEvent[]> = {};
         agendaEvents.forEach(ev => {
-          const day = ev.start_at.slice(0, 10);
+          // All-Day-Events kommen als YYYY-MM-DDT22:00:00Z (Vortag in UTC)
+          // — daher in lokale Zone konvertieren statt slice(0, 10)
+          const day = isoDateLocal(new Date(ev.start_at));
           if (!grouped[day]) grouped[day] = [];
           grouped[day].push(ev);
         });
