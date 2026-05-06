@@ -86,6 +86,109 @@ Scope: Foundation, Auth, Shell, Design System, Home Page. All 7 module routes re
 
 ---
 
+## Phase 4 Requirements
+
+Scope: GoBD-konformes Belege-Modul (`/belege`) als zentraler Hauptbereich. Generisches `audit_log` ersetzt `dj_audit_log`. DJ-Buchhaltung wird Read-Only-Sicht auf `receipts WHERE area=DJ`. DJ-Ausgangsrechnungen via Sync-Service. Fahrten ziehen in eigene `trips`-Tabelle.
+
+### Audit-Log (generisch)
+
+- [ ] **BELEG-AUDIT-01**: Generische `audit_log`-Tabelle existiert mit Feldern (id, entity_type, entity_id, action, field_name, old_value, new_value, actor, user_id, ip_address, user_agent, created_at)
+- [ ] **BELEG-AUDIT-02**: Append-only Triggers (BEFORE UPDATE/DELETE → RAISE ABORT) blocken jede Änderung
+- [ ] **BELEG-AUDIT-03**: `dj.audit.service.ts` umbenannt zu `audit.service.ts`; `logAudit`-Signatur identisch (entityType erweitert)
+- [ ] **BELEG-AUDIT-04**: Bestehende `dj_audit_log`-Daten wurden per `INSERT INTO audit_log SELECT ...` migriert; `dj_audit_log` bleibt erhalten (kein DROP in dieser Phase)
+- [ ] **BELEG-AUDIT-05**: Alle 6 DJ-Routes (invoices, quotes, events, expenses, services, settings) nutzen den neuen Import `import { logAudit } from '../services/audit.service'`
+
+### Test-Infrastruktur (Wave 0)
+
+- [ ] **BELEG-TEST-01**: `vitest` + `@vitest/ui` in `backend/package.json` devDependencies; `npm test`-Script vorhanden
+- [ ] **BELEG-TEST-02**: `backend/vitest.config.ts` konfiguriert mit `pool: 'forks'` (better-sqlite3 nicht Worker-safe)
+- [ ] **BELEG-TEST-03**: `backend/test/setup.ts` erzeugt In-Memory-DB (`:memory:`) und führt Migrationen aus
+- [ ] **BELEG-TEST-04**: Mindestens ein grüner Audit-Smoke-Test (`backend/test/audit.test.ts`) — `npx vitest run` exited mit Code 0
+
+### Schema (Migration 039)
+
+- [ ] **BELEG-SCHEMA-01**: Migration `039_belege.sql` erstellt Tabellen: `areas`, `tax_categories`, `trips`, `receipts`, `receipt_files`, `receipt_area_links`, `receipt_links`, `receipt_ocr_results`, `supplier_memory`
+- [ ] **BELEG-SCHEMA-02**: `receipts`-Tabelle hat alle 30+ Felder gemäß CONTEXT.md (inkl. `private_share_percent`, `corrects_receipt_id`, `corrected_by_receipt_id`, `freigegeben_at`, `file_hash_sha256`, `linked_invoice_id`, `linked_trip_id`, `source`, `steuerrelevant`, `import_eust`, `reverse_charge`, `input_tax_deductible`)
+- [ ] **BELEG-SCHEMA-03**: ALLE Geld-Felder INTEGER (Cents) — kein REAL/FLOAT in neuen Tabellen
+- [ ] **BELEG-SCHEMA-04**: GoBD-Lock-Trigger `trg_receipts_no_update_after_freigabe` (BEFORE UPDATE WHEN OLD.freigegeben_at IS NOT NULL für Felder: supplier_name, amount_gross_cents, amount_net_cents, vat_rate, vat_amount_cents, receipt_date, supplier_invoice_number, reverse_charge, file_hash_sha256)
+- [ ] **BELEG-SCHEMA-05**: GoBD-Lock-Trigger auch für `receipt_files` (NO UPDATE/DELETE/INSERT, wenn parent receipt freigegeben)
+- [ ] **BELEG-SCHEMA-06**: 3 Areas seeded: "Amazon FBA", "DJ", "Privat"
+- [ ] **BELEG-SCHEMA-07**: Tax-Categories seeded (17 Kategorien aus CONTEXT.md specifics)
+- [ ] **BELEG-SCHEMA-08**: 9 neue Settings-Keys in `app_settings`: `ustva_zeitraum`, `ist_versteuerung`, `payment_task_lead_days`, `max_upload_size_mb`, `ocr_confidence_threshold`, `ocr_engine`, `mileage_rate_default_per_km`, `mileage_rate_above_20km_per_km`, `belege_storage_path`
+- [ ] **BELEG-SCHEMA-09**: `createBackup('phase-04-plan-01-migration-039')` wird vor dem Migration-Run aufgerufen (im Plan-Task explicit)
+
+### Services
+
+- [ ] **BELEG-SERVICE-01**: `lib/cents.ts` mit `toCents`, `toEur`, `calcVatCents`, `calcGrossCents`, `calcNetCents` (alle `Math.round`)
+- [ ] **BELEG-SERVICE-02**: `receiptService.create(...)`, `receiptService.update(...)`, `receiptService.applyOcrResult(...)`, `receiptService.markOcrFailed(...)`, `receiptService.freigeben(...)`
+- [ ] **BELEG-SERVICE-03**: `taxCalcService.aggregateForUstva(year, period)` — RC ist Nullsumme bei Vorsteuerberechtigung; private_share_percent zieht ab; Ist-Versteuerung über `payment_date`
+- [ ] **BELEG-SERVICE-04**: `duplicateCheckService.findBySha256(sha)` und `findByHeuristic(supplier, invoiceNumber, date)`
+
+### Upload + OCR
+
+- [ ] **BELEG-OCR-01**: `POST /api/belege/upload` (multer.array, max 20 files, fileFilter PDF/JPG/JPEG/PNG, fileSize aus `max_upload_size_mb` Setting)
+- [ ] **BELEG-OCR-02**: SHA-256-Streaming via `crypto.createHash` über `fs.createReadStream` (kein readFileSync)
+- [ ] **BELEG-OCR-03**: Datei wird in `~/.local/share/benny-dashboard/belege/YYYY/MM/` gespeichert (NICHT iCloud); Filename `YYYY-MM-DD_supplier_amount_type.ext` sanitisiert via `sanitizeForFilename`
+- [ ] **BELEG-OCR-04**: `ocrService.ocrFile(path)` nutzt tesseract.js (deu+eng) im Hintergrund via `setImmediate`; PDF wird via `pdf-to-img` (scale=2.0) zu PNG der ersten Seite
+- [ ] **BELEG-OCR-05**: tesseract.js Worker wird `await worker.terminate()` nach JEDEM Job (kein Pool — Memory-Leak-Schutz)
+- [ ] **BELEG-OCR-06**: Fallback `mockOcr` wenn tesseract.js Worker-Init fehlschlägt; Setting `ocr_engine='mock'` aktiviert Mock direkt
+- [ ] **BELEG-OCR-07**: `receiptParserService.parse(text)` extrahiert Datum, Lieferant, Beträge, USt, IBAN, RC mit per-Feld-Konfidenz (0-1)
+- [ ] **BELEG-OCR-08**: Felder mit Confidence < `ocr_confidence_threshold` Setting bekommen UI-Badge "manuell prüfen"
+
+### Lieferanten-Lerngedächtnis
+
+- [ ] **BELEG-SUPPLIER-01**: `supplier_memory`-Tabelle mit (supplier_normalized, area_id, tax_category_id, usage_count, last_used)
+- [ ] **BELEG-SUPPLIER-02**: `supplierMemoryService.suggest(supplierName)` liefert (area_id, tax_category_id) basierend auf höchstem usage_count
+- [ ] **BELEG-SUPPLIER-03**: `supplierMemoryService.recordUsage(supplierName, areaId, taxCategoryId)` inkrementiert usage_count und updatet last_used
+- [ ] **BELEG-SUPPLIER-04**: Beim 2. Upload mit gleichem Lieferant wird Auto-Vorschlag im Upload-UI gezeigt
+
+### Task-Automation
+
+- [ ] **BELEG-TASK-01**: `taskAutomationService.checkOpenPayments()` läuft täglich (Cron oder beim Server-Start), erstellt Task in `tasks` für jeden Beleg mit `due_date - lead_days <= today` und `status='offen'` (idempotent — kein Duplikat wenn Task schon existiert)
+- [ ] **BELEG-TASK-02**: Task-Verlinkung: `tasks.source_receipt_id` referenziert `receipts.id` (FK) — falls noch nicht in tasks-Tabelle: in Migration 039 ergänzen
+- [ ] **BELEG-TASK-03**: Lead-Days konfigurierbar via Setting `payment_task_lead_days` (Default 3)
+
+### DJ-Sync + Trips-Migration
+
+- [ ] **BELEG-DJSYNC-01**: `djSyncService.mirrorInvoiceToReceipts(invoiceId)` ist idempotent (UPSERT via `WHERE source='dj_invoice_sync' AND linked_invoice_id=?`)
+- [ ] **BELEG-DJSYNC-02**: `dj.invoices.routes.ts` ruft `mirrorInvoiceToReceipts` am Ende von POST/PATCH/finalize/pay/cancel auf
+- [ ] **BELEG-DJSYNC-03**: Stornorechnungen bekommen eigenen Mirror mit `corrects_receipt_id` auf Original-Mirror und negative `amount_gross_cents`
+- [ ] **BELEG-DJSYNC-04**: REAL-Beträge aus dj_invoices werden via `Math.round(value * 100)` zu Cents konvertiert
+- [ ] **BELEG-DJSYNC-05**: `tripSyncService.mirrorTripToReceipts(tripId)` spiegelt Trip in receipts mit `type='fahrt'`, `vat_rate=0`, `tax_category=Fahrtkosten`, `input_tax_deductible=0`
+- [ ] **BELEG-DJSYNC-06**: Fahrten-Migration: `dj_expenses WHERE category='fahrzeug'` → `trips`-Tabelle; `createBackup('phase-04-plan-06-fahrten')` davor
+- [ ] **BELEG-DJSYNC-07**: `dj.events.routes.ts` Vorgespräch-Erledigt-Handler erstellt `trips`-Eintrag (statt `dj_expenses`-Insert)
+
+### UI
+
+- [ ] **BELEG-UI-01**: Route `/belege` registriert in `routes.tsx`; Sub-Routes `/belege/alle`, `/belege/neu`, `/belege/:id`, `/belege/offen`, `/belege/zu-pruefen`, `/belege/steuer`, `/belege/export`, `/belege/einstellungen`
+- [ ] **BELEG-UI-02**: navConfig.ts hat Top-Level-Eintrag `/belege` mit Icon `receipt_long`, Position zwischen "Verträge & Fristen" und "KI Agenten", subItems: Übersicht, Alle, Neu, Offene Zahlungen, Zu prüfen, Steuer, Export, Einstellungen
+- [ ] **BELEG-UI-03**: BelegeOverviewPage zeigt 6 KPICards (Neue Belege 7d, Zu prüfen, Offene Zahlungen, Überfällig, Steuerzahllast aktueller Zeitraum, Steuerrelevant aktuelles Jahr) + 2 Listen (Letzte 10, Nächste 10 Fälligkeiten); KPI "Steuerzahllast" wird ausgeblendet wenn `ustva_zeitraum='keine'`
+- [ ] **BELEG-UI-04**: BelegeListPage zeigt sortier-/filterbare Tabelle mit Suche über Lieferant/Belegnummer/Betrag/Titel/OCR-Text
+- [ ] **BELEG-UI-05**: BelegeDetailPage zeigt PDF/Bild-Vorschau links (via `react-pdf`/Image) + Daten rechts in Sektionen + Audit-Log-Verlauf; Felder werden disabled wenn `freigegeben_at IS NOT NULL` (außer notes/tags); "Korrekturbeleg"-Button vorhanden
+- [ ] **BELEG-UI-06**: BelegeUploadPage hat react-dropzone (PDF/JPG/PNG bis maxUploadSize), zeigt OCR-Vorschläge mit `OcrConfidenceBadge`, supplier-Vorschlag aus `supplierMemoryService.suggest`
+- [ ] **BELEG-UI-07**: BelegeTaxPage Layout abhängig von Setting `ustva_zeitraum` (Jahr/4 Quartale/12 Monate); pro Bucket: KZ 81/86, KZ 66, KZ 84/85/67, KZ 62, Zahllast, Drilldown-Liste
+- [ ] **BELEG-UI-08**: BelegeExportPage erlaubt CSV-Export mit Filtern (Jahr, Bereich, Kategorie); kein ZIP in dieser Phase
+- [ ] **BELEG-UI-09**: BelegeSettingsPage erlaubt Areas-CRUD + TaxCategories-CRUD + alle 9 Settings (ustva_zeitraum/ist_versteuerung/lead_days/max_upload/ocr_threshold/ocr_engine/mileage rates/storage_path) + "DB-Backup jetzt"-Button (ruft `createBackup`)
+- [ ] **BELEG-UI-10**: StatusBadge erweitert um `zu_pruefen` (gelb), `freigegeben` (grün), `archiviert` (grau), `nicht_relevant` (grau gedimmt), `ocr_pending` (primary)
+- [ ] **BELEG-UI-11**: `formatCurrencyFromCents(cents)` Helper in `frontend/src/lib/format.ts`
+
+### DJ-Refactor
+
+- [ ] **BELEG-DJREF-01**: DjAccountingPage zeigt Daten aus `receipts WHERE area=DJ` (NICHT mehr aus dj_invoices/dj_expenses für Tab Übersicht)
+- [ ] **BELEG-DJREF-02**: DjAccountingPage Tab "Ausgaben" entfernt (oder zeigt Hinweis "Ausgaben werden im Belege-Modul erfasst" mit Link zu `/belege/neu?area=DJ`)
+- [ ] **BELEG-DJREF-03**: `dj.expenses.routes.ts` entfernt; `app.use('/api/dj/expenses', ...)` aus `dj.routes.ts` entfernt
+- [ ] **BELEG-DJREF-04**: `dj_expenses`-Tabelle in Migration 039 mit `DROP TABLE IF EXISTS dj_expenses` entfernt (nach Trips-Migration; `createBackup` davor)
+- [ ] **BELEG-DJREF-05**: `dj.accounting.routes.ts` Aggregations-Queries umgeschrieben auf `receipts` (revenue, expenses, vat, profit)
+
+### Seed + Final-Verifikation
+
+- [ ] **BELEG-SEED-01**: 5 Beispiel-Belege (Alibaba, Thomann, E.ON, Google Ireland, Hochzeit Müller) seeded mit korrekten area/tax_category/Status
+- [ ] **BELEG-SEED-02**: Passende contacts (Alibaba Supplier, Thomann, E.ON, Google Ireland Limited, Familie Müller) seeded
+- [ ] **BELEG-SEED-03**: Beispiel-DJ-Gig in `dj_events` + Beispiel-Trip "Fahrt zur Hochzeit Müller, 87 km" in `trips`
+- [ ] **BELEG-SEED-04**: `tsc --noEmit` clean (Backend + Frontend); `vitest run` grün
+
+---
+
 ## Milestone 2+ Requirements (deferred)
 
 ### Aufgaben-Modul
@@ -162,12 +265,24 @@ Scope: Foundation, Auth, Shell, Design System, Home Page. All 7 module routes re
 | DS-01 bis DS-11 | Phase 3 | Pending |
 | HOME-01 bis HOME-06 | Phase 3 | Pending |
 | SETT-01 bis SETT-04 | Phase 3 | Pending |
+| BELEG-AUDIT-01 bis BELEG-AUDIT-05 | Phase 4 | Pending |
+| BELEG-TEST-01 bis BELEG-TEST-04 | Phase 4 | Pending |
+| BELEG-SCHEMA-01 bis BELEG-SCHEMA-09 | Phase 4 | Pending |
+| BELEG-SERVICE-01 bis BELEG-SERVICE-04 | Phase 4 | Pending |
+| BELEG-OCR-01 bis BELEG-OCR-08 | Phase 4 | Pending |
+| BELEG-SUPPLIER-01 bis BELEG-SUPPLIER-04 | Phase 4 | Pending |
+| BELEG-TASK-01 bis BELEG-TASK-03 | Phase 4 | Pending |
+| BELEG-DJSYNC-01 bis BELEG-DJSYNC-07 | Phase 4 | Pending |
+| BELEG-UI-01 bis BELEG-UI-11 | Phase 4 | Pending |
+| BELEG-DJREF-01 bis BELEG-DJREF-05 | Phase 4 | Pending |
+| BELEG-SEED-01 bis BELEG-SEED-04 | Phase 4 | Pending |
 
 **Coverage:**
 - Milestone 1 requirements: 56 total
-- Mapped to phases: 56
+- Phase 4 requirements: 56 total
+- Mapped to phases: 112
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-07*
-*Last updated: 2026-04-07 after initial definition*
+*Phase 4 requirements added: 2026-05-05*

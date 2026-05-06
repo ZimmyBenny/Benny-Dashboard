@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: milestone
 status: unknown
 stopped_at: Completed quick-260424-rzd-PLAN.md
-last_updated: "2026-04-24T18:13:21.933Z"
+last_updated: "2026-05-05T21:51:06.181Z"
 progress:
-  total_phases: 3
+  total_phases: 4
   completed_phases: 3
-  total_plans: 15
+  total_plans: 28
   completed_plans: 15
-  percent: 100
+  percent: 54
 ---
 
 # Project State: Benny Dashboard
@@ -30,6 +30,11 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 | Phase 1: Foundation | Complete (2026-04-08) |
 | Phase 2: Auth Layer | Complete (2026-04-08) |
 | Phase 3: Shell + Design System | Not started |
+| Phase 4: Belege-Modul + DJ-Buchhaltungs-Refactoring | Added 2026-05-05 — to be planned |
+
+## Roadmap Evolution
+
+- 2026-05-05 — Phase 4 hinzugefuegt: Belege-Modul + DJ-Buchhaltungs-Refactoring (zentrale `receipts`-Tabelle, GoBD, OCR via Tesseract; DJ-Buchhaltung wird Read-Only-Sicht. 13 Sub-Plaene geplant.)
 
 ## Progress
 
@@ -101,9 +106,11 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 | 260423-l2b | DjEventsPage: Alle kommenden als Standard-Filter + vergangene Events ausblenden | 2026-04-23 | dafff9f | [260423-l2b-djeventspage-alle-kommenden-als-standard](.planning/quick/260423-l2b-djeventspage-alle-kommenden-als-standard/) |
 | 260424-rj7 | Fix timezone boundary in DjOverviewPage upcomingEvents filter | 2026-04-24 | 019a80f | [260424-rj7-fix-timezone-boundary-in-djoverviewpage-](.planning/quick/260424-rj7-fix-timezone-boundary-in-djoverviewpage-/) |
 | 260424-rzd | Fix event_date Bug: Pflichtfeld-Guard + NULL-Normalisierung + bestaetigt in GET-Filter | 2026-04-24 | 2d2a188 | [260424-rzd-fix-event-date-bug-in-neueanfragemodal-u](.planning/quick/260424-rzd-fix-event-date-bug-in-neueanfragemodal-u/) |
+| 260424-sjd | Kalender-Sync bei Event-Bearbeitung im NeueAnfrageModal | 2026-04-24 | 0be73a7 | [260424-sjd-kalender-eintrag-bei-event-bearbeitung-a](.planning/quick/260424-sjd-kalender-eintrag-bei-event-bearbeitung-a/) |
+| 260505-u7a | Codebase-weiter Datums-Fix: lokale Zeitzone via zentraler Helper (lib/dates.ts) — fixt Muttertag-Anzeige + Edge Cases in Cron/DJ-Routes | 2026-05-05 | 668864c | [260505-u7a-dashboard-diese-woche-widget-all-day-eve](.planning/quick/260505-u7a-dashboard-diese-woche-widget-all-day-eve/) |
 
 ---
-*State initialized: 2026-04-07 | Last activity: 2026-04-24 - Completed quick task 260424-rzd: Fix event_date Bug in NeueAnfrageModal*
+*State initialized: 2026-04-07 | Last activity: 2026-05-05 - Completed quick task 260505-u7a: Codebase-weiter Datums-Fix auf lokale Zeitzone*
 | 2026-04-10 | fast | TaskCard onClick → SlideOver fix (PointerSensor distance constraint) | ✅ |
 | 2026-04-10 | fast | TaskSlideOver Backdrop-Klick schließt Panel nicht mehr | ✅ |
 | 2026-04-10 | 260410-v3q | Status-Notiz beim Drag (DragPrompt + DB-Migration + KanbanBoard-Pause) | ✅ |

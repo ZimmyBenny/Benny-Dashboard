@@ -122,6 +122,7 @@
 | 1. Foundation | 5/5 | Complete   | 2026-04-08 |
 | 2. Auth Layer | 5/5 | Complete   | 2026-04-08 |
 | 3. Shell + Design System | 4/5 | In Progress|  |
+| 4. Belege-Modul + DJ-Refactor | 0/13 | Planned (2026-05-05)|  |
 
 ---
 
@@ -135,9 +136,20 @@
 | DS-01 – DS-11 | 11 | Phase 3 |
 | HOME-01 – HOME-06 | 6 | Phase 3 |
 | SETT-01 – SETT-04 | 4 | Phase 3 |
-| **Total** | **56** | **3 phases** |
+| BELEG-AUDIT-01 – 05 | 5 | Phase 4 |
+| BELEG-TEST-01 – 04 | 4 | Phase 4 |
+| BELEG-SCHEMA-01 – 09 | 9 | Phase 4 |
+| BELEG-SERVICE-01 – 04 | 4 | Phase 4 |
+| BELEG-OCR-01 – 08 | 8 | Phase 4 |
+| BELEG-SUPPLIER-01 – 04 | 4 | Phase 4 |
+| BELEG-TASK-01 – 03 | 3 | Phase 4 |
+| BELEG-DJSYNC-01 – 07 | 7 | Phase 4 |
+| BELEG-UI-01 – 11 | 11 | Phase 4 |
+| BELEG-DJREF-01 – 05 | 5 | Phase 4 |
+| BELEG-SEED-01 – 04 | 4 | Phase 4 |
+| **Total** | **112** | **4 phases** |
 
-Unmapped: 0. Coverage: 56/56.
+Unmapped: 0. Coverage: 112/112.
 
 ---
 
@@ -165,6 +177,40 @@ Future milestone phases — scope and plans defined at milestone start, not now.
 
 **Open decisions before v2 build starts.** Two architectural questions must be answered in writing before Milestone 2 schemas are created: (1) Amazon module scope, (2) DJ → Finance cross-module write pattern. Neither blocks Milestone 1.
 
+### Phase 4: Belege-Modul + DJ-Buchhaltungs-Refactoring
+
+**Goal:** Neuer zentraler Hauptbereich `/belege` als GoBD-konforme Beleg-Ablage. Ein Beleg wird einmal in `receipts` gespeichert und beliebigen Bereichen/Kontakten/Aufgaben zugeordnet. OCR via Tesseract (lokal, gratis). Andere Module (DJ, später Amazon FBA) bekommen NUR gefilterte Read-Only-Sichten — keine eigenen Belegtabellen mehr. DJ-Buchhaltungs-Reiter bleibt erhalten, wird zu gefilterter Sicht auf `receipts WHERE area=DJ`. DJ-Ausgangsrechnungen bleiben Source-of-Truth in `dj_invoices`, werden via Sync-Service nach `receipts` gespiegelt. DJ-Fahrten ziehen aus `dj_expenses` (category='fahrzeug') in eigene `trips`-Tabelle um. Generisches `audit_log` ersetzt `dj_audit_log`.
+
+**Requirements:** BELEG-AUDIT-01..05, BELEG-TEST-01..04, BELEG-SCHEMA-01..09, BELEG-SERVICE-01..04, BELEG-OCR-01..08, BELEG-SUPPLIER-01..04, BELEG-TASK-01..03, BELEG-DJSYNC-01..07, BELEG-UI-01..11, BELEG-DJREF-01..05, BELEG-SEED-01..04 (56 IDs total)
+
+**Depends on:** Phase 3
+
+**Plans:** 13 sub-plans (00-audit-refactor → 12-seed-final) — finalized 2026-05-05
+
+**Wave structure:**
+- Wave 0: Plan 00 (audit-refactor + Test-Setup)
+- Wave 1: Plan 01 (schema)
+- Wave 2: Plan 02 (services), Plan 03 (upload-ocr) — parallel
+- Wave 3: Plan 04 (supplier-memory), Plan 05 (task-automation), Plan 06 (dj-sync) — parallel
+- Wave 4: Plan 07 (ui-overview) → 08 (ui-list-detail) → 09 (ui-upload) → 10 (ui-tax-export-settings) — sequential da viel Frontend-Routing-Conflict
+- Wave 5: Plan 11 (dj-refactor)
+- Wave 6: Plan 12 (seed-final)
+
+Plans:
+- [ ] 04-00-audit-refactor-PLAN.md — Generisches `audit_log` (`dj_audit_log` umziehen) + vitest-Setup im Backend
+- [ ] 04-01-schema-PLAN.md — Migration 039 (`areas`, `tax_categories`, `trips`, `receipts`, `receipt_files`, `receipt_area_links`, `receipt_links`, `receipt_ocr_results`, `supplier_memory`) + Settings-Keys + GoBD-Trigger
+- [ ] 04-02-services-PLAN.md — `lib/cents.ts`, `receiptService`, `taxCalcService`, `duplicateCheckService`
+- [ ] 04-03-upload-ocr-PLAN.md — Multi-File-Upload + `tesseract.js` + `pdf-to-img` + `receiptParserService`
+- [ ] 04-04-supplier-memory-PLAN.md — Lieferanten-Lerngedächtnis mit Auto-Vorschlag (suggest + recordUsage hooks)
+- [ ] 04-05-task-automation-PLAN.md — `taskAutomationService` (offene Zahlungen → Tasks; idempotent via source_receipt_id)
+- [ ] 04-06-dj-sync-PLAN.md — `djSyncService` + `tripSyncService` + Migration 039a Fahrten-Migration + trips CRUD-Routes
+- [ ] 04-07-ui-overview-PLAN.md — `/belege` Übersicht (KPICards, Listen) + navConfig + StatusBadge-Erweiterung + formatCurrencyFromCents
+- [ ] 04-08-ui-list-detail-PLAN.md — `/belege/alle` + `/belege/:id` + PdfPreview + AuditTrail + Korrekturbeleg
+- [ ] 04-09-ui-upload-PLAN.md — `/belege/neu` (Drag&Drop, OCR-Polling, Supplier-Suggest, Save)
+- [ ] 04-10-ui-tax-export-settings-PLAN.md — `/belege/steuer` + `/belege/export` + `/belege/einstellungen` (Settings + Areas/Tax-Cats CRUD + DB-Backup-Button)
+- [ ] 04-11-dj-refactor-PLAN.md — DjAccountingPage Read-Only auf receipts; Migration 039b dropped dj_expenses; dj.expenses.routes entfernt
+- [ ] 04-12-seed-final-PLAN.md — 5 Beispielbelege (Alibaba, Thomann, E.ON, Google Ireland, Hochzeit Müller) + Integration-Test + manuelle UAT
+
 ---
 
-*Last updated: 2026-04-09*
+*Last updated: 2026-05-05 — Phase 4 plans finalized (13 plans, 56 BELEG-* requirements)*
