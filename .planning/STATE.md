@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-02-services-PLAN.md (Wave 2)
-last_updated: "2026-05-06T09:01:26.998Z"
+stopped_at: Completed 04-03-upload-ocr-PLAN.md (Wave 2)
+last_updated: "2026-05-06T14:30:00.000Z"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 28
-  completed_plans: 18
-  percent: 64
+  completed_plans: 19
+  percent: 68
 ---
 
 # Project State: Benny Dashboard
@@ -38,9 +38,9 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 ## Progress
 
-[██████░░░░] 64% — 18/28 plans complete
+[██████░░░░] 68% — 19/28 plans complete
 
-**Stopped at:** Completed 04-02-services-PLAN.md (Wave 2)
+**Stopped at:** Completed 04-03-upload-ocr-PLAN.md (Wave 2)
 
 ## Decisions Made
 
@@ -69,6 +69,11 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 - [Phase 04]: Plan 04-02: Service-Funktionen akzeptieren `req: Request | null` — null-Pfad fuer system-initiierte Mutationen (Cron, Sync) ohne Audit-User-Kontext
 - [Phase 04]: Plan 04-02: KZ66 schliesst import_eust=0 aus + KZ62 erfordert input_tax_deductible=1 — verhindert Doppel-Zaehlung von EUSt-Belegen
 - [Phase 04]: Plan 04-02: applyOcrResult Konfidenz-Filter nur fuer supplier_name (>0.5) — andere Felder werden uebernommen wenn !== null (User reviewed sowieso)
+- [Phase 04]: Plan 04-03: tesseract.js Worker-per-Job mit `await worker.terminate()` im finally — verhindert Memory-Leak in long-running Express; pdf-to-img iteriert async, for-await-break nach Page 1 schuetzt vor PDF-Bombs
+- [Phase 04]: Plan 04-03: Background-OCR via `setImmediate(async () => ...)` statt Promise — HTTP-Response ist garantiert raus bevor OCR-Worker startet; bei Fehler markOcrFailed (status zu_pruefen) statt 500
+- [Phase 04]: Plan 04-03: Two-Stage-Upload-Limit — multer hard-limit 100 MB (DoS-Schutz beim Schreiben) + settings-basiertes max_upload_size_mb (Default 25, pro File nachgepruepft -> 413)
+- [Phase 04]: Plan 04-03: fileFilter ueber path.extname.toLowerCase statt mime-type — robust gegen Browser-Generic-Mime und blockt .pdf.exe (extname == .exe); mime_type wird trotzdem in receipt_files persistiert fuer Audit
+- [Phase 04]: Plan 04-03: Sub-Router-Mount (belege.routes.ts macht router.use('/', uploadRouter)) — Upload ist unter /api/belege/upload erreichbar OHNE separates app.use; minimiert app.ts-Aenderungen fuer Folge-Plans
 
 ## Open Decisions (must resolve before Milestone 2)
 

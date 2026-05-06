@@ -126,14 +126,14 @@ Scope: GoBD-konformes Belege-Modul (`/belege`) als zentraler Hauptbereich. Gener
 
 ### Upload + OCR
 
-- [ ] **BELEG-OCR-01**: `POST /api/belege/upload` (multer.array, max 20 files, fileFilter PDF/JPG/JPEG/PNG, fileSize aus `max_upload_size_mb` Setting)
-- [ ] **BELEG-OCR-02**: SHA-256-Streaming via `crypto.createHash` über `fs.createReadStream` (kein readFileSync)
-- [ ] **BELEG-OCR-03**: Datei wird in `~/.local/share/benny-dashboard/belege/YYYY/MM/` gespeichert (NICHT iCloud); Filename `YYYY-MM-DD_supplier_amount_type.ext` sanitisiert via `sanitizeForFilename`
-- [ ] **BELEG-OCR-04**: `ocrService.ocrFile(path)` nutzt tesseract.js (deu+eng) im Hintergrund via `setImmediate`; PDF wird via `pdf-to-img` (scale=2.0) zu PNG der ersten Seite
-- [ ] **BELEG-OCR-05**: tesseract.js Worker wird `await worker.terminate()` nach JEDEM Job (kein Pool — Memory-Leak-Schutz)
-- [ ] **BELEG-OCR-06**: Fallback `mockOcr` wenn tesseract.js Worker-Init fehlschlägt; Setting `ocr_engine='mock'` aktiviert Mock direkt
-- [ ] **BELEG-OCR-07**: `receiptParserService.parse(text)` extrahiert Datum, Lieferant, Beträge, USt, IBAN, RC mit per-Feld-Konfidenz (0-1)
-- [ ] **BELEG-OCR-08**: Felder mit Confidence < `ocr_confidence_threshold` Setting bekommen UI-Badge "manuell prüfen"
+- [x] **BELEG-OCR-01**: `POST /api/belege/upload` (multer.array, max 20 files, fileFilter PDF/JPG/JPEG/PNG, fileSize aus `max_upload_size_mb` Setting)
+- [x] **BELEG-OCR-02**: SHA-256-Streaming via `crypto.createHash` über `fs.createReadStream` (kein readFileSync)
+- [x] **BELEG-OCR-03**: Datei wird in `~/.local/share/benny-dashboard/belege/YYYY/MM/` gespeichert (NICHT iCloud); Filename `YYYY-MM-DD_supplier_amount_type.ext` sanitisiert via `sanitizeForFilename`
+- [x] **BELEG-OCR-04**: `ocrService.ocrFile(path)` nutzt tesseract.js (deu+eng) im Hintergrund via `setImmediate`; PDF wird via `pdf-to-img` (scale=2.0) zu PNG der ersten Seite
+- [x] **BELEG-OCR-05**: tesseract.js Worker wird `await worker.terminate()` nach JEDEM Job (kein Pool — Memory-Leak-Schutz)
+- [x] **BELEG-OCR-06**: Fallback `mockOcr` wenn tesseract.js Worker-Init fehlschlägt; Setting `ocr_engine='mock'` aktiviert Mock direkt
+- [x] **BELEG-OCR-07**: `receiptParserService.parse(text)` extrahiert Datum, Lieferant, Beträge, USt, IBAN, RC mit per-Feld-Konfidenz (0-1)
+- [x] **BELEG-OCR-08**: Felder mit Confidence < `ocr_confidence_threshold` Setting bekommen UI-Badge "manuell prüfen"
 
 ### Lieferanten-Lerngedächtnis
 
@@ -269,7 +269,7 @@ Scope: GoBD-konformes Belege-Modul (`/belege`) als zentraler Hauptbereich. Gener
 | BELEG-TEST-01 bis BELEG-TEST-04 | Phase 4 | Pending |
 | BELEG-SCHEMA-01 bis BELEG-SCHEMA-09 | Phase 4 | Pending |
 | BELEG-SERVICE-01 bis BELEG-SERVICE-04 | Phase 4 | Complete (2026-05-06) |
-| BELEG-OCR-01 bis BELEG-OCR-08 | Phase 4 | Pending |
+| BELEG-OCR-01 bis BELEG-OCR-08 | Phase 4 | Complete (2026-05-06) |
 | BELEG-SUPPLIER-01 bis BELEG-SUPPLIER-04 | Phase 4 | Pending |
 | BELEG-TASK-01 bis BELEG-TASK-03 | Phase 4 | Pending |
 | BELEG-DJSYNC-01 bis BELEG-DJSYNC-07 | Phase 4 | Pending |

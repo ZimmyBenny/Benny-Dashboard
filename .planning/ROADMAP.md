@@ -122,7 +122,7 @@
 | 1. Foundation | 5/5 | Complete   | 2026-04-08 |
 | 2. Auth Layer | 5/5 | Complete   | 2026-04-08 |
 | 3. Shell + Design System | 4/5 | In Progress|  |
-| 4. Belege-Modul + DJ-Refactor | 2/13 | In Progress|  |
+| 4. Belege-Modul + DJ-Refactor | 4/13 | In Progress|  |
 
 ---
 
@@ -185,7 +185,7 @@ Future milestone phases — scope and plans defined at milestone start, not now.
 
 **Depends on:** Phase 3
 
-**Plans:** 3/13 plans executed
+**Plans:** 4/13 plans executed
 
 **Wave structure:**
 - Wave 0: Plan 00 (audit-refactor + Test-Setup)
@@ -200,7 +200,7 @@ Plans:
 - [x] 04-00-audit-refactor-PLAN.md — Generisches `audit_log` (`dj_audit_log` umziehen) + vitest-Setup im Backend
 - [x] 04-01-schema-PLAN.md — Migration 039 (`areas`, `tax_categories`, `trips`, `receipts`, `receipt_files`, `receipt_area_links`, `receipt_links`, `receipt_ocr_results`, `supplier_memory`) + Settings-Keys + GoBD-Trigger
 - [x] 04-02-services-PLAN.md — `lib/cents.ts`, `receiptService`, `taxCalcService`, `duplicateCheckService`
-- [ ] 04-03-upload-ocr-PLAN.md — Multi-File-Upload + `tesseract.js` + `pdf-to-img` + `receiptParserService`
+- [x] 04-03-upload-ocr-PLAN.md — Multi-File-Upload + `tesseract.js` + `pdf-to-img` + `receiptParserService`
 - [ ] 04-04-supplier-memory-PLAN.md — Lieferanten-Lerngedächtnis mit Auto-Vorschlag (suggest + recordUsage hooks)
 - [ ] 04-05-task-automation-PLAN.md — `taskAutomationService` (offene Zahlungen → Tasks; idempotent via source_receipt_id)
 - [ ] 04-06-dj-sync-PLAN.md — `djSyncService` + `tripSyncService` + Migration 039a Fahrten-Migration + trips CRUD-Routes
@@ -213,4 +213,4 @@ Plans:
 
 ---
 
-*Last updated: 2026-05-05 — Phase 4 plans finalized (13 plans, 56 BELEG-* requirements)*
+*Last updated: 2026-05-06 — Plan 04-03 (Upload + OCR) abgeschlossen; 4/13 Phase-4-Plaene komplett*
