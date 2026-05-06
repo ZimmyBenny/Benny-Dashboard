@@ -17,6 +17,7 @@ import haushaltRoutes from './routes/haushalt.routes';
 import appSettingsRoutes from './routes/appSettings.routes';
 import djRoutes from './routes/dj.routes';
 import remindersRoutes from './routes/reminders.routes';
+import belegeRoutes from './routes/belege.routes';
 import { verifyToken, type AuthenticatedRequest } from './middleware/auth';
 
 export function createApp() {
@@ -57,6 +58,7 @@ export function createApp() {
   app.use('/api/app-settings', appSettingsRoutes);
   app.use('/api/dj', djRoutes);
   app.use('/api/reminders', remindersRoutes);
+  app.use('/api/belege', belegeRoutes);
 
   // Temporary probe route to verify the guard end-to-end (kept; Plan 3 may remove)
   app.get('/api/_probe', (req: AuthenticatedRequest, res) => {
