@@ -30,6 +30,9 @@ import { ContactImportPage } from '../pages/ContactImportPage';
 import { ContractsPage } from '../pages/ContractsPage';
 import { HaushaltPage } from '../pages/HaushaltPage';
 import { BelegeOverviewPage } from '../pages/belege/BelegeOverviewPage';
+import { BelegeListPage } from '../pages/belege/BelegeListPage';
+import { BelegeOpenPaymentsPage } from '../pages/belege/BelegeOpenPaymentsPage';
+import { BelegeReviewPage } from '../pages/belege/BelegeReviewPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -71,7 +74,11 @@ export const router = createBrowserRouter([
           { path: '/contacts/:id/edit',   element: <ContactFormPage /> },
           { path: '/contracts',            element: <ContractsPage /> },
           { path: '/haushalt',   element: <HaushaltPage /> },
+          // Belege — WICHTIG: spezifische Sub-Routes VOR /:id (Plan 04-08)
           { path: '/belege',                element: <BelegeOverviewPage /> },
+          { path: '/belege/alle',           element: <BelegeListPage /> },
+          { path: '/belege/offen',          element: <BelegeOpenPaymentsPage /> },
+          { path: '/belege/zu-pruefen',     element: <BelegeReviewPage /> },
         ],
       },
     ],
