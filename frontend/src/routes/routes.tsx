@@ -33,6 +33,7 @@ import { BelegeOverviewPage } from '../pages/belege/BelegeOverviewPage';
 import { BelegeListPage } from '../pages/belege/BelegeListPage';
 import { BelegeOpenPaymentsPage } from '../pages/belege/BelegeOpenPaymentsPage';
 import { BelegeReviewPage } from '../pages/belege/BelegeReviewPage';
+import { BelegeUploadPage } from '../pages/belege/BelegeUploadPage';
 import { BelegeDetailPage } from '../pages/belege/BelegeDetailPage';
 
 export const router = createBrowserRouter([
@@ -75,9 +76,10 @@ export const router = createBrowserRouter([
           { path: '/contacts/:id/edit',   element: <ContactFormPage /> },
           { path: '/contracts',            element: <ContractsPage /> },
           { path: '/haushalt',   element: <HaushaltPage /> },
-          // Belege — WICHTIG: spezifische Sub-Routes VOR /:id (Plan 04-08)
+          // Belege — WICHTIG: spezifische Sub-Routes VOR /:id (Plan 04-08, 04-09)
           { path: '/belege',                element: <BelegeOverviewPage /> },
           { path: '/belege/alle',           element: <BelegeListPage /> },
+          { path: '/belege/neu',            element: <BelegeUploadPage /> },
           { path: '/belege/offen',          element: <BelegeOpenPaymentsPage /> },
           { path: '/belege/zu-pruefen',     element: <BelegeReviewPage /> },
           // /belege/:id MUSS NACH allen spezifischen Sub-Routes stehen
