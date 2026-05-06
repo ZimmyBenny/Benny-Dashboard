@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-07-ui-overview-PLAN.md (Wave 4)
-last_updated: "2026-05-06T13:20:20.054Z"
+stopped_at: Completed 04-08-ui-list-detail-PLAN.md (Wave 5)
+last_updated: "2026-05-06T13:39:31.700Z"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 28
-  completed_plans: 23
-  percent: 82
+  completed_plans: 24
+  percent: 86
 ---
 
 # Project State: Benny Dashboard
@@ -38,9 +38,9 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 ## Progress
 
-[███████░░░] 75% — 21/28 plans complete
+[█████████░] 86% — 24/28 plans complete
 
-**Stopped at:** Completed 04-07-ui-overview-PLAN.md (Wave 4)
+**Stopped at:** Completed 04-08-ui-list-detail-PLAN.md (Wave 5)
 
 ## Decisions Made
 
@@ -90,6 +90,10 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 - [Phase 04]: Plan 04-07: Layout-Stil DJ-Reiter (User-Vorgabe) — Glassmorphism, Ambient Glows, KPICard wiederverwendet; BelegeOverviewPage greift auf bestehendes DJ-Component-Inventar zurueck statt eigene Card-Komponenten
 - [Phase 04]: Plan 04-07: Steuerzahllast-KPI conditional via ustva_zeitraum-Setting — Kleinunternehmer ohne UStVA-Pflicht sehen die Karte gar nicht; Backend liefert null, Frontend rendert nicht
 - [Phase 04]: Plan 04-07: Ein /api/belege/overview-kpis-Endpoint statt 6 separate Queries — minimiert Roundtrips, aggregiert direkt in SQL; Pattern wiederverwendbar fuer kuenftige Modul-Dashboards (Amazon, Finanzen)
+- [Phase 04]: Plan 04-08: Inline-PdfPreview statt Modal-PdfPreview — Split-Layout (PDF links, Daten rechts) braucht Inline-Rendering; bestehender PdfPreviewModal bleibt fuer DJ-Quotes/Invoices erhalten
+- [Phase 04]: Plan 04-08: URL-Search-Params als Filter-State fuer BelegeListPage — alle Filter (area/status/type/from/to/search) in URL persistiert; deeplink-bar, browser-history-friendly, kein extra State-Management
+- [Phase 04]: Plan 04-08: Korrekturbeleg-Endpoint setzt corrected_by_receipt_id auf freigegebenen Original — Spalte ist NICHT im GoBD-Trigger-Lock-WHEN-Clause (Migration 040 Zeilen 257-276), daher legal
+- [Phase 04]: Plan 04-08: ReceiptsTable als wiederverwendbare Sub-Komponente in BelegeListPage exportiert (statt eigene Datei) — variant-Prop fuer Open-Payments-Spalten-Override; OpenPayments und Review nutzen identische Tabelle
 
 ## Open Decisions (must resolve before Milestone 2)
 
