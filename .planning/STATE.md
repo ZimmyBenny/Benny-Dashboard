@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-09-ui-upload-PLAN.md (Wave 6)
-last_updated: "2026-05-06T13:54:20.701Z"
+stopped_at: Completed 04-10-ui-tax-export-settings-PLAN.md (Wave 6)
+last_updated: "2026-05-06T14:31:24.691Z"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 28
-  completed_plans: 25
-  percent: 89
+  completed_plans: 26
+  percent: 93
 ---
 
 # Project State: Benny Dashboard
@@ -40,7 +40,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 [█████████░] 86% — 24/28 plans complete
 
-**Stopped at:** Completed 04-09-ui-upload-PLAN.md (Wave 6)
+**Stopped at:** Completed 04-10-ui-tax-export-settings-PLAN.md (Wave 6)
 
 ## Decisions Made
 
@@ -99,6 +99,11 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 - [Phase 04]: Plan 04-09: Lazy Supplier-Suggest via suggestTried-String-Tracker — ein /supplier-suggest pro stabiler supplier-Eingabe (statt pro Tastendruck); Threat T-04-UI-UPLOAD-03 (Backend-Spam) defensiv mitigated
 - [Phase 04]: Plan 04-09: react-dropzone@15 statt eigener HTML5-DnD — onDropRejected, accept-Map mit MIME+Extension, isDragActive for-free; ~14 KB Bundle-Cost vernachlaessigbar gegenueber ~80 Zeilen Eigenbau
 - [Phase 04]: Plan 04-09: GET /api/belege/areas + /tax-categories als Read-Only-Endpoints in Plan 04-09 (statt erst Plan 04-10) — Upload-UI braucht Picker-Quelle jetzt; CRUD bleibt Plan 04-10 ohne diese Routen zu brechen
+- [Phase 04]: Plan 04-10: BelegeTaxPage nutzt single-Tabelle fuer alle Period-Werte (jahr/quartal/monat) statt 3 Layouts — skaliert clean von 1 bis 12 Buckets ohne Layout-Shift; ReceiptsTable aus BelegeListPage wird im Drilldown wiederverwendet
+- [Phase 04]: Plan 04-10: Settings-Bulk-PATCH-Pattern etabliert — Frontend sammelt komplettes Form-State, Backend macht UPSERT pro Key innerhalb db.transaction; logAudit pro Key (nicht pro Bulk) gibt feinen Audit-Trail
+- [Phase 04]: Plan 04-10: AreaRow.onBlur statt onChange fuer Inline-Edit — verhindert PATCH-Spam pro Tastendruck (Lehre aus Plan 04-09 Lazy-Supplier-Suggest); diff-Check garantiert genau einen PATCH pro tatsaechlicher Aenderung
+- [Phase 04]: Plan 04-10: CSV-Export mit UTF-8-BOM + ;-Trenner + CRLF — Excel-DE erkennt UTF-8 korrekt und erwartet ;-Trenner ohne Locale-Umschaltung; Cell-Quoting bei ;/Newline/Quote macht Export defensiv gegen Lieferantennamen mit Sonderzeichen
+- [Phase 04]: Plan 04-10: DB-Backup-Endpoint POST /api/belege/db-backup nutzt createBackup-Helper aus db/backup.ts; Pfad in Response damit User sieht wo das Backup liegt; kein separates audit_log (Backup-File selbst ist der Audit-Trail)
 
 ## Open Decisions (must resolve before Milestone 2)
 

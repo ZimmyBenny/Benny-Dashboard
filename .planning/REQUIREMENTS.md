@@ -166,9 +166,9 @@ Scope: GoBD-konformes Belege-Modul (`/belege`) als zentraler Hauptbereich. Gener
 - [x] **BELEG-UI-04**: BelegeListPage zeigt sortier-/filterbare Tabelle mit Suche über Lieferant/Belegnummer/Betrag/Titel/OCR-Text
 - [x] **BELEG-UI-05**: BelegeDetailPage zeigt PDF/Bild-Vorschau links (via `react-pdf`/Image) + Daten rechts in Sektionen + Audit-Log-Verlauf; Felder werden disabled wenn `freigegeben_at IS NOT NULL` (außer notes/tags); "Korrekturbeleg"-Button vorhanden
 - [x] **BELEG-UI-06**: BelegeUploadPage hat react-dropzone (PDF/JPG/PNG bis maxUploadSize), zeigt OCR-Vorschläge mit `OcrConfidenceBadge`, supplier-Vorschlag aus `supplierMemoryService.suggest`
-- [ ] **BELEG-UI-07**: BelegeTaxPage Layout abhängig von Setting `ustva_zeitraum` (Jahr/4 Quartale/12 Monate); pro Bucket: KZ 81/86, KZ 66, KZ 84/85/67, KZ 62, Zahllast, Drilldown-Liste
-- [ ] **BELEG-UI-08**: BelegeExportPage erlaubt CSV-Export mit Filtern (Jahr, Bereich, Kategorie); kein ZIP in dieser Phase
-- [ ] **BELEG-UI-09**: BelegeSettingsPage erlaubt Areas-CRUD + TaxCategories-CRUD + alle 9 Settings (ustva_zeitraum/ist_versteuerung/lead_days/max_upload/ocr_threshold/ocr_engine/mileage rates/storage_path) + "DB-Backup jetzt"-Button (ruft `createBackup`)
+- [x] **BELEG-UI-07**: BelegeTaxPage Layout abhängig von Setting `ustva_zeitraum` (Jahr/4 Quartale/12 Monate); pro Bucket: KZ 81/86, KZ 66, KZ 84/85/67, KZ 62, Zahllast, Drilldown-Liste
+- [x] **BELEG-UI-08**: BelegeExportPage erlaubt CSV-Export mit Filtern (Jahr, Bereich, Kategorie); kein ZIP in dieser Phase
+- [x] **BELEG-UI-09**: BelegeSettingsPage erlaubt Areas-CRUD + TaxCategories-CRUD + alle 9 Settings (ustva_zeitraum/ist_versteuerung/lead_days/max_upload/ocr_threshold/ocr_engine/mileage rates/storage_path) + "DB-Backup jetzt"-Button (ruft `createBackup`)
 - [x] **BELEG-UI-10**: StatusBadge erweitert um `zu_pruefen` (gelb), `freigegeben` (grün), `archiviert` (grau), `nicht_relevant` (grau gedimmt), `ocr_pending` (primary)
 - [x] **BELEG-UI-11**: `formatCurrencyFromCents(cents)` Helper in `frontend/src/lib/format.ts`
 
