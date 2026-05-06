@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import db from '../db/connection';
-import { logAudit } from '../services/dj.audit.service';
+import { logAudit } from '../services/audit.service';
 
 const router = Router();
 

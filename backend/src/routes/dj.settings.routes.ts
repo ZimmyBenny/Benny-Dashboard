@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
 import db from '../db/connection';
-import { logAudit } from '../services/dj.audit.service';
+import { logAudit } from '../services/audit.service';
 
 const router = Router();
 

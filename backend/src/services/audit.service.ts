@@ -17,7 +17,7 @@ export type AuditEntityType =
 /**
  * Schreibt einen Audit-Log-Eintrag in audit_log.
  * GoBD-konform: append-only, DB-Trigger blockt UPDATE/DELETE.
- * Signatur ist API-kompatibel zum bisherigen dj.audit.service — Bestandsaufrufe funktionieren weiter.
+ * Signatur ist API-kompatibel zum bisherigen DJ-Audit-Service — Bestandsaufrufe funktionieren weiter.
  */
 export function logAudit(
   req: Request,
