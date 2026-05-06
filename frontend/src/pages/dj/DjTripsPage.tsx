@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { useDraggableModal } from '../../hooks/useDraggableModal';
-import { fetchDjTrips, createDjTrip, deleteDjExpense, DjTrip } from '../../api/dj.api';
+import { fetchDjTrips, createDjTrip, deleteDjTrip, DjTrip } from '../../api/dj.api';
 import { formatCurrency, formatDate, formatKm } from '../../lib/format';
 
 const DISCLAIMER =
@@ -89,7 +89,7 @@ export function DjTripsPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => deleteDjExpense(id),
+    mutationFn: (id: number) => deleteDjTrip(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dj-trips'] });
       setDeleteTarget(null);
@@ -118,7 +118,6 @@ export function DjTripsPage() {
       distance_km: parseFloat(form.distance_km),
       purpose: form.purpose,
       rate_per_km: parseFloat(form.rate_per_km) || 0.30,
-      reimbursement_amount: reimbursement,
     });
   }
 

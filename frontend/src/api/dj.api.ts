@@ -177,20 +177,6 @@ export interface DjEventDetail extends DjEvent {
   invoices: DjInvoice[];
 }
 
-export interface DjExpense {
-  id: number;
-  expense_date: string;
-  category: string;
-  description: string;
-  amount_gross: number;
-  tax_rate: number;
-  amount_net: number | null;
-  vat_amount: number | null;
-  is_recurring: number;
-  notes: string | null;
-  created_at: string;
-}
-
 export interface DjPayment {
   id: number;
   invoice_id: number;
@@ -338,20 +324,7 @@ export const cancelDjInvoice = (id: number): Promise<DjInvoice> =>
 export const payDjInvoice = (id: number, data: { payment_date: string; amount: number; method?: string; reference?: string }): Promise<DjInvoice> =>
   apiClient.post(`/dj/invoices/${id}/pay`, data).then(r => r.data);
 
-// Ausgaben
-export const fetchDjExpenses = (params?: { year?: number; category?: string }): Promise<DjExpense[]> =>
-  apiClient.get('/dj/expenses', { params }).then(r => r.data);
-
-export const createDjExpense = (data: Partial<DjExpense>): Promise<DjExpense> =>
-  apiClient.post('/dj/expenses', data).then(r => r.data);
-
-export const updateDjExpense = (id: number, data: Partial<DjExpense>): Promise<DjExpense> =>
-  apiClient.patch(`/dj/expenses/${id}`, data).then(r => r.data);
-
-export const deleteDjExpense = (id: number): Promise<void> =>
-  apiClient.delete(`/dj/expenses/${id}`).then(() => undefined);
-
-// Buchhaltung
+// Buchhaltung — Read-Only-Sicht ueber receipts WHERE area=DJ (Plan 04-11)
 export const fetchDjAccountingSummary = (year?: number) =>
   apiClient.get('/dj/accounting/summary', { params: { year } }).then(r => r.data);
 
@@ -361,6 +334,10 @@ export const fetchDjAccountingPayments = (year?: number): Promise<DjPayment[]> =
 export const fetchDjTrips = (year?: number): Promise<DjTrip[]> =>
   apiClient.get('/dj/accounting/trips', { params: { year } }).then(r => r.data);
 
+// Fahrten gehen jetzt direkt nach /api/trips (Plan 04-06).
+// distance_km: einfache Strecke; das Backend rechnet amount_cents = distance_km * rate_per_km_cents.
+// Wir reichen User-Eingabe als single-trip durch — der Hin-/Rueckweg-Faktor 2 wird im Backend
+// nicht implizit verdoppelt; die UI verdoppelt fuer Anzeigezwecke.
 export const createDjTrip = (data: {
   expense_date: string;
   start_location: string;
@@ -368,21 +345,19 @@ export const createDjTrip = (data: {
   distance_km: number;
   purpose: string;
   rate_per_km: number;
-  reimbursement_amount: number;
-}): Promise<DjExpense> =>
-  apiClient.post('/dj/expenses', {
+}): Promise<{ id: number }> =>
+  apiClient.post('/trips', {
     expense_date: data.expense_date,
-    category: 'fahrzeug',
-    description: data.purpose,
-    amount_gross: data.reimbursement_amount,
-    tax_rate: 0,
-    notes: JSON.stringify({
-      start_location: data.start_location,
-      end_location: data.end_location,
-      distance_km: data.distance_km,
-      rate_per_km: data.rate_per_km,
-    }),
+    start_location: data.start_location,
+    end_location: data.end_location,
+    distance_km: Math.round(data.distance_km),
+    purpose: data.purpose,
+    rate_per_km_cents: Math.round(data.rate_per_km * 100),
   }).then(r => r.data);
+
+// Fahrt loeschen — ersetzt frueheres deleteDjExpense (Plan 04-11)
+export const deleteDjTrip = (id: number): Promise<void> =>
+  apiClient.delete(`/trips/${id}`).then(() => undefined);
 
 // Einstellungen
 export const fetchDjSettings = () =>

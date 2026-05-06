@@ -1,41 +1,93 @@
 import { Router } from 'express';
 import db from '../db/connection';
 
+/**
+ * DJ-Buchhaltung Read-Only-Sicht (Plan 04-11 Refactor).
+ *
+ * Aggregations-Quelle ist jetzt `receipts` WHERE area=DJ, NICHT mehr dj_invoices+dj_expenses.
+ *
+ * Strategie:
+ * - Einnahmen kommen aus receipts mit type='ausgangsrechnung' (gespiegelt aus dj_invoices via djSyncService).
+ * - Ausgaben kommen aus receipts mit type IN ('eingangsrechnung','beleg','fahrt','quittung','spesen')
+ *   und area=DJ (manuell erfasst im Belege-Modul oder gespiegelt aus trips via tripSyncService).
+ * - Response-Shape (Keys: revenue, expenses, profit, vat_collected, vat_input, vat_liability,
+ *   unpaid_total, unpaid_count) bleibt KOMPATIBEL zur bestehenden API. Werte werden in EUR (REAL)
+ *   zurueckgegeben — interne SUM ueber cents wird /100.0 gecastet, damit Frontend weiterlaeuft
+ *   ohne Cents-Refactor.
+ * - Stornierte Belege werden ausgenommen (status != 'storniert'); negative Betraege aus Storno-Mirrors
+ *   sind dadurch automatisch eliminiert.
+ */
 const router = Router();
+
+const DJ_AREA_FILTER = `
+  EXISTS (
+    SELECT 1 FROM receipt_area_links ral
+    INNER JOIN areas a ON a.id = ral.area_id
+    WHERE ral.receipt_id = r.id AND a.slug = 'dj'
+  )
+`;
+
+const REVENUE_TYPE = `r.type = 'ausgangsrechnung'`;
+const EXPENSE_TYPES = `r.type IN ('eingangsrechnung','beleg','fahrt','quittung','spesen')`;
 
 // GET /api/dj/accounting/summary?year=2026
 router.get('/summary', (req, res) => {
   const year = String(req.query.year ?? new Date().getFullYear());
 
+  // Einnahmen: nur bezahlte Ausgangsrechnungen (DJ), Stornos exkludiert
   const revenue = db.prepare(`
-    SELECT COALESCE(SUM(amount), 0) AS total
-    FROM dj_payments p
-    JOIN dj_invoices i ON i.id = p.invoice_id
-    WHERE strftime('%Y', p.payment_date) = ? AND i.is_cancellation = 0
+    SELECT COALESCE(SUM(r.amount_gross_cents), 0) / 100.0 AS total
+    FROM receipts r
+    WHERE ${REVENUE_TYPE}
+      AND r.status = 'bezahlt'
+      AND r.payment_date IS NOT NULL
+      AND strftime('%Y', r.payment_date) = ?
+      AND ${DJ_AREA_FILTER}
   `).get(year) as { total: number };
 
+  // Ausgaben: bezahlte Eingangsrechnungen / Belege / Fahrten / Quittungen / Spesen (DJ)
   const expenses = db.prepare(`
-    SELECT COALESCE(SUM(amount_gross), 0) AS total
-    FROM dj_expenses
-    WHERE strftime('%Y', expense_date) = ? AND deleted_at IS NULL
+    SELECT COALESCE(SUM(r.amount_gross_cents), 0) / 100.0 AS total
+    FROM receipts r
+    WHERE ${EXPENSE_TYPES}
+      AND r.status = 'bezahlt'
+      AND r.payment_date IS NOT NULL
+      AND strftime('%Y', r.payment_date) = ?
+      AND ${DJ_AREA_FILTER}
   `).get(year) as { total: number };
 
+  // Eingenommene MwSt: aus DJ-Ausgangsrechnungen mit invoice_date im Jahr und finalized
   const vatCollected = db.prepare(`
-    SELECT COALESCE(SUM(tax_total), 0) AS total
-    FROM dj_invoices
-    WHERE strftime('%Y', invoice_date) = ? AND finalized_at IS NOT NULL AND is_cancellation = 0 AND status != 'storniert'
+    SELECT COALESCE(SUM(r.vat_amount_cents), 0) / 100.0 AS total
+    FROM receipts r
+    WHERE ${REVENUE_TYPE}
+      AND r.freigegeben_at IS NOT NULL
+      AND r.status != 'storniert'
+      AND strftime('%Y', r.receipt_date) = ?
+      AND ${DJ_AREA_FILTER}
   `).get(year) as { total: number };
 
+  // Vorsteuer: aus DJ-Eingangsrechnungen / Belegen mit input_tax_deductible=1
   const vatInput = db.prepare(`
-    SELECT COALESCE(SUM(vat_amount), 0) AS total
-    FROM dj_expenses
-    WHERE strftime('%Y', expense_date) = ? AND deleted_at IS NULL
+    SELECT COALESCE(SUM(r.vat_amount_cents), 0) / 100.0 AS total
+    FROM receipts r
+    WHERE ${EXPENSE_TYPES}
+      AND r.input_tax_deductible = 1
+      AND r.status != 'storniert'
+      AND strftime('%Y', r.receipt_date) = ?
+      AND ${DJ_AREA_FILTER}
   `).get(year) as { total: number };
 
+  // Offene Forderungen: DJ-Ausgangsrechnungen, finalized, status offen/teilbezahlt/ueberfaellig
   const unpaidInvoices = db.prepare(`
-    SELECT COALESCE(SUM(total_gross - paid_amount), 0) AS total, COUNT(*) AS count
-    FROM dj_invoices
-    WHERE finalized_at IS NOT NULL AND status IN ('offen','teilbezahlt','ueberfaellig') AND is_cancellation = 0
+    SELECT
+      COALESCE(SUM(r.amount_gross_cents - r.paid_amount_cents), 0) / 100.0 AS total,
+      COUNT(*) AS count
+    FROM receipts r
+    WHERE ${REVENUE_TYPE}
+      AND r.freigegeben_at IS NOT NULL
+      AND r.status IN ('offen','teilbezahlt','ueberfaellig')
+      AND ${DJ_AREA_FILTER}
   `).get() as { total: number; count: number };
 
   res.json({
@@ -52,17 +104,30 @@ router.get('/summary', (req, res) => {
 });
 
 // GET /api/dj/accounting/payments?year=2026
+// Read-Only-Sicht: bezahlte DJ-Ausgangsrechnungen aus receipts.
+// Mappt receipts-Felder auf das alte DjPayment-Shape, damit Frontend (DjAccountingPage) ohne Aenderung weiterlaeuft.
 router.get('/payments', (req, res) => {
   const year = String(req.query.year ?? new Date().getFullYear());
   const rows = db.prepare(`
-    SELECT p.*, i.number AS invoice_number, i.total_gross,
-           c.first_name || ' ' || c.last_name AS customer_name,
-           c.organization_name AS customer_org
-    FROM dj_payments p
-    JOIN dj_invoices i ON i.id = p.invoice_id
-    LEFT JOIN contacts c ON c.id = i.customer_id
-    WHERE strftime('%Y', p.payment_date) = ?
-    ORDER BY p.payment_date DESC
+    SELECT
+      r.id                                    AS id,
+      r.linked_invoice_id                     AS invoice_id,
+      r.payment_date                          AS payment_date,
+      (r.paid_amount_cents / 100.0)           AS amount,
+      r.payment_method                        AS method,
+      NULL                                    AS reference,
+      r.receipt_number                        AS invoice_number,
+      (r.amount_gross_cents / 100.0)          AS total_gross,
+      (c.first_name || ' ' || c.last_name)    AS customer_name,
+      c.organization_name                     AS customer_org
+    FROM receipts r
+    LEFT JOIN contacts c ON c.id = r.supplier_contact_id
+    WHERE ${REVENUE_TYPE}
+      AND r.status = 'bezahlt'
+      AND r.payment_date IS NOT NULL
+      AND strftime('%Y', r.payment_date) = ?
+      AND ${DJ_AREA_FILTER}
+    ORDER BY r.payment_date DESC
   `).all(year);
   res.json(rows);
 });
@@ -77,15 +142,23 @@ router.get('/vat', (req, res) => {
     const months = [(q - 1) * 3 + 1, (q - 1) * 3 + 2, (q - 1) * 3 + 3].map(m => String(m).padStart(2, '0'));
 
     const vatIn = db.prepare(`
-      SELECT COALESCE(SUM(tax_total), 0) AS total FROM dj_invoices
-      WHERE strftime('%Y', invoice_date) = ? AND strftime('%m', invoice_date) IN (?,?,?)
-        AND finalized_at IS NOT NULL AND is_cancellation = 0 AND status != 'storniert'
+      SELECT COALESCE(SUM(r.vat_amount_cents), 0) / 100.0 AS total FROM receipts r
+      WHERE ${REVENUE_TYPE}
+        AND r.freigegeben_at IS NOT NULL
+        AND r.status != 'storniert'
+        AND strftime('%Y', r.receipt_date) = ?
+        AND strftime('%m', r.receipt_date) IN (?,?,?)
+        AND ${DJ_AREA_FILTER}
     `).get(year, ...months) as { total: number };
 
     const vatInput = db.prepare(`
-      SELECT COALESCE(SUM(vat_amount), 0) AS total FROM dj_expenses
-      WHERE strftime('%Y', expense_date) = ? AND strftime('%m', expense_date) IN (?,?,?)
-        AND deleted_at IS NULL
+      SELECT COALESCE(SUM(r.vat_amount_cents), 0) / 100.0 AS total FROM receipts r
+      WHERE ${EXPENSE_TYPES}
+        AND r.input_tax_deductible = 1
+        AND r.status != 'storniert'
+        AND strftime('%Y', r.receipt_date) = ?
+        AND strftime('%m', r.receipt_date) IN (?,?,?)
+        AND ${DJ_AREA_FILTER}
     `).get(year, ...months) as { total: number };
 
     return {
@@ -100,53 +173,32 @@ router.get('/vat', (req, res) => {
 });
 
 // GET /api/dj/accounting/trips?year=2026
+// Read-Only-Sicht aus trips-Tabelle (Plan 04-06).
+// Mappt trips-Felder auf das DjTrip-Shape, damit Frontend (DjTripsPage) ohne Aenderung weiterlaeuft.
 router.get('/trips', (req, res) => {
   const year = String(req.query.year ?? new Date().getFullYear());
 
-  // Settings für Km-Pauschale und Verpflegung
-  const settings = db.prepare("SELECT value FROM dj_settings WHERE key = 'tax'").get() as { value: string } | undefined;
-  const tax = settings ? JSON.parse(settings.value) : {};
-  const mileageRate: number = tax.mileage_rate_per_km ?? 0.30;
+  const rows = db.prepare(`
+    SELECT
+      'manual'                          AS source,
+      t.id                              AS id,
+      t.linked_event_id                 AS event_id,
+      t.expense_date                    AS date,
+      e.title                           AS event_name,
+      t.start_location                  AS start_location,
+      t.end_location                    AS end_location,
+      t.distance_km                     AS distance_km,
+      t.purpose                         AS purpose,
+      (t.amount_cents / 100.0)          AS reimbursement_amount,
+      (t.rate_per_km_cents / 100.0)     AS mileage_rate,
+      0                                 AS meal_allowance
+    FROM trips t
+    LEFT JOIN dj_events e ON e.id = t.linked_event_id
+    WHERE strftime('%Y', t.expense_date) = ?
+    ORDER BY t.expense_date DESC, t.id DESC
+  `).all(year);
 
-  // Event-basierte Fahrten werden nicht mehr automatisch gelistet.
-  // Fahrten werden manuell beim Finalisieren der Rechnung erfasst.
-  const eventRows: never[] = [];
-
-  // Manuelle Fahrten aus dj_expenses(category='fahrzeug') mit JSON-notes
-  const manualRows = (db.prepare(`
-    SELECT id, expense_date, description, amount_gross, notes
-    FROM dj_expenses
-    WHERE category = 'fahrzeug'
-      AND deleted_at IS NULL
-      AND notes LIKE '{%'
-      AND strftime('%Y', expense_date) = ?
-    ORDER BY expense_date
-  `).all(year) as Array<Record<string, unknown>>).map((r) => {
-    // notes enthält JSON: { start_location, end_location, distance_km, rate_per_km }
-    let extra: Record<string, unknown> = {};
-    try { extra = r.notes ? JSON.parse(r.notes as string) : {}; } catch { extra = {}; }
-    return {
-      source: 'manual' as const,
-      id: r.id,
-      event_id: null,
-      date: r.expense_date,
-      event_name: null,
-      start_location: extra.start_location ?? null,
-      end_location: extra.end_location ?? null,
-      distance_km: extra.distance_km ?? null,
-      purpose: r.description,
-      reimbursement_amount: r.amount_gross,
-      mileage_rate: extra.rate_per_km ?? mileageRate,
-      meal_allowance: 0,
-    };
-  });
-
-  // Zusammenführen nach Datum sortiert
-  const all = [...eventRows, ...manualRows].sort((a, b) =>
-    String(a.date).localeCompare(String(b.date))
-  );
-
-  res.json(all);
+  res.json(rows);
 });
 
 export default router;

@@ -4,7 +4,6 @@ import eventsRouter from './dj.events.routes';
 import quotesRouter from './dj.quotes.routes';
 import invoicesRouter from './dj.invoices.routes';
 import servicesRouter from './dj.services.routes';
-import expensesRouter from './dj.expenses.routes';
 import accountingRouter from './dj.accounting.routes';
 import settingsRouter from './dj.settings.routes';
 import db from '../db/connection';
@@ -98,7 +97,6 @@ router.use('/events', eventsRouter);
 router.use('/quotes', quotesRouter);
 router.use('/invoices', invoicesRouter);
 router.use('/services', servicesRouter);
-router.use('/expenses', expensesRouter);
 router.use('/accounting', accountingRouter);
 router.use('/settings', settingsRouter);
 
