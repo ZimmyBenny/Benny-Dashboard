@@ -118,11 +118,15 @@ router.post('/upload', upload.array('file', 20), async (req, res, next) => {
       }
 
       // 4. Storage-Verzeichnis sicherstellen + Dateinamen bauen
+      //    SHA-Prefix garantiert Eindeutigkeit — sonst ueberschreiben sich
+      //    mehrere Uploads am gleichen Tag (gleiche Default-Felder), was
+      //    GoBD-relevanten Datenverlust ausloest.
       const today = new Date().toISOString().slice(0, 10);
       const dir = await ensureStorageDir(today);
       const ext = path.extname(file.originalname).toLowerCase();
       const supplier = sanitizeForFilename('unbekannt', 25);
-      const filename = `${today}_${supplier}_0-00_eingangsrechnung${ext}`;
+      const shaPrefix = sha.slice(0, 8);
+      const filename = `${today}_${supplier}_0-00_eingangsrechnung_${shaPrefix}${ext}`;
       const finalPath = path.join(dir, filename);
       await fs.rename(file.path, finalPath);
 
