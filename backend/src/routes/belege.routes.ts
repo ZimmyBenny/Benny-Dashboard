@@ -93,6 +93,45 @@ router.post('/run-task-automation', (_req, res) => {
 });
 
 /**
+ * GET /api/belege/areas
+ *
+ * Liefert alle nicht-archivierten Areas (Bereiche) sortiert nach sort_order/Name.
+ * Wird von der Belege-Upload-UI (Plan 04-09) genutzt, um den Bereichs-Picker
+ * zu fuellen. Eine vollwertige CRUD-API fuer Areas kommt in Plan 04-10
+ * (Settings) — hier nur Read-Only.
+ *
+ * MUSS vor `/:id` stehen — sonst matched Express `/:id` mit id="areas".
+ */
+router.get('/areas', (_req, res) => {
+  res.json(
+    db
+      .prepare(
+        `SELECT * FROM areas WHERE archived = 0 ORDER BY sort_order, name`,
+      )
+      .all(),
+  );
+});
+
+/**
+ * GET /api/belege/tax-categories
+ *
+ * Liefert alle nicht-archivierten Steuer-Kategorien sortiert nach
+ * sort_order/Name. Wird von der Belege-Upload-UI (Plan 04-09) als Picker-
+ * Quelle genutzt. CRUD kommt in Plan 04-10 (Settings).
+ *
+ * MUSS vor `/:id` stehen — sonst matched Express `/:id` mit id="tax-categories".
+ */
+router.get('/tax-categories', (_req, res) => {
+  res.json(
+    db
+      .prepare(
+        `SELECT * FROM tax_categories WHERE archived = 0 ORDER BY sort_order, name`,
+      )
+      .all(),
+  );
+});
+
+/**
  * GET /api/belege?area=DJ&status=offen&type=eingangsrechnung&from=YYYY-MM-DD&to=YYYY-MM-DD&search=...
  *
  * Wenn `area` gesetzt ist, wird ueber receipt_area_links gejoined.

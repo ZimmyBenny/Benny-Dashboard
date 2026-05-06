@@ -34,6 +34,7 @@
     "material-symbols": "^0.44.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
+    "react-dropzone": "^15.0.0",
     "react-pdf": "^10.4.1",
     "react-router-dom": "^7.14.0",
     "tailwindcss": "^4.2.2",

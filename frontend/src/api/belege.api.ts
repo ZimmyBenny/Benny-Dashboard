@@ -116,6 +116,28 @@ export interface SupplierSuggestion {
   tax_category_id: number | null;
 }
 
+/** Bereich (areas-Tabelle, nur nicht-archivierte). */
+export interface Area {
+  id: number;
+  name: string;
+  slug: string;
+  color: string;
+  icon: string;
+  sort_order: number;
+  archived: number;
+}
+
+/** Steuer-Kategorie (tax_categories-Tabelle, nur nicht-archivierte). */
+export interface TaxCategory {
+  id: number;
+  name: string;
+  slug: string;
+  kind: string;
+  default_vat_rate: number | null;
+  default_input_tax_deductible: number;
+  sort_order: number;
+}
+
 export interface UploadResult {
   created: Array<{
     id: number;
@@ -172,3 +194,11 @@ export const setReceiptAreas = (
 
 export const freigebenReceipt = (id: number): Promise<ReceiptDetail> =>
   apiClient.post(`/belege/${id}/freigeben`).then((r) => r.data);
+
+/** GET /api/belege/areas — Picker-Quelle fuer den Upload-Bereichs-Selector (Plan 04-09). */
+export const fetchAreas = (): Promise<Area[]> =>
+  apiClient.get('/belege/areas').then((r) => r.data);
+
+/** GET /api/belege/tax-categories — Picker-Quelle fuer den Steuer-Kategorie-Selector (Plan 04-09). */
+export const fetchTaxCategories = (): Promise<TaxCategory[]> =>
+  apiClient.get('/belege/tax-categories').then((r) => r.data);
