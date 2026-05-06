@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-11-dj-refactor-PLAN.md (Wave 7)
-last_updated: "2026-05-06T15:02:16.560Z"
+stopped_at: Tasks 1+2 of 04-12-seed-final-PLAN.md complete (Wave 8); Task 3 human-verify Checkpoint awaiting User UAT
+last_updated: "2026-05-06T15:24:37.262Z"
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 28
-  completed_plans: 27
-  percent: 96
+  completed_plans: 28
+  percent: 100
 ---
 
 # Project State: Benny Dashboard
@@ -40,7 +40,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 [█████████░] 86% — 24/28 plans complete
 
-**Stopped at:** Completed 04-11-dj-refactor-PLAN.md (Wave 7)
+**Stopped at:** Tasks 1+2 of 04-12-seed-final-PLAN.md complete (Wave 8); Task 3 human-verify Checkpoint awaiting User UAT
 
 ## Decisions Made
 
@@ -109,6 +109,10 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 - [Phase 04]: Plan 04-11: Response-Shape kompatibel halten via cents/100.0 in Backend-Aggregaten — DjAccountingPage und DjTripsPage brauchen keinen Cents-Refactor; nur Datenquelle wechselt von dj_invoices+dj_expenses auf receipts WHERE area=DJ
 - [Phase 04]: Plan 04-11: DjTripsPage createDjTrip auf POST /api/trips umgestellt (statt POST /dj/expenses) — sonst waere DjTripsPage nach dj.expenses.routes-Loeschung kaputt; Cents-Konvertierung im Frontend-Wrapper (Math.round)
 - [Phase 04]: Plan 04-11: v_dj_trips View zusammen mit dj_expenses gedropt — View war seit Plan 04-06 obsolet (Trips kommen aus trips-Tabelle); Schema-Cleanup macht zukuenftige Migrations-Inspektionen lesbarer
+- [Phase 04]: Plan 04-12: Seed-Skript idempotent — getOrInsertContact/receiptExists/djInvoiceExists/tripExists Lookups skippen bestehende Eintraege bei Re-Run; createBackup vor Inserts; db.transaction um Block; Mirrors via Service-Calls (verifiziert Plan 04-06-Pattern produktiv)
+- [Phase 04]: Plan 04-12: contacts-Spalten korrigiert (contact_kind/organization_name statt display_name/company/kind) — gleiche Konflikt-Aufloesung wie Plan 04-06; Plan-Snippet wäre Runtime-Error gewesen
+- [Phase 04]: Plan 04-12: Integration-Test-Reihenfolge tax-Aggregation VOR freigeben — Plan-Snippet hatte umgekehrte Reihenfolge die fehlschlaegt weil freigeben den status auf 'freigegeben' setzt aber KZ66 nur 'bezahlt' filtert
+- [Phase 04]: Plan 04-12: 5 Beispiel-Belege live (Alibaba USD/EUSt + Thomann DJ-Wareneinkauf + E.ON Privat 70% + Google IE Reverse-Charge + Hochzeit Müller via Mirror) + Trip 87km — Manual UAT Task 3 awaiting
 
 ## Open Decisions (must resolve before Milestone 2)
 

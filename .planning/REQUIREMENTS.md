@@ -182,10 +182,10 @@ Scope: GoBD-konformes Belege-Modul (`/belege`) als zentraler Hauptbereich. Gener
 
 ### Seed + Final-Verifikation
 
-- [ ] **BELEG-SEED-01**: 5 Beispiel-Belege (Alibaba, Thomann, E.ON, Google Ireland, Hochzeit Müller) seeded mit korrekten area/tax_category/Status
-- [ ] **BELEG-SEED-02**: Passende contacts (Alibaba Supplier, Thomann, E.ON, Google Ireland Limited, Familie Müller) seeded
-- [ ] **BELEG-SEED-03**: Beispiel-DJ-Gig in `dj_events` + Beispiel-Trip "Fahrt zur Hochzeit Müller, 87 km" in `trips`
-- [ ] **BELEG-SEED-04**: `tsc --noEmit` clean (Backend + Frontend); `vitest run` grün
+- [x] **BELEG-SEED-01**: 5 Beispiel-Belege (Alibaba, Thomann, E.ON, Google Ireland, Hochzeit Müller) seeded mit korrekten area/tax_category/Status
+- [x] **BELEG-SEED-02**: Passende contacts (Alibaba Supplier, Thomann, E.ON, Google Ireland Limited, Familie Müller) seeded
+- [x] **BELEG-SEED-03**: Beispiel-DJ-Gig in `dj_events` + Beispiel-Trip "Fahrt zur Hochzeit Müller, 87 km" in `trips`
+- [x] **BELEG-SEED-04**: `tsc --noEmit` clean (Backend + Frontend); `vitest run` grün
 
 ---
 

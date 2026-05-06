@@ -209,7 +209,7 @@ Plans:
 - [x] 04-09-ui-upload-PLAN.md — `/belege/neu` (Drag&Drop, OCR-Polling, Supplier-Suggest, Save)
 - [x] 04-10-ui-tax-export-settings-PLAN.md — `/belege/steuer` + `/belege/export` + `/belege/einstellungen` (Settings + Areas/Tax-Cats CRUD + DB-Backup-Button)
 - [x] 04-11-dj-refactor-PLAN.md — DjAccountingPage Read-Only auf receipts; Migration 039b dropped dj_expenses; dj.expenses.routes entfernt
-- [ ] 04-12-seed-final-PLAN.md — 5 Beispielbelege (Alibaba, Thomann, E.ON, Google Ireland, Hochzeit Müller) + Integration-Test + manuelle UAT
+- [x] 04-12-seed-final-PLAN.md — 5 Beispielbelege (Alibaba, Thomann, E.ON, Google Ireland, Hochzeit Müller) + Integration-Test + manuelle UAT
 
 ---
 
