@@ -22,9 +22,9 @@ import { mirrorInvoiceToReceipts } from '../src/services/djSyncService';
 
 function insertContact(name: string): number {
   const r = dbHolder.db!.prepare(`
-    INSERT INTO contacts (display_name, first_name, last_name, organization_name, kind)
-    VALUES (?, ?, ?, ?, 'company')
-  `).run(name, '', '', name);
+    INSERT INTO contacts (contact_kind, organization_name)
+    VALUES ('organization', ?)
+  `).run(name);
   return Number(r.lastInsertRowid);
 }
 
