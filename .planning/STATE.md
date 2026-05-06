@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-10-ui-tax-export-settings-PLAN.md (Wave 6)
-last_updated: "2026-05-06T14:31:24.691Z"
+stopped_at: Completed 04-11-dj-refactor-PLAN.md (Wave 7)
+last_updated: "2026-05-06T15:02:16.560Z"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 28
-  completed_plans: 26
-  percent: 93
+  completed_plans: 27
+  percent: 96
 ---
 
 # Project State: Benny Dashboard
@@ -40,7 +40,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 [█████████░] 86% — 24/28 plans complete
 
-**Stopped at:** Completed 04-10-ui-tax-export-settings-PLAN.md (Wave 6)
+**Stopped at:** Completed 04-11-dj-refactor-PLAN.md (Wave 7)
 
 ## Decisions Made
 
@@ -104,6 +104,11 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 - [Phase 04]: Plan 04-10: AreaRow.onBlur statt onChange fuer Inline-Edit — verhindert PATCH-Spam pro Tastendruck (Lehre aus Plan 04-09 Lazy-Supplier-Suggest); diff-Check garantiert genau einen PATCH pro tatsaechlicher Aenderung
 - [Phase 04]: Plan 04-10: CSV-Export mit UTF-8-BOM + ;-Trenner + CRLF — Excel-DE erkennt UTF-8 korrekt und erwartet ;-Trenner ohne Locale-Umschaltung; Cell-Quoting bei ;/Newline/Quote macht Export defensiv gegen Lieferantennamen mit Sonderzeichen
 - [Phase 04]: Plan 04-10: DB-Backup-Endpoint POST /api/belege/db-backup nutzt createBackup-Helper aus db/backup.ts; Pfad in Response damit User sieht wo das Backup liegt; kein separates audit_log (Backup-File selbst ist der Audit-Trail)
+- [Phase 04]: Plan 04-11: dj.accounting.routes nutzt EXISTS-Subquery auf receipt_area_links + areas WHERE slug='dj' statt INNER JOIN — verhindert Multiplikation von Aggregaten bei Multi-Area-Belegen (z.B. shared zwischen DJ und Privat)
+- [Phase 04]: Plan 04-11: Migration umbenannt von 039b auf 042_drop_dj_expenses.sql (039 = audit_log, 040 = belege, 041 = fahrten); Header-Kommentar dokumentiert Naming-Conflict-Resolution analog 04-01/04-06
+- [Phase 04]: Plan 04-11: Response-Shape kompatibel halten via cents/100.0 in Backend-Aggregaten — DjAccountingPage und DjTripsPage brauchen keinen Cents-Refactor; nur Datenquelle wechselt von dj_invoices+dj_expenses auf receipts WHERE area=DJ
+- [Phase 04]: Plan 04-11: DjTripsPage createDjTrip auf POST /api/trips umgestellt (statt POST /dj/expenses) — sonst waere DjTripsPage nach dj.expenses.routes-Loeschung kaputt; Cents-Konvertierung im Frontend-Wrapper (Math.round)
+- [Phase 04]: Plan 04-11: v_dj_trips View zusammen mit dj_expenses gedropt — View war seit Plan 04-06 obsolet (Trips kommen aus trips-Tabelle); Schema-Cleanup macht zukuenftige Migrations-Inspektionen lesbarer
 
 ## Open Decisions (must resolve before Milestone 2)
 

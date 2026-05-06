@@ -174,11 +174,11 @@ Scope: GoBD-konformes Belege-Modul (`/belege`) als zentraler Hauptbereich. Gener
 
 ### DJ-Refactor
 
-- [ ] **BELEG-DJREF-01**: DjAccountingPage zeigt Daten aus `receipts WHERE area=DJ` (NICHT mehr aus dj_invoices/dj_expenses für Tab Übersicht)
-- [ ] **BELEG-DJREF-02**: DjAccountingPage Tab "Ausgaben" entfernt (oder zeigt Hinweis "Ausgaben werden im Belege-Modul erfasst" mit Link zu `/belege/neu?area=DJ`)
-- [ ] **BELEG-DJREF-03**: `dj.expenses.routes.ts` entfernt; `app.use('/api/dj/expenses', ...)` aus `dj.routes.ts` entfernt
-- [ ] **BELEG-DJREF-04**: `dj_expenses`-Tabelle in Migration 039 mit `DROP TABLE IF EXISTS dj_expenses` entfernt (nach Trips-Migration; `createBackup` davor)
-- [ ] **BELEG-DJREF-05**: `dj.accounting.routes.ts` Aggregations-Queries umgeschrieben auf `receipts` (revenue, expenses, vat, profit)
+- [x] **BELEG-DJREF-01**: DjAccountingPage zeigt Daten aus `receipts WHERE area=DJ` (NICHT mehr aus dj_invoices/dj_expenses für Tab Übersicht)
+- [x] **BELEG-DJREF-02**: DjAccountingPage Tab "Ausgaben" entfernt (oder zeigt Hinweis "Ausgaben werden im Belege-Modul erfasst" mit Link zu `/belege/neu?area=DJ`)
+- [x] **BELEG-DJREF-03**: `dj.expenses.routes.ts` entfernt; `app.use('/api/dj/expenses', ...)` aus `dj.routes.ts` entfernt
+- [x] **BELEG-DJREF-04**: `dj_expenses`-Tabelle in Migration 039 mit `DROP TABLE IF EXISTS dj_expenses` entfernt (nach Trips-Migration; `createBackup` davor)
+- [x] **BELEG-DJREF-05**: `dj.accounting.routes.ts` Aggregations-Queries umgeschrieben auf `receipts` (revenue, expenses, vat, profit)
 
 ### Seed + Final-Verifikation
 
