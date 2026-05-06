@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-03-upload-ocr-PLAN.md (Wave 2)
-last_updated: "2026-05-06T14:30:00.000Z"
+stopped_at: Completed 04-04-supplier-memory-PLAN.md (Wave 3)
+last_updated: "2026-05-06T12:42:50.121Z"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 28
-  completed_plans: 19
-  percent: 68
+  completed_plans: 20
+  percent: 71
 ---
 
 # Project State: Benny Dashboard
@@ -40,7 +40,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 [██████░░░░] 68% — 19/28 plans complete
 
-**Stopped at:** Completed 04-03-upload-ocr-PLAN.md (Wave 2)
+**Stopped at:** Completed 04-04-supplier-memory-PLAN.md (Wave 3)
 
 ## Decisions Made
 
@@ -74,6 +74,10 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 - [Phase 04]: Plan 04-03: Two-Stage-Upload-Limit — multer hard-limit 100 MB (DoS-Schutz beim Schreiben) + settings-basiertes max_upload_size_mb (Default 25, pro File nachgepruepft -> 413)
 - [Phase 04]: Plan 04-03: fileFilter ueber path.extname.toLowerCase statt mime-type — robust gegen Browser-Generic-Mime und blockt .pdf.exe (extname == .exe); mime_type wird trotzdem in receipt_files persistiert fuer Audit
 - [Phase 04]: Plan 04-03: Sub-Router-Mount (belege.routes.ts macht router.use('/', uploadRouter)) — Upload ist unter /api/belege/upload erreichbar OHNE separates app.use; minimiert app.ts-Aenderungen fuer Folge-Plans
+- [Phase 04]: Plan 04-04: supplier_memory.supplier_normalized verwendet sanitizeForFilename(60) — derselbe Slug wie Belege-Filenames, garantiert dass Memory und Datei-Pfade synchron bleiben
+- [Phase 04]: Plan 04-04: NULL-safe UPSERT mit IS-Operator (existing-Lookup matched NULLs); ORDER BY usage_count DESC, last_used DESC, id DESC — haeufigster Tripel gewinnt, bei Gleichstand juengster
+- [Phase 04]: Plan 04-04: GET /supplier-suggest 404 statt 200-mit-null-Body — REST-konform, UI checkt status-Code; Endpoint MUSS vor /:id im Router stehen
+- [Phase 04]: Plan 04-04: POST /:id/areas separater Endpoint mit db.transaction (DELETE+INSERT atomar) — n:m receipt_area_links bekommt eigenen Pfad; PATCH /:id bleibt schlank (nur receipts-Spalten)
 
 ## Open Decisions (must resolve before Milestone 2)
 

@@ -137,10 +137,10 @@ Scope: GoBD-konformes Belege-Modul (`/belege`) als zentraler Hauptbereich. Gener
 
 ### Lieferanten-Lerngedächtnis
 
-- [ ] **BELEG-SUPPLIER-01**: `supplier_memory`-Tabelle mit (supplier_normalized, area_id, tax_category_id, usage_count, last_used)
-- [ ] **BELEG-SUPPLIER-02**: `supplierMemoryService.suggest(supplierName)` liefert (area_id, tax_category_id) basierend auf höchstem usage_count
-- [ ] **BELEG-SUPPLIER-03**: `supplierMemoryService.recordUsage(supplierName, areaId, taxCategoryId)` inkrementiert usage_count und updatet last_used
-- [ ] **BELEG-SUPPLIER-04**: Beim 2. Upload mit gleichem Lieferant wird Auto-Vorschlag im Upload-UI gezeigt
+- [x] **BELEG-SUPPLIER-01**: `supplier_memory`-Tabelle mit (supplier_normalized, area_id, tax_category_id, usage_count, last_used)
+- [x] **BELEG-SUPPLIER-02**: `supplierMemoryService.suggest(supplierName)` liefert (area_id, tax_category_id) basierend auf höchstem usage_count
+- [x] **BELEG-SUPPLIER-03**: `supplierMemoryService.recordUsage(supplierName, areaId, taxCategoryId)` inkrementiert usage_count und updatet last_used
+- [x] **BELEG-SUPPLIER-04**: Beim 2. Upload mit gleichem Lieferant wird Auto-Vorschlag im Upload-UI gezeigt
 
 ### Task-Automation
 
