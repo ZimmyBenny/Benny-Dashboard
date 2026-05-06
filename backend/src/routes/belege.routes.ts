@@ -32,6 +32,7 @@ import { supplierMemoryService } from '../services/supplierMemoryService';
 import { taskAutomationService } from '../services/taskAutomationService';
 import { aggregateForUstva, type UstvaPeriod } from '../services/taxCalcService';
 import { logAudit } from '../services/audit.service';
+import { createBackup } from '../db/backup';
 import uploadRouter from './belege.upload.routes';
 import type { Receipt } from '../types/receipt';
 import type { AuthenticatedRequest } from '../middleware/auth';
@@ -129,6 +130,508 @@ router.get('/tax-categories', (_req, res) => {
       )
       .all(),
   );
+});
+
+/**
+ * GET /api/belege/ustva?year=2026
+ *
+ * Liefert UStVA-Buckets fuer das angegebene Jahr. Layout abhaengig vom Setting
+ * `app_settings.ustva_zeitraum`:
+ *  - 'keine'   → leeres Buckets-Array (UI rendert Hinweis)
+ *  - 'jahr'    → 1 Bucket (Jahres-Aggregation)
+ *  - 'quartal' → 4 Buckets (Q1-Q4)
+ *  - 'monat'   → 12 Buckets (Jan-Dez)
+ *
+ * Aggregations-Service: taxCalcService.aggregateForUstva (Plan 04-02).
+ *
+ * MUSS vor `/:id` stehen — sonst matched Express `/:id` mit id="ustva" (NaN → 400).
+ */
+router.get('/ustva', (req, res) => {
+  const yearRaw = req.query.year ?? new Date().getFullYear();
+  const year = parseInt(String(yearRaw), 10);
+  if (!Number.isFinite(year)) {
+    res.status(400).json({ error: 'year query param required' });
+    return;
+  }
+  const periodSetting =
+    (db
+      .prepare(`SELECT value FROM app_settings WHERE key = 'ustva_zeitraum'`)
+      .get() as { value: string } | undefined)?.value || 'keine';
+
+  if (periodSetting === 'keine') {
+    res.json({ year, period: 'keine', buckets: [] });
+    return;
+  }
+  const period = periodSetting as UstvaPeriod;
+  const buckets = aggregateForUstva(year, period);
+  res.json({ year, period, buckets });
+});
+
+/**
+ * GET /api/belege/ustva-drill?year=2026&period_index=2
+ *
+ * Drilldown-Liste fuer einen UStVA-Bucket. Liefert die zugrunde liegenden
+ * Receipts (steuerrelevant=1, status='bezahlt'/'teilbezahlt', payment_date im Bucket-Zeitraum).
+ *
+ * `period_index`:
+ *  - bei period='jahr' → ignoriert (alle 12 Monate)
+ *  - bei period='quartal' → 1..4
+ *  - bei period='monat'   → 1..12
+ *
+ * MUSS vor `/:id` stehen.
+ */
+router.get('/ustva-drill', (req, res) => {
+  const yearRaw = req.query.year ?? new Date().getFullYear();
+  const year = parseInt(String(yearRaw), 10);
+  if (!Number.isFinite(year)) {
+    res.status(400).json({ error: 'year query param required' });
+    return;
+  }
+  const periodSetting =
+    (db
+      .prepare(`SELECT value FROM app_settings WHERE key = 'ustva_zeitraum'`)
+      .get() as { value: string } | undefined)?.value || 'jahr';
+  const idx = parseInt(String(req.query.period_index ?? 0), 10);
+
+  let months: string[];
+  if (periodSetting === 'jahr') {
+    months = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
+  } else if (periodSetting === 'quartal') {
+    if (!Number.isFinite(idx) || idx < 1 || idx > 4) {
+      res.status(400).json({ error: 'period_index must be 1..4 for quartal' });
+      return;
+    }
+    months = [(idx - 1) * 3 + 1, (idx - 1) * 3 + 2, (idx - 1) * 3 + 3].map((m) =>
+      String(m).padStart(2, '0'),
+    );
+  } else {
+    // monat
+    if (!Number.isFinite(idx) || idx < 1 || idx > 12) {
+      res.status(400).json({ error: 'period_index must be 1..12 for monat' });
+      return;
+    }
+    months = [String(idx).padStart(2, '0')];
+  }
+
+  const placeholders = months.map(() => '?').join(',');
+  const rows = db
+    .prepare(
+      `
+      SELECT * FROM receipts
+      WHERE steuerrelevant = 1
+        AND status IN ('bezahlt','teilbezahlt')
+        AND payment_date IS NOT NULL
+        AND strftime('%Y', payment_date) = ?
+        AND strftime('%m', payment_date) IN (${placeholders})
+      ORDER BY payment_date DESC, id DESC
+    `,
+    )
+    .all(String(year), ...months);
+  res.json(rows);
+});
+
+/**
+ * GET /api/belege/export-csv?year=2026&area=DJ&tax_category_id=3
+ *
+ * CSV-Export der Belege mit optionalen Filtern (Jahr, Bereich, Kategorie).
+ * Antwort:
+ *  - Content-Type: text/csv; charset=utf-8
+ *  - Content-Disposition: attachment; filename="belege-<year>.csv"
+ *  - BOM (﻿) als erstes Byte → Excel erkennt UTF-8 korrekt
+ *
+ * SQL-Injection-Schutz: Alle WHERE-Werte gehen ueber Placeholder; year wird per
+ * strftime verglichen (kein String-Concat).
+ *
+ * MUSS vor `/:id` stehen — sonst matched `/:id` mit id="export-csv".
+ */
+router.get('/export-csv', (req, res) => {
+  const { year, area, tax_category_id } = req.query as Record<string, string | undefined>;
+  const where: string[] = [];
+  const params: unknown[] = [];
+  if (year) {
+    where.push(`strftime('%Y', r.receipt_date) = ?`);
+    params.push(String(year));
+  }
+  if (tax_category_id) {
+    const tcId = parseInt(tax_category_id, 10);
+    if (Number.isFinite(tcId)) {
+      where.push(`r.tax_category_id = ?`);
+      params.push(tcId);
+    }
+  }
+
+  let sql: string;
+  if (area) {
+    sql = `
+      SELECT DISTINCT r.* FROM receipts r
+      INNER JOIN receipt_area_links ral ON ral.receipt_id = r.id
+      INNER JOIN areas a ON a.id = ral.area_id
+      WHERE a.name = ? ${where.length ? 'AND ' + where.join(' AND ') : ''}
+      ORDER BY r.receipt_date, r.id
+    `;
+    params.unshift(area);
+  } else {
+    sql = `
+      SELECT r.* FROM receipts r
+      ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+      ORDER BY r.receipt_date, r.id
+    `;
+  }
+  const rows = db.prepare(sql).all(...params) as Array<Record<string, unknown>>;
+
+  const headers = [
+    'id',
+    'type',
+    'receipt_date',
+    'due_date',
+    'payment_date',
+    'supplier_name',
+    'supplier_invoice_number',
+    'amount_gross_cents',
+    'amount_net_cents',
+    'vat_rate',
+    'vat_amount_cents',
+    'status',
+    'tax_category',
+    'reverse_charge',
+    'steuerrelevant',
+  ];
+
+  function csvCell(v: unknown): string {
+    if (v === null || v === undefined) return '';
+    let s = String(v);
+    // CSV-Quoting: Bei ;, \n, \r, " -> in "..." wrappen, " als "" escapen
+    if (/[;\n\r"]/.test(s)) {
+      s = `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  }
+
+  const csv = [
+    headers.join(';'),
+    ...rows.map((r) => headers.map((h) => csvCell(r[h])).join(';')),
+  ].join('\r\n');
+
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="belege-${year || 'all'}.csv"`,
+  );
+  // BOM (﻿) damit Excel die Datei als UTF-8 erkennt
+  res.send('﻿' + csv);
+});
+
+/**
+ * GET /api/belege/settings
+ *
+ * Liefert die 9 Belege-spezifischen Settings als Key-Value-Objekt:
+ *  - ustva_zeitraum, ist_versteuerung, payment_task_lead_days
+ *  - max_upload_size_mb, ocr_confidence_threshold, ocr_engine
+ *  - mileage_rate_default_per_km, mileage_rate_above_20km_per_km
+ *  - belege_storage_path
+ *
+ * MUSS vor `/:id` stehen.
+ */
+router.get('/settings', (_req, res) => {
+  const keys = [
+    'ustva_zeitraum',
+    'ist_versteuerung',
+    'payment_task_lead_days',
+    'max_upload_size_mb',
+    'ocr_confidence_threshold',
+    'ocr_engine',
+    'mileage_rate_default_per_km',
+    'mileage_rate_above_20km_per_km',
+    'belege_storage_path',
+  ];
+  const result: Record<string, string> = {};
+  for (const k of keys) {
+    const r = db
+      .prepare(`SELECT value FROM app_settings WHERE key = ?`)
+      .get(k) as { value: string } | undefined;
+    result[k] = r?.value ?? '';
+  }
+  res.json(result);
+});
+
+/**
+ * PATCH /api/belege/settings
+ *
+ * Bulk-Update der Belege-Settings. Body: Record<string, string>.
+ * Nur die im Body enthaltenen Keys werden geschrieben (UPSERT). Loggt jeden
+ * Key einzeln in audit_log (entity_type='app_setting').
+ *
+ * MUSS vor `/:id` stehen.
+ */
+router.patch('/settings', (req, res) => {
+  const updates = (req.body ?? {}) as Record<string, unknown>;
+  if (typeof updates !== 'object' || updates === null) {
+    res.status(400).json({ error: 'body must be a key-value object' });
+    return;
+  }
+  const tx = db.transaction(() => {
+    for (const [k, v] of Object.entries(updates)) {
+      const value = String(v ?? '');
+      db.prepare(
+        `INSERT INTO app_settings (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`,
+      ).run(k, value);
+      logAudit(req, 'app_setting', 0, 'update', undefined, { key: k, value });
+    }
+  });
+  tx();
+  res.json({ ok: true });
+});
+
+/**
+ * POST /api/belege/areas
+ *
+ * Erstellt einen neuen Bereich (Area). Body: { name, color?, icon? }.
+ * Slug wird aus dem Namen generiert (lowercase + nicht-alphanum → '-').
+ * sort_order automatisch ans Ende (max + 10).
+ *
+ * MUSS vor `/:id` stehen.
+ */
+router.post('/areas', (req, res) => {
+  const { name, color, icon } = (req.body ?? {}) as {
+    name?: string;
+    color?: string;
+    icon?: string;
+  };
+  if (!name?.trim()) {
+    res.status(400).json({ error: 'name required' });
+    return;
+  }
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  try {
+    const result = db
+      .prepare(
+        `INSERT INTO areas (name, slug, color, icon, sort_order)
+         VALUES (?, ?, ?, ?, COALESCE((SELECT MAX(sort_order) FROM areas), 0) + 10)`,
+      )
+      .run(name.trim(), slug, color ?? '#94aaff', icon ?? 'category');
+    const id = Number(result.lastInsertRowid);
+    logAudit(req, 'area', id, 'create', undefined, { name, color, icon });
+    const created = db.prepare(`SELECT * FROM areas WHERE id = ?`).get(id);
+    res.status(201).json(created);
+  } catch (err) {
+    const msg = (err as Error).message ?? '';
+    if (msg.includes('UNIQUE')) {
+      res.status(409).json({ error: 'name oder slug bereits vorhanden' });
+      return;
+    }
+    res.status(500).json({ error: msg });
+  }
+});
+
+/**
+ * PATCH /api/belege/areas/:id
+ *
+ * Partial-Update eines Bereichs. Felder: name, color, icon, archived, sort_order.
+ * COALESCE-Pattern: undefined-Felder bleiben unveraendert.
+ *
+ * MUSS vor `/:id` stehen.
+ */
+router.patch('/areas/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: 'Ungueltige id' });
+    return;
+  }
+  const existing = db.prepare(`SELECT * FROM areas WHERE id = ?`).get(id);
+  if (!existing) {
+    res.status(404).end();
+    return;
+  }
+  const { name, color, icon, archived, sort_order } = (req.body ?? {}) as {
+    name?: string;
+    color?: string;
+    icon?: string;
+    archived?: number;
+    sort_order?: number;
+  };
+  try {
+    db.prepare(
+      `UPDATE areas SET
+         name = COALESCE(?, name),
+         color = COALESCE(?, color),
+         icon = COALESCE(?, icon),
+         archived = COALESCE(?, archived),
+         sort_order = COALESCE(?, sort_order),
+         updated_at = datetime('now')
+       WHERE id = ?`,
+    ).run(
+      name ?? null,
+      color ?? null,
+      icon ?? null,
+      archived ?? null,
+      sort_order ?? null,
+      id,
+    );
+    logAudit(req, 'area', id, 'update', existing, req.body);
+    res.json(db.prepare(`SELECT * FROM areas WHERE id = ?`).get(id));
+  } catch (err) {
+    const msg = (err as Error).message ?? '';
+    if (msg.includes('UNIQUE')) {
+      res.status(409).json({ error: 'name oder slug bereits vorhanden' });
+      return;
+    }
+    res.status(500).json({ error: msg });
+  }
+});
+
+/**
+ * POST /api/belege/tax-categories
+ *
+ * Erstellt eine neue Steuer-Kategorie. Body: { name, kind, default_vat_rate?, default_input_tax_deductible? }.
+ * Kind muss 'einnahme' | 'ausgabe' | 'beides' sein. Slug aus dem Namen generiert.
+ *
+ * MUSS vor `/:id` stehen.
+ */
+router.post('/tax-categories', (req, res) => {
+  const { name, kind, default_vat_rate, default_input_tax_deductible } = (req.body ?? {}) as {
+    name?: string;
+    kind?: 'einnahme' | 'ausgabe' | 'beides';
+    default_vat_rate?: number;
+    default_input_tax_deductible?: number;
+  };
+  if (!name?.trim() || !kind) {
+    res.status(400).json({ error: 'name and kind required' });
+    return;
+  }
+  if (!['einnahme', 'ausgabe', 'beides'].includes(kind)) {
+    res.status(400).json({ error: "kind must be 'einnahme' | 'ausgabe' | 'beides'" });
+    return;
+  }
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  try {
+    const result = db
+      .prepare(
+        `INSERT INTO tax_categories
+           (name, slug, kind, default_vat_rate, default_input_tax_deductible, sort_order)
+         VALUES (?, ?, ?, ?, ?, COALESCE((SELECT MAX(sort_order) FROM tax_categories), 0) + 10)`,
+      )
+      .run(
+        name.trim(),
+        slug,
+        kind,
+        default_vat_rate ?? null,
+        default_input_tax_deductible ?? 1,
+      );
+    const id = Number(result.lastInsertRowid);
+    logAudit(req, 'tax_category', id, 'create', undefined, req.body);
+    const created = db
+      .prepare(`SELECT * FROM tax_categories WHERE id = ?`)
+      .get(id);
+    res.status(201).json(created);
+  } catch (err) {
+    const msg = (err as Error).message ?? '';
+    if (msg.includes('UNIQUE')) {
+      res.status(409).json({ error: 'name oder slug bereits vorhanden' });
+      return;
+    }
+    res.status(500).json({ error: msg });
+  }
+});
+
+/**
+ * PATCH /api/belege/tax-categories/:id
+ *
+ * Partial-Update einer Steuer-Kategorie.
+ *
+ * MUSS vor `/:id` stehen.
+ */
+router.patch('/tax-categories/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: 'Ungueltige id' });
+    return;
+  }
+  const existing = db
+    .prepare(`SELECT * FROM tax_categories WHERE id = ?`)
+    .get(id);
+  if (!existing) {
+    res.status(404).end();
+    return;
+  }
+  const {
+    name,
+    kind,
+    default_vat_rate,
+    default_input_tax_deductible,
+    archived,
+    sort_order,
+  } = (req.body ?? {}) as {
+    name?: string;
+    kind?: string;
+    default_vat_rate?: number | null;
+    default_input_tax_deductible?: number;
+    archived?: number;
+    sort_order?: number;
+  };
+  if (kind !== undefined && !['einnahme', 'ausgabe', 'beides'].includes(kind)) {
+    res.status(400).json({ error: "kind must be 'einnahme' | 'ausgabe' | 'beides'" });
+    return;
+  }
+  try {
+    db.prepare(
+      `UPDATE tax_categories SET
+         name = COALESCE(?, name),
+         kind = COALESCE(?, kind),
+         default_vat_rate = COALESCE(?, default_vat_rate),
+         default_input_tax_deductible = COALESCE(?, default_input_tax_deductible),
+         archived = COALESCE(?, archived),
+         sort_order = COALESCE(?, sort_order),
+         updated_at = datetime('now')
+       WHERE id = ?`,
+    ).run(
+      name ?? null,
+      kind ?? null,
+      default_vat_rate ?? null,
+      default_input_tax_deductible ?? null,
+      archived ?? null,
+      sort_order ?? null,
+      id,
+    );
+    logAudit(req, 'tax_category', id, 'update', existing, req.body);
+    res.json(db.prepare(`SELECT * FROM tax_categories WHERE id = ?`).get(id));
+  } catch (err) {
+    const msg = (err as Error).message ?? '';
+    if (msg.includes('UNIQUE')) {
+      res.status(409).json({ error: 'name oder slug bereits vorhanden' });
+      return;
+    }
+    res.status(500).json({ error: msg });
+  }
+});
+
+/**
+ * POST /api/belege/db-backup
+ *
+ * Manueller Trigger fuer ein DB-Backup (createBackup-Helper aus db/backup.ts).
+ * Single-User-App, kein Rate-Limiting noetig (siehe Threat T-04-SETTINGS-02).
+ *
+ * MUSS vor `/:id` stehen.
+ */
+router.post('/db-backup', (_req, res) => {
+  try {
+    const path = createBackup('manual-belege-settings');
+    if (!path) {
+      res.status(500).json({ error: 'Backup-Erstellung fehlgeschlagen' });
+      return;
+    }
+    res.json({ ok: true, path });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
 });
 
 /**

@@ -202,3 +202,92 @@ export const fetchAreas = (): Promise<Area[]> =>
 /** GET /api/belege/tax-categories — Picker-Quelle fuer den Steuer-Kategorie-Selector (Plan 04-09). */
 export const fetchTaxCategories = (): Promise<TaxCategory[]> =>
   apiClient.get('/belege/tax-categories').then((r) => r.data);
+
+// ── Tax / UStVA / Settings (Plan 04-10) ───────────────────────────────────
+
+/**
+ * UStVA-Bucket-Response. Layout abhaengig vom Setting `ustva_zeitraum`:
+ *  - 'keine'   → buckets = []
+ *  - 'jahr'    → 1 Bucket
+ *  - 'quartal' → 4 Buckets
+ *  - 'monat'   → 12 Buckets
+ */
+export interface UstvaBucket {
+  label: string;
+  year: number;
+  period_index: number;
+  kz81_umsatz_19_net_cents: number;
+  kz86_umsatz_7_net_cents: number;
+  kz81_vat_cents: number;
+  kz86_vat_cents: number;
+  kz66_vorsteuer_cents: number;
+  kz84_rc_net_cents: number;
+  kz85_rc_vat_cents: number;
+  kz67_rc_vorsteuer_cents: number;
+  kz62_eust_cents: number;
+  zahllast_cents: number;
+}
+
+export interface UstvaResponse {
+  year: number;
+  period: 'keine' | 'jahr' | 'quartal' | 'monat';
+  buckets: UstvaBucket[];
+}
+
+/** GET /api/belege/ustva?year=2026 — UStVA-Aggregation abhaengig vom Setting. */
+export const fetchUstva = (year: number): Promise<UstvaResponse> =>
+  apiClient.get('/belege/ustva', { params: { year } }).then((r) => r.data);
+
+/** GET /api/belege/ustva-drill?year=2026&period_index=2 — Drilldown-Liste pro Bucket. */
+export const fetchUstvaDrill = (
+  year: number,
+  period_index: number,
+): Promise<ReceiptListItem[]> =>
+  apiClient
+    .get('/belege/ustva-drill', { params: { year, period_index } })
+    .then((r) => r.data);
+
+/** GET /api/belege/settings — alle 9 Belege-Settings als Key-Value-Objekt. */
+export const fetchBelegeSettings = (): Promise<Record<string, string>> =>
+  apiClient.get('/belege/settings').then((r) => r.data);
+
+/** PATCH /api/belege/settings — Bulk-Update der Belege-Settings. */
+export const updateBelegeSettings = (
+  updates: Record<string, string>,
+): Promise<{ ok: true }> =>
+  apiClient.patch('/belege/settings', updates).then((r) => r.data);
+
+/** POST /api/belege/areas — neuen Bereich erstellen. */
+export const createArea = (data: {
+  name: string;
+  color?: string;
+  icon?: string;
+}): Promise<Area> =>
+  apiClient.post('/belege/areas', data).then((r) => r.data);
+
+/** PATCH /api/belege/areas/:id — Bereich aktualisieren. */
+export const updateArea = (
+  id: number,
+  data: Partial<Area>,
+): Promise<Area> =>
+  apiClient.patch(`/belege/areas/${id}`, data).then((r) => r.data);
+
+/** POST /api/belege/tax-categories — neue Steuer-Kategorie erstellen. */
+export const createTaxCategory = (data: {
+  name: string;
+  kind: 'einnahme' | 'ausgabe' | 'beides';
+  default_vat_rate?: number | null;
+  default_input_tax_deductible?: number;
+}): Promise<TaxCategory> =>
+  apiClient.post('/belege/tax-categories', data).then((r) => r.data);
+
+/** PATCH /api/belege/tax-categories/:id — Steuer-Kategorie aktualisieren. */
+export const updateTaxCategory = (
+  id: number,
+  data: Partial<TaxCategory>,
+): Promise<TaxCategory> =>
+  apiClient.patch(`/belege/tax-categories/${id}`, data).then((r) => r.data);
+
+/** POST /api/belege/db-backup — manuelles DB-Backup ausloesen. */
+export const triggerDbBackup = (): Promise<{ ok: true; path: string }> =>
+  apiClient.post('/belege/db-backup').then((r) => r.data);
