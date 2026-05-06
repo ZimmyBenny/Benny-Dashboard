@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed quick-260424-rzd-PLAN.md
-last_updated: "2026-05-05T21:51:06.181Z"
+stopped_at: Completed 04-00-audit-refactor-PLAN.md (Wave 0)
+last_updated: "2026-05-06T08:41:07.721Z"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 28
-  completed_plans: 15
-  percent: 54
+  completed_plans: 16
+  percent: 57
 ---
 
 # Project State: Benny Dashboard
@@ -21,7 +21,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 **Core value:** Alles an einem Ort, lokal und privat — ohne Cloud-Abhängigkeiten, ohne Reibung beim täglichen Zugriff.
 **Current milestone:** Milestone 1 — Foundation → Working Dashboard Shell
-**Current focus:** Phase 3 — Shell + Design System
+**Current focus:** Phase 04 — belege-modul-dj-buchhaltungs-refactoring
 
 ## Current Status
 
@@ -40,7 +40,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 [██████░░░░] 60% — 6/10 plans complete
 
-**Stopped at:** Completed quick-260424-rzd-PLAN.md
+**Stopped at:** Completed 04-00-audit-refactor-PLAN.md (Wave 0)
 
 ## Decisions Made
 
@@ -58,6 +58,9 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 - [Phase 02]: App.tsx repurposed as temp authenticated placeholder for Phase 2 UAT — Phase 3 replaces with AppShell (02-05)
 - [Phase quick-260416-ndv]: COMPUTED_FIELDS_SQL als Konstante in contracts.routes.ts — nicht inline 3x wiederholt
 - [Phase quick-260416-ndv]: Segment 'cancellable' WHERE-Bedingung dupliziert CASE-Ausdruck inline — SQLite erlaubt kein WHERE auf aliasierte computed columns
+- [Phase 04]: Plan 04-00: Generisches audit_log via INSERT...SELECT mit NOT EXISTS-Schutz statt RENAME — idempotent + Datenverlust-sicher
+- [Phase 04]: Plan 04-00: vitest@2 + pool=forks + singleFork — better-sqlite3 ist nicht worker-safe; Tests laden alle 39 Migrationen in :memory:
+- [Phase 04]: Plan 04-00: audit.service.ts behaelt logAudit-Signatur identisch zu dj.audit.service — 60+ Bestandsaufrufer brauchen nur Import-Pfad-Wechsel
 
 ## Open Decisions (must resolve before Milestone 2)
 

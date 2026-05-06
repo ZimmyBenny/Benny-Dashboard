@@ -92,18 +92,18 @@ Scope: GoBD-konformes Belege-Modul (`/belege`) als zentraler Hauptbereich. Gener
 
 ### Audit-Log (generisch)
 
-- [ ] **BELEG-AUDIT-01**: Generische `audit_log`-Tabelle existiert mit Feldern (id, entity_type, entity_id, action, field_name, old_value, new_value, actor, user_id, ip_address, user_agent, created_at)
-- [ ] **BELEG-AUDIT-02**: Append-only Triggers (BEFORE UPDATE/DELETE → RAISE ABORT) blocken jede Änderung
-- [ ] **BELEG-AUDIT-03**: `dj.audit.service.ts` umbenannt zu `audit.service.ts`; `logAudit`-Signatur identisch (entityType erweitert)
-- [ ] **BELEG-AUDIT-04**: Bestehende `dj_audit_log`-Daten wurden per `INSERT INTO audit_log SELECT ...` migriert; `dj_audit_log` bleibt erhalten (kein DROP in dieser Phase)
-- [ ] **BELEG-AUDIT-05**: Alle 6 DJ-Routes (invoices, quotes, events, expenses, services, settings) nutzen den neuen Import `import { logAudit } from '../services/audit.service'`
+- [x] **BELEG-AUDIT-01**: Generische `audit_log`-Tabelle existiert mit Feldern (id, entity_type, entity_id, action, field_name, old_value, new_value, actor, user_id, ip_address, user_agent, created_at)
+- [x] **BELEG-AUDIT-02**: Append-only Triggers (BEFORE UPDATE/DELETE → RAISE ABORT) blocken jede Änderung
+- [x] **BELEG-AUDIT-03**: `dj.audit.service.ts` umbenannt zu `audit.service.ts`; `logAudit`-Signatur identisch (entityType erweitert)
+- [x] **BELEG-AUDIT-04**: Bestehende `dj_audit_log`-Daten wurden per `INSERT INTO audit_log SELECT ...` migriert; `dj_audit_log` bleibt erhalten (kein DROP in dieser Phase)
+- [x] **BELEG-AUDIT-05**: Alle 6 DJ-Routes (invoices, quotes, events, expenses, services, settings) nutzen den neuen Import `import { logAudit } from '../services/audit.service'`
 
 ### Test-Infrastruktur (Wave 0)
 
-- [ ] **BELEG-TEST-01**: `vitest` + `@vitest/ui` in `backend/package.json` devDependencies; `npm test`-Script vorhanden
-- [ ] **BELEG-TEST-02**: `backend/vitest.config.ts` konfiguriert mit `pool: 'forks'` (better-sqlite3 nicht Worker-safe)
-- [ ] **BELEG-TEST-03**: `backend/test/setup.ts` erzeugt In-Memory-DB (`:memory:`) und führt Migrationen aus
-- [ ] **BELEG-TEST-04**: Mindestens ein grüner Audit-Smoke-Test (`backend/test/audit.test.ts`) — `npx vitest run` exited mit Code 0
+- [x] **BELEG-TEST-01**: `vitest` + `@vitest/ui` in `backend/package.json` devDependencies; `npm test`-Script vorhanden
+- [x] **BELEG-TEST-02**: `backend/vitest.config.ts` konfiguriert mit `pool: 'forks'` (better-sqlite3 nicht Worker-safe)
+- [x] **BELEG-TEST-03**: `backend/test/setup.ts` erzeugt In-Memory-DB (`:memory:`) und führt Migrationen aus
+- [x] **BELEG-TEST-04**: Mindestens ein grüner Audit-Smoke-Test (`backend/test/audit.test.ts`) — `npx vitest run` exited mit Code 0
 
 ### Schema (Migration 039)
 

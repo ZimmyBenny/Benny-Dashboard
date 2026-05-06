@@ -197,7 +197,7 @@ Future milestone phases — scope and plans defined at milestone start, not now.
 - Wave 6: Plan 12 (seed-final)
 
 Plans:
-- [ ] 04-00-audit-refactor-PLAN.md — Generisches `audit_log` (`dj_audit_log` umziehen) + vitest-Setup im Backend
+- [x] 04-00-audit-refactor-PLAN.md — Generisches `audit_log` (`dj_audit_log` umziehen) + vitest-Setup im Backend
 - [ ] 04-01-schema-PLAN.md — Migration 039 (`areas`, `tax_categories`, `trips`, `receipts`, `receipt_files`, `receipt_area_links`, `receipt_links`, `receipt_ocr_results`, `supplier_memory`) + Settings-Keys + GoBD-Trigger
 - [ ] 04-02-services-PLAN.md — `lib/cents.ts`, `receiptService`, `taxCalcService`, `duplicateCheckService`
 - [ ] 04-03-upload-ocr-PLAN.md — Multi-File-Upload + `tesseract.js` + `pdf-to-img` + `receiptParserService`
