@@ -107,15 +107,15 @@ Scope: GoBD-konformes Belege-Modul (`/belege`) als zentraler Hauptbereich. Gener
 
 ### Schema (Migration 039)
 
-- [ ] **BELEG-SCHEMA-01**: Migration `039_belege.sql` erstellt Tabellen: `areas`, `tax_categories`, `trips`, `receipts`, `receipt_files`, `receipt_area_links`, `receipt_links`, `receipt_ocr_results`, `supplier_memory`
-- [ ] **BELEG-SCHEMA-02**: `receipts`-Tabelle hat alle 30+ Felder gemäß CONTEXT.md (inkl. `private_share_percent`, `corrects_receipt_id`, `corrected_by_receipt_id`, `freigegeben_at`, `file_hash_sha256`, `linked_invoice_id`, `linked_trip_id`, `source`, `steuerrelevant`, `import_eust`, `reverse_charge`, `input_tax_deductible`)
-- [ ] **BELEG-SCHEMA-03**: ALLE Geld-Felder INTEGER (Cents) — kein REAL/FLOAT in neuen Tabellen
-- [ ] **BELEG-SCHEMA-04**: GoBD-Lock-Trigger `trg_receipts_no_update_after_freigabe` (BEFORE UPDATE WHEN OLD.freigegeben_at IS NOT NULL für Felder: supplier_name, amount_gross_cents, amount_net_cents, vat_rate, vat_amount_cents, receipt_date, supplier_invoice_number, reverse_charge, file_hash_sha256)
-- [ ] **BELEG-SCHEMA-05**: GoBD-Lock-Trigger auch für `receipt_files` (NO UPDATE/DELETE/INSERT, wenn parent receipt freigegeben)
-- [ ] **BELEG-SCHEMA-06**: 3 Areas seeded: "Amazon FBA", "DJ", "Privat"
-- [ ] **BELEG-SCHEMA-07**: Tax-Categories seeded (17 Kategorien aus CONTEXT.md specifics)
-- [ ] **BELEG-SCHEMA-08**: 9 neue Settings-Keys in `app_settings`: `ustva_zeitraum`, `ist_versteuerung`, `payment_task_lead_days`, `max_upload_size_mb`, `ocr_confidence_threshold`, `ocr_engine`, `mileage_rate_default_per_km`, `mileage_rate_above_20km_per_km`, `belege_storage_path`
-- [ ] **BELEG-SCHEMA-09**: `createBackup('phase-04-plan-01-migration-039')` wird vor dem Migration-Run aufgerufen (im Plan-Task explicit)
+- [x] **BELEG-SCHEMA-01**: Migration `039_belege.sql` erstellt Tabellen: `areas`, `tax_categories`, `trips`, `receipts`, `receipt_files`, `receipt_area_links`, `receipt_links`, `receipt_ocr_results`, `supplier_memory`
+- [x] **BELEG-SCHEMA-02**: `receipts`-Tabelle hat alle 30+ Felder gemäß CONTEXT.md (inkl. `private_share_percent`, `corrects_receipt_id`, `corrected_by_receipt_id`, `freigegeben_at`, `file_hash_sha256`, `linked_invoice_id`, `linked_trip_id`, `source`, `steuerrelevant`, `import_eust`, `reverse_charge`, `input_tax_deductible`)
+- [x] **BELEG-SCHEMA-03**: ALLE Geld-Felder INTEGER (Cents) — kein REAL/FLOAT in neuen Tabellen
+- [x] **BELEG-SCHEMA-04**: GoBD-Lock-Trigger `trg_receipts_no_update_after_freigabe` (BEFORE UPDATE WHEN OLD.freigegeben_at IS NOT NULL für Felder: supplier_name, amount_gross_cents, amount_net_cents, vat_rate, vat_amount_cents, receipt_date, supplier_invoice_number, reverse_charge, file_hash_sha256)
+- [x] **BELEG-SCHEMA-05**: GoBD-Lock-Trigger auch für `receipt_files` (NO UPDATE/DELETE/INSERT, wenn parent receipt freigegeben)
+- [x] **BELEG-SCHEMA-06**: 3 Areas seeded: "Amazon FBA", "DJ", "Privat"
+- [x] **BELEG-SCHEMA-07**: Tax-Categories seeded (17 Kategorien aus CONTEXT.md specifics)
+- [x] **BELEG-SCHEMA-08**: 9 neue Settings-Keys in `app_settings`: `ustva_zeitraum`, `ist_versteuerung`, `payment_task_lead_days`, `max_upload_size_mb`, `ocr_confidence_threshold`, `ocr_engine`, `mileage_rate_default_per_km`, `mileage_rate_above_20km_per_km`, `belege_storage_path`
+- [x] **BELEG-SCHEMA-09**: `createBackup('phase-04-plan-01-migration-039')` wird vor dem Migration-Run aufgerufen (im Plan-Task explicit)
 
 ### Services
 

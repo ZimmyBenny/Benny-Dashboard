@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-00-audit-refactor-PLAN.md (Wave 0)
-last_updated: "2026-05-06T08:41:07.721Z"
+stopped_at: Completed 04-01-schema-PLAN.md (Wave 1)
+last_updated: "2026-05-06T08:49:29.733Z"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 28
-  completed_plans: 16
-  percent: 57
+  completed_plans: 17
+  percent: 61
 ---
 
 # Project State: Benny Dashboard
@@ -40,7 +40,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 [██████░░░░] 60% — 6/10 plans complete
 
-**Stopped at:** Completed 04-00-audit-refactor-PLAN.md (Wave 0)
+**Stopped at:** Completed 04-01-schema-PLAN.md (Wave 1)
 
 ## Decisions Made
 
@@ -61,6 +61,9 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 - [Phase 04]: Plan 04-00: Generisches audit_log via INSERT...SELECT mit NOT EXISTS-Schutz statt RENAME — idempotent + Datenverlust-sicher
 - [Phase 04]: Plan 04-00: vitest@2 + pool=forks + singleFork — better-sqlite3 ist nicht worker-safe; Tests laden alle 39 Migrationen in :memory:
 - [Phase 04]: Plan 04-00: audit.service.ts behaelt logAudit-Signatur identisch zu dj.audit.service — 60+ Bestandsaufrufer brauchen nur Import-Pfad-Wechsel
+- [Phase 04]: Plan 04-01: Migration umbenannt von 039_belege.sql auf 040_belege.sql (Wave 0 hat 039_audit_log.sql belegt)
+- [Phase 04]: Plan 04-01: Alle Geld-Felder INTEGER (Cents) — exchange_rate und overall_confidence bleiben REAL (kein Geld)
+- [Phase 04]: Plan 04-01: GoBD-Trigger spaltenspezifisch — notes/tags/payment_date bleiben editierbar nach Freigabe
 
 ## Open Decisions (must resolve before Milestone 2)
 
