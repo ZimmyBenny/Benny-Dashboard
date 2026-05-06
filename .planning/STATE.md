@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-08-ui-list-detail-PLAN.md (Wave 5)
-last_updated: "2026-05-06T13:39:31.700Z"
+stopped_at: Completed 04-09-ui-upload-PLAN.md (Wave 6)
+last_updated: "2026-05-06T13:54:20.701Z"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 28
-  completed_plans: 24
-  percent: 86
+  completed_plans: 25
+  percent: 89
 ---
 
 # Project State: Benny Dashboard
@@ -40,7 +40,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 [█████████░] 86% — 24/28 plans complete
 
-**Stopped at:** Completed 04-08-ui-list-detail-PLAN.md (Wave 5)
+**Stopped at:** Completed 04-09-ui-upload-PLAN.md (Wave 6)
 
 ## Decisions Made
 
@@ -94,6 +94,11 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 - [Phase 04]: Plan 04-08: URL-Search-Params als Filter-State fuer BelegeListPage — alle Filter (area/status/type/from/to/search) in URL persistiert; deeplink-bar, browser-history-friendly, kein extra State-Management
 - [Phase 04]: Plan 04-08: Korrekturbeleg-Endpoint setzt corrected_by_receipt_id auf freigegebenen Original — Spalte ist NICHT im GoBD-Trigger-Lock-WHEN-Clause (Migration 040 Zeilen 257-276), daher legal
 - [Phase 04]: Plan 04-08: ReceiptsTable als wiederverwendbare Sub-Komponente in BelegeListPage exportiert (statt eigene Datei) — variant-Prop fuer Open-Payments-Spalten-Override; OpenPayments und Review nutzen identische Tabelle
+- [Phase 04]: Plan 04-09: Multi-File-Tab-Pattern (key={activeId} im ReceiptEditor) statt parallel-Polling — nur aktiver Tab pollt; verhindert N parallele OCR-Polls bei vielen Files
+- [Phase 04]: Plan 04-09: Lazy OCR-Prefill via prefilled-Boolean — verhindert dass Polling-Refetch (status-Wechsel ocr_pending → zu_pruefen) User-Eingaben ueberschreibt; useEffect mit [r?.id]-Dependency aus Plan-Snippet ersetzt
+- [Phase 04]: Plan 04-09: Lazy Supplier-Suggest via suggestTried-String-Tracker — ein /supplier-suggest pro stabiler supplier-Eingabe (statt pro Tastendruck); Threat T-04-UI-UPLOAD-03 (Backend-Spam) defensiv mitigated
+- [Phase 04]: Plan 04-09: react-dropzone@15 statt eigener HTML5-DnD — onDropRejected, accept-Map mit MIME+Extension, isDragActive for-free; ~14 KB Bundle-Cost vernachlaessigbar gegenueber ~80 Zeilen Eigenbau
+- [Phase 04]: Plan 04-09: GET /api/belege/areas + /tax-categories als Read-Only-Endpoints in Plan 04-09 (statt erst Plan 04-10) — Upload-UI braucht Picker-Quelle jetzt; CRUD bleibt Plan 04-10 ohne diese Routen zu brechen
 
 ## Open Decisions (must resolve before Milestone 2)
 
