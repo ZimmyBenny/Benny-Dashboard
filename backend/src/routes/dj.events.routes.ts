@@ -3,6 +3,7 @@ import db from '../db/connection';
 import { logAudit } from '../services/audit.service';
 import { deleteEvent as deleteCalEvent } from '../services/calendarSwift.service';
 import { todayLocal } from '../lib/dates';
+import { mirrorTripToReceipts } from '../services/tripSyncService';
 
 const router = Router();
 
@@ -243,22 +244,36 @@ router.patch('/:id/vorgespraech', async (req, res) => {
       WHERE id = ?
     `).run(km ?? null, id);
 
-    // Fahrt-Ausgabe erstellen (0,30 € / km)
+    // Fahrt-Eintrag erstellen (0,30 €/km Pauschale).
+    // Statt dj_expenses: trips-Tabelle nutzen — wird automatisch via tripSyncService
+    // in receipts gespiegelt (type='fahrt', tax_category='Fahrtkosten').
     if (km && km > 0) {
       const kmRound = Math.round(km);
-      const amountGross = Math.round(kmRound * 0.30 * 100) / 100;
-      const eventTitle = event.title as string || `Event #${id}`;
-      const dateStr = (datum ?? todayLocal());
-      db.prepare(`
-        INSERT INTO dj_expenses (expense_date, category, description, amount_gross, tax_rate, amount_net, vat_amount, notes)
-        VALUES (?, 'fahrzeug', ?, ?, 0, ?, 0, ?)
+      const ratePerKmCents = 30; // 0,30 €/km Default-Pauschale
+      const amountCents = kmRound * ratePerKmCents;
+      const eventTitle = (event.title as string) || `Event #${id}`;
+      const dateStr = datum ?? todayLocal();
+      const tripResult = db.prepare(`
+        INSERT INTO trips
+          (expense_date, distance_km, rate_per_km_cents, amount_cents,
+           purpose, linked_event_id, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `).run(
         dateStr,
+        kmRound,
+        ratePerKmCents,
+        amountCents,
         `Fahrt Vorgespräch – ${eventTitle}`,
-        amountGross,
-        amountGross,
+        id,
         `${kmRound} km × 0,30 €`,
       );
+      const tripId = Number(tripResult.lastInsertRowid);
+      logAudit(req, 'trip', tripId, 'create', undefined, {
+        source: 'vorgespraech',
+        event_id: id,
+        km: kmRound,
+      });
+      mirrorTripToReceipts(tripId, req);
     }
   }
 

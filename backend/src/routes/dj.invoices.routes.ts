@@ -4,6 +4,7 @@ import { logAudit } from '../services/audit.service';
 import { nextNumber } from '../services/dj.number.service';
 import { gobdGuardInvoice } from '../middleware/dj.gobd.middleware';
 import { todayLocal, addDaysLocal } from '../lib/dates';
+import { mirrorInvoiceToReceipts } from '../services/djSyncService';
 
 const router = Router();
 
@@ -111,6 +112,7 @@ router.post('/', (req, res) => {
 
   const newId = txn();
   logAudit(req, 'invoice', newId, 'create', undefined, req.body);
+  mirrorInvoiceToReceipts(newId, req);
   res.status(201).json(loadInvoice(newId));
 });
 
@@ -156,6 +158,7 @@ router.patch('/:id', gobdGuardInvoice, (req, res) => {
   txn();
 
   logAudit(req, 'invoice', id, 'update', existing, req.body);
+  mirrorInvoiceToReceipts(id, req);
   res.json(loadInvoice(id));
 });
 
@@ -178,6 +181,7 @@ router.post('/:id/finalize', (req, res) => {
 
   const number = txn();
   logAudit(req, 'invoice', id, 'finalize', existing, { number });
+  mirrorInvoiceToReceipts(id, req);
   res.json(loadInvoice(id));
 });
 
@@ -242,6 +246,10 @@ router.post('/:id/cancel', (req, res) => {
   const cancelId = txn();
   logAudit(req, 'invoice', id, 'cancel', original, { cancelled_by_invoice_id: cancelId });
   logAudit(req, 'invoice', cancelId, 'create', undefined, { is_cancellation: true, cancels_invoice_id: id });
+  // Reihenfolge wichtig: Original-Mirror zuerst (status='storniert'),
+  // dann Storno-Mirror (corrects_receipt_id zeigt auf den Original-Mirror).
+  mirrorInvoiceToReceipts(id, req);
+  mirrorInvoiceToReceipts(cancelId, req);
   res.status(201).json(loadInvoice(cancelId));
 });
 
@@ -271,6 +279,7 @@ router.post('/:id/pay', (req, res) => {
   txn();
 
   logAudit(req, 'invoice', id, 'pay', { paid_before: invoice.paid_amount }, { amount, payment_date });
+  mirrorInvoiceToReceipts(id, req);
   res.json(loadInvoice(id));
 });
 
