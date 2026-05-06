@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-05-task-automation-PLAN.md (Wave 3)
-last_updated: "2026-05-06T12:48:07Z"
+stopped_at: Completed 04-06-dj-sync-PLAN.md (Wave 3)
+last_updated: "2026-05-06T13:06:06.448Z"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 28
-  completed_plans: 21
-  percent: 75
+  completed_plans: 22
+  percent: 79
 ---
 
 # Project State: Benny Dashboard
@@ -40,7 +40,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 [███████░░░] 75% — 21/28 plans complete
 
-**Stopped at:** Completed 04-05-task-automation-PLAN.md (Wave 3)
+**Stopped at:** Completed 04-06-dj-sync-PLAN.md (Wave 3)
 
 ## Decisions Made
 
@@ -82,6 +82,10 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 - [Phase 04]: Plan 04-05: Idempotenz via FK source_receipt_id + status != 'archived' (NICHT archived_at IS NULL — Spalte existiert nicht); status='open' und priority='medium' (NICHT 'todo'/'normal' — CHECK-Constraint-Violation gewesen)
 - [Phase 04]: Plan 04-05: Echte Umlaute im UI-sichtbaren Task-Title ('Zahlung an X fällig: ...') gemaess Memory-Regel feedback_umlauts; sanitizeForFilename gilt nur fuer Datei-Pfade, nicht fuer Tasks
 - [Phase 04]: Plan 04-05: POST /run-task-automation fuer manuellen Trigger; Endpoint MUSS vor /:id stehen (gleiches Pattern wie /supplier-suggest in Plan 04-04)
+- [Phase 04]: Plan 04-06: Migration umbenannt von 039a auf 041_fahrten_migration.sql (Wave 0 hat 039_audit_log, Wave 1 hat 040_belege)
+- [Phase 04]: Plan 04-06: djSyncService nutzt dj_payments (NICHT dj_invoice_payments wie Plan-Snippet annahm) — Plan-Code waere Runtime-Error gewesen
+- [Phase 04]: Plan 04-06: Mirror-Sync-Pattern etabliert — idempotenter UPSERT auf source+linked-id mit GoBD-Lock-Awareness und Storno-Korrekturkette (corrects_receipt_id ↔ corrected_by_receipt_id)
+- [Phase 04]: Plan 04-06: Cancel-Route ruft mirrorInvoiceToReceipts ZWEI mal — Original zuerst, dann Storno (sodass corrects_receipt_id-Lookup im 2. Call findet)
 
 ## Open Decisions (must resolve before Milestone 2)
 

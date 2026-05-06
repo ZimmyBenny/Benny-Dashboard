@@ -150,13 +150,13 @@ Scope: GoBD-konformes Belege-Modul (`/belege`) als zentraler Hauptbereich. Gener
 
 ### DJ-Sync + Trips-Migration
 
-- [ ] **BELEG-DJSYNC-01**: `djSyncService.mirrorInvoiceToReceipts(invoiceId)` ist idempotent (UPSERT via `WHERE source='dj_invoice_sync' AND linked_invoice_id=?`)
-- [ ] **BELEG-DJSYNC-02**: `dj.invoices.routes.ts` ruft `mirrorInvoiceToReceipts` am Ende von POST/PATCH/finalize/pay/cancel auf
-- [ ] **BELEG-DJSYNC-03**: Stornorechnungen bekommen eigenen Mirror mit `corrects_receipt_id` auf Original-Mirror und negative `amount_gross_cents`
-- [ ] **BELEG-DJSYNC-04**: REAL-Beträge aus dj_invoices werden via `Math.round(value * 100)` zu Cents konvertiert
-- [ ] **BELEG-DJSYNC-05**: `tripSyncService.mirrorTripToReceipts(tripId)` spiegelt Trip in receipts mit `type='fahrt'`, `vat_rate=0`, `tax_category=Fahrtkosten`, `input_tax_deductible=0`
-- [ ] **BELEG-DJSYNC-06**: Fahrten-Migration: `dj_expenses WHERE category='fahrzeug'` → `trips`-Tabelle; `createBackup('phase-04-plan-06-fahrten')` davor
-- [ ] **BELEG-DJSYNC-07**: `dj.events.routes.ts` Vorgespräch-Erledigt-Handler erstellt `trips`-Eintrag (statt `dj_expenses`-Insert)
+- [x] **BELEG-DJSYNC-01**: `djSyncService.mirrorInvoiceToReceipts(invoiceId)` ist idempotent (UPSERT via `WHERE source='dj_invoice_sync' AND linked_invoice_id=?`)
+- [x] **BELEG-DJSYNC-02**: `dj.invoices.routes.ts` ruft `mirrorInvoiceToReceipts` am Ende von POST/PATCH/finalize/pay/cancel auf
+- [x] **BELEG-DJSYNC-03**: Stornorechnungen bekommen eigenen Mirror mit `corrects_receipt_id` auf Original-Mirror und negative `amount_gross_cents`
+- [x] **BELEG-DJSYNC-04**: REAL-Beträge aus dj_invoices werden via `Math.round(value * 100)` zu Cents konvertiert
+- [x] **BELEG-DJSYNC-05**: `tripSyncService.mirrorTripToReceipts(tripId)` spiegelt Trip in receipts mit `type='fahrt'`, `vat_rate=0`, `tax_category=Fahrtkosten`, `input_tax_deductible=0`
+- [x] **BELEG-DJSYNC-06**: Fahrten-Migration: `dj_expenses WHERE category='fahrzeug'` → `trips`-Tabelle; `createBackup('phase-04-plan-06-fahrten')` davor
+- [x] **BELEG-DJSYNC-07**: `dj.events.routes.ts` Vorgespräch-Erledigt-Handler erstellt `trips`-Eintrag (statt `dj_expenses`-Insert)
 
 ### UI
 
