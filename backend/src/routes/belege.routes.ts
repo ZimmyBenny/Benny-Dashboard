@@ -28,6 +28,7 @@ import db from '../db/connection';
 import { receiptService } from '../services/receiptService';
 import { supplierMemoryService } from '../services/supplierMemoryService';
 import { taskAutomationService } from '../services/taskAutomationService';
+import { aggregateForUstva, type UstvaPeriod } from '../services/taxCalcService';
 import { logAudit } from '../services/audit.service';
 import uploadRouter from './belege.upload.routes';
 import type { Receipt } from '../types/receipt';
@@ -144,6 +145,109 @@ router.get('/', (req, res) => {
     `;
   }
   res.json(db.prepare(sql).all(...params));
+});
+
+/**
+ * GET /api/belege/overview-kpis
+ *
+ * Liefert die 6 KPI-Werte fuer die Belege-Uebersichtsseite (Plan 04-07):
+ *  - neueBelege7d: Anzahl Belege der letzten 7 Tage (created_at)
+ *  - zuPruefen: Anzahl Belege mit status='zu_pruefen'
+ *  - offeneZahlungen: Anzahl + Restbetrags-Summe (status IN offen,teilbezahlt)
+ *  - ueberfaellig: Anzahl ueberfaelliger Zahlungen (due_date < heute)
+ *  - steuerzahllastCurrentPeriodCents: Zahllast fuer den aktuellen UStVA-Zeitraum
+ *    (null wenn ustva_zeitraum='keine' — UI blendet KPI dann aus)
+ *  - steuerrelevantThisYearCents: Brutto-Summe steuerrelevanter Belege im laufenden Jahr
+ *  - ustvaZeitraum: aktueller Setting-Wert fuer Conditional-Rendering im UI
+ *
+ * MUSS vor `/:id` stehen — sonst matched Express `/:id` mit
+ * id="overview-kpis" (NaN → 400).
+ */
+router.get('/overview-kpis', (_req, res) => {
+  const ustvaSetting =
+    (db
+      .prepare(`SELECT value FROM app_settings WHERE key = 'ustva_zeitraum'`)
+      .get() as { value: string } | undefined)?.value || 'keine';
+
+  const neueBelege7d = (
+    db
+      .prepare(
+        `SELECT COUNT(*) AS c FROM receipts WHERE created_at >= datetime('now','-7 days')`,
+      )
+      .get() as { c: number }
+  ).c;
+
+  const zuPruefen = (
+    db
+      .prepare(`SELECT COUNT(*) AS c FROM receipts WHERE status = 'zu_pruefen'`)
+      .get() as { c: number }
+  ).c;
+
+  const offen = db
+    .prepare(
+      `
+      SELECT COUNT(*) AS c, COALESCE(SUM(amount_gross_cents - paid_amount_cents), 0) AS sum_cents
+      FROM receipts WHERE status IN ('offen','teilbezahlt')
+    `,
+    )
+    .get() as { c: number; sum_cents: number };
+
+  const ueberfaellig = (
+    db
+      .prepare(
+        `
+        SELECT COUNT(*) AS c FROM receipts
+        WHERE status IN ('offen','teilbezahlt')
+          AND due_date IS NOT NULL
+          AND date(due_date) < date('now')
+      `,
+      )
+      .get() as { c: number }
+  ).c;
+
+  const year = new Date().getFullYear();
+  let steuerzahllast: number | null = null;
+  if (ustvaSetting !== 'keine') {
+    const period = ustvaSetting as UstvaPeriod;
+    const buckets = aggregateForUstva(year, period);
+    // Aktuelle Periode ermitteln (1-basiert für quartal/monat)
+    const month = new Date().getMonth() + 1;
+    let bucketIdx = 0;
+    if (period === 'monat') {
+      // Buckets sind in indices=[1..12] erstellt → idx (month) → array-Index month-1
+      bucketIdx = month - 1;
+    } else if (period === 'quartal') {
+      // Buckets sind in indices=[1..4] erstellt → array-Index = floor((m-1)/3)
+      bucketIdx = Math.floor((month - 1) / 3);
+    } else {
+      // jahr → Buckets hat 1 Element
+      bucketIdx = 0;
+    }
+    steuerzahllast = buckets[bucketIdx]?.zahllast_cents ?? 0;
+  }
+
+  const steuerrelevant = (
+    db
+      .prepare(
+        `
+        SELECT COALESCE(SUM(amount_gross_cents), 0) AS sum_cents
+        FROM receipts
+        WHERE steuerrelevant = 1 AND strftime('%Y', receipt_date) = ?
+      `,
+      )
+      .get(String(year)) as { sum_cents: number }
+  ).sum_cents;
+
+  res.json({
+    neueBelege7d,
+    zuPruefen,
+    offeneZahlungen: offen.c,
+    offeneZahlungenSumCents: offen.sum_cents,
+    ueberfaellig,
+    steuerzahllastCurrentPeriodCents: steuerzahllast,
+    steuerrelevantThisYearCents: steuerrelevant,
+    ustvaZeitraum: ustvaSetting,
+  });
 });
 
 /**
