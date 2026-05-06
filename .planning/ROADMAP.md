@@ -204,7 +204,7 @@ Plans:
 - [x] 04-04-supplier-memory-PLAN.md — Lieferanten-Lerngedächtnis mit Auto-Vorschlag (suggest + recordUsage hooks)
 - [x] 04-05-task-automation-PLAN.md — `taskAutomationService` (offene Zahlungen → Tasks; idempotent via source_receipt_id)
 - [x] 04-06-dj-sync-PLAN.md — `djSyncService` + `tripSyncService` + Migration 039a Fahrten-Migration + trips CRUD-Routes
-- [ ] 04-07-ui-overview-PLAN.md — `/belege` Übersicht (KPICards, Listen) + navConfig + StatusBadge-Erweiterung + formatCurrencyFromCents
+- [x] 04-07-ui-overview-PLAN.md — `/belege` Übersicht (KPICards, Listen) + navConfig + StatusBadge-Erweiterung + formatCurrencyFromCents
 - [ ] 04-08-ui-list-detail-PLAN.md — `/belege/alle` + `/belege/:id` + PdfPreview + AuditTrail + Korrekturbeleg
 - [ ] 04-09-ui-upload-PLAN.md — `/belege/neu` (Drag&Drop, OCR-Polling, Supplier-Suggest, Save)
 - [ ] 04-10-ui-tax-export-settings-PLAN.md — `/belege/steuer` + `/belege/export` + `/belege/einstellungen` (Settings + Areas/Tax-Cats CRUD + DB-Backup-Button)

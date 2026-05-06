@@ -160,17 +160,17 @@ Scope: GoBD-konformes Belege-Modul (`/belege`) als zentraler Hauptbereich. Gener
 
 ### UI
 
-- [ ] **BELEG-UI-01**: Route `/belege` registriert in `routes.tsx`; Sub-Routes `/belege/alle`, `/belege/neu`, `/belege/:id`, `/belege/offen`, `/belege/zu-pruefen`, `/belege/steuer`, `/belege/export`, `/belege/einstellungen`
-- [ ] **BELEG-UI-02**: navConfig.ts hat Top-Level-Eintrag `/belege` mit Icon `receipt_long`, Position zwischen "Verträge & Fristen" und "KI Agenten", subItems: Übersicht, Alle, Neu, Offene Zahlungen, Zu prüfen, Steuer, Export, Einstellungen
-- [ ] **BELEG-UI-03**: BelegeOverviewPage zeigt 6 KPICards (Neue Belege 7d, Zu prüfen, Offene Zahlungen, Überfällig, Steuerzahllast aktueller Zeitraum, Steuerrelevant aktuelles Jahr) + 2 Listen (Letzte 10, Nächste 10 Fälligkeiten); KPI "Steuerzahllast" wird ausgeblendet wenn `ustva_zeitraum='keine'`
+- [x] **BELEG-UI-01**: Route `/belege` registriert in `routes.tsx`; Sub-Routes `/belege/alle`, `/belege/neu`, `/belege/:id`, `/belege/offen`, `/belege/zu-pruefen`, `/belege/steuer`, `/belege/export`, `/belege/einstellungen`
+- [x] **BELEG-UI-02**: navConfig.ts hat Top-Level-Eintrag `/belege` mit Icon `receipt_long`, Position zwischen "Verträge & Fristen" und "KI Agenten", subItems: Übersicht, Alle, Neu, Offene Zahlungen, Zu prüfen, Steuer, Export, Einstellungen
+- [x] **BELEG-UI-03**: BelegeOverviewPage zeigt 6 KPICards (Neue Belege 7d, Zu prüfen, Offene Zahlungen, Überfällig, Steuerzahllast aktueller Zeitraum, Steuerrelevant aktuelles Jahr) + 2 Listen (Letzte 10, Nächste 10 Fälligkeiten); KPI "Steuerzahllast" wird ausgeblendet wenn `ustva_zeitraum='keine'`
 - [ ] **BELEG-UI-04**: BelegeListPage zeigt sortier-/filterbare Tabelle mit Suche über Lieferant/Belegnummer/Betrag/Titel/OCR-Text
 - [ ] **BELEG-UI-05**: BelegeDetailPage zeigt PDF/Bild-Vorschau links (via `react-pdf`/Image) + Daten rechts in Sektionen + Audit-Log-Verlauf; Felder werden disabled wenn `freigegeben_at IS NOT NULL` (außer notes/tags); "Korrekturbeleg"-Button vorhanden
 - [ ] **BELEG-UI-06**: BelegeUploadPage hat react-dropzone (PDF/JPG/PNG bis maxUploadSize), zeigt OCR-Vorschläge mit `OcrConfidenceBadge`, supplier-Vorschlag aus `supplierMemoryService.suggest`
 - [ ] **BELEG-UI-07**: BelegeTaxPage Layout abhängig von Setting `ustva_zeitraum` (Jahr/4 Quartale/12 Monate); pro Bucket: KZ 81/86, KZ 66, KZ 84/85/67, KZ 62, Zahllast, Drilldown-Liste
 - [ ] **BELEG-UI-08**: BelegeExportPage erlaubt CSV-Export mit Filtern (Jahr, Bereich, Kategorie); kein ZIP in dieser Phase
 - [ ] **BELEG-UI-09**: BelegeSettingsPage erlaubt Areas-CRUD + TaxCategories-CRUD + alle 9 Settings (ustva_zeitraum/ist_versteuerung/lead_days/max_upload/ocr_threshold/ocr_engine/mileage rates/storage_path) + "DB-Backup jetzt"-Button (ruft `createBackup`)
-- [ ] **BELEG-UI-10**: StatusBadge erweitert um `zu_pruefen` (gelb), `freigegeben` (grün), `archiviert` (grau), `nicht_relevant` (grau gedimmt), `ocr_pending` (primary)
-- [ ] **BELEG-UI-11**: `formatCurrencyFromCents(cents)` Helper in `frontend/src/lib/format.ts`
+- [x] **BELEG-UI-10**: StatusBadge erweitert um `zu_pruefen` (gelb), `freigegeben` (grün), `archiviert` (grau), `nicht_relevant` (grau gedimmt), `ocr_pending` (primary)
+- [x] **BELEG-UI-11**: `formatCurrencyFromCents(cents)` Helper in `frontend/src/lib/format.ts`
 
 ### DJ-Refactor
 

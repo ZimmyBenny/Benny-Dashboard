@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-06-dj-sync-PLAN.md (Wave 3)
-last_updated: "2026-05-06T13:06:06.448Z"
+stopped_at: Completed 04-07-ui-overview-PLAN.md (Wave 4)
+last_updated: "2026-05-06T13:20:20.054Z"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 28
-  completed_plans: 22
-  percent: 79
+  completed_plans: 23
+  percent: 82
 ---
 
 # Project State: Benny Dashboard
@@ -40,7 +40,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 [███████░░░] 75% — 21/28 plans complete
 
-**Stopped at:** Completed 04-06-dj-sync-PLAN.md (Wave 3)
+**Stopped at:** Completed 04-07-ui-overview-PLAN.md (Wave 4)
 
 ## Decisions Made
 
@@ -86,6 +86,10 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 - [Phase 04]: Plan 04-06: djSyncService nutzt dj_payments (NICHT dj_invoice_payments wie Plan-Snippet annahm) — Plan-Code waere Runtime-Error gewesen
 - [Phase 04]: Plan 04-06: Mirror-Sync-Pattern etabliert — idempotenter UPSERT auf source+linked-id mit GoBD-Lock-Awareness und Storno-Korrekturkette (corrects_receipt_id ↔ corrected_by_receipt_id)
 - [Phase 04]: Plan 04-06: Cancel-Route ruft mirrorInvoiceToReceipts ZWEI mal — Original zuerst, dann Storno (sodass corrects_receipt_id-Lookup im 2. Call findet)
+- [Phase 04]: Plan 04-07: formatCurrencyFromCents als UI-Boundary fuer Cents->EUR — Single Source of Truth in lib/format.ts; alle Belege-UI-Komponenten konvertieren ueber diesen Helper
+- [Phase 04]: Plan 04-07: Layout-Stil DJ-Reiter (User-Vorgabe) — Glassmorphism, Ambient Glows, KPICard wiederverwendet; BelegeOverviewPage greift auf bestehendes DJ-Component-Inventar zurueck statt eigene Card-Komponenten
+- [Phase 04]: Plan 04-07: Steuerzahllast-KPI conditional via ustva_zeitraum-Setting — Kleinunternehmer ohne UStVA-Pflicht sehen die Karte gar nicht; Backend liefert null, Frontend rendert nicht
+- [Phase 04]: Plan 04-07: Ein /api/belege/overview-kpis-Endpoint statt 6 separate Queries — minimiert Roundtrips, aggregiert direkt in SQL; Pattern wiederverwendbar fuer kuenftige Modul-Dashboards (Amazon, Finanzen)
 
 ## Open Decisions (must resolve before Milestone 2)
 
