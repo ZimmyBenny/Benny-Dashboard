@@ -24,6 +24,8 @@
  *  - PATCH faengt GoBD-Trigger-Errors als 409 ab (Frontend zeigt user-friendly Hinweis).
  */
 import { Router, type Request } from 'express';
+import fs from 'fs';
+import path from 'path';
 import db from '../db/connection';
 import { receiptService } from '../services/receiptService';
 import { supplierMemoryService } from '../services/supplierMemoryService';
@@ -248,6 +250,149 @@ router.get('/overview-kpis', (_req, res) => {
     steuerrelevantThisYearCents: steuerrelevant,
     ustvaZeitraum: ustvaSetting,
   });
+});
+
+/**
+ * GET /api/belege/:id/file/:fileId
+ *
+ * Streamt eine Beleg-Datei (PDF oder Bild) inline zur Anzeige in der UI
+ * (BelegeDetailPage / PdfPreview).
+ *
+ * Sicherheit:
+ *  - storage_path stammt aus DB (Plan 04-03 multer rename), niemals aus User-Input
+ *    → kein Path-Traversal moeglich (Threat T-04-UI-LIST-01)
+ *  - fs.existsSync-Check vor dem Stream verhindert leere Antwort + Crash
+ *  - verifyToken-Guard ist global vor /api/belege im app.ts gemounted
+ *
+ * MUSS vor `/:id` stehen — sonst matched Express `/:id` mit id="<num>/file/<num>"
+ * (NaN → 400) bzw. Express versteht `:id` als nur den ersten Segment.
+ * Da diese Route ein zusaetzliches Sub-Pfad-Segment hat, matched Express
+ * spezifischer-zuerst → Reihenfolge in der Datei ist hier nicht kritisch,
+ * aber wir platzieren sie aus Lesbarkeit vor `/:id`.
+ */
+router.get('/:id/file/:fileId', (req, res) => {
+  const id = Number(req.params.id);
+  const fileId = Number(req.params.fileId);
+  if (!Number.isFinite(id) || !Number.isFinite(fileId)) {
+    res.status(400).json({ error: 'Ungueltige id' });
+    return;
+  }
+  const r = db
+    .prepare(
+      `SELECT storage_path, mime_type, original_filename
+       FROM receipt_files
+       WHERE id = ? AND receipt_id = ?`,
+    )
+    .get(fileId, id) as
+    | { storage_path: string; mime_type: string | null; original_filename: string }
+    | undefined;
+  if (!r) {
+    res.status(404).end();
+    return;
+  }
+  if (!fs.existsSync(r.storage_path)) {
+    res.status(404).json({ error: 'Datei fehlt im Storage.' });
+    return;
+  }
+  res.setHeader('Content-Type', r.mime_type || 'application/octet-stream');
+  res.setHeader(
+    'Content-Disposition',
+    `inline; filename="${path.basename(r.original_filename)}"`,
+  );
+  fs.createReadStream(r.storage_path).pipe(res);
+});
+
+/**
+ * POST /api/belege/:id/korrektur
+ *
+ * Erstellt einen Korrekturbeleg (Storno) zu einem (typischerweise freigegebenen)
+ * Originalbeleg. Der neue Beleg
+ *  - hat negative Cents-Beträge (storniert die Original-Werte)
+ *  - referenziert das Original via `corrects_receipt_id`
+ *  - status='zu_pruefen' (User muss den Korrekturbeleg pruefen + freigeben)
+ *
+ * Anschliessend wird im Original `corrected_by_receipt_id` gesetzt.
+ * Die Spalte ist NICHT im GoBD-Lock-Trigger (siehe Migration 040 Trigger
+ * trg_receipts_no_update_after_freigabe), darf also auf freigegebenen Belegen
+ * gesetzt werden — es ist eine Verkettungs-Information, keine Werte-Aenderung.
+ */
+router.post('/:id/korrektur', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: 'Ungueltige id' });
+    return;
+  }
+  const orig = db
+    .prepare(
+      `SELECT id, type, supplier_name, supplier_invoice_number, receipt_date,
+              amount_gross_cents, amount_net_cents, vat_rate, vat_amount_cents,
+              currency, tax_category_id
+       FROM receipts WHERE id = ?`,
+    )
+    .get(id) as
+    | {
+        id: number;
+        type: string;
+        supplier_name: string | null;
+        supplier_invoice_number: string | null;
+        receipt_date: string;
+        amount_gross_cents: number;
+        amount_net_cents: number;
+        vat_rate: number;
+        vat_amount_cents: number;
+        currency: string;
+        tax_category_id: number | null;
+      }
+    | undefined;
+  if (!orig) {
+    res.status(404).end();
+    return;
+  }
+
+  const result = db
+    .prepare(
+      `INSERT INTO receipts (
+         type, source, supplier_name, supplier_invoice_number, receipt_date,
+         currency, amount_gross_cents, amount_net_cents, vat_rate, vat_amount_cents,
+         amount_gross_eur_cents, status, corrects_receipt_id, tax_category_id, notes, title
+       ) VALUES (
+         ?, 'manual_upload', ?, ?, date('now'),
+         ?, ?, ?, ?, ?,
+         ?, 'zu_pruefen', ?, ?, ?, ?
+       )`,
+    )
+    .run(
+      orig.type,
+      orig.supplier_name,
+      orig.supplier_invoice_number,
+      orig.currency,
+      -orig.amount_gross_cents,
+      -orig.amount_net_cents,
+      orig.vat_rate,
+      -orig.vat_amount_cents,
+      -orig.amount_gross_cents, // amount_gross_eur_cents (kein FX-Bezug; spiegel Brutto)
+      id,
+      orig.tax_category_id,
+      `Korrekturbeleg zu Beleg #${id}`,
+      `Korrektur: ${orig.supplier_name ?? `Beleg #${id}`}`,
+    );
+  const newId = Number(result.lastInsertRowid);
+
+  // Original verkettet auf neuen Beleg (corrected_by_receipt_id ist NICHT im GoBD-Trigger)
+  db.prepare(
+    `UPDATE receipts SET corrected_by_receipt_id = ? WHERE id = ?`,
+  ).run(newId, id);
+
+  logAudit(req, 'receipt', newId, 'create', undefined, {
+    korrektur_zu: id,
+    amount_gross_cents: -orig.amount_gross_cents,
+  });
+  logAudit(req, 'receipt', id, 'update', undefined, {
+    corrected_by_receipt_id: newId,
+  });
+
+  const created = db.prepare(`SELECT * FROM receipts WHERE id = ?`).get(newId);
+  res.status(201).json(created);
 });
 
 /**
