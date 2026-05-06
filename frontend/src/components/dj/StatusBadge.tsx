@@ -1,8 +1,10 @@
 type EventStatus = 'anfrage' | 'neu' | 'vorgespraech_vereinbart' | 'angebot_gesendet' | 'bestaetigt' | 'abgeschlossen' | 'abgesagt';
 type QuoteStatus = 'entwurf' | 'gesendet' | 'angenommen' | 'abgelehnt' | 'abgelaufen';
 type InvoiceStatus = 'entwurf' | 'offen' | 'teilbezahlt' | 'bezahlt' | 'ueberfaellig' | 'storniert';
+// Receipt-Status (Phase 4) — analog zu DB-Status in receipts.status
+type ReceiptStatus = 'ocr_pending' | 'zu_pruefen' | 'freigegeben' | 'archiviert' | 'nicht_relevant';
 
-type AnyStatus = EventStatus | QuoteStatus | InvoiceStatus;
+type AnyStatus = EventStatus | QuoteStatus | InvoiceStatus | ReceiptStatus;
 
 const STATUS_CONFIG: Record<AnyStatus, { label: string; bg: string; text: string; extra?: string; dot?: string }> = {
   // Event-Status
@@ -25,6 +27,12 @@ const STATUS_CONFIG: Record<AnyStatus, { label: string; bg: string; text: string
   bezahlt:                   { label: 'Bezahlt',                bg: 'rgba(92,253,128,0.15)',           text: 'var(--color-secondary)',          dot: '#5cfd80' },
   ueberfaellig:              { label: 'Überfällig',             bg: 'rgba(255,110,132,0.15)',          text: 'var(--color-error)',              dot: '#ff6e84' },
   storniert:                 { label: 'Storniert',              bg: 'rgba(109,117,140,0.3)',           text: 'var(--color-outline)', extra: 'line-through', dot: 'rgba(109,117,140,0.5)' },
+  // Receipt-Status (Phase 4)
+  zu_pruefen:                { label: 'Zu prüfen',              bg: 'rgba(255,200,80,0.15)',           text: '#ffd166',                         dot: '#ffd166' },
+  freigegeben:               { label: 'Freigegeben',            bg: 'rgba(92,253,128,0.15)',           text: 'var(--color-secondary)',          dot: '#5cfd80' },
+  archiviert:                { label: 'Archiviert',             bg: 'rgba(109,117,140,0.2)',           text: 'var(--color-on-surface-variant)', dot: 'rgba(109,117,140,0.4)' },
+  nicht_relevant:            { label: 'Nicht relevant',         bg: 'rgba(109,117,140,0.1)',           text: 'rgba(255,255,255,0.4)',           dot: 'rgba(109,117,140,0.3)' },
+  ocr_pending:               { label: 'OCR läuft…',             bg: 'rgba(148,170,255,0.1)',           text: 'var(--color-primary)',            dot: '#94aaff' },
 };
 
 export function StatusBadge({ status }: { status: AnyStatus }) {

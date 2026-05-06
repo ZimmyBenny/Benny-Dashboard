@@ -28,6 +28,16 @@ export const navItems: NavItem[] = [
   { path: '/finances',        label: 'Finanzen',          icon: 'account_balance_wallet' },
   { path: '/haushalt', label: 'Haushalt',        icon: 'family_restroom' },
   { path: '/contracts',       label: 'Verträge & Fristen', icon: 'description' },
+  { path: '/belege', label: 'Belege', icon: 'receipt_long', subItems: [
+    { path: '/belege',                label: 'Übersicht',         icon: 'dashboard' },
+    { path: '/belege/alle',           label: 'Alle',              icon: 'list' },
+    { path: '/belege/neu',            label: 'Neu',               icon: 'add' },
+    { path: '/belege/offen',          label: 'Offene Zahlungen',  icon: 'schedule' },
+    { path: '/belege/zu-pruefen',     label: 'Zu prüfen',         icon: 'rule' },
+    { path: '/belege/steuer',         label: 'Steuer',            icon: 'account_balance' },
+    { path: '/belege/export',         label: 'Export',            icon: 'download' },
+    { path: '/belege/einstellungen',  label: 'Einstellungen',     icon: 'tune' },
+  ]},
   { path: '/ki-agenten',      label: 'KI Agenten',        icon: 'smart_toy' },
 ];
 
@@ -59,6 +69,14 @@ export const pageNames: Record<string, string> = {
   '/contacts':        'Kontakte',
   '/haushalt': 'Haushalt',
   '/contracts':       'Verträge & Fristen',
+  '/belege':                'Belege',
+  '/belege/alle':           'Alle Belege',
+  '/belege/neu':            'Neuer Beleg',
+  '/belege/offen':          'Offene Zahlungen',
+  '/belege/zu-pruefen':     'Zu prüfen',
+  '/belege/steuer':         'Steuer',
+  '/belege/export':         'Export',
+  '/belege/einstellungen':  'Belege Einstellungen',
   '/ki-agenten':      'KI Agenten',
   '/settings':        'Einstellungen',
 };

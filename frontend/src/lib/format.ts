@@ -41,3 +41,29 @@ export const formatDateTime = (dateStr: string | null | undefined): string => {
 
 export const formatKm = (km: number | null | undefined): string =>
   km != null ? `${formatNumber(km, 1)} km` : '–';
+
+/**
+ * Formatiert einen Cent-Wert als EUR-String mit DE-Format ("1.234,56 €").
+ * Negative Werte (z.B. Stornorechnungen) werden mit Minus angezeigt.
+ *
+ * Konvention: Geld-Werte werden im Backend als INTEGER (Cents) gespeichert
+ * (siehe Phase 04 Plan 02). Dieser Helper ist die UI-Boundary, an der
+ * Cents → EUR konvertiert werden.
+ *
+ * @param cents - Cent-Wert (number | null | undefined)
+ * @param currency - ISO-4217 Currency-Code (default 'EUR')
+ * @returns formatierter String oder '–' bei null/undefined/NaN
+ */
+export function formatCurrencyFromCents(
+  cents: number | null | undefined,
+  currency = 'EUR',
+): string {
+  if (cents === null || cents === undefined || Number.isNaN(cents)) return '–';
+  const eur = cents / 100;
+  return new Intl.NumberFormat('de-DE', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(eur);
+}
