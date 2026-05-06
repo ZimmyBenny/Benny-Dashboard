@@ -27,6 +27,7 @@ import { Router, type Request } from 'express';
 import db from '../db/connection';
 import { receiptService } from '../services/receiptService';
 import { supplierMemoryService } from '../services/supplierMemoryService';
+import { taskAutomationService } from '../services/taskAutomationService';
 import { logAudit } from '../services/audit.service';
 import uploadRouter from './belege.upload.routes';
 import type { Receipt } from '../types/receipt';
@@ -67,6 +68,25 @@ router.get('/supplier-suggest', (req, res) => {
     return;
   }
   res.json(r);
+});
+
+/**
+ * POST /api/belege/run-task-automation
+ *
+ * Manueller Trigger fuer den Task-Automation-Sweep. Erstellt Tasks fuer
+ * offene Belege, deren Faelligkeit innerhalb des Lead-Days-Fensters liegt
+ * (siehe app_settings.payment_task_lead_days, Default 3).
+ *
+ * Wird auch beim Server-Start automatisch aufgerufen (server.ts).
+ *
+ * MUSS vor `/:id` stehen — sonst matched Express `/:id` mit
+ * id="run-task-automation" (NaN → 400).
+ *
+ * Response: { scanned, tasksCreated, createdReceiptIds }
+ */
+router.post('/run-task-automation', (_req, res) => {
+  const result = taskAutomationService.checkOpenPayments();
+  res.json(result);
 });
 
 /**

@@ -33,6 +33,24 @@ app.listen(PORT, () => {
   console.log(`[server] Benny Dashboard API running on http://localhost:${PORT}`);
   console.log(`[server] Health: http://localhost:${PORT}/api/health`);
 
+  // Task-Automation: einmaliger Sweep beim Server-Start (offene Belege → Tasks)
+  // Lazy import damit Migrations bereits abgeschlossen sind. try/catch verhindert
+  // Server-Crash bei einem Task-Automation-Fehler (Plan-Threat T-04-TASK-01).
+  import('./services/taskAutomationService')
+    .then(({ taskAutomationService }) => {
+      try {
+        const r = taskAutomationService.checkOpenPayments();
+        console.log(
+          `[task-automation] startup: scanned=${r.scanned} tasksCreated=${r.tasksCreated}`,
+        );
+      } catch (err) {
+        console.warn('[task-automation] startup failed:', (err as Error).message);
+      }
+    })
+    .catch((err) =>
+      console.warn('[task-automation] failed to load service:', (err as Error).message),
+    );
+
   // Hintergrund-Sync: Apple Calendar alle 5 Minuten via Swift EventKit (kein UI-Blocking)
   // Lazy import nach Server-Start damit Migration bereits abgeschlossen ist
   const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 Minuten (Swift EventKit: ~1-2s statt ~90s)
