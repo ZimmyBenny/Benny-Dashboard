@@ -291,3 +291,10 @@ export const updateTaxCategory = (
 /** POST /api/belege/db-backup — manuelles DB-Backup ausloesen. */
 export const triggerDbBackup = (): Promise<{ ok: true; path: string }> =>
   apiClient.post('/belege/db-backup').then((r) => r.data);
+
+/**
+ * DELETE /api/belege/:id — Hard-Delete fuer nicht-freigegebene Belege.
+ * Backend antwortet 409 bei freigegebenen Belegen (GoBD-Lock).
+ */
+export const deleteReceipt = (id: number): Promise<void> =>
+  apiClient.delete(`/belege/${id}`).then(() => undefined);

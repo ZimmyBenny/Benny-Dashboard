@@ -30,6 +30,7 @@ import {
   fetchReceipt,
   updateReceipt,
   freigebenReceipt,
+  deleteReceipt,
   type ReceiptDetail,
 } from '../../api/belege.api';
 import apiClient from '../../api/client';
@@ -72,6 +73,19 @@ export function BelegeDetailPage() {
     onSuccess: (newReceipt) => {
       qc.invalidateQueries({ queryKey: ['belege'] });
       navigate(`/belege/${newReceipt.id}`);
+    },
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: () => deleteReceipt(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['belege'] });
+      navigate('/belege/alle');
+    },
+    onError: (err: unknown) => {
+      const e = err as { response?: { status?: number; data?: { error?: string } }; message?: string };
+      const msg = e?.response?.data?.error ?? e?.message ?? 'Loeschen fehlgeschlagen';
+      window.alert(msg);
     },
   });
 
@@ -492,6 +506,38 @@ export function BelegeDetailPage() {
                     >
                       <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>archive</span>
                       Archivieren
+                    </button>
+                  )}
+                  {!isLocked && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            'Beleg endgültig löschen? Datei wird ebenfalls aus dem Storage entfernt. Diese Aktion ist nicht umkehrbar.',
+                          )
+                        ) {
+                          deleteMut.mutate();
+                        }
+                      }}
+                      disabled={deleteMut.isPending}
+                      style={{
+                        background: 'rgba(255, 100, 100, 0.08)',
+                        color: 'var(--color-error)',
+                        border: '1px solid rgba(255, 100, 100, 0.3)',
+                        borderRadius: '0.5rem',
+                        padding: '0.625rem 1.25rem',
+                        fontSize: '0.875rem',
+                        fontFamily: 'var(--font-body)',
+                        cursor: deleteMut.isPending ? 'wait' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.375rem',
+                        opacity: deleteMut.isPending ? 0.6 : 1,
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>delete</span>
+                      Löschen
                     </button>
                   )}
                 </div>

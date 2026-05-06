@@ -1153,6 +1153,11 @@ router.post('/:id/freigeben', (req, res) => {
  *
  * Hard-Delete. Nicht erlaubt fuer freigegebene Belege → 409
  * (User muss Korrekturbeleg erzeugen).
+ *
+ * Loescht zusaetzlich die physischen Storage-Dateien — receipt_files-Rows
+ * werden via ON DELETE CASCADE entfernt, aber die Dateien auf der Disk
+ * waeren sonst Orphans. fs.unlink-Fehler werden geschluckt: DB-State ist
+ * entscheidend, eine fehlende Datei darf den Loesch-Vorgang nicht blocken.
  */
 router.delete('/:id', (req, res) => {
   const id = Number(req.params.id);
@@ -1173,8 +1178,20 @@ router.delete('/:id', (req, res) => {
     });
     return;
   }
+  const filePaths = db
+    .prepare(`SELECT storage_path FROM receipt_files WHERE receipt_id = ?`)
+    .all(id) as Array<{ storage_path: string }>;
   logAudit(req, 'receipt', id, 'delete');
   db.prepare(`DELETE FROM receipts WHERE id = ?`).run(id);
+  for (const { storage_path } of filePaths) {
+    try {
+      if (fs.existsSync(storage_path)) {
+        fs.unlinkSync(storage_path);
+      }
+    } catch (err) {
+      console.warn(`[belege:delete] storage cleanup failed for ${storage_path}:`, (err as Error).message);
+    }
+  }
   res.status(204).end();
 });
 
