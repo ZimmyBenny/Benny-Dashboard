@@ -33,6 +33,7 @@ import { BelegeOverviewPage } from '../pages/belege/BelegeOverviewPage';
 import { BelegeListPage } from '../pages/belege/BelegeListPage';
 import { BelegeOpenPaymentsPage } from '../pages/belege/BelegeOpenPaymentsPage';
 import { BelegeReviewPage } from '../pages/belege/BelegeReviewPage';
+import { BelegeDetailPage } from '../pages/belege/BelegeDetailPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -79,6 +80,8 @@ export const router = createBrowserRouter([
           { path: '/belege/alle',           element: <BelegeListPage /> },
           { path: '/belege/offen',          element: <BelegeOpenPaymentsPage /> },
           { path: '/belege/zu-pruefen',     element: <BelegeReviewPage /> },
+          // /belege/:id MUSS NACH allen spezifischen Sub-Routes stehen
+          { path: '/belege/:id',            element: <BelegeDetailPage /> },
         ],
       },
     ],
