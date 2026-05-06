@@ -119,10 +119,10 @@ Scope: GoBD-konformes Belege-Modul (`/belege`) als zentraler Hauptbereich. Gener
 
 ### Services
 
-- [ ] **BELEG-SERVICE-01**: `lib/cents.ts` mit `toCents`, `toEur`, `calcVatCents`, `calcGrossCents`, `calcNetCents` (alle `Math.round`)
-- [ ] **BELEG-SERVICE-02**: `receiptService.create(...)`, `receiptService.update(...)`, `receiptService.applyOcrResult(...)`, `receiptService.markOcrFailed(...)`, `receiptService.freigeben(...)`
-- [ ] **BELEG-SERVICE-03**: `taxCalcService.aggregateForUstva(year, period)` — RC ist Nullsumme bei Vorsteuerberechtigung; private_share_percent zieht ab; Ist-Versteuerung über `payment_date`
-- [ ] **BELEG-SERVICE-04**: `duplicateCheckService.findBySha256(sha)` und `findByHeuristic(supplier, invoiceNumber, date)`
+- [x] **BELEG-SERVICE-01**: `lib/cents.ts` mit `toCents`, `toEur`, `calcVatCents`, `calcGrossCents`, `calcNetCents` (alle `Math.round`)
+- [x] **BELEG-SERVICE-02**: `receiptService.create(...)`, `receiptService.update(...)`, `receiptService.applyOcrResult(...)`, `receiptService.markOcrFailed(...)`, `receiptService.freigeben(...)`
+- [x] **BELEG-SERVICE-03**: `taxCalcService.aggregateForUstva(year, period)` — RC ist Nullsumme bei Vorsteuerberechtigung; private_share_percent zieht ab; Ist-Versteuerung über `payment_date`
+- [x] **BELEG-SERVICE-04**: `duplicateCheckService.findBySha256(sha)` und `findByHeuristic(supplier, invoiceNumber, date)`
 
 ### Upload + OCR
 
@@ -268,7 +268,7 @@ Scope: GoBD-konformes Belege-Modul (`/belege`) als zentraler Hauptbereich. Gener
 | BELEG-AUDIT-01 bis BELEG-AUDIT-05 | Phase 4 | Pending |
 | BELEG-TEST-01 bis BELEG-TEST-04 | Phase 4 | Pending |
 | BELEG-SCHEMA-01 bis BELEG-SCHEMA-09 | Phase 4 | Pending |
-| BELEG-SERVICE-01 bis BELEG-SERVICE-04 | Phase 4 | Pending |
+| BELEG-SERVICE-01 bis BELEG-SERVICE-04 | Phase 4 | Complete (2026-05-06) |
 | BELEG-OCR-01 bis BELEG-OCR-08 | Phase 4 | Pending |
 | BELEG-SUPPLIER-01 bis BELEG-SUPPLIER-04 | Phase 4 | Pending |
 | BELEG-TASK-01 bis BELEG-TASK-03 | Phase 4 | Pending |

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-01-schema-PLAN.md (Wave 1)
-last_updated: "2026-05-06T08:49:29.733Z"
+stopped_at: Completed 04-02-services-PLAN.md (Wave 2)
+last_updated: "2026-05-06T09:01:26.998Z"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 28
-  completed_plans: 17
-  percent: 61
+  completed_plans: 18
+  percent: 64
 ---
 
 # Project State: Benny Dashboard
@@ -38,9 +38,9 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 ## Progress
 
-[██████░░░░] 60% — 6/10 plans complete
+[██████░░░░] 64% — 18/28 plans complete
 
-**Stopped at:** Completed 04-01-schema-PLAN.md (Wave 1)
+**Stopped at:** Completed 04-02-services-PLAN.md (Wave 2)
 
 ## Decisions Made
 
@@ -64,6 +64,11 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 - [Phase 04]: Plan 04-01: Migration umbenannt von 039_belege.sql auf 040_belege.sql (Wave 0 hat 039_audit_log.sql belegt)
 - [Phase 04]: Plan 04-01: Alle Geld-Felder INTEGER (Cents) — exchange_rate und overall_confidence bleiben REAL (kein Geld)
 - [Phase 04]: Plan 04-01: GoBD-Trigger spaltenspezifisch — notes/tags/payment_date bleiben editierbar nach Freigabe
+- [Phase 04]: Plan 04-02: lib/cents.ts als Single Source of Truth fuer Geld-Math — alle Services arbeiten ausschliesslich auf INTEGER-Cents
+- [Phase 04]: Plan 04-02: vi.mock-Proxy-Pattern (dbHolder + beforeEach swap :memory:-DB) statt connection.ts-Modifikation — connection.ts bleibt produktions-fokussiert; Pattern wird in 04-03/04/05/06 wiederverwendet
+- [Phase 04]: Plan 04-02: Service-Funktionen akzeptieren `req: Request | null` — null-Pfad fuer system-initiierte Mutationen (Cron, Sync) ohne Audit-User-Kontext
+- [Phase 04]: Plan 04-02: KZ66 schliesst import_eust=0 aus + KZ62 erfordert input_tax_deductible=1 — verhindert Doppel-Zaehlung von EUSt-Belegen
+- [Phase 04]: Plan 04-02: applyOcrResult Konfidenz-Filter nur fuer supplier_name (>0.5) — andere Felder werden uebernommen wenn !== null (User reviewed sowieso)
 
 ## Open Decisions (must resolve before Milestone 2)
 
