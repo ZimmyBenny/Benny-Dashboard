@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-04-supplier-memory-PLAN.md (Wave 3)
-last_updated: "2026-05-06T12:42:50.121Z"
+stopped_at: Completed 04-05-task-automation-PLAN.md (Wave 3)
+last_updated: "2026-05-06T12:48:07Z"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 28
-  completed_plans: 20
-  percent: 71
+  completed_plans: 21
+  percent: 75
 ---
 
 # Project State: Benny Dashboard
@@ -38,9 +38,9 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 ## Progress
 
-[██████░░░░] 68% — 19/28 plans complete
+[███████░░░] 75% — 21/28 plans complete
 
-**Stopped at:** Completed 04-04-supplier-memory-PLAN.md (Wave 3)
+**Stopped at:** Completed 04-05-task-automation-PLAN.md (Wave 3)
 
 ## Decisions Made
 
@@ -78,6 +78,10 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 - [Phase 04]: Plan 04-04: NULL-safe UPSERT mit IS-Operator (existing-Lookup matched NULLs); ORDER BY usage_count DESC, last_used DESC, id DESC — haeufigster Tripel gewinnt, bei Gleichstand juengster
 - [Phase 04]: Plan 04-04: GET /supplier-suggest 404 statt 200-mit-null-Body — REST-konform, UI checkt status-Code; Endpoint MUSS vor /:id im Router stehen
 - [Phase 04]: Plan 04-04: POST /:id/areas separater Endpoint mit db.transaction (DELETE+INSERT atomar) — n:m receipt_area_links bekommt eigenen Pfad; PATCH /:id bleibt schlank (nur receipts-Spalten)
+- [Phase 04]: Plan 04-05: Server-Startup-Sweep statt externer Cron — fuer eine lokale-only-App ist 'naechster Server-Start' ausreichend frequent; lazy import + try/catch verhindert Crash bei Service-Failure (Threat T-04-TASK-01)
+- [Phase 04]: Plan 04-05: Idempotenz via FK source_receipt_id + status != 'archived' (NICHT archived_at IS NULL — Spalte existiert nicht); status='open' und priority='medium' (NICHT 'todo'/'normal' — CHECK-Constraint-Violation gewesen)
+- [Phase 04]: Plan 04-05: Echte Umlaute im UI-sichtbaren Task-Title ('Zahlung an X fällig: ...') gemaess Memory-Regel feedback_umlauts; sanitizeForFilename gilt nur fuer Datei-Pfade, nicht fuer Tasks
+- [Phase 04]: Plan 04-05: POST /run-task-automation fuer manuellen Trigger; Endpoint MUSS vor /:id stehen (gleiches Pattern wie /supplier-suggest in Plan 04-04)
 
 ## Open Decisions (must resolve before Milestone 2)
 

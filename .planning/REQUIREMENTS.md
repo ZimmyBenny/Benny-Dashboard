@@ -144,9 +144,9 @@ Scope: GoBD-konformes Belege-Modul (`/belege`) als zentraler Hauptbereich. Gener
 
 ### Task-Automation
 
-- [ ] **BELEG-TASK-01**: `taskAutomationService.checkOpenPayments()` läuft täglich (Cron oder beim Server-Start), erstellt Task in `tasks` für jeden Beleg mit `due_date - lead_days <= today` und `status='offen'` (idempotent — kein Duplikat wenn Task schon existiert)
-- [ ] **BELEG-TASK-02**: Task-Verlinkung: `tasks.source_receipt_id` referenziert `receipts.id` (FK) — falls noch nicht in tasks-Tabelle: in Migration 039 ergänzen
-- [ ] **BELEG-TASK-03**: Lead-Days konfigurierbar via Setting `payment_task_lead_days` (Default 3)
+- [x] **BELEG-TASK-01**: `taskAutomationService.checkOpenPayments()` läuft täglich (Cron oder beim Server-Start), erstellt Task in `tasks` für jeden Beleg mit `due_date - lead_days <= today` und `status='offen'` (idempotent — kein Duplikat wenn Task schon existiert)
+- [x] **BELEG-TASK-02**: Task-Verlinkung: `tasks.source_receipt_id` referenziert `receipts.id` (FK) — falls noch nicht in tasks-Tabelle: in Migration 039 ergänzen
+- [x] **BELEG-TASK-03**: Lead-Days konfigurierbar via Setting `payment_task_lead_days` (Default 3)
 
 ### DJ-Sync + Trips-Migration
 
@@ -271,7 +271,7 @@ Scope: GoBD-konformes Belege-Modul (`/belege`) als zentraler Hauptbereich. Gener
 | BELEG-SERVICE-01 bis BELEG-SERVICE-04 | Phase 4 | Complete (2026-05-06) |
 | BELEG-OCR-01 bis BELEG-OCR-08 | Phase 4 | Complete (2026-05-06) |
 | BELEG-SUPPLIER-01 bis BELEG-SUPPLIER-04 | Phase 4 | Pending |
-| BELEG-TASK-01 bis BELEG-TASK-03 | Phase 4 | Pending |
+| BELEG-TASK-01 bis BELEG-TASK-03 | Phase 4 | Complete (2026-05-06) |
 | BELEG-DJSYNC-01 bis BELEG-DJSYNC-07 | Phase 4 | Pending |
 | BELEG-UI-01 bis BELEG-UI-11 | Phase 4 | Pending |
 | BELEG-DJREF-01 bis BELEG-DJREF-05 | Phase 4 | Pending |

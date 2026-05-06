@@ -185,7 +185,7 @@ Future milestone phases — scope and plans defined at milestone start, not now.
 
 **Depends on:** Phase 3
 
-**Plans:** 4/13 plans executed
+**Plans:** 6/13 plans executed
 
 **Wave structure:**
 - Wave 0: Plan 00 (audit-refactor + Test-Setup)
@@ -202,7 +202,7 @@ Plans:
 - [x] 04-02-services-PLAN.md — `lib/cents.ts`, `receiptService`, `taxCalcService`, `duplicateCheckService`
 - [x] 04-03-upload-ocr-PLAN.md — Multi-File-Upload + `tesseract.js` + `pdf-to-img` + `receiptParserService`
 - [x] 04-04-supplier-memory-PLAN.md — Lieferanten-Lerngedächtnis mit Auto-Vorschlag (suggest + recordUsage hooks)
-- [ ] 04-05-task-automation-PLAN.md — `taskAutomationService` (offene Zahlungen → Tasks; idempotent via source_receipt_id)
+- [x] 04-05-task-automation-PLAN.md — `taskAutomationService` (offene Zahlungen → Tasks; idempotent via source_receipt_id)
 - [ ] 04-06-dj-sync-PLAN.md — `djSyncService` + `tripSyncService` + Migration 039a Fahrten-Migration + trips CRUD-Routes
 - [ ] 04-07-ui-overview-PLAN.md — `/belege` Übersicht (KPICards, Listen) + navConfig + StatusBadge-Erweiterung + formatCurrencyFromCents
 - [ ] 04-08-ui-list-detail-PLAN.md — `/belege/alle` + `/belege/:id` + PdfPreview + AuditTrail + Korrekturbeleg
@@ -213,4 +213,4 @@ Plans:
 
 ---
 
-*Last updated: 2026-05-06 — Plan 04-03 (Upload + OCR) abgeschlossen; 4/13 Phase-4-Plaene komplett*
+*Last updated: 2026-05-06 — Plan 04-05 (Task-Automation) abgeschlossen; 6/13 Phase-4-Plaene komplett*
