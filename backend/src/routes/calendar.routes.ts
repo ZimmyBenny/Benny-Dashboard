@@ -74,12 +74,22 @@ router.post('/events', async (req, res) => {
     alarm_minutes?: number;
   };
 
+  console.log('[calendar:create] incoming', { title, start_at, end_at, calendar_id, is_all_day });
+
   if (!title || !start_at || !end_at || !calendar_id) {
+    console.warn('[calendar:create] 400 missing fields', { title: !!title, start_at: !!start_at, end_at: !!end_at, calendar_id: !!calendar_id });
     return res.status(400).json({ error: 'title, start_at, end_at, calendar_id required' });
   }
 
-  const event = await createEvent({ title, start_at, end_at, calendar_id, is_all_day, location, notes, alarm_minutes });
-  res.status(201).json({ ok: true, event });
+  try {
+    const event = await createEvent({ title, start_at, end_at, calendar_id, is_all_day, location, notes, alarm_minutes });
+    console.log('[calendar:create] OK id=', event.id, 'apple_uid=', event.apple_uid);
+    res.status(201).json({ ok: true, event });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[calendar:create] FAILED', msg);
+    res.status(500).json({ error: msg });
+  }
 });
 
 // POST /api/calendar/sync — Manueller Force-Sync (löscht Cache, synct sofort)

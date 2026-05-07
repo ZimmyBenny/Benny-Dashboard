@@ -663,9 +663,11 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
       } else {
         const newEvent = await createDjEvent({ ...payload, status: 'anfrage' } as Parameters<typeof createDjEvent>[0]);
         // Kalender-Eintrag anlegen
+        let calendarSyncFailed = false;
         if (addToCalendar && eventDate) {
           if (!selectedCalendarId) {
             setError('Kalender "DJ-Termine" nicht gefunden. Anfrage wurde trotzdem gespeichert.');
+            calendarSyncFailed = true;
           } else {
             const startTime = timeStart || '12:00';
             const endTime = timeEnd || (timeStart
@@ -698,11 +700,16 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
             } catch (calErr: unknown) {
               const msg = calErr instanceof Error ? calErr.message : String(calErr);
               setError(`Anfrage gespeichert, aber Kalender-Eintrag fehlgeschlagen: ${msg}`);
+              calendarSyncFailed = true;
             }
           }
         }
         await queryClient.invalidateQueries({ queryKey: ['dj-events'] });
-        onCreated();
+        // Bei Calendar-Sync-Fehler Modal offen lassen damit User den Hinweis sieht
+        // und entscheiden kann (manuell nachtragen / erneut versuchen / schliessen).
+        if (!calendarSyncFailed) {
+          onCreated();
+        }
       }
     } catch {
       setError('Fehler beim Speichern. Bitte erneut versuchen.');
@@ -987,12 +994,20 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
                 <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: '#ffc800', lineHeight: 1.5 }}>
                   <strong>Bereits {conflictingEvents.length} Anfrage{conflictingEvents.length > 1 ? 'n' : ''} an diesem Tag:</strong>
                   <br />
-                  {conflictingEvents.map(ev => {
+                  {conflictingEvents.map((ev, idx) => {
                     const kunde = ev.customer_name || ev.customer_org || null;
                     const typ = EVENT_TYPE_LABELS[ev.event_type as keyof typeof EVENT_TYPE_LABELS] || ev.event_type;
                     const label = ev.title || typ;
-                    return kunde ? `${kunde} – ${label}` : label;
-                  }).join(' · ')}
+                    const statusLabel = STATUS_LABELS[ev.status] || ev.status;
+                    const main = kunde ? `${kunde} – ${label}` : label;
+                    return (
+                      <span key={ev.id ?? idx}>
+                        {idx > 0 && ' · '}
+                        {main}{' '}
+                        <span style={{ opacity: 0.75, fontStyle: 'italic' }}>({statusLabel})</span>
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
             )}
