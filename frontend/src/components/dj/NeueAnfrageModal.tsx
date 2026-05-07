@@ -686,10 +686,21 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
               const tzH = String(Math.floor(Math.abs(offsetMin) / 60)).padStart(2, '0');
               const tzM = String(Math.abs(offsetMin) % 60).padStart(2, '0');
               const tz = `${tzSign}${tzH}:${tzM}`;
+              // Cross-Midnight: Wenn Endzeit kleiner-gleich Startzeit ist (z.B. 21:00→03:00),
+              // gehoert der End-Tag zum naechsten Kalendertag.
+              const [sH, sM] = startTime.split(':').map(Number);
+              const [eH, eM] = endTime.split(':').map(Number);
+              const endDate =
+                (eH * 60 + eM) <= (sH * 60 + sM)
+                  ? new Date(`${eventDate}T00:00:00`).valueOf() + 24 * 60 * 60 * 1000
+                  : null;
+              const endDateStr = endDate
+                ? new Date(endDate).toISOString().slice(0, 10)
+                : eventDate;
               const res = await apiClient.post('/calendar/events', {
                 title: calTitle,
                 start_at: `${eventDate}T${startTime}:00${tz}`,
-                end_at: `${eventDate}T${endTime}:00${tz}`,
+                end_at: `${endDateStr}T${endTime}:00${tz}`,
                 calendar_id: selectedCalendarId,
                 notes: customerFreetext.trim() ? `Kundendaten: ${customerFreetext.trim()}` : undefined,
               });
@@ -698,7 +709,9 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
                 await updateDjEvent(newEvent.id, { calendar_uid: calUid } as Partial<DjEvent>);
               }
             } catch (calErr: unknown) {
-              const msg = calErr instanceof Error ? calErr.message : String(calErr);
+              const e = calErr as { response?: { data?: { error?: string } }; message?: string };
+              const backendMsg = e?.response?.data?.error;
+              const msg = backendMsg ?? e?.message ?? String(calErr);
               setError(`Anfrage gespeichert, aber Kalender-Eintrag fehlgeschlagen: ${msg}`);
               calendarSyncFailed = true;
             }
