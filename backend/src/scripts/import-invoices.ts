@@ -186,6 +186,15 @@ const importFn = db.transaction(() => {
       UPDATE dj_invoices SET status = ?, finalized_at = ? WHERE id = ?
     `).run(status, isCancellation ? null : row.invoice_date, invoiceId);
 
+    // Bei bezahlten Rechnungen: dj_payments-Zeile anlegen, damit revenue_year-
+    // Aggregation (DJ-Dashboard, dj.routes /overview) den Betrag sieht.
+    if (status === 'bezahlt' && row.paid_at) {
+      db.prepare(`
+        INSERT INTO dj_payments (invoice_id, payment_date, amount, method)
+        VALUES (?, ?, ?, ?)
+      `).run(invoiceId, row.paid_at, row.total_gross, 'import');
+    }
+
     const statusIcon = status === 'bezahlt' ? '✓' : status === 'storniert' ? '✕' : '○';
     console.log(`  [${statusIcon}]  ${row.number}  ${row.invoice_date}  ${String(row.total_gross).padStart(10)}€  → ${customerId} (KdNr ${row.customer_number})  [${status}]`);
     imported++;
