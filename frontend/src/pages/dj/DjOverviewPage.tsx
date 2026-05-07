@@ -21,6 +21,7 @@ export function DjOverviewPage() {
   const currentYear = new Date().getFullYear();
   const selectedYear = currentYear;
   const [showNeueAnfrage, setShowNeueAnfrage] = useState(false);
+  const [weekendDetailsOpen, setWeekendDetailsOpen] = useState(false);
 
   const { data: overview, isLoading: overviewLoading } =
     useQuery<DjOverview>({
@@ -563,6 +564,119 @@ export function DjOverviewPage() {
                 {weekendStats.total} Wochenenden gesamt
               </span>
             </div>
+
+            {/* Aufklapp-Bereich: Detail-Listen ───────────────────────────── */}
+            <button
+              type="button"
+              onClick={() => setWeekendDetailsOpen((v) => !v)}
+              style={{
+                marginTop: '0.875rem',
+                width: '100%',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--color-on-surface-variant)',
+                fontFamily: 'var(--font-body)',
+                fontSize: '0.75rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0.5rem 0.25rem',
+                borderTop: '1px solid rgba(148,170,255,0.1)',
+              }}
+            >
+              <span>Details Events / Pipeline</span>
+              <span
+                className="material-symbols-outlined"
+                style={{ fontSize: '1.1rem', transition: 'transform 0.2s', transform: weekendDetailsOpen ? 'rotate(180deg)' : 'none' }}
+              >
+                expand_more
+              </span>
+            </button>
+
+            {weekendDetailsOpen && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.5rem' }}>
+                {/* Booked-Liste */}
+                <div>
+                  <h4 style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 600, color: 'var(--color-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '0.5rem' }}>
+                    Zählt rein ({(overview as { weekend_stats?: { booked_events?: unknown[] } } | undefined)?.weekend_stats?.booked_events?.length ?? 0})
+                  </h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', maxHeight: '300px', overflowY: 'auto' }}>
+                    {((overview as { weekend_stats?: { booked_events?: Array<{ date: string; customer: string | null; title: string | null; event_type: string; status: string; source: string }> } } | undefined)?.weekend_stats?.booked_events ?? []).map((ev, idx) => (
+                      <div
+                        key={`booked-${idx}`}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '90px 1fr auto',
+                          gap: '0.5rem',
+                          alignItems: 'center',
+                          padding: '0.35rem 0.5rem',
+                          background: 'rgba(74,222,128,0.05)',
+                          border: '1px solid rgba(74,222,128,0.15)',
+                          borderRadius: '0.375rem',
+                          fontFamily: 'var(--font-body)',
+                          fontSize: '0.75rem',
+                          color: 'var(--color-on-surface)',
+                        }}
+                      >
+                        <span style={{ color: 'var(--color-on-surface-variant)' }}>{formatDate(ev.date)}</span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${ev.customer ?? '–'} · ${ev.event_type}${ev.title ? ' · ' + ev.title : ''}`}>
+                          {ev.customer || ev.title || ev.event_type}
+                        </span>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--color-on-surface-variant)', textTransform: 'uppercase' }}>
+                          {ev.source === 'invoice' ? 'Rechnung' : 'Event'}
+                        </span>
+                      </div>
+                    ))}
+                    {((overview as { weekend_stats?: { booked_events?: unknown[] } } | undefined)?.weekend_stats?.booked_events?.length ?? 0) === 0 && (
+                      <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', fontStyle: 'italic' }}>
+                        Keine
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Pending-Liste */}
+                <div>
+                  <h4 style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 600, color: '#ffc457', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0, marginBottom: '0.5rem' }}>
+                    In der Pipeline ({(overview as { weekend_stats?: { pending_events?: unknown[] } } | undefined)?.weekend_stats?.pending_events?.length ?? 0})
+                  </h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', maxHeight: '300px', overflowY: 'auto' }}>
+                    {((overview as { weekend_stats?: { pending_events?: Array<{ date: string; customer: string | null; title: string | null; event_type: string; status: string }> } } | undefined)?.weekend_stats?.pending_events ?? []).map((ev, idx) => (
+                      <div
+                        key={`pending-${idx}`}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '90px 1fr auto',
+                          gap: '0.5rem',
+                          alignItems: 'center',
+                          padding: '0.35rem 0.5rem',
+                          background: 'rgba(255,196,87,0.05)',
+                          border: '1px solid rgba(255,196,87,0.15)',
+                          borderRadius: '0.375rem',
+                          fontFamily: 'var(--font-body)',
+                          fontSize: '0.75rem',
+                          color: 'var(--color-on-surface)',
+                        }}
+                      >
+                        <span style={{ color: 'var(--color-on-surface-variant)' }}>{formatDate(ev.date)}</span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${ev.customer ?? '–'} · ${ev.event_type}${ev.title ? ' · ' + ev.title : ''}`}>
+                          {ev.customer || ev.title || ev.event_type}
+                        </span>
+                        <span style={{ fontSize: '0.65rem', color: '#ffc457', textTransform: 'uppercase' }}>
+                          {ev.status.replace('_', ' ')}
+                        </span>
+                      </div>
+                    ))}
+                    {((overview as { weekend_stats?: { pending_events?: unknown[] } } | undefined)?.weekend_stats?.pending_events?.length ?? 0) === 0 && (
+                      <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', fontStyle: 'italic' }}>
+                        Keine
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
         </div>{/* /content-wrapper */}

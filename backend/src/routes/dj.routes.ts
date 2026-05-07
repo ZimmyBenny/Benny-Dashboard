@@ -106,12 +106,48 @@ router.get('/overview', (req, res) => {
       AND strftime('%w', invoice_date) IN ('5','6')
   `).all(yearStart, yearEnd) as Array<{ d: string }>;
 
+  // Detail-Listen fuer den Aufklapp-Bereich:
+  // booked = Events/Rechnungen die in die Auslastung einfliessen
+  // pending = Termine in der Pipeline die ggf. noch zu Buchungen werden
+  const bookedEventDetails = db.prepare(`
+    SELECT e.event_date AS date, e.event_type, e.title, e.status, 'event' AS source,
+           COALESCE(c.organization_name, NULLIF(TRIM(c.first_name || ' ' || c.last_name), '')) AS customer
+    FROM dj_events e
+    LEFT JOIN contacts c ON c.id = e.customer_id
+    WHERE e.status = 'bestaetigt' AND e.deleted_at IS NULL
+      AND e.event_date >= ? AND e.event_date <= ?
+      AND strftime('%w', e.event_date) IN ('5','6')
+    ORDER BY e.event_date
+  `).all(yearStart, yearEnd);
+
+  const bookedInvoiceDetails = db.prepare(`
+    SELECT i.invoice_date AS date, 'rechnung' AS event_type, i.subject AS title,
+           i.status, 'invoice' AS source, i.total_gross,
+           COALESCE(c.organization_name, NULLIF(TRIM(c.first_name || ' ' || c.last_name), '')) AS customer
+    FROM dj_invoices i
+    LEFT JOIN contacts c ON c.id = i.customer_id
+    WHERE i.is_cancellation = 0 AND i.finalized_at IS NOT NULL
+      AND i.invoice_date >= ? AND i.invoice_date <= ?
+      AND strftime('%w', i.invoice_date) IN ('5','6')
+    ORDER BY i.invoice_date
+  `).all(yearStart, yearEnd);
+
+  const pendingEventDetails = db.prepare(`
+    SELECT e.event_date AS date, e.event_type, e.title, e.status, 'event' AS source,
+           COALESCE(c.organization_name, NULLIF(TRIM(c.first_name || ' ' || c.last_name), '')) AS customer
+    FROM dj_events e
+    LEFT JOIN contacts c ON c.id = e.customer_id
+    WHERE e.status IN ('anfrage','neu','vorgespraech_vereinbart','angebot_gesendet')
+      AND e.deleted_at IS NULL
+      AND e.event_date IS NOT NULL
+    ORDER BY e.event_date
+  `).all();
+
   const weekendKeys = new Set<string>();
   const allDates = [...eventDates, ...invoiceDates];
   for (const { d } of allDates) {
-    // Date-String 'YYYY-MM-DD' → Mo der ISO-Woche
     const date = new Date(`${d}T00:00:00`);
-    const dow = date.getDay(); // 0=So, 1=Mo, ..., 5=Fr, 6=Sa
+    const dow = date.getDay();
     const daysBack = (dow + 6) % 7;
     const monday = new Date(date);
     monday.setDate(date.getDate() - daysBack);
@@ -122,6 +158,10 @@ router.get('/overview', (req, res) => {
     booked: weekendKeys.size,
     total: 52,
     free: Math.max(0, 52 - weekendKeys.size),
+    booked_events: [...bookedEventDetails, ...bookedInvoiceDetails].sort(
+      (a, b) => String((a as { date: string }).date).localeCompare(String((b as { date: string }).date)),
+    ),
+    pending_events: pendingEventDetails,
   };
 
   res.json({
