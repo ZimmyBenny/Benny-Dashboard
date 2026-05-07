@@ -203,6 +203,28 @@ export function update(
     | undefined;
   if (!existing) throw new Error(`Receipt ${id} not found`);
 
+  // Auto-Recompute: wenn Brutto oder USt-Satz neu gesetzt wird und der User
+  // amount_net_cents / vat_amount_cents nicht selbst mitschickt, leiten wir
+  // diese ab (gleiche Logik wie bei create). Sonst bleiben Netto + USt-Betrag
+  // bei manueller Korrektur veraltet.
+  const grossExplicit = 'amount_gross_cents' in fields;
+  const rateExplicit = 'vat_rate' in fields;
+  const netExplicit = 'amount_net_cents' in fields;
+  const vatExplicit = 'vat_amount_cents' in fields;
+
+  if ((grossExplicit || rateExplicit) && !netExplicit && !vatExplicit) {
+    const gross = (fields.amount_gross_cents ?? existing.amount_gross_cents) as number;
+    const rate = (fields.vat_rate ?? existing.vat_rate ?? 19) as number;
+    if (typeof gross === 'number' && gross > 0 && typeof rate === 'number') {
+      const net = calcNetCents(gross, rate);
+      fields = {
+        ...fields,
+        amount_net_cents: net,
+        vat_amount_cents: gross - net,
+      };
+    }
+  }
+
   const sets: string[] = [];
   const params: Record<string, unknown> = { id };
 

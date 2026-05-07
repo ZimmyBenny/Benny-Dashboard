@@ -31,7 +31,9 @@ import {
   updateReceipt,
   freigebenReceipt,
   deleteReceipt,
+  fetchTaxCategories,
   type ReceiptDetail,
+  type TaxCategory,
 } from '../../api/belege.api';
 import apiClient from '../../api/client';
 import { formatCurrencyFromCents, formatDate } from '../../lib/format';
@@ -87,6 +89,13 @@ export function BelegeDetailPage() {
       const msg = e?.response?.data?.error ?? e?.message ?? 'Loeschen fehlgeschlagen';
       window.alert(msg);
     },
+  });
+
+  // Steuerkategorien fuer den Picker (cached, nur einmal pro Session geladen).
+  const { data: taxCategories = [] } = useQuery<TaxCategory[]>({
+    queryKey: ['tax-categories'],
+    queryFn: fetchTaxCategories,
+    staleTime: 5 * 60 * 1000,
   });
 
   if (!Number.isFinite(id) || id <= 0) {
@@ -310,32 +319,97 @@ export function BelegeDetailPage() {
               </Section>
 
               <Section title="Beträge">
-                <Field label="Brutto" value={formatCurrencyFromCents(r.amount_gross_cents)} disabled />
-                <Field label="Netto" value={formatCurrencyFromCents(r.amount_net_cents)} disabled />
                 <Field
-                  label="USt"
-                  value={`${r.vat_rate}% = ${formatCurrencyFromCents(r.vat_amount_cents)}`}
+                  label="Brutto"
+                  value={formatCentsForInput(r.amount_gross_cents)}
+                  disabled={isLocked}
+                  type="money"
+                  suffix="€"
+                  onChange={(v) => {
+                    const cents = parseCents(v);
+                    if (cents !== null) updateMut.mutate({ amount_gross_cents: cents } as Partial<ReceiptDetail>);
+                  }}
+                />
+                <Field
+                  label="USt-Satz"
+                  value={String(r.vat_rate ?? '')}
+                  disabled={isLocked}
+                  type="number"
+                  suffix="%"
+                  onChange={(v) => {
+                    const num = Number(v.replace(',', '.'));
+                    if (Number.isFinite(num)) updateMut.mutate({ vat_rate: num } as Partial<ReceiptDetail>);
+                  }}
+                />
+                <Field
+                  label="Netto"
+                  value={formatCurrencyFromCents(r.amount_net_cents)}
+                  disabled
+                />
+                <Field
+                  label="USt-Betrag"
+                  value={formatCurrencyFromCents(r.vat_amount_cents)}
                   disabled
                 />
                 <Field
                   label="Bezahlt"
-                  value={formatCurrencyFromCents(
-                    (r as ReceiptDetail & { paid_amount_cents?: number }).paid_amount_cents ?? 0,
+                  value={formatCentsForInput(
+                    (r as ReceiptDetail & { paid_amount_cents?: number }).paid_amount_cents ?? null,
                   )}
-                  disabled
+                  disabled={isLocked}
+                  type="money"
+                  suffix="€"
+                  onChange={(v) => {
+                    const cents = parseCents(v);
+                    updateMut.mutate({ paid_amount_cents: cents ?? 0 } as Partial<ReceiptDetail>);
+                  }}
                 />
+                <p
+                  style={{
+                    fontSize: '0.7rem',
+                    color: 'var(--color-on-surface-variant)',
+                    fontFamily: 'var(--font-body)',
+                    marginTop: '0.25rem',
+                    fontStyle: 'italic',
+                  }}
+                >
+                  Netto und USt-Betrag werden automatisch aus Brutto + USt-Satz berechnet.
+                </p>
               </Section>
 
               <Section title="Steuer">
-                <Field label="Reverse Charge" value={reverseCharge ? 'ja (§13b UStG)' : 'nein'} disabled />
-                <Field label="Vorsteuer abziehbar" value={inputTaxDeductible ? 'ja' : 'nein'} disabled />
-                <Field label="Steuerkategorie" value={taxCategory ?? '–'} disabled />
-                <Field
+                <BooleanField
+                  label="Reverse Charge"
+                  value={reverseCharge}
+                  disabled={isLocked}
+                  onChange={(v) => updateMut.mutate({ reverse_charge: v ? 1 : 0 } as Partial<ReceiptDetail>)}
+                />
+                <BooleanField
+                  label="Vorsteuer abziehbar"
+                  value={inputTaxDeductible}
+                  disabled={isLocked}
+                  onChange={(v) => updateMut.mutate({ input_tax_deductible: v ? 1 : 0 } as Partial<ReceiptDetail>)}
+                />
+                <SelectField
+                  label="Steuerkategorie"
+                  value={String((r as ReceiptDetail & { tax_category_id?: number | null }).tax_category_id ?? '')}
+                  disabled={isLocked}
+                  options={taxCategories.map((tc) => ({
+                    value: String(tc.id),
+                    label: tc.name,
+                  }))}
+                  onChange={(v) => {
+                    const tcId = v === '' ? null : Number(v);
+                    updateMut.mutate({ tax_category_id: tcId } as Partial<ReceiptDetail>);
+                  }}
+                />
+                <BooleanField
                   label="Steuerrelevant"
                   value={
-                    (r as ReceiptDetail & { steuerrelevant?: number }).steuerrelevant === 0 ? 'nein' : 'ja'
+                    (r as ReceiptDetail & { steuerrelevant?: number }).steuerrelevant !== 0
                   }
-                  disabled
+                  disabled={isLocked}
+                  onChange={(v) => updateMut.mutate({ steuerrelevant: v ? 1 : 0 } as Partial<ReceiptDetail>)}
                 />
               </Section>
 
@@ -610,11 +684,13 @@ interface FieldProps {
   label: string;
   value: string;
   disabled?: boolean;
-  type?: 'text' | 'date';
+  type?: 'text' | 'date' | 'number' | 'money';
+  /** Suffix nach dem Input — z.B. "€" oder "%". Optional. */
+  suffix?: string;
   onChange?: (v: string) => void;
 }
 
-function Field({ label, value, disabled, type = 'text', onChange }: FieldProps) {
+function Field({ label, value, disabled, type = 'text', suffix, onChange }: FieldProps) {
   const [localValue, setLocalValue] = useState(value);
   const editable = !!onChange && !disabled;
 
@@ -644,27 +720,45 @@ function Field({ label, value, disabled, type = 'text', onChange }: FieldProps) 
         {label}
       </span>
       {editable ? (
-        <input
-          type={type}
-          value={localValue}
-          onChange={(e) => setLocalValue(e.target.value)}
-          onBlur={() => {
-            if (localValue !== value) onChange!(localValue);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-          }}
-          style={{
-            background: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(148,170,255,0.15)',
-            borderRadius: '0.375rem',
-            padding: '0.375rem 0.625rem',
-            color: 'var(--color-on-surface)',
-            fontFamily: 'var(--font-body)',
-            fontSize: '0.85rem',
-            outline: 'none',
-          }}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+          <input
+            type={type === 'date' ? 'date' : 'text'}
+            inputMode={type === 'money' || type === 'number' ? 'decimal' : undefined}
+            value={localValue}
+            onChange={(e) => setLocalValue(e.target.value)}
+            onBlur={() => {
+              if (localValue !== value) onChange!(localValue);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+            }}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(148,170,255,0.15)',
+              borderRadius: '0.375rem',
+              padding: '0.375rem 0.625rem',
+              color: 'var(--color-on-surface)',
+              fontFamily: 'var(--font-body)',
+              fontSize: '0.85rem',
+              outline: 'none',
+              textAlign: type === 'money' || type === 'number' ? 'right' : 'left',
+            }}
+          />
+          {suffix && (
+            <span
+              style={{
+                fontSize: '0.85rem',
+                color: 'var(--color-on-surface-variant)',
+                fontFamily: 'var(--font-body)',
+                minWidth: '1ch',
+              }}
+            >
+              {suffix}
+            </span>
+          )}
+        </div>
       ) : (
         <span
           style={{
@@ -679,6 +773,171 @@ function Field({ label, value, disabled, type = 'text', onChange }: FieldProps) 
       )}
     </div>
   );
+}
+
+/** Toggle ja/nein — schreibt 0/1 ueber onChange. */
+function BooleanField({
+  label,
+  value,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: boolean;
+  disabled?: boolean;
+  onChange?: (v: boolean) => void;
+}) {
+  const editable = !!onChange && !disabled;
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '140px 1fr',
+        gap: '0.75rem',
+        alignItems: 'center',
+        padding: '0.25rem 0',
+      }}
+    >
+      <span
+        style={{
+          fontSize: '0.75rem',
+          color: 'var(--color-on-surface-variant)',
+          fontFamily: 'var(--font-body)',
+          fontWeight: 500,
+        }}
+      >
+        {label}
+      </span>
+      {editable ? (
+        <div style={{ display: 'flex', gap: '0.375rem' }}>
+          {[true, false].map((opt) => (
+            <button
+              key={String(opt)}
+              type="button"
+              onClick={() => {
+                if (opt !== value) onChange!(opt);
+              }}
+              style={{
+                background: opt === value ? 'rgba(148,170,255,0.18)' : 'rgba(255,255,255,0.04)',
+                color: opt === value ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
+                border: opt === value ? '1px solid rgba(148,170,255,0.4)' : '1px solid rgba(148,170,255,0.15)',
+                borderRadius: '0.375rem',
+                padding: '0.25rem 0.875rem',
+                fontSize: '0.8rem',
+                fontFamily: 'var(--font-body)',
+                cursor: 'pointer',
+                fontWeight: opt === value ? 600 : 400,
+              }}
+            >
+              {opt ? 'ja' : 'nein'}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <span
+          style={{
+            fontSize: '0.85rem',
+            color: 'var(--color-on-surface)',
+            fontFamily: 'var(--font-body)',
+          }}
+        >
+          {value ? 'ja' : 'nein'}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** Dropdown — z.B. Steuerkategorie. */
+function SelectField({
+  label,
+  value,
+  options,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  /** Aktueller Wert (id als string oder leer). */
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  disabled?: boolean;
+  onChange?: (v: string) => void;
+}) {
+  const editable = !!onChange && !disabled;
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '140px 1fr',
+        gap: '0.75rem',
+        alignItems: 'center',
+        padding: '0.25rem 0',
+      }}
+    >
+      <span
+        style={{
+          fontSize: '0.75rem',
+          color: 'var(--color-on-surface-variant)',
+          fontFamily: 'var(--font-body)',
+          fontWeight: 500,
+        }}
+      >
+        {label}
+      </span>
+      {editable ? (
+        <select
+          value={value}
+          onChange={(e) => onChange!(e.target.value)}
+          style={{
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(148,170,255,0.15)',
+            borderRadius: '0.375rem',
+            padding: '0.375rem 0.625rem',
+            color: 'var(--color-on-surface)',
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.85rem',
+            outline: 'none',
+          }}
+        >
+          <option value="">– keine –</option>
+          {options.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <span
+          style={{
+            fontSize: '0.85rem',
+            color: 'var(--color-on-surface)',
+            fontFamily: 'var(--font-body)',
+          }}
+        >
+          {options.find((o) => o.value === value)?.label ?? '–'}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Komma↔Punkt-Conversion fuer DE-Geld-Eingabe.
+ * "21,42" oder "21.42" → 2142 Cents. Leer / Garbage → null.
+ */
+function parseCents(input: string): number | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  const normalized = trimmed.replace(/\./g, '').replace(',', '.');
+  const num = Number(normalized);
+  if (!Number.isFinite(num)) return null;
+  return Math.round(num * 100);
+}
+
+/** Cents → "21,42" (ohne Suffix). */
+function formatCentsForInput(cents: number | null | undefined): string {
+  if (cents == null) return '';
+  return (cents / 100).toFixed(2).replace('.', ',');
 }
 
 function NotesField({ initialValue, onSave }: { initialValue: string; onSave: (v: string) => void }) {
