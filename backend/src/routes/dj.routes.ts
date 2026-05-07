@@ -98,11 +98,15 @@ router.get('/overview', (req, res) => {
       AND strftime('%w', event_date) IN ('0','5','6')
   `).all(yearStart, yearEnd) as Array<{ d: string }>;
 
+  // Bestand-Rechnungen: invoice_date am Mo/Di wird ggf. auf das Wochenende
+  // davor gemappt (typischer Fall: Rechnung Anfang der Woche fuer
+  // Veranstaltung am Wochenende). So zaehlt z.B. RE-1058 (Mo 16.02.2026
+  // mit Event 15.02.2026) korrekt in KW 7.
   const invoiceDates = db.prepare(`
     SELECT invoice_date AS d FROM dj_invoices
     WHERE is_cancellation = 0 AND finalized_at IS NOT NULL
       AND invoice_date >= ? AND invoice_date <= ?
-      AND strftime('%w', invoice_date) IN ('0','5','6')
+      AND strftime('%w', invoice_date) IN ('0','1','2','5','6')
   `).all(yearStart, yearEnd) as Array<{ d: string }>;
 
   // Detail-Listen fuer den Aufklapp-Bereich:
@@ -125,7 +129,7 @@ router.get('/overview', (req, res) => {
     LEFT JOIN contacts c ON c.id = i.customer_id
     WHERE i.is_cancellation = 0 AND i.finalized_at IS NOT NULL
       AND i.invoice_date >= ? AND i.invoice_date <= ?
-      AND strftime('%w', i.invoice_date) IN ('0','5','6')
+      AND strftime('%w', i.invoice_date) IN ('0','1','2','5','6')
     ORDER BY i.invoice_date
   `).all(yearStart, yearEnd);
 
@@ -140,20 +144,40 @@ router.get('/overview', (req, res) => {
     ORDER BY e.event_date
   `).all();
 
-  const weekendKeys = new Set<string>();
-  for (const { d } of [...eventDates, ...invoiceDates]) {
+  // Wochen-Key-Berechnung mit Mo/Di-Heuristik fuer Bestand-Rechnungen:
+  // Wenn invoice_date am Mo (dow=1) oder Di (dow=2) → das eigentliche Event
+  // war typischerweise am Wochenende davor → Schluessel = Mo der VORIGEN Woche.
+  // Fuer dj_events (event_date = exakt) nehmen wir immer Mo der gleichen Woche.
+  function weekKey(d: string, isInvoice: boolean): string {
     const date = new Date(`${d}T00:00:00`);
     const dow = date.getDay();
-    const daysBack = (dow + 6) % 7;
+    let daysBack = (dow + 6) % 7;
+    if (isInvoice && (dow === 1 || dow === 2)) {
+      daysBack += 7;
+    }
     const monday = new Date(date);
     monday.setDate(date.getDate() - daysBack);
-    const key = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
-    weekendKeys.add(key);
+    return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
   }
+
+  // Map<weekKey, count> — fuer Doppel-Booking-Counter
+  const weekKeyCounts = new Map<string, number>();
+  for (const { d } of eventDates) {
+    const key = weekKey(d, false);
+    weekKeyCounts.set(key, (weekKeyCounts.get(key) ?? 0) + 1);
+  }
+  for (const { d } of invoiceDates) {
+    const key = weekKey(d, true);
+    weekKeyCounts.set(key, (weekKeyCounts.get(key) ?? 0) + 1);
+  }
+  const booked = weekKeyCounts.size;
+  const doubleBookings = Array.from(weekKeyCounts.values()).filter((c) => c >= 2).length;
+
   const weekendStats = {
-    booked: weekendKeys.size,
+    booked,
     total: 52,
-    free: Math.max(0, 52 - weekendKeys.size),
+    free: Math.max(0, 52 - booked),
+    double_bookings: doubleBookings,
     booked_events: [...bookedEventDetails, ...bookedInvoiceDetails].sort(
       (a, b) => String((a as { date: string }).date).localeCompare(String((b as { date: string }).date)),
     ),

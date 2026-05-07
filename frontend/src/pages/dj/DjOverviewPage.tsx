@@ -545,6 +545,25 @@ export function DjOverviewPage() {
                 >
                   {weekendStats.pct}%
                 </span>
+                {((overview as { weekend_stats?: { double_bookings?: number } } | undefined)?.weekend_stats?.double_bookings ?? 0) > 0 && (
+                  <span
+                    title="Wochenenden mit zwei oder mehr Buchungen"
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      color: '#ffc457',
+                      background: 'rgba(255, 196, 87, 0.10)',
+                      padding: '0.15rem 0.5rem',
+                      borderRadius: '999px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.2rem',
+                    }}
+                  >
+                    {(overview as { weekend_stats?: { double_bookings?: number } } | undefined)?.weekend_stats?.double_bookings}× 2-fach
+                  </span>
+                )}
               </div>
             </div>
             {/* Progress-Bar */}
