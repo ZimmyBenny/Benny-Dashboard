@@ -32,8 +32,11 @@ import {
   freigebenReceipt,
   deleteReceipt,
   fetchTaxCategories,
+  fetchAreas,
+  setReceiptAreas,
   type ReceiptDetail,
   type TaxCategory,
+  type Area,
 } from '../../api/belege.api';
 import apiClient from '../../api/client';
 import { formatCurrencyFromCents, formatDate } from '../../lib/format';
@@ -96,6 +99,22 @@ export function BelegeDetailPage() {
     queryKey: ['tax-categories'],
     queryFn: fetchTaxCategories,
     staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: areas = [] } = useQuery<Area[]>({
+    queryKey: ['areas'],
+    queryFn: fetchAreas,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const setAreasMut = useMutation({
+    mutationFn: ({ ids, primary }: { ids: number[]; primary?: number }) =>
+      setReceiptAreas(id, ids, primary),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['belege', id] }),
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { error?: string } }; message?: string };
+      window.alert(e?.response?.data?.error ?? e?.message ?? 'Bereich-Zuordnung fehlgeschlagen');
+    },
   });
 
   if (!Number.isFinite(id) || id <= 0) {
@@ -414,16 +433,11 @@ export function BelegeDetailPage() {
               </Section>
 
               <Section title="Zuordnung">
-                <Field
-                  label="Bereiche"
-                  value={
-                    r.area_links.length > 0
-                      ? r.area_links
-                          .map((a) => `${a.area_name}${a.is_primary ? ' (primär)' : ''}`)
-                          .join(', ')
-                      : '–'
-                  }
-                  disabled
+                <AreaPicker
+                  areas={areas}
+                  selected={r.area_links.map((a) => ({ id: a.area_id, isPrimary: a.is_primary === 1 }))}
+                  disabled={isLocked || setAreasMut.isPending}
+                  onChange={(ids, primary) => setAreasMut.mutate({ ids, primary })}
                 />
                 {r.linked_invoice_id && (
                   <Field label="DJ-Rechnung" value={`#${r.linked_invoice_id}`} disabled />
@@ -938,6 +952,163 @@ function parseCents(input: string): number | null {
 function formatCentsForInput(cents: number | null | undefined): string {
   if (cents == null) return '';
   return (cents / 100).toFixed(2).replace('.', ',');
+}
+
+/**
+ * Multi-Pill-Picker fuer receipt_area_links.
+ *
+ * Klick auf eine nicht-ausgewaehlte Pill → hinzufuegen (wird automatisch primary
+ * wenn sie die einzige Auswahl ist). Klick auf eine ausgewaehlte Pill → entfernen.
+ * Stern-Icon neben mehreren Auswahlen erlaubt das primary-Setzen.
+ */
+function AreaPicker({
+  areas,
+  selected,
+  disabled,
+  onChange,
+}: {
+  areas: Area[];
+  selected: Array<{ id: number; isPrimary: boolean }>;
+  disabled?: boolean;
+  onChange: (ids: number[], primary?: number) => void;
+}) {
+  const selectedIds = selected.map((s) => s.id);
+  const primaryId = selected.find((s) => s.isPrimary)?.id;
+  const isMulti = selected.length > 1;
+
+  const toggle = (areaId: number) => {
+    if (disabled) return;
+    if (selectedIds.includes(areaId)) {
+      const newIds = selectedIds.filter((x) => x !== areaId);
+      // primary nachziehen wenn primary entfernt wurde
+      const newPrimary = primaryId === areaId
+        ? (newIds.length > 0 ? newIds[0] : undefined)
+        : primaryId;
+      onChange(newIds, newPrimary);
+    } else {
+      const newIds = [...selectedIds, areaId];
+      const newPrimary = primaryId ?? areaId;
+      onChange(newIds, newPrimary);
+    }
+  };
+
+  const setPrimary = (areaId: number) => {
+    if (disabled) return;
+    if (!selectedIds.includes(areaId)) return;
+    onChange(selectedIds, areaId);
+  };
+
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '140px 1fr',
+        gap: '0.75rem',
+        alignItems: 'flex-start',
+        padding: '0.25rem 0',
+      }}
+    >
+      <span
+        style={{
+          fontSize: '0.75rem',
+          color: 'var(--color-on-surface-variant)',
+          fontFamily: 'var(--font-body)',
+          fontWeight: 500,
+          paddingTop: '0.375rem',
+        }}
+      >
+        Bereiche
+      </span>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+        {areas.length === 0 ? (
+          <span
+            style={{
+              fontSize: '0.85rem',
+              color: 'var(--color-on-surface-variant)',
+              fontFamily: 'var(--font-body)',
+              fontStyle: 'italic',
+            }}
+          >
+            Keine Bereiche konfiguriert (siehe /belege/einstellungen).
+          </span>
+        ) : (
+          areas
+            .filter((a) => !a.archived)
+            .map((a) => {
+              const isSelected = selectedIds.includes(a.id);
+              const isPrimary = primaryId === a.id;
+              return (
+                <span
+                  key={a.id}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.125rem' }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggle(a.id)}
+                    disabled={disabled}
+                    style={{
+                      background: isSelected
+                        ? `${a.color}28`
+                        : 'rgba(255,255,255,0.04)',
+                      color: isSelected ? a.color : 'var(--color-on-surface-variant)',
+                      border: isSelected
+                        ? `1px solid ${a.color}88`
+                        : '1px solid rgba(148,170,255,0.15)',
+                      borderRadius: '999px',
+                      padding: '0.25rem 0.75rem',
+                      fontSize: '0.8rem',
+                      fontFamily: 'var(--font-body)',
+                      cursor: disabled ? 'not-allowed' : 'pointer',
+                      fontWeight: isSelected ? 600 : 400,
+                      opacity: disabled ? 0.6 : 1,
+                    }}
+                    title={
+                      isSelected
+                        ? `${a.name} entfernen`
+                        : `${a.name} hinzufuegen`
+                    }
+                  >
+                    {a.name}
+                    {isPrimary && isMulti && (
+                      <span
+                        className="material-symbols-outlined"
+                        style={{ fontSize: '0.95rem', marginLeft: '0.25rem', verticalAlign: '-2px' }}
+                      >
+                        star
+                      </span>
+                    )}
+                  </button>
+                  {isSelected && isMulti && !isPrimary && (
+                    <button
+                      type="button"
+                      onClick={() => setPrimary(a.id)}
+                      disabled={disabled}
+                      title="Als primaeren Bereich setzen"
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--color-on-surface-variant)',
+                        cursor: disabled ? 'not-allowed' : 'pointer',
+                        padding: '0.125rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <span
+                        className="material-symbols-outlined"
+                        style={{ fontSize: '0.95rem' }}
+                      >
+                        star_border
+                      </span>
+                    </button>
+                  )}
+                </span>
+              );
+            })
+        )}
+      </div>
+    </div>
+  );
 }
 
 function NotesField({ initialValue, onSave }: { initialValue: string; onSave: (v: string) => void }) {
