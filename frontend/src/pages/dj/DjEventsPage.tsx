@@ -120,7 +120,18 @@ export function DjEventsPage() {
       if (status === 'bestaetigt' && event && event.event_date) {
         // Frischen Stand vom Server holen (Cache könnte alte calendar_uid haben)
         const freshEvent = await fetchDjEvent(event.id).catch(() => null);
-        if (freshEvent?.calendar_uid) return; // Eintrag existiert bereits
+
+        // Wenn schon ein Kalender-Eintrag existiert (z.B. "Anfrage – ..." aus
+        // dem Anfrage-Modal): zuerst loeschen damit der neue Eintrag mit
+        // "Gebucht – ..."-Title sauber angelegt werden kann. Apple bietet
+        // keinen In-Place-Title-Update fuer unsere Pipeline — DELETE+POST
+        // ist konsistent mit dem Edit-Pfad in NeueAnfrageModal.
+        if (freshEvent?.calendar_uid) {
+          await apiClient
+            .delete(`/calendar/events/${encodeURIComponent(freshEvent.calendar_uid)}`)
+            .catch(() => undefined);
+          await updateDjEvent(event.id, { calendar_uid: null } as Partial<DjEvent>);
+        }
 
         const calId = djCalendarIdRef.current;
         if (!calId) {
