@@ -18,6 +18,7 @@
  *      [conditional: nur wenn ustva_zeitraum != 'keine']
  *   6. Steuerrelevant Jahr      (secondary)
  */
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { PageWrapper } from '../../components/layout/PageWrapper';
@@ -26,6 +27,7 @@ import { StatusBadge } from '../../components/dj/StatusBadge';
 import {
   fetchOverviewKpis,
   fetchReceipts,
+  fetchAvailableYears,
   type ReceiptListItem,
 } from '../../api/belege.api';
 import { formatCurrencyFromCents, formatDate } from '../../lib/format';
@@ -34,9 +36,18 @@ export function BelegeOverviewPage() {
   const navigate = useNavigate();
   const currentYear = new Date().getFullYear();
 
+  // Year-Filter — 'current' = aktuelles Jahr (Default), 'all' = jahresuebergreifend, sonst konkretes Jahr
+  const [selectedYear, setSelectedYear] = useState<number | 'all'>(currentYear);
+
+  const { data: availableYears = [] } = useQuery({
+    queryKey: ['belege', 'years'],
+    queryFn: fetchAvailableYears,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const { data: kpis, isLoading: kpisLoading } = useQuery({
-    queryKey: ['belege', 'overview-kpis'],
-    queryFn: fetchOverviewKpis,
+    queryKey: ['belege', 'overview-kpis', selectedYear],
+    queryFn: () => fetchOverviewKpis(selectedYear),
   });
 
   // Letzte 10 Belege (sortiert nach receipt_date DESC durch Backend)
@@ -142,6 +153,36 @@ export function BelegeOverviewPage() {
                 marginTop: '0.5rem',
               }}
             >
+              <select
+                value={String(selectedYear)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setSelectedYear(v === 'all' ? 'all' : Number(v));
+                }}
+                aria-label="Jahr"
+                style={{
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(148,170,255,0.2)',
+                  borderRadius: '0.5rem',
+                  padding: '0.5rem 0.875rem',
+                  color: 'var(--color-on-surface)',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '0.875rem',
+                  cursor: 'pointer',
+                  outline: 'none',
+                }}
+              >
+                <option value="all">Alle Jahre</option>
+                {/* aktuelles Jahr immer anbieten, auch wenn DB leer */}
+                {!availableYears.includes(currentYear) && (
+                  <option value={currentYear}>{currentYear}</option>
+                )}
+                {availableYears.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
               <button
                 onClick={() => navigate('/belege/neu')}
                 style={{
@@ -224,7 +265,11 @@ export function BelegeOverviewPage() {
               />
             )}
             <KPICard
-              label={`Steuerrelevant ${currentYear}`}
+              label={
+                selectedYear === 'all'
+                  ? 'Steuerrelevant gesamt'
+                  : `Steuerrelevant ${selectedYear}`
+              }
               value={
                 kpisLoading
                   ? '–'

@@ -707,11 +707,43 @@ router.get('/', (req, res) => {
  * MUSS vor `/:id` stehen — sonst matched Express `/:id` mit
  * id="overview-kpis" (NaN → 400).
  */
-router.get('/overview-kpis', (_req, res) => {
+
+/**
+ * GET /api/belege/years
+ *
+ * Liefert die verfuegbaren Jahre (DESC) fuer den Year-Dropdown auf der
+ * Uebersichts-Page. Vereint receipt_date- und payment_date-Jahre, damit
+ * sowohl Belegjahre als auch reine Zahljahre abgedeckt sind.
+ *
+ * MUSS vor `/:id` stehen.
+ */
+router.get('/years', (_req, res) => {
+  const rows = db
+    .prepare(
+      `
+      SELECT DISTINCT y FROM (
+        SELECT strftime('%Y', receipt_date) AS y FROM receipts WHERE receipt_date IS NOT NULL
+        UNION
+        SELECT strftime('%Y', payment_date) AS y FROM receipts WHERE payment_date IS NOT NULL
+      )
+      WHERE y IS NOT NULL AND y != ''
+      ORDER BY y DESC
+      `,
+    )
+    .all() as Array<{ y: string }>;
+  res.json(rows.map((r) => Number(r.y)).filter((n) => Number.isFinite(n)));
+});
+
+router.get('/overview-kpis', (req, res) => {
   const ustvaSetting =
     (db
       .prepare(`SELECT value FROM app_settings WHERE key = 'ustva_zeitraum'`)
       .get() as { value: string } | undefined)?.value || 'keine';
+
+  // Year-Filter: ?year=2026 oder ?year=all (jahresuebergreifend)
+  const yearParam = String(req.query.year ?? '');
+  const yearFiltered = yearParam !== '' && yearParam !== 'all';
+  const year = yearFiltered ? Number(yearParam) : new Date().getFullYear();
 
   const neueBelege7d = (
     db
@@ -749,40 +781,46 @@ router.get('/overview-kpis', (_req, res) => {
       .get() as { c: number }
   ).c;
 
-  const year = new Date().getFullYear();
+  // Steuerzahllast: nur fuer konkrete Jahre sinnvoll (UStVA-Aggregation pro Jahr).
+  // Bei year=all blenden wir den KPI aus (null).
   let steuerzahllast: number | null = null;
-  if (ustvaSetting !== 'keine') {
+  if (ustvaSetting !== 'keine' && yearParam !== 'all') {
     const period = ustvaSetting as UstvaPeriod;
     const buckets = aggregateForUstva(year, period);
-    // Aktuelle Periode ermitteln (1-basiert für quartal/monat)
     const month = new Date().getMonth() + 1;
     let bucketIdx = 0;
     if (period === 'monat') {
-      // Buckets sind in indices=[1..12] erstellt → idx (month) → array-Index month-1
       bucketIdx = month - 1;
     } else if (period === 'quartal') {
-      // Buckets sind in indices=[1..4] erstellt → array-Index = floor((m-1)/3)
       bucketIdx = Math.floor((month - 1) / 3);
     } else {
-      // jahr → Buckets hat 1 Element
       bucketIdx = 0;
     }
     steuerzahllast = buckets[bucketIdx]?.zahllast_cents ?? 0;
   }
 
-  const steuerrelevant = (
-    db
-      .prepare(
-        `
-        SELECT COALESCE(SUM(amount_gross_cents), 0) AS sum_cents
-        FROM receipts
-        WHERE steuerrelevant = 1 AND strftime('%Y', receipt_date) = ?
-      `,
-      )
-      .get(String(year)) as { sum_cents: number }
-  ).sum_cents;
+  // Steuerrelevant fuer das ausgewaehlte Jahr (oder gesamt bei year=all).
+  const steuerrelevant = yearParam === 'all'
+    ? (
+        db
+          .prepare(
+            `SELECT COALESCE(SUM(amount_gross_cents), 0) AS sum_cents
+             FROM receipts WHERE steuerrelevant = 1`,
+          )
+          .get() as { sum_cents: number }
+      ).sum_cents
+    : (
+        db
+          .prepare(
+            `SELECT COALESCE(SUM(amount_gross_cents), 0) AS sum_cents
+             FROM receipts
+             WHERE steuerrelevant = 1 AND strftime('%Y', receipt_date) = ?`,
+          )
+          .get(String(year)) as { sum_cents: number }
+      ).sum_cents;
 
   res.json({
+    year: yearParam === 'all' ? null : year,
     neueBelege7d,
     zuPruefen,
     offeneZahlungen: offen.c,

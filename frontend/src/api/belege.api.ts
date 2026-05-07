@@ -156,8 +156,13 @@ export const fetchReceipts = (filter: ReceiptFilter = {}): Promise<ReceiptListIt
 export const fetchReceipt = (id: number): Promise<ReceiptDetail> =>
   apiClient.get(`/belege/${id}`).then((r) => r.data);
 
-export const fetchOverviewKpis = (): Promise<OverviewKpis> =>
-  apiClient.get('/belege/overview-kpis').then((r) => r.data);
+export const fetchOverviewKpis = (year?: number | 'all'): Promise<OverviewKpis> =>
+  apiClient
+    .get('/belege/overview-kpis', { params: year != null ? { year } : undefined })
+    .then((r) => r.data);
+
+export const fetchAvailableYears = (): Promise<number[]> =>
+  apiClient.get('/belege/years').then((r) => r.data);
 
 export const fetchOpenPayments = (): Promise<ReceiptListItem[]> =>
   apiClient.get('/belege', { params: { status: 'offen' } }).then((r) => r.data);
