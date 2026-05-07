@@ -11,7 +11,7 @@ import {
 } from '../../api/dj.api';
 import { NeueAnfrageModal } from '../../components/dj/NeueAnfrageModal';
 import { StatusBadge, EVENT_TYPE_LABELS } from '../../components/dj/StatusBadge';
-import { isoDateLocal, parseLocalDate } from '../../lib/dates';
+import { parseLocalDate } from '../../lib/dates';
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 
@@ -49,35 +49,19 @@ export function DjOverviewPage() {
       .sort((a, b) => a.event_date.localeCompare(b.event_date));
   }, [events, upcomingWeeks]);
 
-  // Auslastung: bestätigte Events Fr/Sa in den nächsten 365 Tagen
+  // Auslastung Wochenenden: kommt jetzt vom Backend-Endpoint /api/dj/overview
+  // (Feld weekend_stats). Backend vereinigt zwei Quellen:
+  //  - dj_events bestaetigt + Fr/Sa fuer Zukunft
+  //  - dj_invoices finalisiert + Fr/Sa fuer Bestand (CSV-Importe ohne dj_event)
+  // Aggregiert auf das selectedYear (= ganzes Kalenderjahr Jan-Dez).
   const weekendStats = useMemo(() => {
-    const today = new Date();
-    const end = new Date(today);
-    end.setDate(today.getDate() + 365);
-
-    const bookedWeekends = new Set<string>();
-    (events ?? []).forEach(ev => {
-      if (ev.status !== 'bestaetigt') return;
-      // event_date als lokale Mitternacht parsen (sonst wird Wochentag in UTC+2 verschoben)
-      const d = parseLocalDate(ev.event_date);
-      if (d < today || d > end) return;
-      const dow = d.getDay(); // 0=So, 1=Mo, ..., 5=Fr, 6=Sa
-      if (dow === 5 || dow === 6) {
-        // Wochenende-Schluessel: Montag der gleichen ISO-Woche.
-        // Formel (dow + 6) % 7 gibt die Tage zurueck zum Montag:
-        //   Mo (1) → 0, Di → 1, ..., Fr → 4, Sa → 5, So → 6
-        const daysBack = (dow + 6) % 7;
-        const monday = new Date(d);
-        monday.setDate(d.getDate() - daysBack);
-        bookedWeekends.add(isoDateLocal(monday));
-      }
-    });
-    const booked = bookedWeekends.size;
-    const total = 52;
-    const free = total - booked;
-    const pct = Math.round((booked / total) * 100);
-    return { booked, free, total, pct };
-  }, [events]);
+    const stats = (overview as { weekend_stats?: { booked: number; total: number; free: number } } | undefined)
+      ?.weekend_stats ?? { booked: 0, total: 52, free: 52 };
+    return {
+      ...stats,
+      pct: stats.total > 0 ? Math.round((stats.booked / stats.total) * 100) : 0,
+    };
+  }, [overview]);
 
   return (
     <PageWrapper>
@@ -530,10 +514,10 @@ export function DjOverviewPage() {
                   Auslastung Wochenenden
                 </p>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', margin: 0 }}>
-                  Bestätigte Events (Fr/Sa) — nächste 365 Tage
+                  Bestätigte Events &amp; abgeschlossene Rechnungen (Fr/Sa) — Jahr {selectedYear}
                 </p>
               </div>
-              {/* Dots: X gebucht · Y frei */}
+              {/* X gebucht · Y frei · Z% */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexShrink: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
                   <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--color-secondary)' }} />
@@ -547,6 +531,19 @@ export function DjOverviewPage() {
                     {weekendStats.free} frei
                   </span>
                 </div>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-body)',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    color: 'var(--color-secondary)',
+                    background: 'rgba(74, 222, 128, 0.10)',
+                    padding: '0.15rem 0.5rem',
+                    borderRadius: '999px',
+                  }}
+                >
+                  {weekendStats.pct}%
+                </span>
               </div>
             </div>
             {/* Progress-Bar */}

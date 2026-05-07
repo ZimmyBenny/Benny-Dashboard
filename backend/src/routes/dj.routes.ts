@@ -82,6 +82,48 @@ router.get('/overview', (req, res) => {
     LIMIT 3
   `).all();
 
+  // ── Auslastung Wochenenden (Fr/Sa) im ausgewaehlten Jahr ──────────────────
+  // Zwei Quellen werden vereinigt:
+  //   - dj_events (status='bestaetigt'): zukuenftige + bekannte Termine
+  //   - dj_invoices (finalisiert, kein Storno): erfasst die CSV-Bestand-Rechnungen,
+  //     deren invoice_date am Veranstaltungstag liegt — keine dj_events-Zeile noetig
+  // Schluessel ist der Montag der ISO-Woche (Mo-startig). Set-Vereinigung im JS
+  // ist einfacher als reine SQL — wir holen die Datums-Strings und verarbeiten.
+  const yearStart = `${year}-01-01`;
+  const yearEnd = `${year}-12-31`;
+
+  const eventDates = db.prepare(`
+    SELECT event_date AS d FROM dj_events
+    WHERE status = 'bestaetigt' AND deleted_at IS NULL
+      AND event_date >= ? AND event_date <= ?
+      AND strftime('%w', event_date) IN ('5','6')
+  `).all(yearStart, yearEnd) as Array<{ d: string }>;
+
+  const invoiceDates = db.prepare(`
+    SELECT invoice_date AS d FROM dj_invoices
+    WHERE is_cancellation = 0 AND finalized_at IS NOT NULL
+      AND invoice_date >= ? AND invoice_date <= ?
+      AND strftime('%w', invoice_date) IN ('5','6')
+  `).all(yearStart, yearEnd) as Array<{ d: string }>;
+
+  const weekendKeys = new Set<string>();
+  const allDates = [...eventDates, ...invoiceDates];
+  for (const { d } of allDates) {
+    // Date-String 'YYYY-MM-DD' → Mo der ISO-Woche
+    const date = new Date(`${d}T00:00:00`);
+    const dow = date.getDay(); // 0=So, 1=Mo, ..., 5=Fr, 6=Sa
+    const daysBack = (dow + 6) % 7;
+    const monday = new Date(date);
+    monday.setDate(date.getDate() - daysBack);
+    const key = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+    weekendKeys.add(key);
+  }
+  const weekendStats = {
+    booked: weekendKeys.size,
+    total: 52,
+    free: Math.max(0, 52 - weekendKeys.size),
+  };
+
   res.json({
     year,
     total_events: totalEvents.count,
@@ -97,6 +139,7 @@ router.get('/overview', (req, res) => {
     unpaid_count: unpaidInvoices.count,
     confirmed_revenue: confirmedRevenue.total,
     recent_completed: recentCompleted,
+    weekend_stats: weekendStats,
   });
 });
 
