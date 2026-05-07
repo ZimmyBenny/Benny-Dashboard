@@ -687,16 +687,14 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
               const tzM = String(Math.abs(offsetMin) % 60).padStart(2, '0');
               const tz = `${tzSign}${tzH}:${tzM}`;
               // Cross-Midnight: Wenn Endzeit kleiner-gleich Startzeit ist (z.B. 21:00→03:00),
-              // gehoert der End-Tag zum naechsten Kalendertag.
+              // gehoert der End-Tag zum naechsten Kalendertag. addDaysLocal arbeitet
+              // strikt im lokalen Datums-Raum (kein UTC-Drift wie new Date().toISOString()).
               const [sH, sM] = startTime.split(':').map(Number);
               const [eH, eM] = endTime.split(':').map(Number);
-              const endDate =
+              const endDateStr =
                 (eH * 60 + eM) <= (sH * 60 + sM)
-                  ? new Date(`${eventDate}T00:00:00`).valueOf() + 24 * 60 * 60 * 1000
-                  : null;
-              const endDateStr = endDate
-                ? new Date(endDate).toISOString().slice(0, 10)
-                : eventDate;
+                  ? addDaysLocal(eventDate, 1)
+                  : eventDate;
               const res = await apiClient.post('/calendar/events', {
                 title: calTitle,
                 start_at: `${eventDate}T${startTime}:00${tz}`,
