@@ -515,7 +515,7 @@ export function DjOverviewPage() {
                   Auslastung Wochenenden
                 </p>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', margin: 0 }}>
-                  Bestätigte Events (Fr/Sa/So) — Jahr {selectedYear}
+                  Bestätigte Events &amp; abgeschlossene Rechnungen (Fr/Sa/So) — Jahr {selectedYear}
                 </p>
               </div>
               {/* X gebucht · Y frei · Z% */}

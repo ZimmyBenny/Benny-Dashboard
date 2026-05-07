@@ -83,10 +83,11 @@ router.get('/overview', (req, res) => {
   `).all();
 
   // ── Auslastung Wochenenden (Fr/Sa/So) im ausgewaehlten Jahr ──────────────
-  // Quelle: NUR bestaetigte dj_events. Bestand-Rechnungen werden bewusst NICHT
-  // einbezogen (User-Wunsch) — Auslastung ist eine Dispositions-Sicht, nicht
-  // historische Buchhaltung.
-  // Schluessel ist der Montag der ISO-Woche.
+  // Zwei Quellen werden vereinigt:
+  //   - dj_events status='bestaetigt' (Status-Filter ja, Datenquelle nein-eng)
+  //   - dj_invoices finalisiert nicht-storniert (= gespielte Veranstaltungen
+  //     aus CSV-Bestand, deren invoice_date am Veranstaltungstag liegt)
+  // Beide repraesentieren tatsaechlich gespielte/sicher gebuchte Wochenenden.
   const yearStart = `${year}-01-01`;
   const yearEnd = `${year}-12-31`;
 
@@ -97,7 +98,14 @@ router.get('/overview', (req, res) => {
       AND strftime('%w', event_date) IN ('0','5','6')
   `).all(yearStart, yearEnd) as Array<{ d: string }>;
 
-  // Detail-Liste fuer den Aufklapp-Bereich:
+  const invoiceDates = db.prepare(`
+    SELECT invoice_date AS d FROM dj_invoices
+    WHERE is_cancellation = 0 AND finalized_at IS NOT NULL
+      AND invoice_date >= ? AND invoice_date <= ?
+      AND strftime('%w', invoice_date) IN ('0','5','6')
+  `).all(yearStart, yearEnd) as Array<{ d: string }>;
+
+  // Detail-Listen fuer den Aufklapp-Bereich:
   const bookedEventDetails = db.prepare(`
     SELECT e.event_date AS date, e.event_type, e.title, e.status, 'event' AS source,
            COALESCE(c.organization_name, NULLIF(TRIM(c.first_name || ' ' || c.last_name), '')) AS customer
@@ -107,6 +115,18 @@ router.get('/overview', (req, res) => {
       AND e.event_date >= ? AND e.event_date <= ?
       AND strftime('%w', e.event_date) IN ('0','5','6')
     ORDER BY e.event_date
+  `).all(yearStart, yearEnd);
+
+  const bookedInvoiceDetails = db.prepare(`
+    SELECT i.invoice_date AS date, 'rechnung' AS event_type, i.subject AS title,
+           i.status, 'invoice' AS source, i.total_gross,
+           COALESCE(c.organization_name, NULLIF(TRIM(c.first_name || ' ' || c.last_name), '')) AS customer
+    FROM dj_invoices i
+    LEFT JOIN contacts c ON c.id = i.customer_id
+    WHERE i.is_cancellation = 0 AND i.finalized_at IS NOT NULL
+      AND i.invoice_date >= ? AND i.invoice_date <= ?
+      AND strftime('%w', i.invoice_date) IN ('0','5','6')
+    ORDER BY i.invoice_date
   `).all(yearStart, yearEnd);
 
   const pendingEventDetails = db.prepare(`
@@ -121,7 +141,7 @@ router.get('/overview', (req, res) => {
   `).all();
 
   const weekendKeys = new Set<string>();
-  for (const { d } of eventDates) {
+  for (const { d } of [...eventDates, ...invoiceDates]) {
     const date = new Date(`${d}T00:00:00`);
     const dow = date.getDay();
     const daysBack = (dow + 6) % 7;
@@ -134,7 +154,9 @@ router.get('/overview', (req, res) => {
     booked: weekendKeys.size,
     total: 52,
     free: Math.max(0, 52 - weekendKeys.size),
-    booked_events: bookedEventDetails,
+    booked_events: [...bookedEventDetails, ...bookedInvoiceDetails].sort(
+      (a, b) => String((a as { date: string }).date).localeCompare(String((b as { date: string }).date)),
+    ),
     pending_events: pendingEventDetails,
   };
 
