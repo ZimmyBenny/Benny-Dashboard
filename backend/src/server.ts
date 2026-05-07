@@ -33,6 +33,54 @@ app.listen(PORT, () => {
   console.log(`[server] Benny Dashboard API running on http://localhost:${PORT}`);
   console.log(`[server] Health: http://localhost:${PORT}/api/health`);
 
+  // djSync-Backfill: einmaliger Sweep beim Server-Start.
+  // Stellt sicher dass alle finalisierten dj_invoices einen Mirror in receipts
+  // haben (source='dj_invoice_sync'). Notwendig fuer Bestandsdaten — der
+  // forward-only-Hook in dj.invoices.routes.ts deckt nur NEUE Mutationen ab.
+  // Idempotent: bestehende Mirrors werden geupdated, fehlende neu angelegt.
+  import('./services/djSyncService')
+    .then(({ mirrorInvoiceToReceipts }) => {
+      import('./db/connection').then(({ default: db }) => {
+        try {
+          const invoices = db
+            .prepare(
+              `SELECT id FROM dj_invoices WHERE status != 'entwurf' ORDER BY id ASC`,
+            )
+            .all() as Array<{ id: number }>;
+          const before = (
+            db.prepare(`SELECT COUNT(*) AS c FROM receipts WHERE source='dj_invoice_sync'`).get() as
+              | { c: number }
+              | undefined
+          )?.c ?? 0;
+          if (invoices.length === before) {
+            console.log(
+              `[dj-sync] startup: ${invoices.length} dj_invoices, ${before} mirrors — already in sync`,
+            );
+            return;
+          }
+          let synced = 0;
+          for (const inv of invoices) {
+            try {
+              if (mirrorInvoiceToReceipts(inv.id)) synced++;
+            } catch (err) {
+              console.warn(
+                `[dj-sync] backfill failed for invoice ${inv.id}:`,
+                (err as Error).message,
+              );
+            }
+          }
+          console.log(
+            `[dj-sync] startup: backfilled ${synced}/${invoices.length} dj_invoices`,
+          );
+        } catch (err) {
+          console.warn('[dj-sync] startup backfill failed:', (err as Error).message);
+        }
+      });
+    })
+    .catch((err) =>
+      console.warn('[dj-sync] failed to load service:', (err as Error).message),
+    );
+
   // Task-Automation: einmaliger Sweep beim Server-Start (offene Belege → Tasks)
   // Lazy import damit Migrations bereits abgeschlossen sind. try/catch verhindert
   // Server-Crash bei einem Task-Automation-Fehler (Plan-Threat T-04-TASK-01).
