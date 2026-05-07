@@ -34,10 +34,12 @@ app.listen(PORT, () => {
   console.log(`[server] Health: http://localhost:${PORT}/api/health`);
 
   // djSync-Backfill: einmaliger Sweep beim Server-Start.
-  // Stellt sicher dass alle finalisierten dj_invoices einen Mirror in receipts
-  // haben (source='dj_invoice_sync'). Notwendig fuer Bestandsdaten — der
-  // forward-only-Hook in dj.invoices.routes.ts deckt nur NEUE Mutationen ab.
+  // Stellt sicher dass alle finalisierten dj_invoices einen aktuellen Mirror
+  // in receipts haben (source='dj_invoice_sync'). Notwendig fuer Bestandsdaten —
+  // der forward-only-Hook in dj.invoices.routes.ts deckt nur NEUE Mutationen ab.
   // Idempotent: bestehende Mirrors werden geupdated, fehlende neu angelegt.
+  // Wir laufen IMMER (auch wenn Counts gleich) — dadurch heilt sich der Mirror
+  // bei Schema- oder djSyncService-Aenderungen automatisch beim naechsten Start.
   import('./services/djSyncService')
     .then(({ mirrorInvoiceToReceipts }) => {
       import('./db/connection').then(({ default: db }) => {
@@ -47,17 +49,6 @@ app.listen(PORT, () => {
               `SELECT id FROM dj_invoices WHERE status != 'entwurf' ORDER BY id ASC`,
             )
             .all() as Array<{ id: number }>;
-          const before = (
-            db.prepare(`SELECT COUNT(*) AS c FROM receipts WHERE source='dj_invoice_sync'`).get() as
-              | { c: number }
-              | undefined
-          )?.c ?? 0;
-          if (invoices.length === before) {
-            console.log(
-              `[dj-sync] startup: ${invoices.length} dj_invoices, ${before} mirrors — already in sync`,
-            );
-            return;
-          }
           let synced = 0;
           for (const inv of invoices) {
             try {
@@ -70,7 +61,7 @@ app.listen(PORT, () => {
             }
           }
           console.log(
-            `[dj-sync] startup: backfilled ${synced}/${invoices.length} dj_invoices`,
+            `[dj-sync] startup: synced ${synced}/${invoices.length} dj_invoices`,
           );
         } catch (err) {
           console.warn('[dj-sync] startup backfill failed:', (err as Error).message);

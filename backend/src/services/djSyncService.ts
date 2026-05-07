@@ -154,21 +154,28 @@ export function mirrorInvoiceToReceipts(
     const isLocked = r.freigegeben_at !== null;
 
     if (isLocked) {
+      // GoBD-Trigger blockt finanzrelevante Felder; supplier_contact_id ist
+      // Metadaten und nicht geblockt — wird daher mitgepflegt.
       db.prepare(
         `UPDATE receipts
-         SET status = ?, payment_date = ?, paid_amount_cents = ?, updated_at = datetime('now')
+         SET status = ?, payment_date = ?, paid_amount_cents = ?,
+             supplier_contact_id = COALESCE(?, supplier_contact_id),
+             updated_at = datetime('now')
          WHERE id = ?`,
       ).run(
         status,
         paymentDate,
         status === 'bezahlt' ? finalAmountGross : 0,
+        inv.customer_id,
         existing.id,
       );
     } else {
       db.prepare(
         `UPDATE receipts SET
-           supplier_name = ?, receipt_number = ?, receipt_date = ?, due_date = ?,
+           supplier_name = ?, supplier_contact_id = ?, receipt_number = ?,
+           receipt_date = ?, due_date = ?,
            amount_gross_cents = ?, amount_net_cents = ?, vat_rate = 19, vat_amount_cents = ?,
+           paid_amount_cents = ?,
            status = ?, payment_date = ?,
            freigegeben_at = ?, file_hash_sha256 = ?,
            corrects_receipt_id = ?,
@@ -176,12 +183,14 @@ export function mirrorInvoiceToReceipts(
          WHERE id = ?`,
       ).run(
         supplierName,
+        inv.customer_id,
         inv.number,
         inv.invoice_date,
         inv.due_date,
         finalAmountGross,
         finalAmountNet,
         finalVat,
+        status === 'bezahlt' ? finalAmountGross : 0,
         status,
         paymentDate,
         inv.finalized_at,
@@ -195,16 +204,18 @@ export function mirrorInvoiceToReceipts(
     const result = db
       .prepare(
         `INSERT INTO receipts (
-          type, source, supplier_name, receipt_number,
+          type, source, supplier_name, supplier_contact_id, receipt_number,
           receipt_date, due_date, payment_date,
           amount_gross_cents, amount_net_cents, vat_rate, vat_amount_cents,
+          paid_amount_cents,
           status, freigegeben_at, file_hash_sha256,
           corrects_receipt_id, linked_invoice_id,
           steuerrelevant, input_tax_deductible, reverse_charge
         ) VALUES (
-          'ausgangsrechnung', 'dj_invoice_sync', ?, ?,
+          'ausgangsrechnung', 'dj_invoice_sync', ?, ?, ?,
           ?, ?, ?,
           ?, ?, 19, ?,
+          ?,
           ?, ?, ?,
           ?, ?,
           1, 0, 0
@@ -212,6 +223,7 @@ export function mirrorInvoiceToReceipts(
       )
       .run(
         supplierName,
+        inv.customer_id,
         inv.number,
         inv.invoice_date,
         inv.due_date,
@@ -219,6 +231,7 @@ export function mirrorInvoiceToReceipts(
         finalAmountGross,
         finalAmountNet,
         finalVat,
+        status === 'bezahlt' ? finalAmountGross : 0,
         status,
         inv.finalized_at,
         inv.pdf_hash,

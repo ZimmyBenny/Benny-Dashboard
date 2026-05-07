@@ -138,18 +138,28 @@ router.get('/summary', (req, res) => {
 // Mappt receipts-Felder auf das alte DjPayment-Shape, damit Frontend (DjAccountingPage) ohne Aenderung weiterlaeuft.
 router.get('/payments', (req, res) => {
   const year = String(req.query.year ?? new Date().getFullYear());
+  // Mirror-Receipts haben supplier_name als Klartext-Snapshot vom djSyncService
+  // gefuellt. Wenn der Mirror direkt ueber supplier_contact_id auf contacts joinen kann
+  // (= Backfill nach Fix), nehmen wir den dortigen Namen; sonst Fallback auf snapshot.
+  // amount: bei Mirror = paid_amount_cents (= gross bei status=bezahlt). Wenn 0, nimm gross
+  // als Defensiv-Fallback fuer Bestand vor dem paid_amount-Fix.
   const rows = db.prepare(`
     SELECT
-      r.id                                    AS id,
-      r.linked_invoice_id                     AS invoice_id,
-      r.payment_date                          AS payment_date,
-      (r.paid_amount_cents / 100.0)           AS amount,
-      r.payment_method                        AS method,
-      NULL                                    AS reference,
-      r.receipt_number                        AS invoice_number,
-      (r.amount_gross_cents / 100.0)          AS total_gross,
-      (c.first_name || ' ' || c.last_name)    AS customer_name,
-      c.organization_name                     AS customer_org
+      r.id                                                   AS id,
+      r.linked_invoice_id                                    AS invoice_id,
+      r.payment_date                                         AS payment_date,
+      (CASE WHEN r.paid_amount_cents > 0
+            THEN r.paid_amount_cents
+            ELSE r.amount_gross_cents END) / 100.0            AS amount,
+      r.payment_method                                       AS method,
+      NULL                                                   AS reference,
+      r.receipt_number                                       AS invoice_number,
+      (r.amount_gross_cents / 100.0)                         AS total_gross,
+      COALESCE(
+        NULLIF(TRIM(c.first_name || ' ' || c.last_name), ''),
+        r.supplier_name
+      )                                                      AS customer_name,
+      COALESCE(c.organization_name, r.supplier_name)         AS customer_org
     FROM receipts r
     LEFT JOIN contacts c ON c.id = r.supplier_contact_id
     WHERE ${REVENUE_TYPE}
