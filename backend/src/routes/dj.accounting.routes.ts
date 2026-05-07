@@ -34,6 +34,15 @@ const EXPENSE_TYPES = `r.type IN ('eingangsrechnung','beleg','fahrt','quittung',
 router.get('/summary', (req, res) => {
   const year = String(req.query.year ?? new Date().getFullYear());
 
+  // Steuerart aus Settings — Ist-Versteuerung ist Default und entscheidet, welches
+  // Datum massgeblich ist (payment_date vs. receipt_date) fuer USt-Aggregation.
+  // Quelle: Auftrag Teil 3 — "Ist-Versteuerung (Default): USt einer Ausgangsrechnung
+  // zaehlt im Monat des payment_date, nicht des receipt_date".
+  const istRow = db
+    .prepare(`SELECT value FROM app_settings WHERE key = 'ist_versteuerung'`)
+    .get() as { value: string } | undefined;
+  const istVersteuerung = (istRow?.value ?? 'true') !== 'false';
+
   // Einnahmen: nur bezahlte Ausgangsrechnungen (DJ), Stornos exkludiert
   const revenue = db.prepare(`
     SELECT COALESCE(SUM(r.amount_gross_cents), 0) / 100.0 AS total
@@ -56,27 +65,48 @@ router.get('/summary', (req, res) => {
       AND ${DJ_AREA_FILTER}
   `).get(year) as { total: number };
 
-  // Eingenommene MwSt: aus DJ-Ausgangsrechnungen mit invoice_date im Jahr und finalized
-  const vatCollected = db.prepare(`
-    SELECT COALESCE(SUM(r.vat_amount_cents), 0) / 100.0 AS total
-    FROM receipts r
-    WHERE ${REVENUE_TYPE}
-      AND r.freigegeben_at IS NOT NULL
-      AND r.status != 'storniert'
-      AND strftime('%Y', r.receipt_date) = ?
-      AND ${DJ_AREA_FILTER}
-  `).get(year) as { total: number };
+  // Eingenommene MwSt:
+  //  - Ist-Versteuerung (Default): nur bezahlte Rechnungen, payment_date im Jahr
+  //  - Soll-Versteuerung: alle freigegebenen Rechnungen, receipt_date im Jahr
+  const vatCollected = db.prepare(
+    istVersteuerung
+      ? `SELECT COALESCE(SUM(r.vat_amount_cents), 0) / 100.0 AS total
+         FROM receipts r
+         WHERE ${REVENUE_TYPE}
+           AND r.status = 'bezahlt'
+           AND r.payment_date IS NOT NULL
+           AND strftime('%Y', r.payment_date) = ?
+           AND ${DJ_AREA_FILTER}`
+      : `SELECT COALESCE(SUM(r.vat_amount_cents), 0) / 100.0 AS total
+         FROM receipts r
+         WHERE ${REVENUE_TYPE}
+           AND r.freigegeben_at IS NOT NULL
+           AND r.status != 'storniert'
+           AND strftime('%Y', r.receipt_date) = ?
+           AND ${DJ_AREA_FILTER}`,
+  ).get(year) as { total: number };
 
-  // Vorsteuer: aus DJ-Eingangsrechnungen / Belegen mit input_tax_deductible=1
-  const vatInput = db.prepare(`
-    SELECT COALESCE(SUM(r.vat_amount_cents), 0) / 100.0 AS total
-    FROM receipts r
-    WHERE ${EXPENSE_TYPES}
-      AND r.input_tax_deductible = 1
-      AND r.status != 'storniert'
-      AND strftime('%Y', r.receipt_date) = ?
-      AND ${DJ_AREA_FILTER}
-  `).get(year) as { total: number };
+  // Vorsteuer:
+  //  - Ist-Versteuerung: nur bezahlte Eingangsrechnungen mit input_tax_deductible=1, payment_date im Jahr
+  //  - Soll-Versteuerung: alle, receipt_date im Jahr
+  const vatInput = db.prepare(
+    istVersteuerung
+      ? `SELECT COALESCE(SUM(r.vat_amount_cents), 0) / 100.0 AS total
+         FROM receipts r
+         WHERE ${EXPENSE_TYPES}
+           AND r.input_tax_deductible = 1
+           AND r.status = 'bezahlt'
+           AND r.payment_date IS NOT NULL
+           AND strftime('%Y', r.payment_date) = ?
+           AND ${DJ_AREA_FILTER}`
+      : `SELECT COALESCE(SUM(r.vat_amount_cents), 0) / 100.0 AS total
+         FROM receipts r
+         WHERE ${EXPENSE_TYPES}
+           AND r.input_tax_deductible = 1
+           AND r.status != 'storniert'
+           AND strftime('%Y', r.receipt_date) = ?
+           AND ${DJ_AREA_FILTER}`,
+  ).get(year) as { total: number };
 
   // Offene Forderungen: DJ-Ausgangsrechnungen, finalized, status offen/teilbezahlt/ueberfaellig
   const unpaidInvoices = db.prepare(`
