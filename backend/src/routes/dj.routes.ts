@@ -41,14 +41,22 @@ router.get('/overview', (req, res) => {
       AND strftime('%Y', invoice_date) = ?
   `).get(year) as { count: number };
 
+  // Umsatz nach Rechnungs-Datum (Soll-Versteuerung). Konsistent zu
+  // completed_events oben — beide zaehlen Rechnungen deren invoice_date
+  // im ausgewaehlten Jahr liegt. Stornorechnungen ausgenommen.
+  // Hinweis: /dj/accounting nutzt eine separate Logik (Ist-Versteuerung
+  // ueber payment_date) und folgt damit dem app_settings.ist_versteuerung
+  // Setting — fuer Buchhaltungs-/UStVA-Sicht. Hier auf der Dashboard-
+  // Uebersicht ist die invoice_date-Sicht intuitiver.
   const revenueYear = db.prepare(`
     SELECT
-      COALESCE(SUM(p.amount), 0) AS total,
+      COALESCE(SUM(i.total_gross), 0) AS total,
       COALESCE(SUM(i.subtotal_net), 0) AS net,
       COALESCE(SUM(i.tax_total), 0) AS tax
-    FROM dj_payments p
-    JOIN dj_invoices i ON i.id = p.invoice_id
-    WHERE strftime('%Y', p.payment_date) = ? AND i.is_cancellation = 0
+    FROM dj_invoices i
+    WHERE strftime('%Y', i.invoice_date) = ?
+      AND i.is_cancellation = 0
+      AND i.finalized_at IS NOT NULL
   `).get(year) as { total: number; net: number; tax: number };
 
   const unpaidInvoices = db.prepare(`

@@ -61,11 +61,14 @@ export function DjOverviewPage() {
       // event_date als lokale Mitternacht parsen (sonst wird Wochentag in UTC+2 verschoben)
       const d = parseLocalDate(ev.event_date);
       if (d < today || d > end) return;
-      const dow = d.getDay(); // 5=Fr, 6=Sa
+      const dow = d.getDay(); // 0=So, 1=Mo, ..., 5=Fr, 6=Sa
       if (dow === 5 || dow === 6) {
-        // Wochenende-Schlüssel: Montag der Woche
+        // Wochenende-Schluessel: Montag der gleichen ISO-Woche.
+        // Formel (dow + 6) % 7 gibt die Tage zurueck zum Montag:
+        //   Mo (1) → 0, Di → 1, ..., Fr → 4, Sa → 5, So → 6
+        const daysBack = (dow + 6) % 7;
         const monday = new Date(d);
-        monday.setDate(d.getDate() - ((dow + 1) % 7));
+        monday.setDate(d.getDate() - daysBack);
         bookedWeekends.add(isoDateLocal(monday));
       }
     });
