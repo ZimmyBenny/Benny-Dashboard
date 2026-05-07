@@ -1109,6 +1109,85 @@ export function CalendarPage() {
     setSelectedDate(null);
   }
 
+  /**
+   * Springt direkt zu einem Datum. Akzeptiert mehrere Formate:
+   *  - 6/8 Ziffern ohne Trenner: DDMMYY oder DDMMYYYY (z.B. "070527" oder "07052027")
+   *  - 4 Ziffern: DDMM (aktuelles Jahr)
+   *  - 1-2 Ziffern: nur Tag (aktueller Monat/Jahr)
+   *  - Punkt-Format: "7.5", "07.05.27", "07.05.2027"
+   * Liefert true bei Erfolg, false bei ungueltigem Input.
+   */
+  function jumpToDate(input: string): boolean {
+    const trimmed = input.trim();
+    if (!trimmed) return false;
+
+    let day = NaN, monthIdx = NaN, year4 = NaN;
+    const nowYear = today.getFullYear();
+    const nowMonth = today.getMonth();
+    const yyToFull = (yy: number) => (yy < 70 ? 2000 + yy : 1900 + yy);
+
+    if (trimmed.includes('.')) {
+      const parts = trimmed.split('.').map((p) => p.trim()).filter(Boolean);
+      if (parts.length < 1) return false;
+      day = Number(parts[0]);
+      monthIdx = parts[1] !== undefined ? Number(parts[1]) - 1 : nowMonth;
+      if (parts[2] !== undefined) {
+        const y = Number(parts[2]);
+        year4 = parts[2].length <= 2 ? yyToFull(y) : y;
+      } else {
+        year4 = nowYear;
+      }
+    } else {
+      const digits = trimmed.replace(/\D/g, '');
+      switch (digits.length) {
+        case 1:
+        case 2:
+          day = Number(digits);
+          monthIdx = nowMonth;
+          year4 = nowYear;
+          break;
+        case 3:
+          day = Number(digits.slice(0, 1));
+          monthIdx = Number(digits.slice(1, 3)) - 1;
+          year4 = nowYear;
+          break;
+        case 4:
+          day = Number(digits.slice(0, 2));
+          monthIdx = Number(digits.slice(2, 4)) - 1;
+          year4 = nowYear;
+          break;
+        case 6:
+          day = Number(digits.slice(0, 2));
+          monthIdx = Number(digits.slice(2, 4)) - 1;
+          year4 = yyToFull(Number(digits.slice(4, 6)));
+          break;
+        case 8:
+          day = Number(digits.slice(0, 2));
+          monthIdx = Number(digits.slice(2, 4)) - 1;
+          year4 = Number(digits.slice(4, 8));
+          break;
+        default:
+          return false;
+      }
+    }
+
+    if (!Number.isFinite(day) || !Number.isFinite(monthIdx) || !Number.isFinite(year4)) {
+      return false;
+    }
+    if (day < 1 || day > 31 || monthIdx < 0 || monthIdx > 11 || year4 < 1900 || year4 > 2100) {
+      return false;
+    }
+    const target = new Date(year4, monthIdx, day);
+    if (target.getMonth() !== monthIdx || target.getDate() !== day) {
+      return false; // z.B. 31.02.
+    }
+    setYear(year4);
+    setMonth(monthIdx);
+    setViewDate(target);
+    setSelectedDate(target);
+    return true;
+  }
+
   // Navigation abhaengig von viewMode
   const navPrev  = viewMode === 'month' ? prevMonth : viewMode === 'week' ? prevWeek : prevDay;
   const navNext  = viewMode === 'month' ? nextMonth : viewMode === 'week' ? nextWeek : nextDay;
@@ -1221,6 +1300,9 @@ export function CalendarPage() {
         >
           Heute
         </button>
+
+        <DateJumpInput onJump={jumpToDate} />
+
 
         <button
           onClick={handleSync}
@@ -1504,5 +1586,65 @@ export function CalendarPage() {
       {/* Sync-Benachrichtigung */}
       <SyncNotificationPopup events={newSyncedEvents} onAck={handleAck} />
     </PageWrapper>
+  );
+}
+
+/**
+ * Kompaktes Datum-Eingabefeld im Kalender-Header.
+ *
+ * Akzeptiert mehrere Eingabeformate (vgl. jumpToDate):
+ *  - 6/8 Ziffern ohne Trenner: 070527 / 07052027
+ *  - 4 Ziffern: 0705 (aktuelles Jahr)
+ *  - 1-2 Ziffern: 7 (aktueller Monat/Jahr)
+ *  - Punkt-Format: 7.5 / 07.05.27 / 07.05.2027
+ * Enter triggert den Sprung; bei ungueltiger Eingabe blinkt der Border kurz rot.
+ */
+function DateJumpInput({ onJump }: { onJump: (input: string) => boolean }) {
+  const [value, setValue] = useState('');
+  const [error, setError] = useState(false);
+
+  function submit() {
+    if (!value.trim()) return;
+    const ok = onJump(value);
+    if (ok) {
+      setValue('');
+      setError(false);
+    } else {
+      setError(true);
+      setTimeout(() => setError(false), 1200);
+    }
+  }
+
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={(e) => {
+        setValue(e.target.value);
+        if (error) setError(false);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') submit();
+      }}
+      onBlur={() => {
+        if (value.trim()) submit();
+      }}
+      placeholder="Datum (z.B. 070527)"
+      title="Direkt zu Datum springen — Formate: TT, TTMM, TTMMJJ, TTMMJJJJ oder TT.MM.JJJJ"
+      style={{
+        background: 'rgba(255,255,255,0.06)',
+        border: error
+          ? '1px solid var(--color-error)'
+          : '1px solid var(--color-outline-variant)',
+        borderRadius: '0.5rem',
+        padding: '0.5rem 0.75rem',
+        color: 'var(--color-on-surface)',
+        fontSize: '0.8rem',
+        fontFamily: 'var(--font-body)',
+        outline: 'none',
+        width: '11rem',
+        transition: 'border-color 0.2s',
+      }}
+    />
   );
 }
