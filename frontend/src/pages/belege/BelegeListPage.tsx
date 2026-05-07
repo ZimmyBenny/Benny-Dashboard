@@ -15,16 +15,18 @@
  * BelegeOpenPaymentsPage und BelegeReviewPage.
  */
 import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { StatusBadge } from '../../components/dj/StatusBadge';
 import {
   fetchReceipts,
+  updateReceipt,
   type ReceiptListItem,
   type ReceiptFilter,
 } from '../../api/belege.api';
 import { formatCurrencyFromCents, formatDate } from '../../lib/format';
+import { todayLocal } from '../../lib/dates';
 
 type StatusValue = '' | 'zu_pruefen' | 'freigegeben' | 'archiviert' | 'ocr_pending' | 'nicht_relevant';
 type TypeValue = '' | 'eingangsrechnung' | 'ausgangsrechnung' | 'quittung' | 'fahrt' | 'sonstige';
@@ -78,6 +80,22 @@ export function BelegeListPage() {
   const { data: items = [], isLoading } = useQuery({
     queryKey: ['belege', 'list', filter],
     queryFn: () => fetchReceipts(filter),
+  });
+
+  const qc = useQueryClient();
+  const markPaidMut = useMutation({
+    mutationFn: (id: number) =>
+      updateReceipt(id, {
+        status: 'bezahlt' as never,
+        payment_date: todayLocal(),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['belege'] });
+    },
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { error?: string } }; message?: string };
+      window.alert(e?.response?.data?.error ?? e?.message ?? 'Status-Aenderung fehlgeschlagen');
+    },
   });
 
   function setParam(key: string, value: string | undefined) {
@@ -234,37 +252,78 @@ export function BelegeListPage() {
                 </button>
               </div>
 
-              <input
-                type="date"
-                value={from}
-                onChange={(e) => setParam('from', e.target.value || undefined)}
-                aria-label="Datum von"
-                style={{
-                  padding: '0.5rem 0.75rem',
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(148,170,255,0.15)',
-                  borderRadius: '0.5rem',
-                  color: 'var(--color-on-surface)',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '0.875rem',
-                }}
-              />
-              <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.85rem' }}>–</span>
-              <input
-                type="date"
-                value={to}
-                onChange={(e) => setParam('to', e.target.value || undefined)}
-                aria-label="Datum bis"
-                style={{
-                  padding: '0.5rem 0.75rem',
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(148,170,255,0.15)',
-                  borderRadius: '0.5rem',
-                  color: 'var(--color-on-surface)',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '0.875rem',
-                }}
-              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                <span style={{ fontSize: '0.65rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                  Datum von
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <input
+                    type="date"
+                    value={from}
+                    onChange={(e) => setParam('from', e.target.value || undefined)}
+                    aria-label="Datum von"
+                    style={{
+                      padding: '0.5rem 0.75rem',
+                      background: from ? 'rgba(148,170,255,0.12)' : 'rgba(255,255,255,0.05)',
+                      border: from ? '1px solid rgba(148,170,255,0.4)' : '1px solid rgba(148,170,255,0.15)',
+                      borderRadius: '0.5rem',
+                      color: 'var(--color-on-surface)',
+                      fontFamily: 'var(--font-body)',
+                      fontSize: '0.875rem',
+                    }}
+                  />
+                  {from && (
+                    <button
+                      type="button"
+                      onClick={() => setParam('from', undefined)}
+                      title="Von-Datum entfernen"
+                      aria-label="Von-Datum entfernen"
+                      style={{
+                        background: 'transparent', border: 'none', cursor: 'pointer',
+                        color: 'var(--color-on-surface-variant)', fontSize: '1rem', padding: '0 0.25rem',
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                <span style={{ fontSize: '0.65rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                  Datum bis
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <input
+                    type="date"
+                    value={to}
+                    onChange={(e) => setParam('to', e.target.value || undefined)}
+                    aria-label="Datum bis"
+                    style={{
+                      padding: '0.5rem 0.75rem',
+                      background: to ? 'rgba(148,170,255,0.12)' : 'rgba(255,255,255,0.05)',
+                      border: to ? '1px solid rgba(148,170,255,0.4)' : '1px solid rgba(148,170,255,0.15)',
+                      borderRadius: '0.5rem',
+                      color: 'var(--color-on-surface)',
+                      fontFamily: 'var(--font-body)',
+                      fontSize: '0.875rem',
+                    }}
+                  />
+                  {to && (
+                    <button
+                      type="button"
+                      onClick={() => setParam('to', undefined)}
+                      title="Bis-Datum entfernen"
+                      aria-label="Bis-Datum entfernen"
+                      style={{
+                        background: 'transparent', border: 'none', cursor: 'pointer',
+                        color: 'var(--color-on-surface-variant)', fontSize: '1rem', padding: '0 0.25rem',
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
 
               {hasActiveFilters && (
                 <button
@@ -344,6 +403,8 @@ export function BelegeListPage() {
             items={items}
             isLoading={isLoading}
             onClick={(r) => navigate(`/belege/${r.id}`)}
+            onMarkPaid={(id) => markPaidMut.mutate(id)}
+            markPaidPending={markPaidMut.isPending ? markPaidMut.variables ?? null : null}
           />
         </div>
       </div>
@@ -369,6 +430,10 @@ interface ReceiptsTableProps {
   isLoading?: boolean;
   /** Spalten-Override fuer Open-Payments-Sicht (with due_date instead of vat_rate). */
   variant?: 'default' | 'open-payments';
+  /** Optional: Quick-Action zum Setzen status='bezahlt' (mit payment_date=heute). */
+  onMarkPaid?: (id: number) => void;
+  /** Optional: id deren mark-paid gerade pending ist (zum Disablen). */
+  markPaidPending?: number | null;
 }
 
 export function ReceiptsTable({
@@ -376,6 +441,8 @@ export function ReceiptsTable({
   onClick,
   isLoading = false,
   variant = 'default',
+  onMarkPaid,
+  markPaidPending = null,
 }: ReceiptsTableProps) {
   const showDueDate = variant === 'open-payments';
   const today = new Date().toISOString().slice(0, 10);
@@ -480,6 +547,8 @@ export function ReceiptsTable({
               isOverdue={isOverdue}
               showDueDate={showDueDate}
               onClick={() => onClick(r)}
+              onMarkPaid={onMarkPaid ? () => onMarkPaid(r.id) : undefined}
+              markPaidPending={markPaidPending === r.id}
             />
           );
         })}
@@ -493,10 +562,14 @@ function ReceiptRow({
   isOverdue,
   showDueDate,
   onClick,
+  onMarkPaid,
+  markPaidPending = false,
 }: {
   receipt: ReceiptListItem;
   isFirst: boolean;
   isOverdue: boolean;
+  onMarkPaid?: () => void;
+  markPaidPending?: boolean;
   showDueDate: boolean;
   onClick: () => void;
 }) {
@@ -620,7 +693,37 @@ function ReceiptRow({
           </span>
         </>
       )}
-      <StatusBadge status={r.status as never} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', justifyContent: 'flex-end' }}>
+        <StatusBadge status={r.status as never} />
+        {onMarkPaid &&
+          (r.status === 'offen' || r.status === 'teilbezahlt' || r.status === 'ueberfaellig') && (
+            <button
+              type="button"
+              onClick={(ev) => {
+                ev.stopPropagation();
+                onMarkPaid();
+              }}
+              disabled={markPaidPending}
+              title="Als bezahlt markieren"
+              aria-label="Als bezahlt markieren"
+              style={{
+                background: 'transparent',
+                border: '1px solid rgba(92,253,128,0.35)',
+                borderRadius: '0.375rem',
+                color: '#5cfd80',
+                cursor: markPaidPending ? 'wait' : 'pointer',
+                padding: '0.2rem 0.4rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                opacity: markPaidPending ? 0.5 : 1,
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '1.05rem' }}>
+                paid
+              </span>
+            </button>
+          )}
+      </div>
     </div>
   );
 }
