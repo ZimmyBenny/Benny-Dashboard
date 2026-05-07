@@ -23,6 +23,13 @@ backend/dist/
 # Cal-tool compiled binary (Swift EventKit CLI)
 backend/src/scripts/cal-tool
 
+# Tesseract OCR-Sprachdaten (~30 MB pro Datei, werden von tesseract.js bei Bedarf geladen)
+*.traineddata
+backend/*.traineddata
+
+# Lokale Screenshot-Dateien
+image.png
+
 # Uploads — Logo-Dateien nicht einchecken, aber Verzeichnisstruktur behalten
 backend/uploads/logo/*
 !backend/uploads/logo/.gitkeep
