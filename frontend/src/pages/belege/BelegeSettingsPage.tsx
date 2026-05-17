@@ -261,6 +261,19 @@ export function BelegeSettingsPage() {
                 style={inputStyle}
               />
             </SettingRow>
+
+            <SettingRow label="Reverse Charge aktivieren">
+              <select
+                value={form.reverse_charge_enabled || 'false'}
+                onChange={(e) =>
+                  setForm({ ...form, reverse_charge_enabled: e.target.value })
+                }
+                style={inputStyle}
+              >
+                <option value="false">Aus (Standard)</option>
+                <option value="true">An</option>
+              </select>
+            </SettingRow>
           </div>
 
           <div style={{ marginTop: '1.25rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
