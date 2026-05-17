@@ -191,7 +191,7 @@ export function PdfPreview({ url, mimeType, width = 520 }: PdfPreviewProps) {
           <Page
             pageNumber={pageNum}
             width={width}
-            renderTextLayer={false}
+            renderTextLayer={true}
             renderAnnotationLayer={false}
           />
         </Document>
