@@ -54,10 +54,18 @@ function normalizeDmy(d: string, m: string, y: string): string {
 // ----------------------------------------------------------------------------
 
 const AMOUNT_PATTERNS: Array<{ re: RegExp; conf: number }> = [
-  // Mit Schluesselwort: "Gesamtbetrag: 1.234,56 €" → hohe Konfidenz
+  // Mit Schluesselwort: "Gesamtbetrag: 1.234,56 €" oder "Total €107.10" → hohe Konfidenz
+  // Waehrungssymbol optional VOR und/oder NACH dem Betrag (US-Format vs. DE-Format).
   {
-    re: /(?:Gesamt(?:betrag|summe)?|Brutto|Total|Summe|Rechnungsbetrag|Endbetrag|Endsumme|zu zahlen)[:\s]*(\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2}|\d+\.\d{2})\s*(?:€|EUR)?/i,
+    re: /\b(?:Gesamt(?:betrag|summe)?|Brutto|Total|Summe|Rechnungsbetrag|Endbetrag|Endsumme|zu zahlen)[:\s]*(?:€|EUR)?\s*(\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2}|\d+\.\d{2})\s*(?:€|EUR)?/i,
     conf: 0.85,
+  },
+  // Waehrung VOR Betrag am Zeilenende: "€999,99" (Anthropic/Stripe/Apple-Stil) —
+  // wird VOR dem Currency-after-Pattern probiert, damit US-Format-Rechnungen mit
+  // Zwischenpositionen wie "Subtotal: 90,00 €\n€999,99" den Endbetrag treffen.
+  {
+    re: /(?:€|EUR)\s*(\d{1,3}(?:\.\d{3})*,\d{2}|\d+\.\d{2})\s*$/m,
+    conf: 0.5,
   },
   // Generisches Geld am Zeilenende: "999,99 €"
   {
@@ -82,8 +90,10 @@ function parseAmountToCents(s: string): number {
 // ----------------------------------------------------------------------------
 
 const VAT_RATE_PATTERNS: Array<{ re: RegExp; conf: number }> = [
-  // "USt 19%" / "MwSt: 7 %" / "Umsatzsteuer 0%"
-  { re: /(?:USt|MwSt|Umsatzsteuer|VAT)[:\s.\-]*\s*(19|7|0)\s*%/i, conf: 0.9 },
+  // "USt 19%" / "MwSt: 7 %" / "Umsatzsteuer 0%" / "VAT - Germany (19%" (Anthropic-Stil).
+  // Charset [^\d\n]{0,30} schluckt bis zu 30 Nicht-Ziffern-Zeichen ausser Newline —
+  // genug fuer " - Germany (" zwischen Label und Prozent, aber nicht ganze Rechnungen.
+  { re: /(?:USt|MwSt|Umsatzsteuer|VAT)[^\d\n]{0,30}(19|7|0)\s*%/i, conf: 0.9 },
   { re: /\b(19|7)\s*%\s*(?:USt|MwSt|VAT|Steuer)/i, conf: 0.85 },
 ];
 
