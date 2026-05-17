@@ -65,4 +65,22 @@ describe('receiptParserService.parse', () => {
     expect(r.reverse_charge.value).toBe(false);
     expect(r.reverse_charge.confidence).toBe(1.0);
   });
+
+  it('extracts US-format amount "Total €107.10" → 10710 cents', () => {
+    const r = parse('Total €107.10');
+    expect(r.amount_gross_cents.value).toBe(10710);
+    expect(r.amount_gross_cents.confidence).toBeGreaterThanOrEqual(0.85);
+  });
+
+  it('extracts vat rate from Anthropic-format "VAT - Germany (19% on €90.00)" → 19', () => {
+    const r = parse('VAT - Germany (19% on €90.00)');
+    expect(r.vat_rate.value).toBe(19);
+    expect(r.vat_rate.confidence).toBeGreaterThanOrEqual(0.85);
+  });
+
+  it('extracts EU-prefix amount "€999,99" at line end → 99999 cents', () => {
+    const r = parse('Subtotal: 90,00 €\n€999,99\n');
+    expect(r.amount_gross_cents.value).toBe(99999);
+    expect(r.amount_gross_cents.confidence).toBeGreaterThanOrEqual(0.5);
+  });
 });
