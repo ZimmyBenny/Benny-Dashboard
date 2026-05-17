@@ -34,6 +34,7 @@ import {
   fetchTaxCategories,
   fetchAreas,
   setReceiptAreas,
+  fetchBelegeSettings,
   type ReceiptDetail,
   type TaxCategory,
   type Area,
@@ -105,6 +106,13 @@ export function BelegeDetailPage() {
     queryKey: ['areas'],
     queryFn: fetchAreas,
     staleTime: 5 * 60 * 1000,
+  });
+
+  // Belege-Settings (Cache geteilt mit BelegeSettingsPage via Query-Key
+  // 'belege-settings' — Toggle wirkt ohne Page-Reload).
+  const { data: belegeSettings } = useQuery<Record<string, string>>({
+    queryKey: ['belege-settings'],
+    queryFn: fetchBelegeSettings,
   });
 
   const setAreasMut = useMutation({
@@ -397,12 +405,14 @@ export function BelegeDetailPage() {
               </Section>
 
               <Section title="Steuer">
-                <BooleanField
-                  label="Reverse Charge"
-                  value={reverseCharge}
-                  disabled={isLocked}
-                  onChange={(v) => updateMut.mutate({ reverse_charge: v ? 1 : 0 } as Partial<ReceiptDetail>)}
-                />
+                {belegeSettings?.reverse_charge_enabled === 'true' && (
+                  <BooleanField
+                    label="Reverse Charge"
+                    value={reverseCharge}
+                    disabled={isLocked}
+                    onChange={(v) => updateMut.mutate({ reverse_charge: v ? 1 : 0 } as Partial<ReceiptDetail>)}
+                  />
+                )}
                 <BooleanField
                   label="Vorsteuer abziehbar"
                   value={inputTaxDeductible}
