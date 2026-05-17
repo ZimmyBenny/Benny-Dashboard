@@ -324,11 +324,12 @@ router.get('/export-csv', (req, res) => {
 /**
  * GET /api/belege/settings
  *
- * Liefert die 9 Belege-spezifischen Settings als Key-Value-Objekt:
+ * Liefert die 10 Belege-spezifischen Settings als Key-Value-Objekt:
  *  - ustva_zeitraum, ist_versteuerung, payment_task_lead_days
  *  - max_upload_size_mb, ocr_confidence_threshold, ocr_engine
  *  - mileage_rate_default_per_km, mileage_rate_above_20km_per_km
  *  - belege_storage_path
+ *  - reverse_charge_enabled
  *
  * MUSS vor `/:id` stehen.
  */
@@ -343,6 +344,7 @@ router.get('/settings', (_req, res) => {
     'mileage_rate_default_per_km',
     'mileage_rate_above_20km_per_km',
     'belege_storage_path',
+    'reverse_charge_enabled',
   ];
   const result: Record<string, string> = {};
   for (const k of keys) {
