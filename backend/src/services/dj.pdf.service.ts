@@ -365,11 +365,12 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
     // --- Positionstabelle ---
     // Spaltenbreiten (relativ zu usableWidth ~467pt)
     const colWidths = [
-      usableWidth * 0.08,   // Pos
-      usableWidth * 0.42,   // Beschreibung
-      usableWidth * 0.12,   // Menge
-      usableWidth * 0.19,   // Einzelpreis
-      usableWidth * 0.19,   // Gesamt
+      usableWidth * 0.07,   // Pos
+      usableWidth * 0.37,   // Beschreibung
+      usableWidth * 0.10,   // Menge
+      usableWidth * 0.17,   // Einzelpreis
+      usableWidth * 0.09,   // Rabatt
+      usableWidth * 0.20,   // Gesamt
     ];
     const colX: number[] = [];
     let cx = marginLeft;
@@ -389,8 +390,8 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
       .restore();
 
     // Header-Text
-    const headers = ['Pos.', 'Beschreibung', 'Menge', 'Einzelpreis', 'Gesamt'];
-    const headerAligns: Array<'center' | 'left' | 'right'> = ['center', 'left', 'right', 'right', 'right'];
+    const headers = ['Pos.', 'Beschreibung', 'Menge', 'Einzelpreis', 'Rabatt', 'Gesamt'];
+    const headerAligns: Array<'center' | 'left' | 'right'> = ['center', 'left', 'right', 'right', 'right', 'right'];
 
     doc.font('Helvetica-Bold').fontSize(9).fillColor('#000000');
     for (let i = 0; i < headers.length; i++) {
@@ -403,7 +404,7 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
 
     // Datenzeilen
     let dataY = headerY + rowHeight;
-    const dataAligns: Array<'center' | 'left' | 'right'> = ['center', 'left', 'right', 'right', 'right'];
+    const dataAligns: Array<'center' | 'left' | 'right'> = ['center', 'left', 'right', 'right', 'right', 'right'];
 
     for (let idx = 0; idx < items.length; idx++) {
       const item = items[idx];
@@ -438,11 +439,15 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
         .restore();
 
       doc.font('Helvetica').fontSize(10).fillColor('#000000');
+      const discountCell = item.discount_pct && item.discount_pct > 0
+        ? `${new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 }).format(item.discount_pct)} %`
+        : '';
       const rowData = [
         String(item.position),
         item.description,
         new Intl.NumberFormat('de-DE').format(item.quantity),
         formatEur(item.price_net),
+        discountCell,
         formatEur(item.total_net),
       ];
       for (let i = 0; i < rowData.length; i++) {
