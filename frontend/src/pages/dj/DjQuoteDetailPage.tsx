@@ -313,6 +313,7 @@ interface LocalItem {
   price_net: number;
   tax_rate: number;
   discount_pct: number;
+  is_optional: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -397,15 +398,25 @@ export function DjQuoteDetailPage() {
     const tax = total_net * (item.tax_rate / 100);
     return { ...item, total_net, tax, total_gross: total_net + tax };
   });
-  const subtotalNet = computedItems.reduce((s, i) => s + i.total_net, 0);
+
+  // Main vs Optional fuer Hauptsumme + separate Optional-Summe.
+  const mainItems = computedItems.filter(i => !i.is_optional);
+  const optionalItems = computedItems.filter(i => i.is_optional);
+
+  const subtotalNet = mainItems.reduce((s, i) => s + i.total_net, 0);
   const discountAmount = discountValue != null && discountValue > 0
     ? (discountType === '€' ? Math.min(discountValue, subtotalNet) : subtotalNet * (discountValue / 100))
     : 0;
   const netAfterDiscount = Math.max(0, subtotalNet - discountAmount);
   const ratio = subtotalNet > 0 ? netAfterDiscount / subtotalNet : 1;
-  const taxTotal = computedItems.reduce((s, i) => s + i.total_net * ratio * (i.tax_rate / 100), 0);
+  const taxTotal = mainItems.reduce((s, i) => s + i.total_net * ratio * (i.tax_rate / 100), 0);
   const totalGross = netAfterDiscount + taxTotal;
   const discountActive = discountValue != null;
+
+  // Optional (kein Rabatt darauf — analog Backend)
+  const optionalSubtotalNet = optionalItems.reduce((s, i) => s + i.total_net, 0);
+  const optionalTaxTotal = optionalItems.reduce((s, i) => s + i.total_net * (i.tax_rate / 100), 0);
+  const optionalTotalGross = optionalSubtotalNet + optionalTaxTotal;
 
   // ---------------------------------------------------------------------------
   // Laden
@@ -444,6 +455,7 @@ export function DjQuoteDetailPage() {
               price_net: i.price_net,
               tax_rate: i.tax_rate,
               discount_pct: i.discount_pct,
+              is_optional: !!i.is_optional,
             }))
           );
         })
@@ -527,6 +539,7 @@ export function DjQuoteDetailPage() {
         price_net: 0,
         tax_rate: 19,
         discount_pct: 0,
+        is_optional: false,
       },
     ]);
   }
@@ -591,6 +604,7 @@ export function DjQuoteDetailPage() {
           tax_rate: item.tax_rate,
           discount_pct: item.discount_pct,
           total_net: item.total_net,
+          is_optional: item.is_optional,
         })),
       };
 
@@ -612,6 +626,7 @@ export function DjQuoteDetailPage() {
             price_net: i.price_net,
             tax_rate: i.tax_rate,
             discount_pct: i.discount_pct,
+            is_optional: !!i.is_optional,
           }))
         );
         setSavedFlash(true);

@@ -96,6 +96,7 @@ export interface DjQuoteItem {
   tax_rate: number;
   discount_pct: number;
   total_net: number;
+  is_optional?: boolean;
 }
 
 export interface DjQuote {
@@ -121,6 +122,8 @@ export interface DjQuote {
   notes?: string | null;
   internal_notes?: string | null;
   reference_number?: string | null;
+  optional_subtotal_net?: number;
+  optional_total_gross?: number;
   // joined
   customer_name?: string;
   customer_org?: string;
