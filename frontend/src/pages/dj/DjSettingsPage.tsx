@@ -146,6 +146,14 @@ function LogoSection() {
     try {
       await uploadDjLogo(file);
       await queryClient.invalidateQueries({ queryKey: ['dj-setting', 'logo_path'] });
+      // Logo-Pfad bleibt nach Upload gleich (immer uploads/logo/logo.<ext>) →
+      // useEffect feuert nicht erneut. Daher Blob direkt neu laden.
+      const r = await apiClient.get('/dj/settings/logo', { responseType: 'blob' });
+      const url = URL.createObjectURL(r.data as Blob);
+      setLogoBlobUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return url;
+      });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unbekannter Fehler';
       setUploadError(`Upload fehlgeschlagen: ${msg}`);
