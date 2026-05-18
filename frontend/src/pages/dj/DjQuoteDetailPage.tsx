@@ -360,6 +360,7 @@ export function DjQuoteDetailPage() {
   const [discountValue, setDiscountValue] = useState<number | null>(null);
   const [discountType, setDiscountType] = useState<'%' | '€'>('%');
   const [discountDescription, setDiscountDescription] = useState('');
+  const [showDiscountBlock, setShowDiscountBlock] = useState<boolean>(false);
 
   // Positionen
   const [items, setItems] = useState<LocalItem[]>([]);
@@ -432,6 +433,7 @@ export function DjQuoteDetailPage() {
           setDiscountValue(data.discount_value ?? null);
           setDiscountType((data.discount_type as '%' | '€') ?? '%');
           setDiscountDescription(data.discount_description ?? '');
+          setShowDiscountBlock(data.discount_value != null);
           setItems(
             (data.items ?? []).map(i => ({
               _key: i.id ?? Date.now(),
@@ -1519,21 +1521,34 @@ export function DjQuoteDetailPage() {
             </div>
           )}
 
-          {/* Gesamtrabatt — Button oder Zeile */}
-          {!discountActive && !finalized && items.length > 0 && (
+          {/* Gesamtrabatt — Link oder Zeile */}
+          {!showDiscountBlock && !finalized && items.length > 0 && (
             <div style={{ marginTop: '0.75rem' }}>
               <button
                 type="button"
-                onClick={() => { setDiscountValue(0); setDiscountType('%'); setDiscountDescription(''); }}
-                style={{ ...btnSecondary, fontSize: '0.8rem' }}
+                onClick={() => {
+                  setShowDiscountBlock(true);
+                  setDiscountValue(0);
+                  setDiscountType('%');
+                  setDiscountDescription('');
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: '0.25rem 0',
+                  color: '#5cfd80',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>percent</span>
-                Gesamtrabatt hinzufügen
+                + Gesamtrabatt hinzufügen
               </button>
             </div>
           )}
 
-          {discountActive && (
+          {showDiscountBlock && (
             <div style={{
               display: 'grid',
               gridTemplateColumns: '1fr 100px 80px 120px 40px',
@@ -1578,7 +1593,12 @@ export function DjQuoteDetailPage() {
               </span>
               <button
                 type="button"
-                onClick={() => { setDiscountValue(null); setDiscountType('%'); setDiscountDescription(''); }}
+                onClick={() => {
+                  setDiscountValue(null);
+                  setDiscountType('%');
+                  setDiscountDescription('');
+                  setShowDiscountBlock(false);
+                }}
                 disabled={finalized}
                 title="Rabatt entfernen"
                 style={{
