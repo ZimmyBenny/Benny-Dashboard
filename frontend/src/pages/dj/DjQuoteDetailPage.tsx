@@ -1387,9 +1387,14 @@ export function DjQuoteDetailPage() {
                         if (!svc) {
                           updateItem(item._key, { service_id: null });
                         } else {
+                          // Beschreibung = Service-Name plus, falls vorhanden, die Service-Beschreibung
+                          // als zweite Zeile (z.B. Bullet-Liste was enthalten ist).
+                          const desc = svc.description && svc.description.trim()
+                            ? `${svc.name}\n${svc.description}`
+                            : svc.name;
                           updateItem(item._key, {
                             service_id: svc.id,
-                            description: svc.name,
+                            description: desc,
                             unit: svc.unit,
                             price_net: svc.price_net,
                             tax_rate: svc.tax_rate,
