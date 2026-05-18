@@ -99,7 +99,7 @@ export function TaskFilters({ onFilterChange, onNewTask }: TaskFiltersProps) {
         onChange={(e) => setPriority(e.target.value)}
         style={SELECT_STYLE}
       >
-        <option value="">Alle Prioritaeten</option>
+        <option value="">Alle Prioritäten</option>
         <option value="urgent">Dringend</option>
         <option value="high">Hoch</option>
         <option value="medium">Mittel</option>
