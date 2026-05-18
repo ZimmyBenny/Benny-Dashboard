@@ -58,6 +58,7 @@ describe('receiptParserService.parse', () => {
   it('extracts plausible supplier from first non-empty line', () => {
     const r = parse('Thomann GmbH\nRechnung 12345\nDatum: 05.05.2026');
     expect(r.supplier_name.value).toBe('Thomann GmbH');
+    expect(r.supplier_name.confidence).toBe(0.6);
   });
 
   it('reverse_charge defaults to false with confidence 1.0', () => {
@@ -82,5 +83,28 @@ describe('receiptParserService.parse', () => {
     const r = parse('Subtotal: 90,00 €\n€999,99\n');
     expect(r.amount_gross_cents.value).toBe(99999);
     expect(r.amount_gross_cents.confidence).toBeGreaterThanOrEqual(0.5);
+  });
+
+  it('supplier confidence is 0.6 (passes apply threshold > 0.5)', () => {
+    const r = parse('Thomann GmbH\nRechnung 12345\nDatum: 05.05.2026');
+    expect(r.supplier_name.value).toBe('Thomann GmbH');
+    expect(r.supplier_name.confidence).toBe(0.6);
+    expect(r.supplier_name.confidence).toBeGreaterThan(0.5);
+  });
+
+  it('strips multi-column OCR suffix "Bill to" from supplier', () => {
+    const r = parse('Anthropic, PBC Bill to\n548 Market Street\nSan Francisco');
+    expect(r.supplier_name.value).toBe('Anthropic, PBC');
+    expect(r.supplier_name.confidence).toBe(0.6);
+  });
+
+  it('strips multi-column OCR suffix "Ship to" from supplier', () => {
+    const r = parse('Acme Corp Ship to\n123 Industrial Way');
+    expect(r.supplier_name.value).toBe('Acme Corp');
+  });
+
+  it('strips "Invoice to" suffix case-insensitively', () => {
+    const r = parse('Beispiel AG invoice to\nKundenstrasse 1');
+    expect(r.supplier_name.value).toBe('Beispiel AG');
   });
 });
