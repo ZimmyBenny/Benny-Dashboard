@@ -170,7 +170,8 @@ function loadDefaultText(key: string): string | null {
 // POST /api/dj/quotes — Neues Angebot (Entwurf)
 router.post('/', (req, res) => {
   const { customer_id, event_id, subject, header_text, footer_text, payment_terms, distance_km, trips, items, anrede_form,
-          discount_value, discount_type, discount_description } =
+          discount_value, discount_type, discount_description,
+          notes, internal_notes, reference_number } =
     req.body as Record<string, unknown>;
 
   if (!customer_id) { res.status(400).json({ error: 'customer_id erforderlich' }); return; }
@@ -194,13 +195,17 @@ router.post('/', (req, res) => {
     const result = db.prepare(`
       INSERT INTO dj_quotes
         (customer_id, event_id, subject, header_text, footer_text, payment_terms, distance_km, trips, valid_until, anrede_form,
-         discount_value, discount_type, discount_description)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         discount_value, discount_type, discount_description,
+         notes, internal_notes, reference_number)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       customer_id, event_id ?? null, subject ?? null,
       effectiveHeader, effectiveFooter, payment_terms ?? null,
       distance_km ?? null, trips ?? 2, validUntilStr, form,
       discount_value ?? null, (discount_type === '€' ? '€' : '%'), discount_description ?? null,
+      (notes as string | null) ?? null,
+      (internal_notes as string | null) ?? null,
+      (reference_number as string | null) ?? null,
     );
     const newId = Number(result.lastInsertRowid);
 
@@ -240,7 +245,8 @@ router.patch('/:id', (req, res) => {
   }
 
   const { subject, header_text, footer_text, payment_terms, distance_km, trips, valid_until, items, anrede_form,
-          discount_value, discount_type, discount_description } =
+          discount_value, discount_type, discount_description,
+          notes, internal_notes, reference_number } =
     req.body as Record<string, unknown>;
 
   const txn = db.transaction(() => {
@@ -267,6 +273,22 @@ router.patch('/:id', (req, res) => {
           (discount_description as string | null) ?? null,
           id,
         );
+    }
+
+    // Notizen + Referenz: explizit setzen wenn key vorhanden (auch null = leeren).
+    // KEIN COALESCE — sonst koennten Notizen nie geleert werden.
+    const body = req.body as Record<string, unknown>;
+    if ('notes' in body) {
+      db.prepare('UPDATE dj_quotes SET notes = ? WHERE id = ?')
+        .run((notes as string | null) ?? null, id);
+    }
+    if ('internal_notes' in body) {
+      db.prepare('UPDATE dj_quotes SET internal_notes = ? WHERE id = ?')
+        .run((internal_notes as string | null) ?? null, id);
+    }
+    if ('reference_number' in body) {
+      db.prepare('UPDATE dj_quotes SET reference_number = ? WHERE id = ?')
+        .run((reference_number as string | null) ?? null, id);
     }
 
     if (Array.isArray(items)) {
