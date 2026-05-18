@@ -1387,10 +1387,12 @@ export function DjQuoteDetailPage() {
                         if (!svc) {
                           updateItem(item._key, { service_id: null });
                         } else {
-                          // Beschreibung = Service-Name plus, falls vorhanden, die Service-Beschreibung
-                          // als zweite Zeile (z.B. Bullet-Liste was enthalten ist).
+                          // Beschreibung primaer aus svc.description nehmen (der User pflegt
+                          // dort meist schon einen Titel + Bullet-Liste). Nur wenn description
+                          // leer ist, faellt es auf den Namen zurueck. So vermeiden wir die
+                          // Doppel-Anzeige des Titels (Name + erste Zeile Description).
                           const desc = svc.description && svc.description.trim()
-                            ? `${svc.name}\n${svc.description}`
+                            ? svc.description
                             : svc.name;
                           updateItem(item._key, {
                             service_id: svc.id,

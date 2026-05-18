@@ -416,14 +416,23 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
     for (let idx = 0; idx < items.length; idx++) {
       const item = items[idx];
 
-      // Dynamische Zeilenhoehe: an mehrzeiliger Beschreibung orientieren.
-      // heightOfString berechnet die Hoehe nach Word-Wrap fuer die gegebene Breite.
+      // Beschreibung in Titel (erste Zeile, bold) + Rest (normal) splitten.
+      // Dazwischen kommt eine Leerzeile im PDF, damit der Titel optisch absteht.
+      const fullDesc = item.description ?? '';
+      const firstNewline = fullDesc.indexOf('\n');
+      const descTitle = firstNewline >= 0 ? fullDesc.slice(0, firstNewline) : fullDesc;
+      const descBody = firstNewline >= 0 ? fullDesc.slice(firstNewline + 1).trim() : '';
+      const descColWidth = colWidths[1] - 6;
+
+      // Dynamische Zeilenhoehe — Titel (bold) + ggf. Leerzeile + Body (regular).
+      doc.font('Helvetica-Bold').fontSize(10);
+      const titleHeight = doc.heightOfString(descTitle || ' ', { width: descColWidth, lineGap: 1 });
       doc.font('Helvetica').fontSize(10);
-      const descText = item.description ?? '';
-      const descHeight = doc.heightOfString(descText, {
-        width: colWidths[1] - 6,
-        lineGap: 1,
-      });
+      const bodyHeight = descBody
+        ? doc.heightOfString(descBody, { width: descColWidth, lineGap: 1 })
+        : 0;
+      const blankLineHeight = descBody ? 6 : 0;
+      const descHeight = titleHeight + blankLineHeight + bodyHeight;
       const dynamicRowHeight = Math.max(rowHeight, descHeight + 8);
 
       // Seitenumbruch pruefen
@@ -462,22 +471,39 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
       const discountCell = item.discount_pct && item.discount_pct > 0
         ? `${new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 }).format(item.discount_pct)} %`
         : '';
-      const rowData = [
-        String(item.position),
-        descText,
-        new Intl.NumberFormat('de-DE').format(item.quantity),
-        formatEur(item.price_net),
-        discountCell,
-        formatEur(item.total_net),
+
+      // Beschreibung: Titel bold + (optional) Leerzeile + Body regular
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('#000000')
+        .text(descTitle, colX[1] + 3, dataY + 4, {
+          width: descColWidth,
+          align: 'left',
+          lineBreak: true,
+          lineGap: 1,
+        });
+      if (descBody) {
+        doc.font('Helvetica').fontSize(10).fillColor('#000000')
+          .text(descBody, colX[1] + 3, dataY + 4 + titleHeight + blankLineHeight, {
+            width: descColWidth,
+            align: 'left',
+            lineBreak: true,
+            lineGap: 1,
+          });
+      }
+
+      // Restliche Spalten einzeilig
+      const cells = [
+        { idx: 0, value: String(item.position) },
+        { idx: 2, value: new Intl.NumberFormat('de-DE').format(item.quantity) },
+        { idx: 3, value: formatEur(item.price_net) },
+        { idx: 4, value: discountCell },
+        { idx: 5, value: formatEur(item.total_net) },
       ];
-      // Beschreibung mit Word-Wrap (lineBreak: true), andere Spalten einzeilig.
-      for (let i = 0; i < rowData.length; i++) {
-        const isDescription = i === 1;
-        doc.text(rowData[i], colX[i] + 3, dataY + 4, {
-          width: colWidths[i] - 6,
-          align: dataAligns[i],
-          lineBreak: isDescription,
-          lineGap: isDescription ? 1 : 0,
+      doc.font('Helvetica').fontSize(10).fillColor('#000000');
+      for (const cell of cells) {
+        doc.text(cell.value, colX[cell.idx] + 3, dataY + 4, {
+          width: colWidths[cell.idx] - 6,
+          align: dataAligns[cell.idx],
+          lineBreak: false,
         });
       }
       dataY += dynamicRowHeight;
