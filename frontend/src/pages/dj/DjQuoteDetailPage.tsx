@@ -6,7 +6,7 @@ import {
   fetchDjQuote, fetchDjCustomers, fetchDjEvents, fetchDjServices,
   createDjQuote, updateDjQuote, finalizeDjQuote,
   updateDjQuoteStatus, createDjQuoteRevision,
-  fetchDjDefaultTexts,
+  fetchDjDefaultTexts, createDjService,
   type DjQuote, type DjCustomer, type DjEvent, type DjService,
 } from '../../api/dj.api';
 import { StatusBadge } from '../../components/dj/StatusBadge';
@@ -28,17 +28,25 @@ function ServiceSearchPicker({
   services,
   selectedId,
   onSelect,
+  onServiceCreated,
   disabled,
   inputStyle,
 }: {
   services: DjService[];
   selectedId: number | null;
   onSelect: (svc: DjService | null) => void;
+  onServiceCreated: (svc: DjService) => void;
   disabled?: boolean;
   inputStyle: React.CSSProperties;
 }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
+  const [createMode, setCreateMode] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    name: '', category: 'Sonstiges', unit: 'Stück', price_net: 0, tax_rate: 19,
+  });
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   const selected = selectedId ? services.find(s => s.id === selectedId) : null;
@@ -48,10 +56,15 @@ function ServiceSearchPicker({
     .filter(s => !query || s.name.toLowerCase().includes(query.toLowerCase()) ||
       (s.description ?? '').toLowerCase().includes(query.toLowerCase()));
 
+  const existingCategories = Array.from(new Set(services.map(s => s.category).filter(Boolean))).sort();
+
   useEffect(() => {
     if (!open) return;
     function onMouseDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setCreateMode(false);
+      }
     }
     document.addEventListener('mousedown', onMouseDown);
     return () => document.removeEventListener('mousedown', onMouseDown);
@@ -99,7 +112,7 @@ function ServiceSearchPicker({
           value={query}
           disabled={disabled}
           onFocus={() => setOpen(true)}
-          onChange={e => { setQuery(e.target.value); setOpen(true); }}
+          onChange={e => { setQuery(e.target.value); setOpen(true); setCreateForm(f => ({ ...f, name: e.target.value })); }}
           style={{ ...inputStyle, fontSize: '0.8rem', padding: '0.375rem 0.625rem 0.375rem 1.75rem', width: '100%', boxSizing: 'border-box', opacity: disabled ? 0.7 : 1 }}
         />
       </div>
@@ -136,7 +149,7 @@ function ServiceSearchPicker({
           ))}
         </div>
       )}
-      {open && query.length > 0 && filtered.length === 0 && (
+      {open && query.length > 0 && filtered.length === 0 && !createMode && (
         <div style={{
           position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
           background: '#1a1b2e',
@@ -144,8 +157,143 @@ function ServiceSearchPicker({
           borderRadius: '0.5rem', marginTop: '0.25rem',
           padding: '0.5rem 0.75rem',
           color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.8rem',
+          display: 'flex', flexDirection: 'column', gap: '0.5rem',
         }}>
-          Keine Leistung gefunden — Freitext wird verwendet.
+          <span>Keine Leistung gefunden — Freitext wird verwendet.</span>
+          <button
+            type="button"
+            onMouseDown={e => { e.preventDefault(); setCreateMode(true); setCreateError(null); }}
+            style={{
+              background: 'rgba(148,170,255,0.15)', border: '1px solid rgba(148,170,255,0.4)',
+              color: 'var(--color-primary)', cursor: 'pointer',
+              padding: '0.4rem 0.625rem', borderRadius: '0.375rem',
+              fontSize: '0.8rem', textAlign: 'left',
+            }}
+          >
+            + Als neue Leistung speichern
+          </button>
+        </div>
+      )}
+
+      {open && createMode && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+          background: '#1a1b2e',
+          border: '1px solid rgba(148,170,255,0.35)',
+          borderRadius: '0.5rem', marginTop: '0.25rem',
+          padding: '0.75rem',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          display: 'flex', flexDirection: 'column', gap: '0.5rem',
+        }}>
+          <div style={{ color: 'var(--color-primary)', fontSize: '0.85rem', fontWeight: 600 }}>Neue Leistung anlegen</div>
+
+          <label style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', fontSize: '0.75rem', color: 'var(--color-on-surface-variant)' }}>
+            Name
+            <input
+              type="text"
+              value={createForm.name}
+              onChange={e => setCreateForm(f => ({ ...f, name: e.target.value }))}
+              style={{ ...inputStyle, fontSize: '0.8rem', padding: '0.375rem 0.5rem' }}
+            />
+          </label>
+
+          <label style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', fontSize: '0.75rem', color: 'var(--color-on-surface-variant)' }}>
+            Kategorie
+            <input
+              type="text"
+              list="dj-svc-categories"
+              value={createForm.category}
+              onChange={e => setCreateForm(f => ({ ...f, category: e.target.value }))}
+              style={{ ...inputStyle, fontSize: '0.8rem', padding: '0.375rem 0.5rem' }}
+            />
+            <datalist id="dj-svc-categories">
+              {existingCategories.map(c => <option key={c} value={c} />)}
+            </datalist>
+          </label>
+
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <label style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.2rem', fontSize: '0.75rem', color: 'var(--color-on-surface-variant)' }}>
+              Einheit
+              <input
+                type="text"
+                value={createForm.unit}
+                onChange={e => setCreateForm(f => ({ ...f, unit: e.target.value }))}
+                style={{ ...inputStyle, fontSize: '0.8rem', padding: '0.375rem 0.5rem' }}
+              />
+            </label>
+            <label style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.2rem', fontSize: '0.75rem', color: 'var(--color-on-surface-variant)' }}>
+              Preis netto
+              <input
+                type="number"
+                step="0.01"
+                min={0}
+                value={createForm.price_net}
+                onChange={e => setCreateForm(f => ({ ...f, price_net: Number(e.target.value) }))}
+                style={{ ...inputStyle, fontSize: '0.8rem', padding: '0.375rem 0.5rem' }}
+              />
+            </label>
+            <label style={{ width: '5rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontSize: '0.75rem', color: 'var(--color-on-surface-variant)' }}>
+              MwSt %
+              <select
+                value={createForm.tax_rate}
+                onChange={e => setCreateForm(f => ({ ...f, tax_rate: Number(e.target.value) }))}
+                style={{ ...inputStyle, fontSize: '0.8rem', padding: '0.375rem 0.5rem' }}
+              >
+                <option value={19}>19</option>
+                <option value={7}>7</option>
+                <option value={0}>0</option>
+              </select>
+            </label>
+          </div>
+
+          {createError && (
+            <div style={{ color: 'var(--color-error, #ff7676)', fontSize: '0.75rem' }}>{createError}</div>
+          )}
+
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              disabled={creating}
+              onClick={() => { setCreateMode(false); setCreateError(null); }}
+              style={{ background: 'none', border: '1px solid rgba(255,255,255,0.2)', color: 'var(--color-on-surface-variant)', padding: '0.375rem 0.75rem', borderRadius: '0.375rem', cursor: 'pointer', fontSize: '0.8rem' }}
+            >
+              Abbrechen
+            </button>
+            <button
+              type="button"
+              disabled={creating || !createForm.name.trim() || createForm.price_net < 0}
+              onClick={async () => {
+                setCreating(true); setCreateError(null);
+                try {
+                  const created = await createDjService({
+                    category: createForm.category.trim() || 'Sonstiges',
+                    name: createForm.name.trim(),
+                    unit: createForm.unit.trim() || 'Stück',
+                    price_net: createForm.price_net,
+                    tax_rate: createForm.tax_rate,
+                  });
+                  onServiceCreated(created);
+                  onSelect(created);
+                  setCreateMode(false);
+                  setQuery('');
+                  setOpen(false);
+                } catch (err) {
+                  console.error('Service anlegen fehlgeschlagen:', err);
+                  setCreateError('Anlegen fehlgeschlagen — bitte erneut versuchen.');
+                } finally {
+                  setCreating(false);
+                }
+              }}
+              style={{
+                background: 'var(--color-primary)', border: 'none', color: '#0a0b1e',
+                padding: '0.375rem 0.75rem', borderRadius: '0.375rem',
+                cursor: creating ? 'wait' : 'pointer', fontSize: '0.8rem', fontWeight: 600,
+                opacity: (creating || !createForm.name.trim()) ? 0.5 : 1,
+              }}
+            >
+              {creating ? 'Speichere...' : 'Speichern'}
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -1222,6 +1370,7 @@ export function DjQuoteDetailPage() {
                           });
                         }
                       }}
+                      onServiceCreated={(newSvc) => setServices(prev => [...prev, newSvc])}
                     />
                     <textarea
                       rows={2}
