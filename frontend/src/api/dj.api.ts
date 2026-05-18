@@ -16,7 +16,10 @@ export interface DjCustomer {
   organization_name: string | null;
   customer_number: string | null;
   area: string;
+  street: string | null;
+  postal_code: string | null;
   city: string | null;
+  country: string | null;
   email: string | null;
   phone: string | null;
   event_count?: number;
