@@ -136,8 +136,16 @@ function extractSupplier(text: string): ParsedField<string> {
   for (const line of lines.slice(0, 10)) {
     if (line.length < 3 || line.length > 60) continue;
     if (/^\d/.test(line)) continue;
-    if (/(rechnung|invoice|datum|date|beleg|kunde|empf)/i.test(line)) continue;
-    return makeField(line, 0.5);
+    // Mehrspaltige OCR-Header mergen oft Lieferant + naechsten Spalten-Header
+    // (z.B. "Anthropic, PBC Bill to"). Bekannte Suffixe am Zeilenende entfernen,
+    // BEVOR der Keyword-Filter greift — sonst wuerde "Beispiel AG invoice to"
+    // faelschlich durch den invoice-Filter aussortiert.
+    const cleaned = line
+      .replace(/\s+(Bill\s+to|Bill\s+from|Invoice\s+to|Ship\s+to|Sold\s+to)$/i, '')
+      .trim();
+    if (cleaned.length < 3) continue;
+    if (/(rechnung|invoice|datum|date|beleg|kunde|empf)/i.test(cleaned)) continue;
+    return makeField(cleaned, 0.6);
   }
   return makeField<string>(null, 0);
 }
