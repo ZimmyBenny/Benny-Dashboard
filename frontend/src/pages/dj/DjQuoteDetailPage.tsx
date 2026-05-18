@@ -1341,14 +1341,14 @@ export function DjQuoteDetailPage() {
               {/* Tabellen-Header */}
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: '2fr 80px 120px 100px 80px 120px 40px',
+                gridTemplateColumns: '2fr 80px 120px 100px 80px 80px 120px 40px',
                 gap: '0.5rem',
                 padding: '0.5rem 0.75rem',
                 background: 'rgba(255,255,255,0.03)',
                 borderRadius: '0.375rem',
                 marginBottom: '0.25rem',
               }}>
-                {['Leistung', 'Menge', 'Einheit', 'Einzelpreis', 'MwSt', 'Netto', ''].map((col, i) => (
+                {['Leistung', 'Menge', 'Einheit', 'Einzelpreis', 'MwSt', 'Rabatt (%)', 'Netto', ''].map((col, i) => (
                   <span key={i} style={{
                     fontFamily: 'var(--font-body)',
                     fontSize: '0.7rem',
@@ -1367,7 +1367,7 @@ export function DjQuoteDetailPage() {
               {computedItems.map((item) => (
                 <div key={item._key} style={{
                   display: 'grid',
-                  gridTemplateColumns: '2fr 80px 120px 100px 80px 120px 40px',
+                  gridTemplateColumns: '2fr 80px 120px 100px 80px 80px 120px 40px',
                   gap: '0.5rem',
                   padding: '0.5rem 0.75rem',
                   borderTop: '1px solid rgba(148,170,255,0.2)',
@@ -1454,6 +1454,18 @@ export function DjQuoteDetailPage() {
                     <option value={7}>7%</option>
                     <option value={19}>19%</option>
                   </select>
+
+                  {/* Rabatt-% */}
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.5}
+                    value={item.discount_pct}
+                    onChange={e => updateItem(item._key, { discount_pct: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
+                    readOnly={finalized}
+                    style={{ ...inputStyle, fontSize: '0.8rem', padding: '0.375rem 0.5rem', opacity: finalized ? 0.7 : 1 }}
+                  />
 
                   {/* Netto (berechnet) */}
                   <span style={{
