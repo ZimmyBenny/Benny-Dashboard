@@ -1356,43 +1356,40 @@ export function DjQuoteDetailPage() {
 
           {items.length > 0 && (
             <>
-              {/* Tabellen-Header */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: '2fr 80px 120px 100px 80px 80px 120px 40px',
-                gap: '0.5rem',
-                padding: '0.5rem 0.75rem',
-                background: 'rgba(255,255,255,0.03)',
-                borderRadius: '0.375rem',
-                marginBottom: '0.25rem',
-              }}>
-                {['Leistung', 'Menge', 'Einheit', 'Einzelpreis', 'MwSt', 'Rabatt (%)', 'Netto', ''].map((col, i) => (
-                  <span key={i} style={{
-                    fontFamily: 'var(--font-body)',
-                    fontSize: '0.7rem',
-                    fontWeight: 600,
-                    color: 'var(--color-on-surface-variant)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.04em',
-                    textAlign: col === 'Netto' ? 'right' : 'left',
+              {/* sevDesk-Stil — pro Position: Reihe 1 Header, Reihe 2 Beschreibung, Reihe 3 Optional-Toggle + Trash */}
+              {computedItems.map((item, idx) => (
+                <div
+                  key={item._key}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.5rem',
+                    padding: '0.75rem',
+                    borderTop: idx === 0 ? 'none' : '1px solid rgba(148,170,255,0.2)',
+                    opacity: item.is_optional ? 0.85 : 1,
+                    background: item.is_optional ? 'rgba(148,170,255,0.04)' : 'transparent',
+                    borderRadius: '0.375rem',
+                  }}
+                >
+                  {/* Reihe 1 — Header-Felder */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '32px 2fr 70px 100px 90px 70px 70px 100px',
+                    gap: '0.5rem',
+                    alignItems: 'center',
                   }}>
-                    {col}
-                  </span>
-                ))}
-              </div>
+                    {/* Position-Nummer */}
+                    <span style={{
+                      fontFamily: 'var(--font-body)',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      color: item.is_optional ? 'var(--color-on-surface-variant)' : 'var(--color-on-surface)',
+                      textAlign: 'center',
+                    }}>
+                      {item.is_optional ? 'Opt.' : String(idx + 1)}
+                    </span>
 
-              {/* Zeilen */}
-              {computedItems.map((item) => (
-                <div key={item._key} style={{
-                  display: 'grid',
-                  gridTemplateColumns: '2fr 80px 120px 100px 80px 80px 120px 40px',
-                  gap: '0.5rem',
-                  padding: '0.5rem 0.75rem',
-                  borderTop: '1px solid rgba(148,170,255,0.2)',
-                  alignItems: 'center',
-                }}>
-                  {/* Leistung: Suchfeld + Beschreibungs-Input */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    {/* Leistungs-Picker */}
                     <ServiceSearchPicker
                       services={services}
                       selectedId={item.service_id}
@@ -1420,110 +1417,142 @@ export function DjQuoteDetailPage() {
                       }}
                       onServiceCreated={(newSvc) => setServices(prev => [...prev, newSvc])}
                     />
-                    <textarea
-                      rows={2}
-                      placeholder="Beschreibung..."
-                      value={item.description}
-                      onChange={e => updateItem(item._key, { description: e.target.value })}
-                      readOnly={finalized || !!item.service_id}
-                      style={{
-                        ...inputStyle,
-                        fontSize: '0.8rem',
-                        padding: '0.375rem 0.625rem',
-                        opacity: (finalized || !!item.service_id) ? 0.7 : 1,
-                        resize: 'vertical',
-                        fontFamily: 'inherit',
-                        minHeight: '2.25rem',
-                      }}
+
+                    {/* Menge */}
+                    <input
+                      type="number" min={0.01} step={0.01}
+                      value={item.quantity}
+                      onChange={e => updateItem(item._key, { quantity: Number(e.target.value) })}
+                      readOnly={finalized}
+                      title="Menge"
+                      style={{ ...inputStyle, fontSize: '0.8rem', padding: '0.375rem 0.5rem', opacity: finalized ? 0.7 : 1 }}
                     />
+
+                    {/* Einheit */}
+                    <input
+                      type="text"
+                      value={item.unit}
+                      onChange={e => updateItem(item._key, { unit: e.target.value })}
+                      readOnly={finalized}
+                      title="Einheit"
+                      style={{ ...inputStyle, fontSize: '0.8rem', padding: '0.375rem 0.5rem', opacity: finalized ? 0.7 : 1 }}
+                    />
+
+                    {/* Einzelpreis */}
+                    <input
+                      type="number" step={0.01}
+                      value={item.price_net}
+                      onChange={e => updateItem(item._key, { price_net: Number(e.target.value) })}
+                      readOnly={finalized}
+                      title="Einzelpreis (netto)"
+                      style={{ ...inputStyle, fontSize: '0.8rem', padding: '0.375rem 0.5rem', opacity: finalized ? 0.7 : 1 }}
+                    />
+
+                    {/* MwSt */}
+                    <select
+                      value={item.tax_rate}
+                      onChange={e => updateItem(item._key, { tax_rate: Number(e.target.value) })}
+                      disabled={finalized}
+                      title="MwSt"
+                      style={{ ...inputStyle, appearance: 'none' as const, fontSize: '0.8rem', padding: '0.375rem 0.5rem', opacity: finalized ? 0.7 : 1 }}
+                    >
+                      <option value={0}>0%</option>
+                      <option value={7}>7%</option>
+                      <option value={19}>19%</option>
+                    </select>
+
+                    {/* Rabatt-% */}
+                    <input
+                      type="number" min={0} max={100} step={0.5}
+                      value={item.discount_pct}
+                      onChange={e => updateItem(item._key, { discount_pct: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
+                      readOnly={finalized}
+                      title="Rabatt %"
+                      style={{ ...inputStyle, fontSize: '0.8rem', padding: '0.375rem 0.5rem', opacity: finalized ? 0.7 : 1 }}
+                    />
+
+                    {/* Netto (berechnet) */}
+                    <span style={{
+                      fontFamily: 'var(--font-body)',
+                      fontSize: '0.85rem',
+                      color: 'var(--color-on-surface-variant)',
+                      textAlign: 'right',
+                      whiteSpace: 'nowrap',
+                      fontStyle: item.is_optional ? 'italic' : 'normal',
+                    }}>
+                      {item.is_optional ? `(${formatCurrency(item.total_net)})` : formatCurrency(item.total_net)}
+                    </span>
                   </div>
 
-                  {/* Menge */}
-                  <input
-                    type="number"
-                    min={0.01}
-                    step={0.01}
-                    value={item.quantity}
-                    onChange={e => updateItem(item._key, { quantity: Number(e.target.value) })}
-                    readOnly={finalized}
-                    style={{ ...inputStyle, fontSize: '0.8rem', padding: '0.375rem 0.5rem', opacity: finalized ? 0.7 : 1 }}
-                  />
-
-                  {/* Einheit */}
-                  <input
-                    type="text"
-                    value={item.unit}
-                    onChange={e => updateItem(item._key, { unit: e.target.value })}
-                    readOnly={finalized}
-                    style={{ ...inputStyle, fontSize: '0.8rem', padding: '0.375rem 0.5rem', opacity: finalized ? 0.7 : 1 }}
-                  />
-
-                  {/* Einzelpreis */}
-                  <input
-                    type="number"
-                    step={0.01}
-                    value={item.price_net}
-                    onChange={e => updateItem(item._key, { price_net: Number(e.target.value) })}
-                    readOnly={finalized}
-                    style={{ ...inputStyle, fontSize: '0.8rem', padding: '0.375rem 0.5rem', opacity: finalized ? 0.7 : 1 }}
-                  />
-
-                  {/* MwSt */}
-                  <select
-                    value={item.tax_rate}
-                    onChange={e => updateItem(item._key, { tax_rate: Number(e.target.value) })}
-                    disabled={finalized}
-                    style={{ ...inputStyle, appearance: 'none' as const, fontSize: '0.8rem', padding: '0.375rem 0.5rem', opacity: finalized ? 0.7 : 1 }}
-                  >
-                    <option value={0}>0%</option>
-                    <option value={7}>7%</option>
-                    <option value={19}>19%</option>
-                  </select>
-
-                  {/* Rabatt-% */}
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={0.5}
-                    value={item.discount_pct}
-                    onChange={e => updateItem(item._key, { discount_pct: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
-                    readOnly={finalized}
-                    style={{ ...inputStyle, fontSize: '0.8rem', padding: '0.375rem 0.5rem', opacity: finalized ? 0.7 : 1 }}
-                  />
-
-                  {/* Netto (berechnet) */}
-                  <span style={{
-                    fontFamily: 'var(--font-body)',
-                    fontSize: '0.85rem',
-                    color: 'var(--color-on-surface-variant)',
-                    textAlign: 'right',
-                    whiteSpace: 'nowrap',
-                  }}>
-                    {formatCurrency(item.total_net)}
-                  </span>
-
-                  {/* Löschen */}
-                  <button
-                    type="button"
-                    onClick={() => removeItem(item._key)}
-                    disabled={finalized}
+                  {/* Reihe 2 — Full-Width-Beschreibung */}
+                  <textarea
+                    rows={2}
+                    placeholder="Beschreibung..."
+                    value={item.description}
+                    onChange={e => updateItem(item._key, { description: e.target.value })}
+                    readOnly={finalized || !!item.service_id}
                     style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: finalized ? 'not-allowed' : 'pointer',
-                      color: 'var(--color-error)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      padding: '0.25rem',
-                      borderRadius: '0.375rem',
-                      opacity: finalized ? 0.4 : 1,
+                      ...inputStyle,
+                      fontSize: '0.8rem',
+                      padding: '0.375rem 0.625rem',
+                      opacity: (finalized || !!item.service_id) ? 0.7 : 1,
+                      resize: 'vertical',
+                      fontFamily: 'inherit',
+                      minHeight: '2.5rem',
+                      width: '100%',
                     }}
-                    title="Position entfernen"
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>delete</span>
-                  </button>
+                  />
+
+                  {/* Reihe 3 — Optional-Toggle + Trash */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingTop: '0.125rem',
+                  }}>
+                    <label
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        fontFamily: 'var(--font-body)',
+                        fontSize: '0.8rem',
+                        color: 'var(--color-on-surface-variant)',
+                        cursor: finalized ? 'not-allowed' : 'pointer',
+                        userSelect: 'none',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={item.is_optional}
+                        disabled={finalized}
+                        onChange={e => updateItem(item._key, { is_optional: e.target.checked })}
+                        style={{ cursor: finalized ? 'not-allowed' : 'pointer' }}
+                      />
+                      Optional (zählt nicht in die Hauptsumme)
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={() => removeItem(item._key)}
+                      disabled={finalized}
+                      title="Position entfernen"
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: finalized ? 'not-allowed' : 'pointer',
+                        color: 'var(--color-error)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '0.25rem',
+                        borderRadius: '0.375rem',
+                        opacity: finalized ? 0.4 : 1,
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>delete</span>
+                    </button>
+                  </div>
                 </div>
               ))}
             </>
@@ -1679,6 +1708,20 @@ export function DjQuoteDetailPage() {
                 <span>Gesamt:</span>
                 <span style={{ minWidth: '100px', textAlign: 'right' }}>{formatCurrency(totalGross)}</span>
               </div>
+              {optionalTotalGross > 0 && (
+                <div style={{
+                  display: 'flex',
+                  gap: '2rem',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '0.85rem',
+                  color: 'var(--color-on-surface-variant)',
+                  marginTop: '0.5rem',
+                  fontStyle: 'italic',
+                }}>
+                  <span>Summe optionaler Positionen brutto:</span>
+                  <span style={{ minWidth: '100px', textAlign: 'right' }}>{formatCurrency(optionalTotalGross)}</span>
+                </div>
+              )}
             </div>
           )}
         </div>
