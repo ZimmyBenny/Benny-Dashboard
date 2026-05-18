@@ -113,19 +113,20 @@ function ServiceSlideOver({
   }, [onClose]);
 
   async function handleSave() {
-    if (!name.trim() || !category.trim() || !priceNet) {
-      setError('Name, Kategorie und Preis sind erforderlich');
+    if (!name.trim() || !category.trim()) {
+      setError('Name und Kategorie sind erforderlich');
       return;
     }
     setSaving(true);
     setError('');
     try {
+      const parsedPrice = priceNet ? Number(priceNet) : 0;
       if (editing) {
         await updateDjService(editing.id, {
           category: category.trim(),
           name: name.trim(),
           unit: unit.trim() || 'Stück',
-          price_net: Number(priceNet),
+          price_net: parsedPrice,
           tax_rate: Number(taxRate),
           description: description.trim() || null,
         });
@@ -134,7 +135,7 @@ function ServiceSlideOver({
           category: category.trim(),
           name: name.trim(),
           unit: unit.trim() || 'Stück',
-          price_net: Number(priceNet),
+          price_net: parsedPrice,
           tax_rate: Number(taxRate),
           description: description.trim() || null,
         });
@@ -215,7 +216,7 @@ function ServiceSlideOver({
           </div>
 
           <div>
-            <label style={labelStyle}>Preis netto (€) *</label>
+            <label style={labelStyle}>Preis netto (€)</label>
             <input type="number" value={priceNet} onChange={e => setPriceNet(e.target.value)} placeholder="0.00" min="0" step="0.01" style={inputStyle} />
           </div>
 
@@ -274,8 +275,8 @@ function PackageSlideOver({ services, onClose, onSaved }: { services: DjService[
   }
 
   async function handleSave() {
-    if (!name.trim() || !priceNet) {
-      setError('Name und Preis sind erforderlich');
+    if (!name.trim()) {
+      setError('Name ist erforderlich');
       return;
     }
     setSaving(true);
@@ -284,7 +285,7 @@ function PackageSlideOver({ services, onClose, onSaved }: { services: DjService[
       await createDjPackage({
         name: name.trim(),
         description: description.trim() || undefined,
-        price_net: Number(priceNet),
+        price_net: priceNet ? Number(priceNet) : 0,
         tax_rate: Number(taxRate),
         service_ids: selectedIds,
       });
@@ -364,7 +365,7 @@ function PackageSlideOver({ services, onClose, onSaved }: { services: DjService[
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
             <div>
-              <label style={labelStyle}>Preis netto (€) *</label>
+              <label style={labelStyle}>Preis netto (€)</label>
               <input type="number" value={priceNet} onChange={e => setPriceNet(e.target.value)} placeholder="0.00" min="0" step="0.01" style={inputStyle} />
             </div>
             <div>

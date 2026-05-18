@@ -37,15 +37,17 @@ router.post('/', (req, res) => {
   const { category, name, description, unit, price_net, tax_rate = 19.0, sort_order = 0 } =
     req.body as Record<string, unknown>;
 
-  if (!category || !name || price_net == null) {
-    res.status(400).json({ error: 'category, name, price_net erforderlich' });
+  if (!category || !name) {
+    res.status(400).json({ error: 'category und name erforderlich' });
     return;
   }
+  // price_net optional — Default 0 (User legt Preis spaeter spontan fest)
+  const effectivePrice = price_net == null ? 0 : price_net;
 
   const result = db.prepare(`
     INSERT INTO dj_services (category, name, description, unit, price_net, tax_rate, sort_order)
     VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(category, name, description ?? null, unit ?? 'Stück', price_net, tax_rate, sort_order);
+  `).run(category, name, description ?? null, unit ?? 'Stück', effectivePrice, tax_rate, sort_order);
 
   const newId = Number(result.lastInsertRowid);
   logAudit(req, 'service', newId, 'create', undefined, req.body);
