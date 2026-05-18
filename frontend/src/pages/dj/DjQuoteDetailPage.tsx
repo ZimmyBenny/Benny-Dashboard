@@ -12,7 +12,7 @@ import {
 import { StatusBadge } from '../../components/dj/StatusBadge';
 import { PdfPreviewModal } from '../../components/dj/PdfPreviewModal';
 import { formatDate, formatCurrency } from '../../lib/format';
-import { todayLocal } from '../../lib/dates';
+import { todayLocal, addDaysLocal } from '../../lib/dates';
 
 // ---------------------------------------------------------------------------
 // Hilfsfunktion Kundenname
@@ -198,7 +198,7 @@ export function DjQuoteDetailPage() {
   const [customerId, setCustomerId] = useState<number | null>(presetCustomerId);
   const [eventId, setEventId] = useState<number | null>(null);
   const [subject, setSubject] = useState('');
-  const [validUntil, setValidUntil] = useState('');
+  const [validUntil, setValidUntil] = useState(() => addDaysLocal(todayLocal(), 14));
   const [quoteDate, setQuoteDate] = useState(() => todayLocal());
   const [referenceNumber, setReferenceNumber] = useState('');
   const [notes, setNotes] = useState('');
