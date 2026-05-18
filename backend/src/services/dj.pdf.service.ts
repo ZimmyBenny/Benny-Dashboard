@@ -68,6 +68,12 @@ interface QuoteRow {
   tax_total: number;
   total_gross: number;
   finalized_at: string | null;
+  discount_value: number | null;
+  discount_type: string | null;
+  discount_description: string | null;
+  notes: string | null;
+  internal_notes: string | null;
+  reference_number: string | null;
 }
 
 interface QuoteItem {
@@ -464,16 +470,62 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
     const sumValueX = marginLeft + usableWidth * 0.78;
     const sumValueWidth = pageWidth - marginRight - sumValueX;
 
-    // MwSt nach Steuersatz gruppieren
+    // Rabatt-Betrag berechnen (Spalte discount_total existiert nicht — aus value/type rechnen).
+    // quote.subtotal_net ist die Items-Summe VOR Rabatt-Abzug (siehe updateQuoteTotals).
+    const discountValue = Number(quote.discount_value ?? 0);
+    let discountTotal = 0;
+    if (discountValue > 0) {
+      discountTotal = quote.discount_type === '€'
+        ? Math.min(discountValue, quote.subtotal_net)
+        : quote.subtotal_net * (discountValue / 100);
+    }
+    const netAfterDiscount = Math.max(0, quote.subtotal_net - discountTotal);
+
+    // MwSt nach Steuersatz gruppieren (anteilig nach Rabatt skaliert)
+    const ratio = quote.subtotal_net > 0 ? netAfterDiscount / quote.subtotal_net : 1;
     const taxGroups: Map<number, number> = new Map();
     for (const item of items) {
-      const tax = item.total_net * (item.tax_rate / 100);
+      const tax = item.total_net * ratio * (item.tax_rate / 100);
       taxGroups.set(item.tax_rate, (taxGroups.get(item.tax_rate) ?? 0) + tax);
     }
 
     doc.font('Helvetica').fontSize(10).fillColor('#000000');
+
+    // Rabatt-Block: nur wenn discountTotal > 0
+    if (discountTotal > 0) {
+      // Zwischensumme vor Rabatt
+      doc.text('Zwischensumme (netto):', sumLabelX, sumY, { width: sumValueX - sumLabelX - 6, align: 'left' });
+      doc.text(formatEur(quote.subtotal_net), sumValueX, sumY, { width: sumValueWidth, align: 'right' });
+      sumY = doc.y + 2;
+
+      // Rabatt-Label aufbauen
+      let discountLabel: string;
+      if (quote.discount_description && String(quote.discount_description).trim()) {
+        discountLabel = `Rabatt (${String(quote.discount_description).trim()}):`;
+      } else if (quote.discount_type === '%') {
+        discountLabel = `Rabatt ${discountValue} %:`;
+      } else {
+        discountLabel = 'Rabatt (Pauschal):';
+      }
+
+      doc.text(discountLabel, sumLabelX, sumY, { width: sumValueX - sumLabelX - 6, align: 'left' });
+      doc.text(`-${formatEur(discountTotal)}`, sumValueX, sumY, { width: sumValueWidth, align: 'right' });
+      sumY = doc.y + 2;
+
+      // Subtile Trennlinie zwischen Rabatt und Nettosumme
+      doc.save()
+        .moveTo(sumLabelX, sumY + 1)
+        .lineTo(pageWidth - marginRight, sumY + 1)
+        .lineWidth(0.3)
+        .strokeColor('#DDDDDD')
+        .stroke()
+        .restore();
+      sumY += 4;
+    }
+
+    // Nettosumme — bei Rabatt: nach Abzug; sonst: Items-Summe
     doc.text('Nettosumme:', sumLabelX, sumY, { width: sumValueX - sumLabelX - 6, align: 'left' });
-    doc.text(formatEur(quote.subtotal_net), sumValueX, sumY, { width: sumValueWidth, align: 'right' });
+    doc.text(formatEur(netAfterDiscount), sumValueX, sumY, { width: sumValueWidth, align: 'right' });
     sumY = doc.y + 2;
 
     for (const [rate, taxAmt] of taxGroups) {
@@ -495,6 +547,18 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
     doc.font('Helvetica-Bold').fontSize(11).fillColor('#000000');
     doc.text('Angebotssumme brutto:', sumLabelX, sumY, { width: sumValueX - sumLabelX - 6, align: 'left' });
     doc.text(formatEur(quote.total_gross), sumValueX, sumY, { width: sumValueWidth, align: 'right' });
+
+    // --- Hinweise-Block (notes) ---
+    // Falls vorhanden, vor Fusstext anzeigen.
+    // internal_notes wird NIE im PDF gerendert (rein interne Verwendung).
+    if (quote.notes && String(quote.notes).trim()) {
+      doc.moveDown(1);
+      const notesHeadY = doc.y + 12;
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('#000000')
+        .text('Hinweise:', marginLeft, notesHeadY);
+      doc.font('Helvetica').fontSize(9).fillColor('#000000')
+        .text(String(quote.notes), marginLeft, doc.y + 4, { width: usableWidth, lineGap: 3 });
+    }
 
     // --- Fußtext ---
     let footerTextY = doc.y + 20;
