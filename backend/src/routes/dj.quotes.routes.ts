@@ -212,14 +212,15 @@ router.post('/', (req, res) => {
     if (Array.isArray(items)) {
       const insertItem = db.prepare(`
         INSERT INTO dj_quote_items
-          (quote_id, position, service_id, package_id, description, quantity, unit, price_net, tax_rate, discount_pct, total_net)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (quote_id, position, service_id, package_id, description, quantity, unit, price_net, tax_rate, discount_pct, total_net, is_optional)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       for (const item of items as Array<Record<string, unknown>>) {
         insertItem.run(
           newId, item.position, item.service_id ?? null, item.package_id ?? null,
           item.description, item.quantity ?? 1, item.unit ?? 'Stück',
           item.price_net, item.tax_rate ?? 19.0, item.discount_pct ?? 0, item.total_net,
+          item.is_optional ? 1 : 0,
         );
       }
       // Summen berechnen
@@ -301,14 +302,15 @@ router.patch('/:id', (req, res) => {
       db.prepare('DELETE FROM dj_quote_items WHERE quote_id = ?').run(id);
       const insertItem = db.prepare(`
         INSERT INTO dj_quote_items
-          (quote_id, position, service_id, package_id, description, quantity, unit, price_net, tax_rate, discount_pct, total_net)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (quote_id, position, service_id, package_id, description, quantity, unit, price_net, tax_rate, discount_pct, total_net, is_optional)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       for (const item of items as Array<Record<string, unknown>>) {
         insertItem.run(
           id, item.position, item.service_id ?? null, item.package_id ?? null,
           item.description, item.quantity ?? 1, item.unit ?? 'Stück',
           item.price_net, item.tax_rate ?? 19.0, item.discount_pct ?? 0, item.total_net,
+          item.is_optional ? 1 : 0,
         );
       }
       updateQuoteTotals(id);
@@ -363,13 +365,18 @@ router.delete('/:id', (req, res) => {
 
 function updateQuoteTotals(quoteId: number) {
   const items = db.prepare('SELECT * FROM dj_quote_items WHERE quote_id = ?').all(quoteId) as Array<{
-    total_net: number; tax_rate: number; discount_pct: number;
+    total_net: number; tax_rate: number; discount_pct: number; is_optional: number;
   }>;
   const row = db.prepare('SELECT discount_value, discount_type FROM dj_quotes WHERE id = ?').get(quoteId) as {
     discount_value: number | null; discount_type: string | null;
   } | undefined;
 
-  const subtotalNet = items.reduce((s, i) => s + i.total_net, 0);
+  // Main vs Optional trennen — optionale Items beeinflussen Hauptsumme/Rabatt/MwSt nicht.
+  const mainItems = items.filter(i => !i.is_optional);
+  const optionalItems = items.filter(i => i.is_optional);
+
+  // Hauptsumme (UNVERAENDERTE Logik, nur auf mainItems)
+  const subtotalNet = mainItems.reduce((s, i) => s + i.total_net, 0);
 
   let discountAmount = 0;
   if (row?.discount_value != null && row.discount_value > 0) {
@@ -380,11 +387,23 @@ function updateQuoteTotals(quoteId: number) {
 
   const netAfterDiscount = Math.max(0, subtotalNet - discountAmount);
   const ratio = subtotalNet > 0 ? netAfterDiscount / subtotalNet : 1;
-  const taxTotal = items.reduce((s, i) => s + i.total_net * ratio * (i.tax_rate / 100), 0);
+  const taxTotal = mainItems.reduce((s, i) => s + i.total_net * ratio * (i.tax_rate / 100), 0);
   const totalGross = netAfterDiscount + taxTotal;
 
-  db.prepare('UPDATE dj_quotes SET subtotal_net = ?, tax_total = ?, total_gross = ? WHERE id = ?')
-    .run(subtotalNet, taxTotal, totalGross, quoteId);
+  // Optional separat (kein Rabatt auf Optional-Positionen)
+  const optionalSubtotalNet = optionalItems.reduce((s, i) => s + i.total_net, 0);
+  const optionalTaxTotal = optionalItems.reduce((s, i) => s + i.total_net * (i.tax_rate / 100), 0);
+  const optionalTotalGross = optionalSubtotalNet + optionalTaxTotal;
+
+  db.prepare(`
+    UPDATE dj_quotes SET
+      subtotal_net = ?,
+      tax_total = ?,
+      total_gross = ?,
+      optional_subtotal_net = ?,
+      optional_total_gross = ?
+    WHERE id = ?
+  `).run(subtotalNet, taxTotal, totalGross, optionalSubtotalNet, optionalTotalGross, quoteId);
 }
 
 export default router;
