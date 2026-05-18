@@ -255,18 +255,20 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
     const marginRight = 57;
     const pageWidth = doc.page.width;
     const usableWidth = pageWidth - marginLeft - marginRight;
-    // --- Logo (oben rechts, über der Absenderzeile) ---
+    // --- Logo (oben rechts, ueber der Absenderzeile) ---
+    // Logo-Pfad einmal aufloesen, wird per Seite (Page 1 + Folgeseiten) gerendert.
     const logoRow = db.prepare("SELECT value FROM dj_settings WHERE key = 'logo_path'").get() as { value: string } | undefined;
-    if (logoRow?.value) {
-      const absLogoPath = path.join(process.cwd(), logoRow.value);
-      if (fs.existsSync(absLogoPath) && path.extname(absLogoPath).toLowerCase() !== '.svg') {
-        try {
-          doc.image(absLogoPath, pageWidth - marginRight - 170, 30, { fit: [170, 80], align: 'right' });
-        } catch {
-          // Logo nicht renderbar — graceful skip
-        }
+    const absLogoPath = logoRow?.value ? path.join(process.cwd(), logoRow.value) : null;
+    const logoUsable = absLogoPath && fs.existsSync(absLogoPath) && path.extname(absLogoPath).toLowerCase() !== '.svg';
+    const renderLogo = () => {
+      if (!logoUsable || !absLogoPath) return;
+      try {
+        doc.image(absLogoPath, pageWidth - marginRight - 170, 30, { fit: [170, 80], align: 'right' });
+      } catch {
+        // Logo nicht renderbar — graceful skip
       }
-    }
+    };
+    renderLogo(); // Seite 1 — Folgeseiten via bufferedPageRange-Loop am Ende
 
     // --- Absenderzeile ---
     const senderText = `${company.name} \u00B7 ${company.address} \u00B7 ${company.zip} ${company.city}`;
@@ -603,10 +605,17 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
         .text(footerContent, marginLeft, footerTextY, { width: usableWidth, lineGap: 4 });
     }
 
-    // Footer rückwirkend auf alle gebufferten Seiten setzen (kein pageAdded-Handler nötig)
+    // --- Mit freundlichen Gruessen ---
+    const signatureY = doc.y + 18;
+    doc.font('Helvetica').fontSize(10).fillColor('#000000')
+      .text('Mit freundlichen Grüßen', marginLeft, signatureY, { width: usableWidth, lineBreak: false });
+    doc.text('Benjamin Zimmermann', marginLeft, doc.y + 2, { width: usableWidth, lineBreak: false });
+
+    // Footer + Logo rueckwirkend auf alle gebufferten Seiten setzen
     const { count } = doc.bufferedPageRange();
     for (let i = 0; i < count; i++) {
       doc.switchToPage(i);
+      if (i > 0) renderLogo(); // Seite 1 hat das Logo bereits, Folgeseiten brauchen es neu
       renderFooter(doc, i + 1, count);
     }
 
