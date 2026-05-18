@@ -19,7 +19,7 @@
  *  - "Korrekturbeleg" (immer sichtbar; bei nicht-freigegeben mit Hinweis)
  *  - Polling alle 2s solange status='ocr_pending' (Auto-Refresh)
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageWrapper } from '../../components/layout/PageWrapper';
@@ -35,6 +35,7 @@ import {
   fetchAreas,
   setReceiptAreas,
   fetchBelegeSettings,
+  fetchSupplierSuggest,
   type ReceiptDetail,
   type TaxCategory,
   type Area,
@@ -47,6 +48,7 @@ export function BelegeDetailPage() {
   const id = Number(idStr);
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const [suggestTriedFor, setSuggestTriedFor] = useState<string | null>(null);
 
   const { data: r, isLoading, error } = useQuery({
     queryKey: ['belege', id],
@@ -124,6 +126,40 @@ export function BelegeDetailPage() {
       window.alert(e?.response?.data?.error ?? e?.message ?? 'Bereich-Zuordnung fehlgeschlagen');
     },
   });
+
+  // Supplier-Suggest auch auf der Detail-Page: wenn der User einen Lieferanten
+  // manuell eintraegt (oder OCR den Lieferant gesetzt hat, aber area/tax_category
+  // noch leer sind), schlagen wir area_id + tax_category_id aus supplier_memory
+  // vor. Nur wenn:
+  //   - Beleg NICHT freigegeben (GoBD-Lock)
+  //   - area_links leer UND tax_category_id null (sonst nicht ueberschreiben)
+  //   - supplier noch nicht versucht wurde (Tracker via suggestTriedFor)
+  // Spiegelt das Pattern aus BelegeUploadPage.tsx:344-361.
+  useEffect(() => {
+    if (!r) return;
+    if (r.freigegeben_at) return; // Locked: niemals modifizieren
+    const supplier = r.supplier_name?.trim();
+    if (!supplier) return;
+    if (suggestTriedFor === supplier) return;
+    const hasArea = (r.area_links?.length ?? 0) > 0;
+    const taxCatId = (r as ReceiptDetail & { tax_category_id?: number | null }).tax_category_id ?? null;
+    const hasTaxCat = taxCatId !== null;
+    if (hasArea && hasTaxCat) return; // beide gesetzt - nichts zu tun
+
+    setSuggestTriedFor(supplier);
+    fetchSupplierSuggest(supplier)
+      .then((s) => {
+        if (!hasArea && s.area_id !== null) {
+          setAreasMut.mutate({ ids: [s.area_id], primary: s.area_id });
+        }
+        if (!hasTaxCat && s.tax_category_id !== null) {
+          updateMut.mutate({ tax_category_id: s.tax_category_id } as Partial<ReceiptDetail>);
+        }
+      })
+      .catch(() => {
+        // 404 = kein Memory fuer diesen Lieferant - silently skippen
+      });
+  }, [r, suggestTriedFor, setAreasMut, updateMut]);
 
   if (!Number.isFinite(id) || id <= 0) {
     return (
