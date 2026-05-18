@@ -341,20 +341,17 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
     }
 
     // --- Titelzeile ---
+    // Wenn Betreff gesetzt: Betreff als Titel verwenden (sevDesk-Stil).
+    // Sonst Fallback auf "Angebot Nr. X" / "Angebot (Entwurf)".
     const blockBottom = Math.max(recipientY, metaY);
     const titleY = blockBottom + 70;
-    const titleText = quote.number
+    const subjectTrim = quote.subject ? String(quote.subject).trim() : '';
+    const titleText = subjectTrim || (quote.number
       ? `Angebot Nr. ${quote.number}`
-      : 'Angebot (Entwurf)';
+      : 'Angebot (Entwurf)');
 
     doc.font('Helvetica-Bold').fontSize(16).fillColor('#000000')
       .text(titleText, marginLeft, titleY, { width: usableWidth });
-
-    // Betreff (subject) als Subtitle unter dem Titel — falls vorhanden.
-    if (quote.subject && String(quote.subject).trim()) {
-      doc.font('Helvetica-Bold').fontSize(12).fillColor('#000000')
-        .text(String(quote.subject), marginLeft, doc.y + 6, { width: usableWidth });
-    }
 
     // --- Kopftext ---
     let currentY = doc.y + 35;
