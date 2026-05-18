@@ -261,7 +261,7 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
       const absLogoPath = path.join(process.cwd(), logoRow.value);
       if (fs.existsSync(absLogoPath) && path.extname(absLogoPath).toLowerCase() !== '.svg') {
         try {
-          doc.image(absLogoPath, pageWidth - marginRight - 120, 10, { fit: [120, 55], align: 'right' });
+          doc.image(absLogoPath, pageWidth - marginRight - 170, 30, { fit: [170, 80], align: 'right' });
         } catch {
           // Logo nicht renderbar — graceful skip
         }
