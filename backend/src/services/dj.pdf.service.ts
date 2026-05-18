@@ -365,12 +365,12 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
     // --- Positionstabelle ---
     // Spaltenbreiten (relativ zu usableWidth ~467pt)
     const colWidths = [
-      usableWidth * 0.07,   // Pos
-      usableWidth * 0.37,   // Beschreibung
+      usableWidth * 0.05,   // Pos
+      usableWidth * 0.42,   // Beschreibung
       usableWidth * 0.10,   // Menge
-      usableWidth * 0.17,   // Einzelpreis
+      usableWidth * 0.16,   // Einzelpreis
       usableWidth * 0.09,   // Rabatt
-      usableWidth * 0.20,   // Gesamt
+      usableWidth * 0.18,   // Gesamt
     ];
     const colX: number[] = [];
     let cx = marginLeft;
@@ -408,8 +408,19 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
 
     for (let idx = 0; idx < items.length; idx++) {
       const item = items[idx];
-      // Seitenumbruch prüfen
-      if (dataY + rowHeight > doc.page.height - 120) {
+
+      // Dynamische Zeilenhoehe: an mehrzeiliger Beschreibung orientieren.
+      // heightOfString berechnet die Hoehe nach Word-Wrap fuer die gegebene Breite.
+      doc.font('Helvetica').fontSize(10);
+      const descText = item.description ?? '';
+      const descHeight = doc.heightOfString(descText, {
+        width: colWidths[1] - 6,
+        lineGap: 1,
+      });
+      const dynamicRowHeight = Math.max(rowHeight, descHeight + 8);
+
+      // Seitenumbruch pruefen
+      if (dataY + dynamicRowHeight > doc.page.height - 120) {
         doc.addPage();
         dataY = 71;
         // Tabellen-Header wiederholen
@@ -444,20 +455,23 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
         : '';
       const rowData = [
         String(item.position),
-        item.description,
+        descText,
         new Intl.NumberFormat('de-DE').format(item.quantity),
         formatEur(item.price_net),
         discountCell,
         formatEur(item.total_net),
       ];
+      // Beschreibung mit Word-Wrap (lineBreak: true), andere Spalten einzeilig.
       for (let i = 0; i < rowData.length; i++) {
+        const isDescription = i === 1;
         doc.text(rowData[i], colX[i] + 3, dataY + 4, {
           width: colWidths[i] - 6,
           align: dataAligns[i],
-          lineBreak: false,
+          lineBreak: isDescription,
+          lineGap: isDescription ? 1 : 0,
         });
       }
-      dataY += rowHeight;
+      dataY += dynamicRowHeight;
     }
 
     // Abschlusslinie Tabelle
