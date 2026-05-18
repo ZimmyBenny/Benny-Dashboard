@@ -380,6 +380,7 @@ export function DjQuoteDetailPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [logoBlobUrl, setLogoBlobUrl] = useState<string | null>(null);
+  const [savedFlash, setSavedFlash] = useState(false);
 
   // Kontakt-Picker
   const [customerSearch, setCustomerSearch] = useState('');
@@ -592,6 +593,8 @@ export function DjQuoteDetailPage() {
 
       if (isNew) {
         const created = await createDjQuote(payload);
+        setSavedFlash(true);
+        window.setTimeout(() => setSavedFlash(false), 2500);
         navigate(`/dj/quotes/${created.id}`, { replace: true });
       } else {
         const updated = await updateDjQuote(Number(id), payload);
@@ -608,6 +611,8 @@ export function DjQuoteDetailPage() {
             discount_pct: i.discount_pct,
           }))
         );
+        setSavedFlash(true);
+        window.setTimeout(() => setSavedFlash(false), 2500);
       }
     } catch {
       setError('Fehler beim Speichern. Bitte erneut versuchen.');
@@ -840,6 +845,24 @@ export function DjQuoteDetailPage() {
               <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>check_circle</span>
               {finalizing ? 'Wird finalisiert...' : 'Finalisieren'}
             </button>
+          )}
+          {savedFlash && (
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              padding: '0.35rem 0.75rem',
+              borderRadius: '999px',
+              background: 'rgba(92,253,128,0.12)',
+              border: '1px solid rgba(92,253,128,0.35)',
+              color: '#5cfd80',
+              fontFamily: 'var(--font-body)',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+            }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>check_circle</span>
+              Gespeichert
+            </span>
           )}
           <button
             type="button"
