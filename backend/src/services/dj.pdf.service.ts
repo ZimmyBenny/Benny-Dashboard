@@ -74,6 +74,8 @@ interface QuoteRow {
   notes: string | null;
   internal_notes: string | null;
   reference_number: string | null;
+  optional_subtotal_net: number;
+  optional_total_gross: number;
 }
 
 interface QuoteItem {
@@ -85,6 +87,7 @@ interface QuoteItem {
   tax_rate: number;
   discount_pct: number;
   total_net: number;
+  is_optional: number;
 }
 
 interface ContactRow {
@@ -490,13 +493,15 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
           });
       }
 
-      // Restliche Spalten einzeilig
+      // Restliche Spalten einzeilig — bei optionalen Positionen: "Opt." statt Pos-Nr.,
+      // und Klammern um die Netto-Summe (sevDesk-Stil).
+      const isOptional = item.is_optional === 1;
       const cells = [
-        { idx: 0, value: String(item.position) },
+        { idx: 0, value: isOptional ? 'Opt.' : String(item.position) },
         { idx: 2, value: new Intl.NumberFormat('de-DE').format(item.quantity) },
         { idx: 3, value: formatEur(item.price_net) },
         { idx: 4, value: discountCell },
-        { idx: 5, value: formatEur(item.total_net) },
+        { idx: 5, value: isOptional ? `(${formatEur(item.total_net)})` : formatEur(item.total_net) },
       ];
       doc.font('Helvetica').fontSize(10).fillColor('#000000');
       for (const cell of cells) {
@@ -535,10 +540,13 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
     }
     const netAfterDiscount = Math.max(0, quote.subtotal_net - discountTotal);
 
-    // MwSt nach Steuersatz gruppieren (anteilig nach Rabatt skaliert)
+    // MwSt nach Steuersatz gruppieren (anteilig nach Rabatt skaliert).
+    // Optionale Positionen zaehlen NICHT in die Hauptsumme — daher hier ausschliessen,
+    // sonst summiert die ausgewiesene MwSt nicht zur Angebotssumme brutto.
     const ratio = quote.subtotal_net > 0 ? netAfterDiscount / quote.subtotal_net : 1;
     const taxGroups: Map<number, number> = new Map();
     for (const item of items) {
+      if (item.is_optional === 1) continue;
       const tax = item.total_net * ratio * (item.tax_rate / 100);
       taxGroups.set(item.tax_rate, (taxGroups.get(item.tax_rate) ?? 0) + tax);
     }
@@ -601,6 +609,14 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
     doc.font('Helvetica-Bold').fontSize(11).fillColor('#000000');
     doc.text('Angebotssumme brutto:', sumLabelX, sumY, { width: sumValueX - sumLabelX - 6, align: 'left' });
     doc.text(formatEur(quote.total_gross), sumValueX, sumY, { width: sumValueWidth, align: 'right' });
+
+    // Summe optionaler Positionen brutto — nur wenn > 0
+    if (quote.optional_total_gross > 0) {
+      sumY = doc.y + 10;
+      doc.font('Helvetica').fontSize(10).fillColor('#000000');
+      doc.text('Summe optionaler Positionen brutto:', sumLabelX, sumY, { width: sumValueX - sumLabelX - 6, align: 'left' });
+      doc.text(formatEur(quote.optional_total_gross), sumValueX, sumY, { width: sumValueWidth, align: 'right' });
+    }
 
     // --- Hinweise-Block (notes) ---
     // Falls vorhanden, vor Fusstext anzeigen.
