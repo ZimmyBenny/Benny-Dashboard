@@ -332,16 +332,16 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
 
     // --- Titelzeile ---
     const blockBottom = Math.max(recipientY, metaY);
-    const titleY = blockBottom + 40;
+    const titleY = blockBottom + 70;
     const titleText = quote.number
       ? `Angebot Nr. ${quote.number}`
       : 'Angebot (Entwurf)';
 
-    doc.font('Helvetica-Bold').fontSize(14).fillColor('#000000')
+    doc.font('Helvetica-Bold').fontSize(16).fillColor('#000000')
       .text(titleText, marginLeft, titleY, { width: usableWidth });
 
     // --- Kopftext ---
-    let currentY = doc.y + 25;
+    let currentY = doc.y + 35;
     if (quote.header_text) {
       const placeholderVars: Record<string, string> = {
         vorname: contact?.first_name ?? '',
@@ -353,7 +353,7 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
       const headerText = replacePlaceholders(quote.header_text, placeholderVars);
       doc.font('Helvetica').fontSize(9).fillColor('#000000')
         .text(headerText, marginLeft, currentY, { width: usableWidth, lineGap: 3 });
-      currentY = doc.y + 10;
+      currentY = doc.y + 30;
     }
 
     // --- Positionstabelle ---
