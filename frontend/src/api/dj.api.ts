@@ -118,6 +118,9 @@ export interface DjQuote {
   discount_value?: number | null;
   discount_type?: '%' | '€' | null;
   discount_description?: string | null;
+  notes?: string | null;
+  internal_notes?: string | null;
+  reference_number?: string | null;
   // joined
   customer_name?: string;
   customer_org?: string;
