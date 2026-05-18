@@ -424,7 +424,9 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
       // Seitenumbruch pruefen
       if (dataY + dynamicRowHeight > doc.page.height - 120) {
         doc.addPage();
-        dataY = 71;
+        // Auf Folgeseiten Platz fuer Logo (y=30 + Hoehe 80) lassen, sonst ueberlappt
+        // der Tabellen-Header mit dem Logo.
+        dataY = 130;
         // Tabellen-Header wiederholen
         doc.save()
           .rect(marginLeft, dataY, usableWidth, rowHeight)
