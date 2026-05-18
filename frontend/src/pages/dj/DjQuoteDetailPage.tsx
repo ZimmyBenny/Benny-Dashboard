@@ -31,6 +31,8 @@ function ServiceSearchPicker({
   onServiceCreated,
   disabled,
   inputStyle,
+  titleOverride,
+  onTitleChange,
 }: {
   services: DjService[];
   selectedId: number | null;
@@ -38,6 +40,8 @@ function ServiceSearchPicker({
   onServiceCreated: (svc: DjService) => void;
   disabled?: boolean;
   inputStyle: React.CSSProperties;
+  titleOverride?: string;
+  onTitleChange?: (newTitle: string) => void;
 }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
@@ -71,19 +75,22 @@ function ServiceSearchPicker({
   if (selected) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-        <span style={{
-          ...inputStyle,
-          flex: 1,
-          fontSize: '0.8rem',
-          padding: '0.375rem 0.625rem',
-          color: 'var(--color-primary)',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          opacity: disabled ? 0.7 : 1,
-        }}>
-          {selected.name}
-        </span>
+        <input
+          type="text"
+          value={titleOverride ?? selected.name}
+          readOnly={disabled || !onTitleChange}
+          onChange={onTitleChange ? e => onTitleChange(e.target.value) : undefined}
+          title="Positionstitel bearbeiten (aendert nicht die Stamm-Leistung)"
+          style={{
+            ...inputStyle,
+            flex: 1,
+            fontSize: '0.8rem',
+            padding: '0.375rem 0.625rem',
+            color: 'var(--color-primary)',
+            fontWeight: 600,
+            opacity: disabled ? 0.7 : 1,
+          }}
+        />
         {!disabled && (
           <button
             type="button"
@@ -1389,12 +1396,18 @@ export function DjQuoteDetailPage() {
                       {item.is_optional ? 'Opt.' : String(idx + 1)}
                     </span>
 
-                    {/* Leistungs-Picker */}
+                    {/* Leistungs-Picker — Titel ist editierbar pro Position (aendert nicht die Stamm-Leistung) */}
                     <ServiceSearchPicker
                       services={services}
                       selectedId={item.service_id}
                       disabled={finalized}
                       inputStyle={inputStyle}
+                      titleOverride={item.description.split('\n')[0]}
+                      onTitleChange={(newTitle) => {
+                        const lines = item.description.split('\n');
+                        lines[0] = newTitle;
+                        updateItem(item._key, { description: lines.join('\n') });
+                      }}
                       onSelect={svc => {
                         if (!svc) {
                           updateItem(item._key, { service_id: null });
