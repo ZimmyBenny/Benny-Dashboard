@@ -275,8 +275,8 @@ router.patch('/:id', (req, res) => {
         );
     }
 
-    // Notizen + Referenz: explizit setzen wenn key vorhanden (auch null = leeren).
-    // KEIN COALESCE — sonst koennten Notizen nie geleert werden.
+    // Notizen + Referenz + Betreff: explizit setzen wenn key vorhanden (auch null = leeren).
+    // KEIN COALESCE — sonst koennten Felder nie geleert werden.
     const body = req.body as Record<string, unknown>;
     if ('notes' in body) {
       db.prepare('UPDATE dj_quotes SET notes = ? WHERE id = ?')
@@ -289,6 +289,12 @@ router.patch('/:id', (req, res) => {
     if ('reference_number' in body) {
       db.prepare('UPDATE dj_quotes SET reference_number = ? WHERE id = ?')
         .run((reference_number as string | null) ?? null, id);
+    }
+    // Betreff explizit ueberschreiben (auch leerer Wert) — Frontend sendet immer subject:value|null.
+    // COALESCE im Haupt-UPDATE hat den Wert behalten wenn null geschickt wurde.
+    if ('subject' in body) {
+      db.prepare('UPDATE dj_quotes SET subject = ? WHERE id = ?')
+        .run((subject as string | null) ?? null, id);
     }
 
     if (Array.isArray(items)) {
