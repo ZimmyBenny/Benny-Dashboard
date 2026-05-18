@@ -439,8 +439,8 @@ export function DjTripsPage() {
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 60 }} />
           <div style={{
             position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,80,80,0.2)',
+            background: '#1a1b2e',
+            border: '1px solid rgba(255,80,80,0.35)',
             borderRadius: '0.75rem', padding: '1.5rem', width: '360px',
             zIndex: 70, boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
           }}>
