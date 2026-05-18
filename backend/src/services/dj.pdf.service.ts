@@ -327,7 +327,9 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
       ['Angebotsdatum:', formatDateDE(quote.quote_date)],
       ['Gültig bis:', formatDateDE(quote.valid_until)],
     ];
-    if (event?.title) metaRows.push(['Referenz:', event.title]);
+    // Referenz: bevorzugt quote.reference_number (User-Eingabe Bestellnr.), Fallback event.title
+    const referenzValue = (quote.reference_number && String(quote.reference_number).trim()) || event?.title;
+    if (referenzValue) metaRows.push(['Referenz:', referenzValue]);
     if (contact?.customer_number) metaRows.push(['Kundennummer:', contact.customer_number]);
     metaRows.push(['Ansprechpartner:', 'Benjamin Zimmermann']);
 
@@ -347,6 +349,12 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
 
     doc.font('Helvetica-Bold').fontSize(16).fillColor('#000000')
       .text(titleText, marginLeft, titleY, { width: usableWidth });
+
+    // Betreff (subject) als Subtitle unter dem Titel — falls vorhanden.
+    if (quote.subject && String(quote.subject).trim()) {
+      doc.font('Helvetica-Bold').fontSize(12).fillColor('#000000')
+        .text(String(quote.subject), marginLeft, doc.y + 6, { width: usableWidth });
+    }
 
     // --- Kopftext ---
     let currentY = doc.y + 35;
