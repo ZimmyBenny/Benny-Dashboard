@@ -19,6 +19,7 @@ import djRoutes from './routes/dj.routes';
 import remindersRoutes from './routes/reminders.routes';
 import belegeRoutes from './routes/belege.routes';
 import tripsRoutes from './routes/trips.routes';
+import reviewsRoutes from './routes/reviews.routes';
 import { verifyToken, type AuthenticatedRequest } from './middleware/auth';
 
 export function createApp() {
@@ -61,6 +62,7 @@ export function createApp() {
   app.use('/api/reminders', remindersRoutes);
   app.use('/api/belege', belegeRoutes);
   app.use('/api/trips', tripsRoutes);
+  app.use('/api/finance/reviews', reviewsRoutes);
 
   // Temporary probe route to verify the guard end-to-end (kept; Plan 3 may remove)
   app.get('/api/_probe', (req: AuthenticatedRequest, res) => {
