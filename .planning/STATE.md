@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 05-02-PLAN.md
-last_updated: "2026-05-25T21:27:14.000Z"
+stopped_at: Completed 05-03-PLAN.md
+last_updated: "2026-05-25T21:32:07.290Z"
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 33
-  completed_plans: 30
-  percent: 91
+  completed_plans: 31
+  percent: 94
 ---
 
 # Project State: Benny Dashboard
@@ -41,7 +41,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 [█████████░] 86% — 24/28 plans complete
 
-**Stopped at:** Completed 05-02-PLAN.md
+**Stopped at:** Completed 05-03-PLAN.md
 
 ## Decisions Made
 
@@ -119,6 +119,8 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 - [Phase 05]: setup.ts: Migration 043 ADD COLUMN ignored in :memory: (015 hat Spalte bereits — SQLite kein IF NOT EXISTS)
 - [Phase 05]: profitCalc.ts bewusst dupliziert (Frontend + Backend) — Monorepo widerspricht CLAUDE.md; Sync-Hinweis im Header
 - [Phase 05]: STATUS_CONFIG als Record<ReviewStatus, StatusConfigEntry> — TS-Compiler erzwingt alle 10 Status-Eintraege
+- [Phase 05]: Hover-Border auf ReviewCard via useState (re-render-safe) — kein e.currentTarget.style weil Dnd-Updates den Wrapper re-rendern und Inline-Style-Mutations verloren gehen (05-03)
+- [Phase 05]: handleDragEnd validiert over.id via ALL_STATUSES.includes() — Drop ueber Karten-Id wird silent ignoriert (T-05-K-02, 05-03)
 
 ## Open Decisions (must resolve before Milestone 2)
 

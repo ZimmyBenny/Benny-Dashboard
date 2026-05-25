@@ -123,7 +123,7 @@
 | 2. Auth Layer | 5/5 | Complete   | 2026-04-08 |
 | 3. Shell + Design System | 4/5 | In Progress|  |
 | 4. Belege-Modul + DJ-Refactor | 4/13 | In Progress|  |
-| 5. Finanzen-Tab Bewertungen | 2/5 | In Progress|  |
+| 5. Finanzen-Tab Bewertungen | 3/5 | In Progress|  |
 
 ---
 
@@ -221,7 +221,7 @@ Plans:
 
 **Depends on:** Phase 4 (nutzt INTEGER-Cents-Konvention, vitest-Setup, KPICard, useDraggableModal — keine harte FK-Abhaengigkeit)
 
-**Plans:** 2/5 plans executed
+**Plans:** 3/5 plans executed
 
 **Wave structure:**
 - Wave 1: Plan 01 (Backend: Migration + Routes + Tests) + Plan 02 (Frontend: API + Types + Status-Map) — parallel
@@ -232,7 +232,7 @@ Plans:
 Plans:
 - [x] 05-01-PLAN.md — Backend: Migration 046 `amazon_reviews` + `lib/profitCalc.ts` + `routes/reviews.routes.ts` + Vitest-Suite (D-10/D-11/D-12/D-13/D-14/D-15/D-17)
 - [x] 05-02-PLAN.md — Frontend Foundation: `api/reviews.api.ts` + `lib/profitCalc.ts` (Backend-Mirror) + `reviewStatus.ts` (STATUS_CONFIG + nextPipelineStatus) (D-06/D-07/D-08/D-10..D-13/D-15/D-17)
-- [ ] 05-03-PLAN.md — Kanban-Komponenten: `ReviewCard.tsx` (Frist-Badge + "Weiter"-Button) + `ReviewColumn.tsx` (useDroppable + Empty-States) + `ReviewsKanbanBoard.tsx` (DndContext + Mutation) (D-06/D-07/D-08/D-09)
+- [x] 05-03-PLAN.md — Kanban-Komponenten: `ReviewCard.tsx` (Frist-Badge + "Weiter"-Button) + `ReviewColumn.tsx` (useDroppable + Empty-States) + `ReviewsKanbanBoard.tsx` (DndContext + Mutation) (D-06/D-07/D-08/D-09)
 - [ ] 05-04-PLAN.md — Page-Integration: `AddReviewModal` (Pflichtfelder) + `ReviewDetailModal` (5 Sektionen + Profit-Anzeige + Delete) + `BewertungenTab` (Year-Filter + 3 KPI-Cards) + `FinancesPage` Rewrite (D-01..D-05/D-15/D-16/D-17 + User-Decisions 2026-05-25)
 - [ ] 05-05-PLAN.md — UAT + Sanity-Check: Test-Suite-Greenrun + 3 Checkpoint-Tasks (visuelle UAT, funktionale UAT, Phase-Abschluss)
 
