@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Tasks 1+2 of 04-12-seed-final-PLAN.md complete (Wave 8); Task 3 human-verify Checkpoint awaiting User UAT
-last_updated: "2026-05-07T15:45:53.373Z"
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-05-25T21:23:24.153Z"
 progress:
-  total_phases: 4
+  total_phases: 5
   completed_phases: 4
-  total_plans: 28
-  completed_plans: 28
-  percent: 100
+  total_plans: 33
+  completed_plans: 29
+  percent: 88
 ---
 
 # Project State: Benny Dashboard
@@ -21,7 +21,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 **Core value:** Alles an einem Ort, lokal und privat — ohne Cloud-Abhängigkeiten, ohne Reibung beim täglichen Zugriff.
 **Current milestone:** Milestone 1 — Foundation → Working Dashboard Shell
-**Current focus:** Phase 04 — belege-modul-dj-buchhaltungs-refactoring
+**Current focus:** Phase 05 — finanzen-tab-bewertungen
 
 ## Current Status
 
@@ -35,12 +35,13 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 ## Roadmap Evolution
 
 - 2026-05-05 — Phase 4 hinzugefuegt: Belege-Modul + DJ-Buchhaltungs-Refactoring (zentrale `receipts`-Tabelle, GoBD, OCR via Tesseract; DJ-Buchhaltung wird Read-Only-Sicht. 13 Sub-Plaene geplant.)
+- 2026-05-25 — Phase 5 hinzugefuegt: finanzen-tab-bewertungen (Sub-Tab "Bewertungen" in FinancesPage für Amazon Tester-/Refund-Programm-Tracking — Status-Pipeline Vorgemerkt→Bestellt→Erhalten→Bewertet→Geld erhalten→Bereit zu verkaufen→[Behalten|Verkauft|Verschenkt|Entsorgt]; Profit-Berechnung inkl. Verkaufserlös und geldwertem Vorteil; Statistik-Block; Kalender-Integration für Bewertungsfristen.)
 
 ## Progress
 
 [█████████░] 86% — 24/28 plans complete
 
-**Stopped at:** Tasks 1+2 of 04-12-seed-final-PLAN.md complete (Wave 8); Task 3 human-verify Checkpoint awaiting User UAT
+**Stopped at:** Completed 05-01-PLAN.md
 
 ## Decisions Made
 
@@ -113,6 +114,9 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 - [Phase 04]: Plan 04-12: contacts-Spalten korrigiert (contact_kind/organization_name statt display_name/company/kind) — gleiche Konflikt-Aufloesung wie Plan 04-06; Plan-Snippet wäre Runtime-Error gewesen
 - [Phase 04]: Plan 04-12: Integration-Test-Reihenfolge tax-Aggregation VOR freigeben — Plan-Snippet hatte umgekehrte Reihenfolge die fehlschlaegt weil freigeben den status auf 'freigegeben' setzt aber KZ66 nur 'bezahlt' filtert
 - [Phase 04]: Plan 04-12: 5 Beispiel-Belege live (Alibaba USD/EUSt + Thomann DJ-Wareneinkauf + E.ON Privat 70% + Google IE Reverse-Charge + Hochzeit Müller via Mirror) + Trip 87km — Manual UAT Task 3 awaiting
+- [Phase 05]: Migration 046 bestaetigt — kein Nummern-Konflikt, kein Auto-Bypass noetig
+- [Phase 05]: calcProfit darf negativ sein (User-Decision 2026-05-25): partial refund < purchase ergibt negativen Profit
+- [Phase 05]: setup.ts: Migration 043 ADD COLUMN ignored in :memory: (015 hat Spalte bereits — SQLite kein IF NOT EXISTS)
 
 ## Open Decisions (must resolve before Milestone 2)
 
@@ -163,9 +167,19 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 | 260424-rzd | Fix event_date Bug: Pflichtfeld-Guard + NULL-Normalisierung + bestaetigt in GET-Filter | 2026-04-24 | 2d2a188 | [260424-rzd-fix-event-date-bug-in-neueanfragemodal-u](.planning/quick/260424-rzd-fix-event-date-bug-in-neueanfragemodal-u/) |
 | 260424-sjd | Kalender-Sync bei Event-Bearbeitung im NeueAnfrageModal | 2026-04-24 | 0be73a7 | [260424-sjd-kalender-eintrag-bei-event-bearbeitung-a](.planning/quick/260424-sjd-kalender-eintrag-bei-event-bearbeitung-a/) |
 | 260505-u7a | Codebase-weiter Datums-Fix: lokale Zeitzone via zentraler Helper (lib/dates.ts) — fixt Muttertag-Anzeige + Edge Cases in Cron/DJ-Routes | 2026-05-05 | 668864c | [260505-u7a-dashboard-diese-woche-widget-all-day-eve](.planning/quick/260505-u7a-dashboard-diese-woche-widget-all-day-eve/) |
+| 260517-vyv | Reverse-Charge-Feld im Beleg-Formular per Settings-Toggle ein-/ausblendbar (Default aus) | 2026-05-17 | a0de31e | [260517-vyv-reverse-charge-feld-im-beleg-formular-pe](.planning/quick/260517-vyv-reverse-charge-feld-im-beleg-formular-pe/) |
+| 260517-wcz | Migration 043: app_settings.updated_at-Spalte wiederhergestellt (fixt 500-Fehler in Settings-PATCH/PUT) | 2026-05-17 | c9a8baa | [260517-wcz-migration-043-app-settings-updated-at-sp](.planning/quick/260517-wcz-migration-043-app-settings-updated-at-sp/) |
+| 260517-wr0 | PDF-Text-Layer aktivieren (Copy-Paste aus Beleg) + Receipt-Parser akzeptiert US-Format-Rechnungen (Anthropic/Stripe/Apple) | 2026-05-17 | eea4215 | [260517-wr0-pdf-text-layer-aktivieren-receipt-parser](.planning/quick/260517-wr0-pdf-text-layer-aktivieren-receipt-parser/) |
+| 260518-cuy | Supplier-Memory-Flow Fix: Extractor-Confidence 0.6 + Suffix-Cleanup (Bill/Ship/Invoice to) + BelegeDetailPage supplier-suggest Auto-Apply | 2026-05-18 | 460bd3f | [260518-cuy-supplier-memory-flow-fix-extractor-confi](.planning/quick/260518-cuy-supplier-memory-flow-fix-extractor-confi/) |
+| 260518-lnx | DJ-Customers-Liste + Search liefern komplette Anschrift (street/postal_code/country) + DjCustomer-Type erweitert | 2026-05-18 | e85c44e | [260518-lnx-dj-customers-liste-search-komplette-ansc](.planning/quick/260518-lnx-dj-customers-liste-search-komplette-ansc/) |
+| 260518-mv9 | DJ-Angebot-PDF: 4 Abstaende gelockert (Titel groesser, mehr Luft vor Tabelle) — Richtung sevDesk-Stil | 2026-05-18 | 57497ae | [260518-mv9-dj-quote-pdf-4-abstaende-lockern-fuer-me](.planning/quick/260518-mv9-dj-quote-pdf-4-abstaende-lockern-fuer-me/) |
+| 260518-snb | DJ-Quote: Rabatt im PDF sichtbar (Zwischensumme/Rabatt/Netto-Block) + Notizen funktionsfaehig (Migration 044 + PDF "Hinweise") + ServiceSearchPicker Inline-Create | 2026-05-18 | 461153e | [260518-snb-dj-quote-rabatt-im-pdf-sichtbar-notizen-](.planning/quick/260518-snb-dj-quote-rabatt-im-pdf-sichtbar-notizen-/) |
+| 260518-t17 | DJ-Angebot UX (sevDesk-Stil): Speichern-Feedback + Rabatt-Spalte pro Position + Inline-Create-Link (Modal raus) + Lazy-Gesamtrabatt | 2026-05-18 | 2173727 | [260518-t17-dj-angebot-ux-save-feedback-rabatt-spalt](.planning/quick/260518-t17-dj-angebot-ux-save-feedback-rabatt-spalt/) |
+| 260518-thg | PDF: Rabatt-Spalte in Positionen-Tabelle ergaenzt + Logo groesser/naeher am Content | 2026-05-18 | (HEAD) | [260518-thg-pdf-rabatt-spalte-in-der-positionen-tabe](.planning/quick/260518-thg-pdf-rabatt-spalte-in-der-positionen-tabe/) |
+| 260518-uxi | DJ-Angebot: Optionale Positionen (sevDesk-Stil) — Toggle "Optional", "Opt." statt Pos-Nr im PDF, separate "Summe optionaler Positionen brutto" | 2026-05-18 | e9de663 | [260518-uxi-dj-quote-optionale-positionen-sevdesk-st](.planning/quick/260518-uxi-dj-quote-optionale-positionen-sevdesk-st/) |
 
 ---
-*State initialized: 2026-04-07 | Last activity: 2026-05-05 - Completed quick task 260505-u7a: Codebase-weiter Datums-Fix auf lokale Zeitzone*
+*State initialized: 2026-04-07 | Last activity: 2026-05-18 - Completed quick task 260518-uxi: Optionale Positionen im DJ-Angebot*
 | 2026-04-10 | fast | TaskCard onClick → SlideOver fix (PointerSensor distance constraint) | ✅ |
 | 2026-04-10 | fast | TaskSlideOver Backdrop-Klick schließt Panel nicht mehr | ✅ |
 | 2026-04-10 | 260410-v3q | Status-Notiz beim Drag (DragPrompt + DB-Migration + KanbanBoard-Pause) | ✅ |

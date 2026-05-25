@@ -123,6 +123,7 @@
 | 2. Auth Layer | 5/5 | Complete   | 2026-04-08 |
 | 3. Shell + Design System | 4/5 | In Progress|  |
 | 4. Belege-Modul + DJ-Refactor | 4/13 | In Progress|  |
+| 5. Finanzen-Tab Bewertungen | 1/5 | In Progress|  |
 
 ---
 
@@ -147,9 +148,10 @@
 | BELEG-UI-01 – 11 | 11 | Phase 4 |
 | BELEG-DJREF-01 – 05 | 5 | Phase 4 |
 | BELEG-SEED-01 – 04 | 4 | Phase 4 |
-| **Total** | **112** | **4 phases** |
+| D-01 – D-17 (Bewertungen) | 17 | Phase 5 |
+| **Total** | **129** | **5 phases** |
 
-Unmapped: 0. Coverage: 112/112.
+Unmapped: 0. Coverage: 129/129.
 
 ---
 
@@ -211,6 +213,45 @@ Plans:
 - [x] 04-11-dj-refactor-PLAN.md — DjAccountingPage Read-Only auf receipts; Migration 039b dropped dj_expenses; dj.expenses.routes entfernt
 - [x] 04-12-seed-final-PLAN.md — 5 Beispielbelege (Alibaba, Thomann, E.ON, Google Ireland, Hochzeit Müller) + Integration-Test + manuelle UAT
 
+### Phase 5: finanzen-tab-bewertungen
+
+**Goal:** Sub-Tab "Bewertungen" in der `FinancesPage` als Tracking-System für das Amazon Tester-/Refund-Programm. Status-Pipeline mit 10 Slugs (Vorgemerkt → Bestellt → Erhalten → Bewertet → Geld erhalten → Bereit zu verkaufen → [Behalten | Verkauft | Verschenkt | Entsorgt]) visualisiert als Kanban-Board mit Drag-and-Drop + "Weiter"-Button. Eigene Tabelle `amazon_reviews` (INTEGER Cents), Profit-Berechnung (`(refund + sale) − purchase`, darf negativ sein), 3 KPI-Cards (Einträge gesamt / Offene Refunds / Realisierter Gewinn), Year-Filter. Frist-Badge auf Karten mit 4 Schwellen. Page-Header im DjOverviewPage-Stil mit Ambient Glows. Keine externe Kalender/Reminder-Integration (deferred), keine weiteren Sub-Tabs (deferred).
+
+**Requirements:** D-01..D-17 (formalisiert in CONTEXT.md) + 2 User-Decisions vom 2026-05-25 (Profit darf negativ sein → rot anzeigen; KPI "Realisierter Gewinn" accentColor='secondary')
+
+**Depends on:** Phase 4 (nutzt INTEGER-Cents-Konvention, vitest-Setup, KPICard, useDraggableModal — keine harte FK-Abhaengigkeit)
+
+**Plans:** 1/5 plans executed
+
+**Wave structure:**
+- Wave 1: Plan 01 (Backend: Migration + Routes + Tests) + Plan 02 (Frontend: API + Types + Status-Map) — parallel
+- Wave 2: Plan 03 (Kanban-Komponenten: ReviewCard + ReviewColumn + ReviewsKanbanBoard)
+- Wave 3: Plan 04 (Modals + BewertungenTab + FinancesPage Rewrite)
+- Wave 4: Plan 05 (UAT + Polish — 3 Checkpoint-Tasks)
+
+Plans:
+- [x] 05-01-PLAN.md — Backend: Migration 046 `amazon_reviews` + `lib/profitCalc.ts` + `routes/reviews.routes.ts` + Vitest-Suite (D-10/D-11/D-12/D-13/D-14/D-15/D-17)
+- [ ] 05-02-PLAN.md — Frontend Foundation: `api/reviews.api.ts` + `lib/profitCalc.ts` (Backend-Mirror) + `reviewStatus.ts` (STATUS_CONFIG + nextPipelineStatus) (D-06/D-07/D-08/D-10..D-13/D-15/D-17)
+- [ ] 05-03-PLAN.md — Kanban-Komponenten: `ReviewCard.tsx` (Frist-Badge + "Weiter"-Button) + `ReviewColumn.tsx` (useDroppable + Empty-States) + `ReviewsKanbanBoard.tsx` (DndContext + Mutation) (D-06/D-07/D-08/D-09)
+- [ ] 05-04-PLAN.md — Page-Integration: `AddReviewModal` (Pflichtfelder) + `ReviewDetailModal` (5 Sektionen + Profit-Anzeige + Delete) + `BewertungenTab` (Year-Filter + 3 KPI-Cards) + `FinancesPage` Rewrite (D-01..D-05/D-15/D-16/D-17 + User-Decisions 2026-05-25)
+- [ ] 05-05-PLAN.md — UAT + Sanity-Check: Test-Suite-Greenrun + 3 Checkpoint-Tasks (visuelle UAT, funktionale UAT, Phase-Abschluss)
+
+**UAT:**
+- `/finances` zeigt Page-Header "FINANZEN" (Epilogue 3rem fw800) + "+ Neue Bewertung"-Button + Tab-Bar mit genau einem Tab "Bewertungen"
+- Anlegen-Modal validiert Pflichtfelder (Produktname + Kaufpreis > 0) und speichert mit Status `vorgemerkt`
+- Kanban-Board zeigt 10 Spalten horizontal-scrollbar in fester Reihenfolge
+- Drag einer Karte zwischen Spalten persistiert Status (Reload behalten)
+- "Weiter"-Button springt linear durch die 6 Pipeline-Stati; bei `bereit_verkauf` verschwindet der Button
+- Frist-Badge: rot ≤3 Tage, gelb ≤7 Tage, neutral >7 Tage, dunkelrot bei negativer Frist; nicht-gerendert ohne Frist
+- Detail-Modal: 5 Sektionen + Profit-Anzeige gruen >0 / neutral 0 / rot <0 (User-Decision 2026-05-25)
+- KPI 3 "Realisierter Gewinn": accentColor secondary >0 / error <0 / primary 0 (User-Decision 2026-05-25)
+- Loeschen zeigt window.confirm mit Produktnamen und echten Umlauten ("löschen", "rückgängig")
+- Year-Filter wechselt korrekt zwischen aktuellem Jahr, Vorjahr und "Alle"
+- Backend `npm test` gruen (inkl. neuer `reviews.test.ts`); Frontend `npm run test:run` gruen
+- Migration 046 in `_migrations`-Tabelle vorhanden; Auto-Backup via migrate.ts erstellt
+
+**Traceability:** D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13, D-14, D-15, D-16, D-17 (+ 2 User-Decisions 2026-05-25)
+
 ---
 
-*Last updated: 2026-05-06 — Plan 04-05 (Task-Automation) abgeschlossen; 6/13 Phase-4-Plaene komplett*
+*Last updated: 2026-05-25 — Phase 5 (finanzen-tab-bewertungen) in 5 Plans aufgeteilt, 4 Waves; bereit fuer /gsd-execute-phase 5*
