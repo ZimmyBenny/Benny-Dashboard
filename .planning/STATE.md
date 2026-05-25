@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 05-03-PLAN.md
-last_updated: "2026-05-25T21:32:07.290Z"
+stopped_at: Completed 05-04-PLAN.md
+last_updated: "2026-05-25T21:39:48.033Z"
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 33
-  completed_plans: 31
-  percent: 94
+  completed_plans: 32
+  percent: 97
 ---
 
 # Project State: Benny Dashboard
@@ -41,7 +41,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 [█████████░] 86% — 24/28 plans complete
 
-**Stopped at:** Completed 05-03-PLAN.md
+**Stopped at:** Completed 05-04-PLAN.md
 
 ## Decisions Made
 
@@ -121,6 +121,9 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 - [Phase 05]: STATUS_CONFIG als Record<ReviewStatus, StatusConfigEntry> — TS-Compiler erzwingt alle 10 Status-Eintraege
 - [Phase 05]: Hover-Border auf ReviewCard via useState (re-render-safe) — kein e.currentTarget.style weil Dnd-Updates den Wrapper re-rendern und Inline-Style-Mutations verloren gehen (05-03)
 - [Phase 05]: handleDragEnd validiert over.id via ALL_STATUSES.includes() — Drop ueber Karten-Id wird silent ignoriert (T-05-K-02, 05-03)
+- [Phase 05]: addOpen als Prop (nicht interner State in BewertungenTab) — Plus-Button lebt im Page-Header der FinancesPage
+- [Phase 05]: profitAccent dynamisch: secondary wenn >0, error wenn <0, primary wenn =0 (User-Decision 2026-05-25 — KPI 3)
+- [Phase 05]: Backdrop-Click schliesst Modals NICHT (Memory-Lesson Phase 4 UAT); window.confirm mit Produktnamen vor deleteReview (Memory feedback_ux_patterns)
 
 ## Open Decisions (must resolve before Milestone 2)
 
