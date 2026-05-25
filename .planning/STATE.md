@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 05-01-PLAN.md
-last_updated: "2026-05-25T21:23:24.153Z"
+stopped_at: Completed 05-02-PLAN.md
+last_updated: "2026-05-25T21:27:14.000Z"
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 33
-  completed_plans: 29
-  percent: 88
+  completed_plans: 30
+  percent: 91
 ---
 
 # Project State: Benny Dashboard
@@ -41,7 +41,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 [█████████░] 86% — 24/28 plans complete
 
-**Stopped at:** Completed 05-01-PLAN.md
+**Stopped at:** Completed 05-02-PLAN.md
 
 ## Decisions Made
 
@@ -117,6 +117,8 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 - [Phase 05]: Migration 046 bestaetigt — kein Nummern-Konflikt, kein Auto-Bypass noetig
 - [Phase 05]: calcProfit darf negativ sein (User-Decision 2026-05-25): partial refund < purchase ergibt negativen Profit
 - [Phase 05]: setup.ts: Migration 043 ADD COLUMN ignored in :memory: (015 hat Spalte bereits — SQLite kein IF NOT EXISTS)
+- [Phase 05]: profitCalc.ts bewusst dupliziert (Frontend + Backend) — Monorepo widerspricht CLAUDE.md; Sync-Hinweis im Header
+- [Phase 05]: STATUS_CONFIG als Record<ReviewStatus, StatusConfigEntry> — TS-Compiler erzwingt alle 10 Status-Eintraege
 
 ## Open Decisions (must resolve before Milestone 2)
 

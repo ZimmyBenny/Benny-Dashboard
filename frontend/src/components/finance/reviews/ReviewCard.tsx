@@ -1,0 +1,142 @@
+import { useState } from 'react';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import type { Review } from '../../../api/reviews.api';
+import { formatCurrencyFromCents, formatDate } from '../../../lib/format';
+import { todayLocal, parseLocalDate } from '../../../lib/dates';
+import { nextPipelineStatus } from './reviewStatus';
+
+interface Props {
+  review: Review;
+  onCardClick: (r: Review) => void;
+  onForward: (id: number) => void;
+}
+
+interface BadgeStyle { bg: string; text: string; border: string }
+
+function getFristBadgeStyle(deadline: string): BadgeStyle {
+  const today = parseLocalDate(todayLocal()).getTime();
+  const dl = parseLocalDate(deadline).getTime();
+  const diffDays = Math.floor((dl - today) / 86_400_000);
+  if (diffDays < 0)  return { bg: 'rgba(167,1,56,0.40)',    text: '#ffb2b9',                          border: '#ff6e84' };
+  if (diffDays <= 3) return { bg: 'rgba(255,110,132,0.18)', text: '#ff6464',                          border: 'rgba(255,110,132,0.40)' };
+  if (diffDays <= 7) return { bg: 'rgba(255,196,87,0.15)',  text: '#ffc457',                          border: 'rgba(255,196,87,0.40)' };
+  return                   { bg: 'rgba(255,255,255,0.06)',  text: 'var(--color-on-surface-variant)',  border: 'rgba(255,255,255,0.10)' };
+}
+
+export function ReviewCard({ review, onCardClick, onForward }: Props) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: review.id });
+  const [isHover, setIsHover] = useState(false);
+
+  const nextStatus = nextPipelineStatus(review.status);
+  const showForward = nextStatus !== null;
+  const badge = review.review_deadline ? getFristBadgeStyle(review.review_deadline) : null;
+
+  // SINGLE style-Objekt — alle Properties zusammengefuehrt, kein doppeltes style-Prop, kein Spread-Trick
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition: `border-color 150ms ease${transition ? ', ' + transition : ''}`,
+    opacity: isDragging ? 0.5 : 1,
+    boxShadow: isDragging ? 'var(--glow-primary)' : 'none',
+    background: 'var(--color-surface-container)',
+    borderRadius: '0.75rem',
+    padding: '1rem',
+    marginBottom: '0.5rem',
+    // Hover-Border via useState (re-render-safe; nicht via e.currentTarget.style — Revision Iteration 1)
+    border: `1px solid ${isHover ? 'rgba(204,151,255,0.3)' : 'var(--color-surface-container-high)'}`,
+    cursor: 'pointer',
+    listStyle: 'none',
+  };
+
+  return (
+    <li
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      style={style}
+      onClick={() => onCardClick(review)}
+      onMouseEnter={() => setIsHover(true)}
+      onMouseLeave={() => setIsHover(false)}
+    >
+      {/* Title */}
+      <div
+        style={{
+          fontFamily: 'var(--font-headline)',
+          fontSize: '0.875rem',
+          fontWeight: 700,
+          lineHeight: 1.4,
+          wordBreak: 'break-word',
+          color: 'var(--color-on-surface)',
+        }}
+      >
+        {review.product_name}
+      </div>
+
+      {/* Meta-Row: Kaufpreis-Pill + optionaler Frist-Badge */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem', marginTop: '0.5rem' }}>
+        <span
+          style={{
+            background: 'rgba(204,151,255,0.08)',
+            color: 'var(--color-primary)',
+            fontSize: '0.7rem',
+            fontWeight: 600,
+            padding: '0.15rem 0.5rem',
+            borderRadius: '9999px',
+          }}
+        >
+          {formatCurrencyFromCents(review.purchase_price_cents)}
+        </span>
+        {badge && review.review_deadline && (
+          <span
+            style={{
+              background: badge.bg,
+              color: badge.text,
+              border: `1px solid ${badge.border}`,
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              padding: '0.15rem 0.5rem',
+              borderRadius: '9999px',
+            }}
+          >
+            {formatDate(review.review_deadline)}
+          </span>
+        )}
+      </div>
+
+      {/* Forward-Button (nur sichtbar wenn Pipeline-Status mit Nachfolger) */}
+      {showForward && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); onForward(review.id); }}
+            onPointerDown={(e) => e.stopPropagation()}
+            style={{
+              background: 'transparent',
+              border: '1px solid rgba(204,151,255,0.2)',
+              color: 'var(--color-primary)',
+              borderRadius: '0.5rem',
+              padding: '0.25rem 0.625rem',
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              fontFamily: 'var(--font-body)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(204,151,255,0.12)';
+              e.currentTarget.style.borderColor = 'rgba(204,151,255,0.5)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.borderColor = 'rgba(204,151,255,0.2)';
+            }}
+          >
+            Weiter
+            <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>arrow_forward</span>
+          </button>
+        </div>
+      )}
+    </li>
+  );
+}
