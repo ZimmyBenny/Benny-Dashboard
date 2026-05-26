@@ -125,6 +125,10 @@ const REFUND_GUARANTEED_STATUSES = new Set([
   'geld_erhalten', 'bereit_verkauf', 'behalten', 'verkauft', 'verschenkt', 'entsorgt',
 ]);
 
+// Stati vor 'geld_erhalten': hier ist semantisch noch kein Refund da.
+// Rueckwaerts-Drag (z.B. ausversehen reingeschoben) soll den Auto-Refund zuruecksetzen.
+const PRE_REFUND_STATUSES = new Set(['vorgemerkt', 'bestellt', 'erhalten', 'bewertet']);
+
 router.patch('/:id', (req, res) => {
   const id = Number(req.params.id);
   const existing = db.prepare('SELECT * FROM amazon_reviews WHERE id = ?').get(id) as ReviewRow | undefined;
@@ -132,16 +136,28 @@ router.patch('/:id', (req, res) => {
 
   const body = req.body as Record<string, unknown>;
 
-  // Auto-Refund: wenn Status zu einem refund-garantierten Status wechselt UND refund noch leer ist
   const targetStatus = (typeof body.status === 'string' ? body.status : existing.status) as string;
   const refundExplicitlyProvided = Object.prototype.hasOwnProperty.call(body, 'refund_amount_cents');
-  const refundCurrentlyNull = existing.refund_amount_cents == null;
+
+  // Auto-Refund: wenn Status zu einem refund-garantierten Status wechselt UND refund noch leer ist
   if (
     REFUND_GUARANTEED_STATUSES.has(targetStatus) &&
-    refundCurrentlyNull &&
+    existing.refund_amount_cents == null &&
     (!refundExplicitlyProvided || body.refund_amount_cents == null)
   ) {
     body.refund_amount_cents = existing.purchase_price_cents;
+  }
+
+  // Reverse-Auto-Refund: wenn Status von refund-garantiert ZURUECK zu pre-refund wechselt,
+  // und der bestehende Refund == Kaufpreis ist (also wahrscheinlich Auto-Fill),
+  // setze ihn auf NULL zurueck. Manuell eingetragene Refunds (Teilbetrag) bleiben.
+  if (
+    PRE_REFUND_STATUSES.has(targetStatus) &&
+    REFUND_GUARANTEED_STATUSES.has(existing.status) &&
+    existing.refund_amount_cents === existing.purchase_price_cents &&
+    !refundExplicitlyProvided
+  ) {
+    body.refund_amount_cents = null;
   }
 
   const sets: string[] = [];
