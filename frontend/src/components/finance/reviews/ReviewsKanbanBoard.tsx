@@ -1,8 +1,8 @@
 import { DndContext, closestCorners, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchReviews, patchReview, type Review, type ReviewStatus } from '../../../api/reviews.api';
-import { ALL_STATUSES, nextPipelineStatus } from './reviewStatus';
-import { ReviewColumn } from './ReviewColumn';
+import { ALL_STATUSES, STATUS_GROUPS, nextPipelineStatus } from './reviewStatus';
+import { ReviewGroupSection } from './ReviewGroupSection';
 
 interface Props {
   selectedYear: number | 'all';
@@ -58,17 +58,23 @@ export function ReviewsKanbanBoard({ selectedYear, onCardClick }: Props) {
       <div style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: '0.75rem',
+        gap: '0.875rem',
       }}>
-        {ALL_STATUSES.map(status => (
-          <ReviewColumn
-            key={status}
-            status={status}
-            reviews={byStatus[status]}
-            onCardClick={onCardClick}
-            onForward={handleForward}
-          />
-        ))}
+        {STATUS_GROUPS.map(group => {
+          const groupHasItems = group.statuses.some(s => byStatus[s].length > 0);
+          // Final-Gruppe defaultmaessig zugeklappt wenn leer
+          const defaultOpen = group.id === 'final' ? groupHasItems : true;
+          return (
+            <ReviewGroupSection
+              key={group.id}
+              group={group}
+              byStatus={byStatus}
+              onCardClick={onCardClick}
+              onForward={handleForward}
+              defaultOpen={defaultOpen}
+            />
+          );
+        })}
       </div>
     </DndContext>
   );

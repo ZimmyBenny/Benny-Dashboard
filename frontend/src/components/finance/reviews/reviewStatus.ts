@@ -26,6 +26,43 @@ export const TERMINAL: ReviewStatus[] = [
 export const ALL_STATUSES: ReviewStatus[] = [...PIPELINE, ...TERMINAL];
 
 /**
+ * Gruppen fuer das 3-Sektionen-Layout (User-Decision 2026-05-26):
+ * statt 10 vertikal gestapelter Spalten zeigt das Board 3 Gruppen
+ * mit Sub-Spalten nebeneinander darin.
+ */
+export interface StatusGroup {
+  id: 'pipeline' | 'sales' | 'final';
+  label: string;
+  icon: string;
+  accent: string;
+  statuses: ReviewStatus[];
+}
+
+export const STATUS_GROUPS: StatusGroup[] = [
+  {
+    id: 'pipeline',
+    label: 'Refund-Pipeline',
+    icon: 'pending_actions',
+    accent: '#94aaff',
+    statuses: ['vorgemerkt', 'bestellt', 'erhalten', 'bewertet'],
+  },
+  {
+    id: 'sales',
+    label: 'Verkaufsbereit',
+    icon: 'payments',
+    accent: '#5cfd80',
+    statuses: ['geld_erhalten', 'bereit_verkauf'],
+  },
+  {
+    id: 'final',
+    label: 'Final',
+    icon: 'check_circle',
+    accent: 'var(--color-on-surface-variant)',
+    statuses: ['behalten', 'verkauft', 'verschenkt', 'entsorgt'],
+  },
+];
+
+/**
  * Liefert den naechsten Pipeline-Status oder null.
  * null bei: 'bereit_verkauf' (Pipeline-Ende — User muss explizit Terminal-Status waehlen)
  * null bei: jedem Terminal-Status.
