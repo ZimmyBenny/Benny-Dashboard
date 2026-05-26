@@ -12,7 +12,7 @@ Alles an einem Ort, lokal und privat — ohne Cloud-Abhängigkeiten, ohne Reibun
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] **Finanzen-Modul mit Amazon-Bewertungen-Tracker** (Phase 5, 2026-05-26) — vollständige Pipeline mit 10 Status-Slugs gruppiert in 3 Sektionen (Refund-Pipeline / Verkaufsbereit / Final), Auto-Refund-Logik, Saldo-Berechnung, Rückgabe-Reminder, PaymentInfoBar, DJ-Farbpalette
 
 ### Active
 
