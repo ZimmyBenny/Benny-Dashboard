@@ -25,6 +25,8 @@ export interface Review {
 export interface ReviewStats {
   total: number;
   open_refunds: number;
+  spent_cents: number;
+  received_cents: number;
   realized_profit_cents: number;
 }
 

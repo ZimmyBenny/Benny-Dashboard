@@ -54,10 +54,19 @@ router.get('/stats', (req, res) => {
     `SELECT * FROM amazon_reviews ${whereAnd} status IN ('bestellt','erhalten','bewertet','geld_erhalten','bereit_verkauf','behalten','verkauft','verschenkt','entsorgt')`
   ).all(...params) as ReviewRow[];
 
-  // User-Decision 2026-05-25: negative Profits werden NICHT geclampt (mathematisch korrekt)
-  const realizedProfitCents = committedRows.reduce((sum, r) => sum + calcProfit(r), 0);
+  // User-Decision 2026-05-26: Einkauf und Verkauf getrennt zeigen.
+  const spentCents    = committedRows.reduce((sum, r) => sum + r.purchase_price_cents, 0);
+  const receivedCents = committedRows.reduce((sum, r) => sum + (r.refund_amount_cents ?? 0) + (r.sale_amount_cents ?? 0), 0);
+  // User-Decision 2026-05-25: negative Saldos werden NICHT geclampt (mathematisch korrekt)
+  const realizedProfitCents = receivedCents - spentCents;
 
-  res.json({ total, open_refunds: openRefunds, realized_profit_cents: realizedProfitCents });
+  res.json({
+    total,
+    open_refunds: openRefunds,
+    spent_cents: spentCents,
+    received_cents: receivedCents,
+    realized_profit_cents: realizedProfitCents,
+  });
 });
 
 router.get('/', (req, res) => {

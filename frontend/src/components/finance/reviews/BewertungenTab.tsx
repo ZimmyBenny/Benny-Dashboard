@@ -115,10 +115,10 @@ export function BewertungenTab({ addOpen, onAddClose }: Props) {
         })}
       </div>
 
-      {/* KPI-Grid — DJ-Style: 3-Col fix, light background, 2rem value, icon rechts */}
+      {/* KPI-Grid — 4 Karten: Einträge / Ausgegeben / Erhalten / Saldo */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
         gap: '1rem',
         marginBottom: '1.5rem',
       }}>
@@ -138,21 +138,39 @@ export function BewertungenTab({ addOpen, onAddClose }: Props) {
 
         <div style={kpiCardStyle}>
           <div>
-            <p style={kpiLabelStyle}>Offene Refunds</p>
-            <p style={kpiValueStyle('var(--color-tertiary)')}>{stats?.open_refunds ?? 0}</p>
-            <p style={kpiSubStyle}>vor &apos;Geld erhalten&apos;</p>
+            <p style={kpiLabelStyle}>Ausgegeben</p>
+            <p style={kpiValueStyle('var(--color-error)')}>
+              {stats?.spent_cents ? '−' + formatCurrencyFromCents(stats.spent_cents) : formatCurrencyFromCents(0)}
+            </p>
+            <p style={kpiSubStyle}>{stats?.open_refunds ?? 0} offene Refunds</p>
           </div>
           <span
             className="material-symbols-outlined"
-            style={{ fontSize: '28px', color: 'var(--color-tertiary)', opacity: 0.7 }}
+            style={{ fontSize: '28px', color: 'var(--color-error)', opacity: 0.7 }}
           >
-            pending_actions
+            shopping_cart
           </span>
         </div>
 
         <div style={kpiCardStyle}>
           <div>
-            <p style={kpiLabelStyle}>Realisierter Gewinn</p>
+            <p style={kpiLabelStyle}>Erhalten</p>
+            <p style={kpiValueStyle('var(--color-secondary)')}>
+              {stats?.received_cents ? '+' + formatCurrencyFromCents(stats.received_cents) : formatCurrencyFromCents(0)}
+            </p>
+            <p style={kpiSubStyle}>Refunds + Verkäufe</p>
+          </div>
+          <span
+            className="material-symbols-outlined"
+            style={{ fontSize: '28px', color: 'var(--color-secondary)', opacity: 0.7 }}
+          >
+            savings
+          </span>
+        </div>
+
+        <div style={kpiCardStyle}>
+          <div>
+            <p style={kpiLabelStyle}>Saldo</p>
             <p style={kpiValueStyle(profitColor)}>{formatCurrencyFromCents(profit)}</p>
             <p style={kpiSubStyle}>{yearLabel}</p>
           </div>

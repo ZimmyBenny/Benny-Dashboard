@@ -4,6 +4,7 @@ import { CSS } from '@dnd-kit/utilities';
 import type { Review } from '../../../api/reviews.api';
 import { formatCurrencyFromCents, formatDate } from '../../../lib/format';
 import { todayLocal, parseLocalDate } from '../../../lib/dates';
+import { calcProfit } from '../../../lib/profitCalc';
 import { nextPipelineStatus } from './reviewStatus';
 
 interface Props {
@@ -43,6 +44,20 @@ export function ReviewCard({ review, onCardClick, onForward }: Props) {
   const showForward = nextStatus !== null;
   const badge = review.review_deadline ? getFristBadgeStyle(review.review_deadline) : null;
   const returnDays = getReturnReminderDays(review.order_date, review.status);
+  // Saldo-Pill (User-Decision 2026-05-26): zeigt aktuellen Geldfluss pro Item.
+  // Vorgemerkt = 0 (kein Pill). Bestellt ohne Refund = negativ. Geld erhalten = ausgeglichen.
+  const cardProfit = calcProfit(review);
+  const showSaldoPill = review.status !== 'vorgemerkt';
+  const saldoPillStyle = cardProfit > 0
+    ? { bg: 'rgba(92,253,128,0.12)',  text: '#5cfd80',          border: 'rgba(92,253,128,0.35)' }
+    : cardProfit < 0
+    ? { bg: 'rgba(255,110,132,0.15)', text: '#ff6464',          border: 'rgba(255,110,132,0.4)' }
+    : { bg: 'rgba(255,255,255,0.06)', text: 'var(--color-on-surface-variant)', border: 'rgba(255,255,255,0.15)' };
+  const saldoLabel = cardProfit > 0
+    ? '+' + formatCurrencyFromCents(cardProfit)
+    : cardProfit < 0
+    ? '−' + formatCurrencyFromCents(-cardProfit)
+    : '±0,00 €';
 
   // SINGLE style-Objekt — alle Properties zusammengefuehrt, kein doppeltes style-Prop, kein Spread-Trick
   const style: React.CSSProperties = {
@@ -121,9 +136,26 @@ export function ReviewCard({ review, onCardClick, onForward }: Props) {
             padding: '0.15rem 0.5rem',
             borderRadius: '9999px',
           }}
+          title="Kaufpreis"
         >
           {formatCurrencyFromCents(review.purchase_price_cents)}
         </span>
+        {showSaldoPill && (
+          <span
+            title={cardProfit < 0 ? 'Noch ausstehend' : cardProfit > 0 ? 'Gewinn realisiert' : 'Ausgeglichen'}
+            style={{
+              background: saldoPillStyle.bg,
+              color: saldoPillStyle.text,
+              border: `1px solid ${saldoPillStyle.border}`,
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              padding: '0.15rem 0.5rem',
+              borderRadius: '9999px',
+            }}
+          >
+            {saldoLabel}
+          </span>
+        )}
         {badge && review.review_deadline && (
           <span
             style={{
