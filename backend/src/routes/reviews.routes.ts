@@ -18,6 +18,7 @@ interface ReviewRow {
   sale_amount_cents: number | null;
   notes: string | null;
   seller_notified: number; // 0 oder 1 (SQLite-Boolean)
+  seller_notified_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -29,7 +30,7 @@ const PATCHABLE_FIELDS = [
   'product_name','product_url','purchase_price_cents','status',
   'order_date','received_date','review_deadline',
   'refund_code','refund_amount_cents','sale_amount_cents','notes',
-  'seller_notified',
+  'seller_notified','seller_notified_at',
 ] as const;
 
 function yearFilterSqlAndParams(year: string | undefined): { sql: string; params: string[] } {
@@ -160,6 +161,18 @@ router.patch('/:id', (req, res) => {
     !refundExplicitlyProvided
   ) {
     body.refund_amount_cents = null;
+  }
+
+  // seller_notified_at automatisch setzen/loeschen je nach Aenderung von seller_notified
+  if (Object.prototype.hasOwnProperty.call(body, 'seller_notified')) {
+    const newNotified = body.seller_notified === 1 || body.seller_notified === true ? 1 : 0;
+    if (newNotified === 1 && existing.seller_notified === 0) {
+      // Frisch auf gesendet gesetzt -> Zeitstempel jetzt
+      body.seller_notified_at = new Date().toISOString();
+    } else if (newNotified === 0 && existing.seller_notified === 1) {
+      // Zurueckgesetzt -> Zeitstempel weg
+      body.seller_notified_at = null;
+    }
   }
 
   const sets: string[] = [];

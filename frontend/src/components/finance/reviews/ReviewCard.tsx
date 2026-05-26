@@ -36,6 +36,18 @@ function getReturnReminderDays(orderDate: string | null, status: Review['status'
   return days >= 21 ? days : null;
 }
 
+// Freigabe-Wartezeit (User-Decision 2026-05-26): nach Senden der Bewertung an den Verkaeufer
+// dauert die Amazon-Freigabe meist 1-2 Tage. Pill zeigt aktuelle Wartezeit; nach 3+ Tagen orange.
+function getApprovalWaitDays(seller_notified_at: string | null, status: Review['status']): number | null {
+  if (!seller_notified_at) return null;
+  if (status !== 'bewertet') return null;
+  const sentMs = new Date(seller_notified_at).getTime();
+  if (!Number.isFinite(sentMs)) return null;
+  const nowMs = Date.now();
+  const days = Math.floor((nowMs - sentMs) / 86_400_000);
+  return days >= 0 ? days : 0;
+}
+
 export function ReviewCard({ review, onCardClick, onForward }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: review.id });
   const [isHover, setIsHover] = useState(false);
@@ -44,6 +56,7 @@ export function ReviewCard({ review, onCardClick, onForward }: Props) {
   const showForward = nextStatus !== null;
   const badge = review.review_deadline ? getFristBadgeStyle(review.review_deadline) : null;
   const returnDays = getReturnReminderDays(review.order_date, review.status);
+  const approvalDays = getApprovalWaitDays(review.seller_notified_at, review.status);
   // Saldo-Pill (User-Decision 2026-05-26): zeigt aktuellen Geldfluss pro Item.
   // Vorgemerkt = 0 (kein Pill). Bestellt ohne Refund = negativ. Geld erhalten = ausgeglichen.
   const cardProfit = calcProfit(review);
@@ -190,7 +203,34 @@ export function ReviewCard({ review, onCardClick, onForward }: Props) {
             Rückgabe?
           </span>
         )}
-        {review.seller_notified === 1 && (
+        {approvalDays !== null ? (
+          // Status=bewertet UND seller_notified -> Wartezeit-Counter (>=3 Tage = orange)
+          <span
+            title={`${approvalDays} Tag${approvalDays === 1 ? '' : 'e'} seit Bewertung gesendet — Amazon-Freigabe meist 1-2 Tage`}
+            style={{
+              background: approvalDays >= 3 ? 'rgba(255,140,0,0.15)' : 'rgba(92,253,128,0.12)',
+              color: approvalDays >= 3 ? '#ffb84d' : '#5cfd80',
+              border: approvalDays >= 3 ? '1px solid rgba(255,140,0,0.4)' : '1px solid rgba(92,253,128,0.35)',
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              padding: '0.15rem 0.5rem',
+              borderRadius: '9999px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.2rem',
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>
+              {approvalDays >= 3 ? 'schedule' : 'mark_email_read'}
+            </span>
+            {approvalDays === 0
+              ? 'Wartet auf Freigabe'
+              : approvalDays >= 3
+                ? `Nachfragen? (${approvalDays} T.)`
+                : `Wartet auf Freigabe (${approvalDays} T.)`}
+          </span>
+        ) : review.seller_notified === 1 ? (
+          // seller_notified=1 aber nicht im 'bewertet'-Status (z.B. weiter durchgezogen) -> einfache Gesendet-Pill
           <span
             title="Bewertung an Verkäufer gesendet"
             style={{
@@ -209,7 +249,7 @@ export function ReviewCard({ review, onCardClick, onForward }: Props) {
             <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>mark_email_read</span>
             Gesendet
           </span>
-        )}
+        ) : null}
       </div>
 
       {/* Forward-Button (nur sichtbar wenn Pipeline-Status mit Nachfolger) */}
