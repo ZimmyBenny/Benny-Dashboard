@@ -241,7 +241,7 @@ export function ReviewDetailModal({ review, isOpen, onClose }: Props) {
                 <input type="date" value={reviewDeadline} onChange={(e) => setReviewDeadline(e.target.value)} onMouseDown={(e) => e.stopPropagation()} style={inputStyle} />
               </div>
               <div>
-                <label style={labelStyle}>Refund-Code</label>
+                <label style={labelStyle}>Bestellnummer</label>
                 <input type="text" value={refundCode} onChange={(e) => setRefundCode(e.target.value)} onMouseDown={(e) => e.stopPropagation()} style={inputStyle} />
               </div>
             </div>
