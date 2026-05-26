@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DndContext, closestCorners, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { DndContext, pointerWithin, rectIntersection, PointerSensor, useSensor, useSensors, type DragEndEvent, type CollisionDetection } from '@dnd-kit/core';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchReviews, patchReview, type Review, type ReviewStatus } from '../../../api/reviews.api';
 import { ALL_STATUSES, STATUS_GROUPS, nextPipelineStatus } from './reviewStatus';
@@ -11,10 +11,18 @@ interface Props {
   onCardClick: (r: Review) => void;
 }
 
+// Robuste Collision-Detection: erst Pointer-within-Target, dann Rect-Intersection als Fallback.
+// closestCorners hatte Probleme im Multi-Container-Grid-Layout (User-Decision 2026-05-26).
+const customCollision: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args);
+  if (pointerCollisions.length > 0) return pointerCollisions;
+  return rectIntersection(args);
+};
+
 export function ReviewsKanbanBoard({ selectedYear, onCardClick }: Props) {
   const queryClient = useQueryClient();
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
   const { data: reviews = [] } = useQuery<Review[]>({
@@ -53,8 +61,19 @@ export function ReviewsKanbanBoard({ selectedYear, onCardClick }: Props) {
     const { active, over } = event;
     if (!over) return;
     const id = Number(active.id);
-    const newStatus = over.id as ReviewStatus;
-    if (!ALL_STATUSES.includes(newStatus)) return;
+
+    // over.id kann ein Status-Slug (Drop auf leere Spalte) ODER eine Card-ID
+    // (Drop auf einer anderen Karte) sein. Beides erlauben.
+    let newStatus: ReviewStatus | null = null;
+    if (typeof over.id === 'string' && ALL_STATUSES.includes(over.id as ReviewStatus)) {
+      newStatus = over.id as ReviewStatus;
+    } else {
+      // Drop auf einer Karte -> finde deren Status
+      const targetReview = reviews.find(r => r.id === Number(over.id));
+      if (targetReview) newStatus = targetReview.status;
+    }
+    if (!newStatus) return;
+
     applyStatusChange(id, newStatus);
   }
 
@@ -85,7 +104,7 @@ export function ReviewsKanbanBoard({ selectedYear, onCardClick }: Props) {
   ) as Record<ReviewStatus, Review[]>;
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
+    <DndContext sensors={sensors} collisionDetection={customCollision} onDragEnd={handleDragEnd}>
       <div style={{
         display: 'flex',
         flexDirection: 'column',
