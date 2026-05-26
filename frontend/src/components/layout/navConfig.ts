@@ -25,7 +25,9 @@ export const navItems: NavItem[] = [
     { path: '/dj/settings',     label: 'DJ Einstellungen',   icon: 'tune' },
   ]},
   { path: '/amazon',          label: 'Amazon',            icon: 'shopping_cart' },
-  { path: '/finances',        label: 'Finanzen',          icon: 'account_balance_wallet' },
+  { path: '/finances', label: 'Finanzen', icon: 'account_balance_wallet', subItems: [
+    { path: '/finances',              label: 'Bewertungen',        icon: 'reviews' },
+  ]},
   { path: '/haushalt', label: 'Haushalt',        icon: 'family_restroom' },
   { path: '/contracts',       label: 'Verträge & Fristen', icon: 'description' },
   { path: '/belege', label: 'Belege', icon: 'receipt_long', subItems: [
