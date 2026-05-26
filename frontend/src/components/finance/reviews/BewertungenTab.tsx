@@ -5,6 +5,7 @@ import { formatCurrencyFromCents } from '../../../lib/format';
 import { ReviewsKanbanBoard } from './ReviewsKanbanBoard';
 import { ReviewDetailModal } from './ReviewDetailModal';
 import { AddReviewModal } from './AddReviewModal';
+import { PaymentInfoBar } from './PaymentInfoBar';
 
 // addOpen wird per Prop von FinancesPage gesteuert (kein interner State),
 // weil der "+ Neue Bewertung"-Button im Page-Header der FinancesPage lebt.
@@ -77,6 +78,9 @@ export function BewertungenTab({ addOpen, onAddClose }: Props) {
 
   return (
     <div>
+      {/* Zahlungsdaten zum Kopieren — lokal in localStorage, vom User selbst pflegbar */}
+      <PaymentInfoBar />
+
       {/* Year-Filter — DJ-Toggle-Style (Pill-Container) */}
       <div style={{
         display: 'inline-flex',
