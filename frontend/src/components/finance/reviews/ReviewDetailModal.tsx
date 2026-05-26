@@ -213,7 +213,7 @@ export function ReviewDetailModal({ review, isOpen, onClose }: Props) {
                       background: 'var(--color-surface)',
                       border: '1px solid var(--color-outline)',
                       borderRadius: '0.5rem',
-                      color: 'var(--color-primary)',
+                      color: '#94aaff',
                       textDecoration: 'none',
                     }}
                     title="Link in neuem Tab öffnen"
@@ -324,10 +324,11 @@ export function ReviewDetailModal({ review, isOpen, onClose }: Props) {
               onClick={handleSave}
               disabled={patchMut.isPending}
               style={{
-                background: 'linear-gradient(135deg, #cc97ff 0%, #9c48ea 100%)',
-                color: '#fff', border: 'none', borderRadius: '0.5rem',
+                background: 'linear-gradient(135deg, #94aaff 0%, #5cfd80 100%)',
+                color: '#060e20', border: 'none', borderRadius: '0.5rem',
                 padding: '0.5rem 1.25rem', fontSize: '0.875rem', fontWeight: 700,
                 cursor: 'pointer', opacity: patchMut.isPending ? 0.6 : 1,
+                boxShadow: '0 0 16px rgba(148,170,255,0.3)',
               }}
             >
               {patchMut.isPending ? 'Speichere…' : 'Änderungen speichern'}

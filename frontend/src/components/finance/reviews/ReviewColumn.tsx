@@ -35,7 +35,7 @@ export function ReviewColumn({ status, reviews, onCardClick, onForward }: Props)
       ref={setNodeRef}
       style={{
         minWidth: 280,
-        background: isOver ? 'rgba(204,151,255,0.04)' : (isTerminal ? 'rgba(25,37,64,0.30)' : 'rgba(25,37,64,0.40)'),
+        background: isOver ? 'rgba(148,170,255,0.04)' : (isTerminal ? 'rgba(25,37,64,0.30)' : 'rgba(25,37,64,0.40)'),
         borderRadius: '0.875rem',
         padding: '0.75rem',
         transition: 'background 150ms ease',

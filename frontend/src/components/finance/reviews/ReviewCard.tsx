@@ -43,7 +43,7 @@ export function ReviewCard({ review, onCardClick, onForward }: Props) {
     padding: '1rem',
     marginBottom: '0.5rem',
     // Hover-Border via useState (re-render-safe; nicht via e.currentTarget.style — Revision Iteration 1)
-    border: `1px solid ${isHover ? 'rgba(204,151,255,0.3)' : 'var(--color-surface-container-high)'}`,
+    border: `1px solid ${isHover ? 'rgba(148,170,255,0.3)' : 'var(--color-surface-container-high)'}`,
     cursor: 'pointer',
     listStyle: 'none',
   };
@@ -86,12 +86,12 @@ export function ReviewCard({ review, onCardClick, onForward }: Props) {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '0.25rem',
-              borderBottom: '1px dashed rgba(204,151,255,0.35)',
+              borderBottom: '1px dashed rgba(148,170,255,0.35)',
             }}
             title="Produkt-Link öffnen"
           >
             <span>{review.product_name}</span>
-            <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'var(--color-primary)' }}>open_in_new</span>
+            <span className="material-symbols-outlined" style={{ fontSize: '14px', color: '#94aaff' }}>open_in_new</span>
           </a>
         ) : (
           review.product_name
@@ -102,8 +102,8 @@ export function ReviewCard({ review, onCardClick, onForward }: Props) {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem', marginTop: '0.5rem' }}>
         <span
           style={{
-            background: 'rgba(204,151,255,0.08)',
-            color: 'var(--color-primary)',
+            background: 'rgba(148,170,255,0.08)',
+            color: '#94aaff',
             fontSize: '0.7rem',
             fontWeight: 600,
             padding: '0.15rem 0.5rem',
@@ -137,8 +137,8 @@ export function ReviewCard({ review, onCardClick, onForward }: Props) {
             onPointerDown={(e) => e.stopPropagation()}
             style={{
               background: 'transparent',
-              border: '1px solid rgba(204,151,255,0.2)',
-              color: 'var(--color-primary)',
+              border: '1px solid rgba(148,170,255,0.2)',
+              color: '#94aaff',
               borderRadius: '0.5rem',
               padding: '0.25rem 0.625rem',
               fontSize: '0.7rem',
@@ -150,12 +150,12 @@ export function ReviewCard({ review, onCardClick, onForward }: Props) {
               cursor: 'pointer',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(204,151,255,0.12)';
-              e.currentTarget.style.borderColor = 'rgba(204,151,255,0.5)';
+              e.currentTarget.style.background = 'rgba(148,170,255,0.12)';
+              e.currentTarget.style.borderColor = 'rgba(148,170,255,0.5)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background = 'transparent';
-              e.currentTarget.style.borderColor = 'rgba(204,151,255,0.2)';
+              e.currentTarget.style.borderColor = 'rgba(148,170,255,0.2)';
             }}
           >
             Weiter

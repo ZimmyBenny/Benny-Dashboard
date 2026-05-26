@@ -95,18 +95,18 @@ export function BewertungenTab({ addOpen, onAddClose }: Props) {
               onClick={() => setSelectedYear(opt.value)}
               style={{
                 background: active
-                  ? 'linear-gradient(135deg, rgba(204,151,255,0.25), rgba(204,151,255,0.1))'
+                  ? 'linear-gradient(135deg, rgba(148,170,255,0.25), rgba(148,170,255,0.1))'
                   : 'transparent',
-                border: active ? '1px solid rgba(204,151,255,0.4)' : '1px solid transparent',
+                border: active ? '1px solid rgba(148,170,255,0.4)' : '1px solid transparent',
                 borderRadius: '999px',
-                color: active ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
+                color: active ? '#94aaff' : 'var(--color-on-surface-variant)',
                 padding: '0.3rem 0.875rem',
                 fontSize: '0.75rem',
                 fontFamily: 'var(--font-body)',
                 fontWeight: 600,
                 cursor: 'pointer',
                 transition: 'all 0.15s',
-                boxShadow: active ? '0 0 12px rgba(204,151,255,0.2)' : 'none',
+                boxShadow: active ? '0 0 12px rgba(148,170,255,0.2)' : 'none',
               }}
             >
               {opt.label}
@@ -130,7 +130,7 @@ export function BewertungenTab({ addOpen, onAddClose }: Props) {
           </div>
           <span
             className="material-symbols-outlined"
-            style={{ fontSize: '28px', color: 'var(--color-primary)', opacity: 0.7 }}
+            style={{ fontSize: '28px', color: '#94aaff', opacity: 0.7 }}
           >
             inventory_2
           </span>
