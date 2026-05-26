@@ -59,10 +59,11 @@ export function FinancesPage() {
                 cursor: 'pointer',
                 display: 'inline-flex', alignItems: 'center', gap: '0.375rem',
                 fontFamily: 'var(--font-body)',
+                boxShadow: '0 0 16px rgba(204,151,255,0.3)',
               }}
             >
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>add</span>
-              Neue Bewertung hinzufügen
+              Neue Bewertung
             </button>
           </div>
 
