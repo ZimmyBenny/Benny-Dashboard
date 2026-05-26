@@ -115,72 +115,26 @@ export function BewertungenTab({ addOpen, onAddClose }: Props) {
         })}
       </div>
 
-      {/* KPI-Grid — 4 Karten: Einträge / Ausgegeben / Erhalten / Saldo */}
+      {/* Saldo — eine prominente Anzeige (User-Decision 2026-05-26: KPIs reduziert auf das Wesentliche) */}
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-        gap: '1rem',
+        ...kpiCardStyle,
         marginBottom: '1.5rem',
       }}>
-        <div style={kpiCardStyle}>
-          <div>
-            <p style={kpiLabelStyle}>Einträge gesamt</p>
-            <p style={kpiValueStyle('var(--color-on-surface)')}>{stats?.total ?? 0}</p>
-            <p style={kpiSubStyle}>{yearLabel}</p>
-          </div>
-          <span
-            className="material-symbols-outlined"
-            style={{ fontSize: '28px', color: '#94aaff', opacity: 0.7 }}
-          >
-            inventory_2
-          </span>
+        <div>
+          <p style={kpiLabelStyle}>Saldo {yearLabel}</p>
+          <p style={{ ...kpiValueStyle(profitColor), fontSize: '2.5rem' }}>
+            {formatCurrencyFromCents(profit)}
+          </p>
+          <p style={kpiSubStyle}>
+            {stats?.total ?? 0} Einträge · Ware: {formatCurrencyFromCents(stats?.spent_cents ?? 0)} · {stats?.open_refunds ?? 0} offene Refunds
+          </p>
         </div>
-
-        <div style={kpiCardStyle}>
-          <div>
-            <p style={kpiLabelStyle}>Ausgegeben</p>
-            <p style={kpiValueStyle('var(--color-error)')}>
-              {stats?.spent_cents ? '−' + formatCurrencyFromCents(stats.spent_cents) : formatCurrencyFromCents(0)}
-            </p>
-            <p style={kpiSubStyle}>{stats?.open_refunds ?? 0} offene Refunds</p>
-          </div>
-          <span
-            className="material-symbols-outlined"
-            style={{ fontSize: '28px', color: 'var(--color-error)', opacity: 0.7 }}
-          >
-            shopping_cart
-          </span>
-        </div>
-
-        <div style={kpiCardStyle}>
-          <div>
-            <p style={kpiLabelStyle}>Erhalten</p>
-            <p style={kpiValueStyle('var(--color-secondary)')}>
-              {stats?.received_cents ? '+' + formatCurrencyFromCents(stats.received_cents) : formatCurrencyFromCents(0)}
-            </p>
-            <p style={kpiSubStyle}>Refunds + Verkäufe</p>
-          </div>
-          <span
-            className="material-symbols-outlined"
-            style={{ fontSize: '28px', color: 'var(--color-secondary)', opacity: 0.7 }}
-          >
-            savings
-          </span>
-        </div>
-
-        <div style={kpiCardStyle}>
-          <div>
-            <p style={kpiLabelStyle}>Saldo</p>
-            <p style={kpiValueStyle(profitColor)}>{formatCurrencyFromCents(profit)}</p>
-            <p style={kpiSubStyle}>{yearLabel}</p>
-          </div>
-          <span
-            className="material-symbols-outlined"
-            style={{ fontSize: '28px', color: profitColor, opacity: 0.7 }}
-          >
-            payments
-          </span>
-        </div>
+        <span
+          className="material-symbols-outlined"
+          style={{ fontSize: '36px', color: profitColor, opacity: 0.7 }}
+        >
+          payments
+        </span>
       </div>
 
       {/* Kanban-Board */}
