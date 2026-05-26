@@ -37,6 +37,7 @@ export function ReviewDetailModal({ review, isOpen, onClose }: Props) {
   const [receivedDate, setReceivedDate] = useState('');
   const [reviewDeadline, setReviewDeadline] = useState('');
   const [refundCode, setRefundCode] = useState('');
+  const [refundCodeCopied, setRefundCodeCopied] = useState(false);
   const [refundEur, setRefundEur] = useState('');
   const [saleEur, setSaleEur] = useState('');
   const [notes, setNotes] = useState('');
@@ -242,7 +243,41 @@ export function ReviewDetailModal({ review, isOpen, onClose }: Props) {
               </div>
               <div>
                 <label style={labelStyle}>Bestellnummer</label>
-                <input type="text" value={refundCode} onChange={(e) => setRefundCode(e.target.value)} onMouseDown={(e) => e.stopPropagation()} style={inputStyle} />
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'stretch' }}>
+                  <input
+                    type="text"
+                    value={refundCode}
+                    onChange={(e) => setRefundCode(e.target.value)}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    style={{ ...inputStyle, flex: 1 }}
+                  />
+                  {refundCode.trim() && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={() => {
+                        navigator.clipboard.writeText(refundCode.trim()).then(() => {
+                          setRefundCodeCopied(true);
+                          setTimeout(() => setRefundCodeCopied(false), 1200);
+                        });
+                      }}
+                      title="In Zwischenablage kopieren"
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        width: '2.5rem',
+                        background: refundCodeCopied ? 'rgba(92,253,128,0.18)' : 'var(--color-surface)',
+                        border: `1px solid ${refundCodeCopied ? 'rgba(92,253,128,0.4)' : 'var(--color-outline)'}`,
+                        borderRadius: '0.5rem',
+                        color: refundCodeCopied ? '#5cfd80' : '#94aaff',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+                        {refundCodeCopied ? 'check' : 'content_copy'}
+                      </span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </section>

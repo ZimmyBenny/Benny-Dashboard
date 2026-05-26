@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import db from '../db/connection';
-import { calcProfit, type ReviewStatus } from '../lib/profitCalc';
+import { type ReviewStatus } from '../lib/profitCalc';
 
 const router = Router();
 
