@@ -48,12 +48,14 @@ router.get('/stats', (req, res) => {
   const total = (db.prepare(`SELECT COUNT(*) AS c FROM amazon_reviews ${where}`).get(...params) as { c: number }).c;
   const openRefunds = (db.prepare(`SELECT COUNT(*) AS c FROM amazon_reviews ${whereAnd} status IN ('vorgemerkt','bestellt','erhalten','bewertet')`).get(...params) as { c: number }).c;
 
-  const realizingRows = db.prepare(
-    `SELECT * FROM amazon_reviews ${whereAnd} status IN ('geld_erhalten','bereit_verkauf','behalten','verkauft','verschenkt','entsorgt')`
+  // User-Decision 2026-05-26: Alle Stati ausser 'vorgemerkt' tragen zum Saldo bei.
+  // Bestellt ohne Refund -> negativ; Geld erhalten -> 0 bei vollem Refund; Verkauft -> positiv.
+  const committedRows = db.prepare(
+    `SELECT * FROM amazon_reviews ${whereAnd} status IN ('bestellt','erhalten','bewertet','geld_erhalten','bereit_verkauf','behalten','verkauft','verschenkt','entsorgt')`
   ).all(...params) as ReviewRow[];
 
   // User-Decision 2026-05-25: negative Profits werden NICHT geclampt (mathematisch korrekt)
-  const realizedProfitCents = realizingRows.reduce((sum, r) => sum + calcProfit(r), 0);
+  const realizedProfitCents = committedRows.reduce((sum, r) => sum + calcProfit(r), 0);
 
   res.json({ total, open_refunds: openRefunds, realized_profit_cents: realizedProfitCents });
 });

@@ -14,15 +14,19 @@ vi.mock('../src/db/connection', () => ({
 }));
 
 import { createTestDb } from './setup';
-import { calcProfit, REALIZING_STATUSES, type ReviewStatus } from '../src/lib/profitCalc';
+import { calcProfit, COMMITTED_STATUSES, type ReviewStatus } from '../src/lib/profitCalc';
 
 describe('calcProfit', () => {
-  it('returns 0 for all pending statuses (D-13)', () => {
-    for (const status of ['vorgemerkt','bestellt','erhalten','bewertet'] as ReviewStatus[]) {
-      expect(calcProfit({ status, purchase_price_cents: 1000, refund_amount_cents: 999, sale_amount_cents: 999 })).toBe(0);
-    }
+  it('vorgemerkt zaehlt nicht (noch nicht gekauft) - User-Decision 2026-05-26', () => {
+    expect(calcProfit({ status: 'vorgemerkt', purchase_price_cents: 1000, refund_amount_cents: 999, sale_amount_cents: 999 })).toBe(0);
   });
-  it('returns (refund+sale)-purchase for realizing statuses (D-11)', () => {
+  it('bestellt ohne Refund -> negativ (User-Decision 2026-05-26)', () => {
+    // Bestellt + kein Refund -> -purchase
+    expect(calcProfit({ status: 'bestellt', purchase_price_cents: 1000, refund_amount_cents: null, sale_amount_cents: null })).toBe(-1000);
+    expect(calcProfit({ status: 'erhalten', purchase_price_cents: 1000, refund_amount_cents: null, sale_amount_cents: null })).toBe(-1000);
+    expect(calcProfit({ status: 'bewertet', purchase_price_cents: 1000, refund_amount_cents: null, sale_amount_cents: null })).toBe(-1000);
+  });
+  it('returns (refund+sale)-purchase for committed statuses', () => {
     expect(calcProfit({ status: 'geld_erhalten', purchase_price_cents: 1000, refund_amount_cents: 1000, sale_amount_cents: 0 })).toBe(0);
     expect(calcProfit({ status: 'verkauft', purchase_price_cents: 1000, refund_amount_cents: 1000, sale_amount_cents: 500 })).toBe(500);
     expect(calcProfit({ status: 'behalten', purchase_price_cents: 1000, refund_amount_cents: 1000, sale_amount_cents: null })).toBe(0);
@@ -33,9 +37,11 @@ describe('calcProfit', () => {
     expect(calcProfit({ status: 'verkauft', purchase_price_cents: 1000, refund_amount_cents: 900, sale_amount_cents: 0 })).toBe(-100);
     expect(calcProfit({ status: 'entsorgt', purchase_price_cents: 1000, refund_amount_cents: null, sale_amount_cents: null })).toBe(-1000);
   });
-  it('REALIZING_STATUSES contains exactly the 6 post-payment statuses', () => {
-    expect(REALIZING_STATUSES).toEqual([
-      'geld_erhalten','bereit_verkauf','behalten','verkauft','verschenkt','entsorgt',
+  it('COMMITTED_STATUSES contains all 9 post-purchase statuses (excludes vorgemerkt)', () => {
+    expect(COMMITTED_STATUSES).toEqual([
+      'bestellt','erhalten','bewertet',
+      'geld_erhalten','bereit_verkauf',
+      'behalten','verkauft','verschenkt','entsorgt',
     ]);
   });
 });
@@ -108,16 +114,17 @@ describe('reviews stats aggregation (D-17)', () => {
     expect(openRefunds).toBe(4);
   });
 
-  it('realized_profit_cents sums calcProfit over realizing statuses (allows negative)', () => {
+  it('realized_profit_cents sums calcProfit over committed statuses (User-Decision 2026-05-26)', () => {
     insert({ product_name: 'Win', purchase_price_cents: 1000, status: 'verkauft', refund_amount_cents: 1000, sale_amount_cents: 500 });
     insert({ product_name: 'Loss', purchase_price_cents: 1000, status: 'entsorgt', refund_amount_cents: 800 });
-    insert({ product_name: 'Pending', purchase_price_cents: 1000, status: 'bestellt', refund_amount_cents: 999 });
+    insert({ product_name: 'Ordered', purchase_price_cents: 1000, status: 'bestellt', refund_amount_cents: 999 });
+    insert({ product_name: 'Vorgemerkt', purchase_price_cents: 1000, status: 'vorgemerkt' });
     const rows = dbHolder.db!.prepare(
-      `SELECT * FROM amazon_reviews WHERE status IN ('geld_erhalten','bereit_verkauf','behalten','verkauft','verschenkt','entsorgt')`
+      `SELECT * FROM amazon_reviews WHERE status IN ('bestellt','erhalten','bewertet','geld_erhalten','bereit_verkauf','behalten','verkauft','verschenkt','entsorgt')`
     ).all() as Array<{ status: ReviewStatus; purchase_price_cents: number; refund_amount_cents: number | null; sale_amount_cents: number | null; }>;
     const sum = rows.reduce((acc, r) => acc + calcProfit(r), 0);
-    // Win: 500, Loss: -200, Pending: nicht enthalten weil pending
-    expect(sum).toBe(300);
+    // Win: 500, Loss: -200, Ordered: -1, Vorgemerkt: nicht enthalten
+    expect(sum).toBe(299);
   });
 
   it('year filter uses COALESCE(received_date, order_date, created_at)', () => {

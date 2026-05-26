@@ -15,18 +15,31 @@ export interface ProfitInput {
   sale_amount_cents: number | null;
 }
 
-/** Status ab denen Profit realisiert wird (D-13). Pending-Stati ergeben Profit=0. */
-export const REALIZING_STATUSES: ReviewStatus[] = [
-  'geld_erhalten', 'bereit_verkauf', 'behalten', 'verkauft', 'verschenkt', 'entsorgt',
+/**
+ * Status ab denen das Item zum Saldo zaehlt (User-Decision 2026-05-26):
+ * Sobald bestellt ist, ist das Geld weg. Vorgemerkte Items zaehlen NICHT,
+ * weil noch nichts gekauft wurde.
+ */
+export const COMMITTED_STATUSES: ReviewStatus[] = [
+  'bestellt', 'erhalten', 'bewertet',
+  'geld_erhalten', 'bereit_verkauf',
+  'behalten', 'verkauft', 'verschenkt', 'entsorgt',
 ];
 
+/** @deprecated 2026-05-26: nutze COMMITTED_STATUSES. Bleibt als Alias fuer ggf. Migrationen. */
+export const REALIZING_STATUSES = COMMITTED_STATUSES;
+
 /**
- * Berechnet realisierten Profit in Cents (D-10 bis D-13).
- * Vor 'geld_erhalten' = 0. Danach (refund + sale) - purchase.
+ * Berechnet Saldo in Cents pro Item (User-Decision 2026-05-26).
+ * Vorgemerkt = 0 (noch nicht gekauft).
+ * Ab Bestellt: (refund + sale) - purchase
+ *   - Bestellt ohne Refund -> negativ (-purchase)
+ *   - Geld erhalten mit Refund == purchase -> 0
+ *   - Verkauft mit Refund + Sale > purchase -> positiv
  * Darf negativ sein (User-Decision 2026-05-25): bei teilweisem Refund < Kaufpreis.
  */
 export function calcProfit(r: ProfitInput): number {
-  if (!REALIZING_STATUSES.includes(r.status)) return 0;
+  if (!COMMITTED_STATUSES.includes(r.status)) return 0;
   const income = (r.refund_amount_cents ?? 0) + (r.sale_amount_cents ?? 0);
   return income - r.purchase_price_cents;
 }

@@ -24,6 +24,17 @@ function getFristBadgeStyle(deadline: string): BadgeStyle {
   return                   { bg: 'rgba(255,255,255,0.06)',  text: 'var(--color-on-surface-variant)',  border: 'rgba(255,255,255,0.10)' };
 }
 
+// Rueckgabe-Reminder (User-Decision 2026-05-26): zeigt Badge wenn order_date >= 21 Tage zurueck
+// UND Status noch vor 'Geld erhalten' (danach ist Refund schon da, Rueckgabe nicht mehr sinnvoll).
+function getReturnReminderDays(orderDate: string | null, status: Review['status']): number | null {
+  if (!orderDate) return null;
+  if (!['bestellt', 'erhalten', 'bewertet'].includes(status)) return null;
+  const today = parseLocalDate(todayLocal()).getTime();
+  const od = parseLocalDate(orderDate).getTime();
+  const days = Math.floor((today - od) / 86_400_000);
+  return days >= 21 ? days : null;
+}
+
 export function ReviewCard({ review, onCardClick, onForward }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: review.id });
   const [isHover, setIsHover] = useState(false);
@@ -31,6 +42,7 @@ export function ReviewCard({ review, onCardClick, onForward }: Props) {
   const nextStatus = nextPipelineStatus(review.status);
   const showForward = nextStatus !== null;
   const badge = review.review_deadline ? getFristBadgeStyle(review.review_deadline) : null;
+  const returnDays = getReturnReminderDays(review.order_date, review.status);
 
   // SINGLE style-Objekt — alle Properties zusammengefuehrt, kein doppeltes style-Prop, kein Spread-Trick
   const style: React.CSSProperties = {
@@ -125,6 +137,26 @@ export function ReviewCard({ review, onCardClick, onForward }: Props) {
             }}
           >
             {formatDate(review.review_deadline)}
+          </span>
+        )}
+        {returnDays !== null && (
+          <span
+            title={`${returnDays} Tage seit Bestellung — Rückgabe noch möglich?`}
+            style={{
+              background: 'rgba(255,140,0,0.15)',
+              color: '#ffb84d',
+              border: '1px solid rgba(255,140,0,0.4)',
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              padding: '0.15rem 0.5rem',
+              borderRadius: '9999px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.2rem',
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>assignment_return</span>
+            Rückgabe?
           </span>
         )}
       </div>
