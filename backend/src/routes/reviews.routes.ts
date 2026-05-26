@@ -119,12 +119,31 @@ router.post('/', (req, res) => {
   res.status(201).json(created);
 });
 
+// User-Decision 2026-05-26: Sobald Item in einem dieser Stati landet, ist semantisch der Refund da.
+// Auto-Fill refund_amount_cents = purchase_price_cents wenn noch leer.
+const REFUND_GUARANTEED_STATUSES = new Set([
+  'geld_erhalten', 'bereit_verkauf', 'behalten', 'verkauft', 'verschenkt', 'entsorgt',
+]);
+
 router.patch('/:id', (req, res) => {
   const id = Number(req.params.id);
-  const existing = db.prepare('SELECT * FROM amazon_reviews WHERE id = ?').get(id);
+  const existing = db.prepare('SELECT * FROM amazon_reviews WHERE id = ?').get(id) as ReviewRow | undefined;
   if (!existing) { res.status(404).json({ error: 'Bewertung nicht gefunden' }); return; }
 
   const body = req.body as Record<string, unknown>;
+
+  // Auto-Refund: wenn Status zu einem refund-garantierten Status wechselt UND refund noch leer ist
+  const targetStatus = (typeof body.status === 'string' ? body.status : existing.status) as string;
+  const refundExplicitlyProvided = Object.prototype.hasOwnProperty.call(body, 'refund_amount_cents');
+  const refundCurrentlyNull = existing.refund_amount_cents == null;
+  if (
+    REFUND_GUARANTEED_STATUSES.has(targetStatus) &&
+    refundCurrentlyNull &&
+    (!refundExplicitlyProvided || body.refund_amount_cents == null)
+  ) {
+    body.refund_amount_cents = existing.purchase_price_cents;
+  }
+
   const sets: string[] = [];
   const params: unknown[] = [];
   for (const field of PATCHABLE_FIELDS) {
