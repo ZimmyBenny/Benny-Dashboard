@@ -68,7 +68,6 @@ export function ReviewCard({ review, onCardClick, onForward }: Props) {
     background: 'var(--color-surface-container)',
     borderRadius: '0.75rem',
     padding: '1rem',
-    marginBottom: '0.5rem',
     // Hover-Border via useState (re-render-safe; nicht via e.currentTarget.style — Revision Iteration 1)
     border: `1px solid ${isHover ? 'rgba(148,170,255,0.3)' : 'var(--color-surface-container-high)'}`,
     cursor: 'pointer',

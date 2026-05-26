@@ -57,10 +57,8 @@ export function ReviewsKanbanBoard({ selectedYear, onCardClick }: Props) {
     <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
       <div style={{
         display: 'flex',
-        gap: '1rem',
-        overflowX: 'auto',
-        paddingBottom: '0.5rem',
-        alignItems: 'flex-start',
+        flexDirection: 'column',
+        gap: '0.75rem',
       }}>
         {ALL_STATUSES.map(status => (
           <ReviewColumn

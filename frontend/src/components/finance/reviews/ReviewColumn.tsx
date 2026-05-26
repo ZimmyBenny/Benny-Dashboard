@@ -30,38 +30,47 @@ export function ReviewColumn({ status, reviews, onCardClick, onForward }: Props)
   const isTerminal = TERMINAL.includes(status);
   const empty = EMPTY[status];
 
+  const isEmpty = reviews.length === 0;
+
   return (
     <div
       ref={setNodeRef}
       style={{
-        minWidth: 280,
-        background: isOver ? 'rgba(148,170,255,0.04)' : (isTerminal ? 'rgba(25,37,64,0.30)' : 'rgba(25,37,64,0.40)'),
+        width: '100%',
+        background: isOver ? 'rgba(148,170,255,0.06)' : (isTerminal ? 'rgba(25,37,64,0.30)' : 'rgba(25,37,64,0.40)'),
         borderRadius: '0.875rem',
-        padding: '0.75rem',
+        padding: isEmpty ? '0.5rem 0.875rem' : '0.75rem 0.875rem 0.875rem',
         transition: 'background 150ms ease',
+        opacity: isEmpty ? 0.55 : 1,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 0.25rem 0.75rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isEmpty ? 0 : '0.625rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span className="material-symbols-outlined" style={{ fontSize: 18, color: cfg.accent }}>{cfg.icon}</span>
           <span style={{ fontFamily: 'var(--font-headline)', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: cfg.accent }}>
             {cfg.label}
           </span>
+          {isEmpty && (
+            <span style={{ fontSize: '0.7rem', color: 'var(--color-on-surface-variant)', marginLeft: '0.25rem', fontStyle: 'italic' }}>
+              {empty.heading}
+            </span>
+          )}
         </div>
         <span style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--color-on-surface-variant)', fontSize: '0.7rem', fontWeight: 600, padding: '0.1rem 0.5rem', borderRadius: '9999px' }}>
           {reviews.length}
         </span>
       </div>
 
-      {reviews.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--color-on-surface-variant)' }}>
-          <span className="material-symbols-outlined" style={{ fontSize: 32, opacity: 0.4, display: 'block', marginBottom: '0.5rem' }}>{empty.icon}</span>
-          <p style={{ fontSize: '0.75rem', fontWeight: 600 }}>{empty.heading}</p>
-          {empty.body && <p style={{ fontSize: '0.7rem', marginTop: '0.25rem', opacity: 0.7 }}>{empty.body}</p>}
-        </div>
-      ) : (
+      {!isEmpty && (
         <SortableContext items={reviews.map(r => r.id)} strategy={verticalListSortingStrategy}>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+          <ul style={{
+            listStyle: 'none',
+            padding: 0,
+            margin: 0,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+            gap: '0.5rem',
+          }}>
             {reviews.map(r => <ReviewCard key={r.id} review={r} onCardClick={onCardClick} onForward={onForward} />)}
           </ul>
         </SortableContext>
