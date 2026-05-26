@@ -38,6 +38,7 @@ export function ReviewDetailModal({ review, isOpen, onClose }: Props) {
   const [reviewDeadline, setReviewDeadline] = useState('');
   const [refundCode, setRefundCode] = useState('');
   const [refundCodeCopied, setRefundCodeCopied] = useState(false);
+  const [sellerNotified, setSellerNotified] = useState(false);
   const [refundEur, setRefundEur] = useState('');
   const [saleEur, setSaleEur] = useState('');
   const [notes, setNotes] = useState('');
@@ -56,6 +57,7 @@ export function ReviewDetailModal({ review, isOpen, onClose }: Props) {
     setRefundEur(centsToEurStr(review.refund_amount_cents));
     setSaleEur(centsToEurStr(review.sale_amount_cents));
     setNotes(review.notes ?? '');
+    setSellerNotified(Boolean(review.seller_notified));
     setError(null);
   }, [review]);
 
@@ -122,6 +124,7 @@ export function ReviewDetailModal({ review, isOpen, onClose }: Props) {
       refund_amount_cents: eurStrToCents(refundEur),
       sale_amount_cents: eurStrToCents(saleEur),
       notes: notes.trim() || null,
+      seller_notified: sellerNotified ? 1 : 0,
     });
   }
 
@@ -303,6 +306,45 @@ export function ReviewDetailModal({ review, isOpen, onClose }: Props) {
                 <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
               ))}
             </select>
+          </section>
+
+          <section style={sectionStyle}>
+            <h3 style={sectionHeader}>Tester-Aktion</h3>
+            <label
+              onMouseDown={(e) => e.stopPropagation()}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.625rem',
+                cursor: 'pointer',
+                userSelect: 'none',
+                padding: '0.625rem 0.75rem',
+                background: 'var(--color-surface)',
+                border: `1px solid ${sellerNotified ? 'rgba(92,253,128,0.4)' : 'var(--color-outline)'}`,
+                borderRadius: '0.5rem',
+                transition: 'border-color 150ms',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={sellerNotified}
+                onChange={(e) => setSellerNotified(e.target.checked)}
+                style={{
+                  width: '1.1rem',
+                  height: '1.1rem',
+                  accentColor: '#5cfd80',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              />
+              <span style={{
+                fontSize: '0.875rem',
+                color: sellerNotified ? '#5cfd80' : 'var(--color-on-surface)',
+                fontWeight: sellerNotified ? 600 : 400,
+              }}>
+                Bewertung an Verkäufer gesendet
+              </span>
+            </label>
           </section>
 
           <section style={sectionStyle}>

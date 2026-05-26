@@ -190,6 +190,26 @@ export function ReviewCard({ review, onCardClick, onForward }: Props) {
             Rückgabe?
           </span>
         )}
+        {review.seller_notified === 1 && (
+          <span
+            title="Bewertung an Verkäufer gesendet"
+            style={{
+              background: 'rgba(92,253,128,0.12)',
+              color: '#5cfd80',
+              border: '1px solid rgba(92,253,128,0.35)',
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              padding: '0.15rem 0.5rem',
+              borderRadius: '9999px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.2rem',
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>mark_email_read</span>
+            Gesendet
+          </span>
+        )}
       </div>
 
       {/* Forward-Button (nur sichtbar wenn Pipeline-Status mit Nachfolger) */}

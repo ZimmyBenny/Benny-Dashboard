@@ -18,6 +18,7 @@ export interface Review {
   refund_amount_cents: number | null;
   sale_amount_cents: number | null;
   notes: string | null;
+  seller_notified: number; // 0 oder 1
   created_at: string;
   updated_at: string;
 }

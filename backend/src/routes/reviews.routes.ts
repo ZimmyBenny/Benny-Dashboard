@@ -17,6 +17,7 @@ interface ReviewRow {
   refund_amount_cents: number | null;
   sale_amount_cents: number | null;
   notes: string | null;
+  seller_notified: number; // 0 oder 1 (SQLite-Boolean)
   created_at: string;
   updated_at: string;
 }
@@ -28,6 +29,7 @@ const PATCHABLE_FIELDS = [
   'product_name','product_url','purchase_price_cents','status',
   'order_date','received_date','review_deadline',
   'refund_code','refund_amount_cents','sale_amount_cents','notes',
+  'seller_notified',
 ] as const;
 
 function yearFilterSqlAndParams(year: string | undefined): { sql: string; params: string[] } {
