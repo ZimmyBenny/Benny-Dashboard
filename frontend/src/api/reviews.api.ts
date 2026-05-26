@@ -8,6 +8,7 @@ export type ReviewStatus =
 export interface Review {
   id: number;
   product_name: string;
+  product_url: string | null;
   purchase_price_cents: number;
   status: ReviewStatus;
   order_date: string | null;
@@ -29,6 +30,7 @@ export interface ReviewStats {
 
 export interface CreateReviewInput {
   product_name: string;
+  product_url?: string | null;
   purchase_price_cents: number;
   order_date?: string | null;
   received_date?: string | null;

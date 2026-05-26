@@ -14,6 +14,7 @@ export function AddReviewModal({ isOpen, onClose }: Props) {
   const { onMouseDown, modalStyle, headerStyle } = useDraggableModal();
 
   const [productName, setProductName] = useState('');
+  const [productUrl, setProductUrl] = useState('');
   const [priceEur, setPriceEur] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -23,6 +24,7 @@ export function AddReviewModal({ isOpen, onClose }: Props) {
       queryClient.invalidateQueries({ queryKey: ['reviews'] });
       queryClient.invalidateQueries({ queryKey: ['reviews-stats'] });
       setProductName('');
+      setProductUrl('');
       setPriceEur('');
       setError(null);
       onClose();
@@ -46,8 +48,17 @@ export function AddReviewModal({ isOpen, onClose }: Props) {
     if (!name) { setError('Produktname ist Pflicht.'); return; }
     const eur = parseFloat(priceEur.replace(',', '.'));
     if (!Number.isFinite(eur) || eur <= 0) { setError('Kaufpreis muss größer als 0 sein.'); return; }
+    const url = productUrl.trim();
+    if (url && !/^https?:\/\//i.test(url)) {
+      setError('Produkt-Link muss mit http:// oder https:// beginnen.');
+      return;
+    }
     setError(null);
-    createMut.mutate({ product_name: name, purchase_price_cents: Math.round(eur * 100) });
+    createMut.mutate({
+      product_name: name,
+      product_url: url || null,
+      purchase_price_cents: Math.round(eur * 100),
+    });
   }
 
   return (
@@ -128,6 +139,27 @@ export function AddReviewModal({ isOpen, onClose }: Props) {
               onChange={(e) => setPriceEur(e.target.value)}
               onMouseDown={(e) => e.stopPropagation()}
               placeholder="29,90"
+              style={{
+                width: '100%', background: 'var(--color-surface)',
+                border: '1px solid var(--color-outline)',
+                color: 'var(--color-on-surface)',
+                borderRadius: '0.5rem', padding: '0.625rem 0.75rem',
+                fontSize: '0.875rem', fontFamily: 'var(--font-body)',
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-on-surface-variant)', marginBottom: '0.375rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Produkt-Link
+            </label>
+            <input
+              type="url"
+              inputMode="url"
+              value={productUrl}
+              onChange={(e) => setProductUrl(e.target.value)}
+              onMouseDown={(e) => e.stopPropagation()}
+              placeholder="https://www.amazon.de/..."
               style={{
                 width: '100%', background: 'var(--color-surface)',
                 border: '1px solid var(--color-outline)',

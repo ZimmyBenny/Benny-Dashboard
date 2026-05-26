@@ -30,6 +30,7 @@ export function ReviewDetailModal({ review, isOpen, onClose }: Props) {
   const { onMouseDown, modalStyle, headerStyle } = useDraggableModal();
 
   const [productName, setProductName] = useState('');
+  const [productUrl, setProductUrl] = useState('');
   const [priceEur, setPriceEur] = useState('');
   const [status, setStatus] = useState<ReviewStatus>('vorgemerkt');
   const [orderDate, setOrderDate] = useState('');
@@ -44,6 +45,7 @@ export function ReviewDetailModal({ review, isOpen, onClose }: Props) {
   useEffect(() => {
     if (!review) return;
     setProductName(review.product_name);
+    setProductUrl(review.product_url ?? '');
     setPriceEur(centsToEurStr(review.purchase_price_cents));
     setStatus(review.status);
     setOrderDate(review.order_date ?? '');
@@ -101,9 +103,15 @@ export function ReviewDetailModal({ review, isOpen, onClose }: Props) {
     if (!name) { setError('Produktname ist Pflicht.'); return; }
     const priceCents = eurStrToCents(priceEur);
     if (priceCents == null || priceCents <= 0) { setError('Kaufpreis muss größer als 0 sein.'); return; }
+    const url = productUrl.trim();
+    if (url && !/^https?:\/\//i.test(url)) {
+      setError('Produkt-Link muss mit http:// oder https:// beginnen.');
+      return;
+    }
     setError(null);
     patchMut.mutate({
       product_name: name,
+      product_url: url || null,
       purchase_price_cents: priceCents,
       status,
       order_date: orderDate || null,
@@ -179,6 +187,40 @@ export function ReviewDetailModal({ review, isOpen, onClose }: Props) {
               <div>
                 <label style={labelStyle}>Kaufpreis (EUR) *</label>
                 <input type="number" step="0.01" min="0" value={priceEur} onChange={(e) => setPriceEur(e.target.value)} onMouseDown={(e) => e.stopPropagation()} style={inputStyle} />
+              </div>
+            </div>
+            <div style={{ marginTop: '0.75rem' }}>
+              <label style={labelStyle}>Produkt-Link</label>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'stretch' }}>
+                <input
+                  type="url"
+                  inputMode="url"
+                  value={productUrl}
+                  onChange={(e) => setProductUrl(e.target.value)}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  placeholder="https://www.amazon.de/..."
+                  style={{ ...inputStyle, flex: 1 }}
+                />
+                {productUrl.trim() && /^https?:\/\//i.test(productUrl.trim()) && (
+                  <a
+                    href={productUrl.trim()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      width: '2.5rem',
+                      background: 'var(--color-surface)',
+                      border: '1px solid var(--color-outline)',
+                      borderRadius: '0.5rem',
+                      color: 'var(--color-primary)',
+                      textDecoration: 'none',
+                    }}
+                    title="Link in neuem Tab öffnen"
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>open_in_new</span>
+                  </a>
+                )}
               </div>
             </div>
           </section>

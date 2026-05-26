@@ -7,6 +7,7 @@ const router = Router();
 interface ReviewRow {
   id: number;
   product_name: string;
+  product_url: string | null;
   purchase_price_cents: number;
   status: ReviewStatus;
   order_date: string | null;
@@ -24,7 +25,7 @@ const PENDING_STATUSES = ['vorgemerkt','bestellt','erhalten','bewertet'] as cons
 
 // Erlaubte PATCH-Felder (Whitelist gegen Massenzuweisung)
 const PATCHABLE_FIELDS = [
-  'product_name','purchase_price_cents','status',
+  'product_name','product_url','purchase_price_cents','status',
   'order_date','received_date','review_deadline',
   'refund_code','refund_amount_cents','sale_amount_cents','notes',
 ] as const;
@@ -83,13 +84,17 @@ router.post('/', (req, res) => {
     res.status(400).json({ error: 'Kaufpreis muss groesser als 0 sein.' });
     return;
   }
+  const productUrl = typeof body.product_url === 'string' && body.product_url.trim()
+    ? body.product_url.trim()
+    : null;
   const result = db.prepare(`
     INSERT INTO amazon_reviews
-      (product_name, purchase_price_cents, status, order_date, received_date,
+      (product_name, product_url, purchase_price_cents, status, order_date, received_date,
        review_deadline, refund_code, refund_amount_cents, sale_amount_cents, notes)
-    VALUES (?, ?, 'vorgemerkt', ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, 'vorgemerkt', ?, ?, ?, ?, ?, ?, ?)
   `).run(
     productName,
+    productUrl,
     Math.round(price),
     body.order_date ?? null,
     body.received_date ?? null,

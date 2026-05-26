@@ -58,7 +58,7 @@ export function ReviewCard({ review, onCardClick, onForward }: Props) {
       onMouseEnter={() => setIsHover(true)}
       onMouseLeave={() => setIsHover(false)}
     >
-      {/* Title */}
+      {/* Title — wenn product_url existiert, ist der Name ein externer Link */}
       <div
         style={{
           fontFamily: 'var(--font-headline)',
@@ -67,9 +67,35 @@ export function ReviewCard({ review, onCardClick, onForward }: Props) {
           lineHeight: 1.4,
           wordBreak: 'break-word',
           color: 'var(--color-on-surface)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.375rem',
         }}
       >
-        {review.product_name}
+        {review.product_url ? (
+          <a
+            href={review.product_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            style={{
+              color: 'inherit',
+              textDecoration: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              borderBottom: '1px dashed rgba(204,151,255,0.35)',
+            }}
+            title="Produkt-Link öffnen"
+          >
+            <span>{review.product_name}</span>
+            <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'var(--color-primary)' }}>open_in_new</span>
+          </a>
+        ) : (
+          review.product_name
+        )}
       </div>
 
       {/* Meta-Row: Kaufpreis-Pill + optionaler Frist-Badge */}
