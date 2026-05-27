@@ -719,9 +719,9 @@ export function DjEventsPage() {
                             </div>
                           </td>
 
-                          {/* Spalte 2: Kunde */}
+                          {/* Spalte 2: Kunde — Fallback auf customer_freetext wenn kein Kontakt verknuepft */}
                           <td style={tdStyle}>
-                            {e.customer_name || e.customer_org || '—'}
+                            {e.customer_name?.trim() || e.customer_org || e.customer_freetext || '—'}
                           </td>
 
                           {/* Spalte 3: Typ */}

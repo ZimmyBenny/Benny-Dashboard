@@ -28,6 +28,7 @@ export interface DjCustomer {
 export interface DjEvent {
   id: number;
   customer_id: number | null;
+  customer_freetext: string | null;
   location_id: number | null;
   title: string | null;
   event_type: EventType;

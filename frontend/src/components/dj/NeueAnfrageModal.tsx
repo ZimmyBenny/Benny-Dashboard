@@ -460,6 +460,7 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
     void fetchDjEvent(eventId).then(data => {
       setSourceChannel(data.source_channel ?? '');
       setCustomerId(data.customer_id);
+      setCustomerFreetext(data.customer_freetext ?? '');
       setEventType(data.event_type);
       setEventDate(data.event_date ?? '');
       setTimeStart(data.time_start ?? '');
@@ -532,21 +533,21 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
     }
 
     try {
-      const combinedNotes = isEdit
-        ? (notes.trim() || null)
-        : [
-            customerFreetext.trim() ? `Kundendaten: ${customerFreetext.trim()}` : '',
-            notes.trim(),
-          ].filter(Boolean).join('\n\n') || null;
+      // customer_freetext: nur senden wenn KEIN Kunde verknuepft ist (Verkn. > Notiz).
+      // Wenn customerId gesetzt, freetext explicit auf null setzen (nicht verwirren).
+      const freetextNormalized = customerId
+        ? null
+        : (customerFreetext.trim() || null);
 
       const payload = {
         event_type: eventType,
         event_date: eventDate,
         title: title.trim() || null,
         customer_id: customerId,
+        customer_freetext: freetextNormalized,
         time_start: timeStart || null,
         time_end: timeEnd || null,
-        notes: combinedNotes,
+        notes: notes.trim() || null,
         source_channel: sourceChannel || null,
         venue_name: venueName.trim() || null,
         venue_street: venueStreet.trim() || null,

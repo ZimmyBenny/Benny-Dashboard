@@ -80,7 +80,7 @@ router.get('/:id', (req, res) => {
 // POST /api/dj/events
 router.post('/', (req, res) => {
   const {
-    customer_id, location_id, title, event_type, event_date,
+    customer_id, customer_freetext, location_id, title, event_type, event_date,
     time_start, time_end, setup_minutes, teardown_minutes,
     guests, status = 'anfrage', contact_on_site_name, contact_on_site_phone,
     contact_on_site_email, notes, source_channel,
@@ -94,16 +94,21 @@ router.post('/', (req, res) => {
 
   const eventDateNormalized =
     typeof event_date === 'string' && event_date.trim() === '' ? null : (event_date ?? null);
+  const customerFreetextNormalized =
+    typeof customer_freetext === 'string' && customer_freetext.trim()
+      ? customer_freetext.trim()
+      : null;
 
   const result = db.prepare(`
     INSERT INTO dj_events
-      (customer_id, location_id, title, event_type, event_date, time_start, time_end,
+      (customer_id, customer_freetext, location_id, title, event_type, event_date, time_start, time_end,
        setup_minutes, teardown_minutes, guests, status,
        contact_on_site_name, contact_on_site_phone, contact_on_site_email, notes, source_channel,
        venue_name, venue_street, venue_zip, venue_city)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    customer_id ?? null, location_id ?? null, title ?? null, event_type, eventDateNormalized,
+    customer_id ?? null, customerFreetextNormalized,
+    location_id ?? null, title ?? null, event_type, eventDateNormalized,
     time_start ?? null, time_end ?? null, setup_minutes ?? 90, teardown_minutes ?? 90,
     guests ?? null, status, contact_on_site_name ?? null,
     contact_on_site_phone ?? null, contact_on_site_email ?? null, notes ?? null,
@@ -129,7 +134,7 @@ router.patch('/:id', (req, res) => {
   if (!existing) { res.status(404).json({ error: 'Event nicht gefunden' }); return; }
 
   const {
-    customer_id, location_id, title, event_type, event_date,
+    customer_id, customer_freetext, location_id, title, event_type, event_date,
     time_start, time_end, setup_minutes, teardown_minutes,
     guests, status, contact_on_site_name, contact_on_site_phone,
     contact_on_site_email, notes, cancellation_reason, source_channel,
@@ -145,6 +150,7 @@ router.patch('/:id', (req, res) => {
   db.prepare(`
     UPDATE dj_events SET
       customer_id = COALESCE(?, customer_id),
+      customer_freetext = ?,
       location_id = COALESCE(?, location_id),
       title = COALESCE(?, title),
       event_type = COALESCE(?, event_type),
@@ -172,7 +178,11 @@ router.patch('/:id', (req, res) => {
       vorgespraech_plz = ?
     WHERE id = ?
   `).run(
-    customer_id ?? null, location_id ?? null, title ?? null, event_type ?? null,
+    customer_id ?? null,
+    'customer_freetext' in body
+      ? (typeof customer_freetext === 'string' && customer_freetext.trim() ? customer_freetext.trim() : null)
+      : (existing.customer_freetext ?? null),
+    location_id ?? null, title ?? null, event_type ?? null,
     eventDateNormalized, time_start ?? null, time_end ?? null,
     setup_minutes ?? null, teardown_minutes ?? null, guests ?? null,
     status ?? null, contact_on_site_name ?? null, contact_on_site_phone ?? null,
