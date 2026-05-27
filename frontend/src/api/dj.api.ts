@@ -502,3 +502,9 @@ export const deleteEventAttachment = (eventId: number, attachmentId: number): Pr
 
 export const downloadEventAttachmentUrl = (eventId: number, attachmentId: number): string =>
   `${apiClient.defaults.baseURL ?? '/api'}/dj/events/${eventId}/attachments/${attachmentId}/download`;
+
+// Event-PDF-Export (User-Decision 2026-05-27)
+export const downloadEventPdf = async (eventId: number): Promise<Blob> => {
+  const r = await apiClient.get(`/dj/events/${eventId}/pdf`, { responseType: 'blob' });
+  return r.data as Blob;
+};

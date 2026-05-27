@@ -298,6 +298,22 @@ router.patch('/:id/vorgespraech', async (req, res) => {
   res.json(loadEvent(id));
 });
 
+// GET /api/dj/events/:id/pdf — Event-Details als PDF exportieren (User-Decision 2026-05-27)
+router.get('/:id/pdf', async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) { res.status(400).json({ error: 'Ungültige ID' }); return; }
+
+  try {
+    const { generateEventPdf } = await import('../services/dj.event-pdf.service');
+    const buf = await generateEventPdf(id);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Anfrage-${id}.pdf"`);
+    res.send(buf);
+  } catch (err) {
+    res.status(404).json({ error: (err as Error).message });
+  }
+});
+
 // DELETE /api/dj/events/:id (Soft-Delete)
 router.delete('/:id', (req, res) => {
   const id = Number(req.params.id);

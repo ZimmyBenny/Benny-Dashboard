@@ -1281,6 +1281,42 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
             >
               Abbrechen
             </button>
+            {isEdit && eventId && (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const { downloadEventPdf } = await import('../../api/dj.api');
+                    const blob = await downloadEventPdf(eventId);
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `Anfrage-${eventId}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  } catch {
+                    alert('PDF-Export fehlgeschlagen');
+                  }
+                }}
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(148,170,255,0.3)',
+                  borderRadius: '0.5rem',
+                  color: '#94aaff',
+                  padding: '0.5rem 1rem',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '0.875rem',
+                  display: 'inline-flex', alignItems: 'center', gap: '0.375rem',
+                }}
+                title="Alle Details als PDF exportieren"
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>picture_as_pdf</span>
+                PDF-Export
+              </button>
+            )}
             <button
               type="button"
               onClick={() => void handleSave()}
