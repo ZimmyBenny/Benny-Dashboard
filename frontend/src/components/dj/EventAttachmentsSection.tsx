@@ -37,6 +37,7 @@ export function EventAttachmentsSection({ eventId }: Props) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   useEffect(() => {
     if (!eventId) return;
@@ -159,20 +160,51 @@ export function EventAttachmentsSection({ eventId }: Props) {
       {loading ? (
         <div style={{ fontSize: '0.8rem', color: 'var(--color-on-surface-variant)', fontStyle: 'italic' }}>Lade…</div>
       ) : items.length === 0 ? (
-        <div style={{
-          padding: '1rem',
-          textAlign: 'center',
-          background: 'rgba(255,255,255,0.02)',
-          border: '1px dashed rgba(148,170,255,0.2)',
-          borderRadius: '0.5rem',
-          fontSize: '0.8rem',
-          color: 'var(--color-on-surface-variant)',
-          fontStyle: 'italic',
-        }}>
-          Noch keine Anhänge. E-Mails (.eml), PDFs, Bilder hochladen mit „Datei hinzufügen".
+        <div
+          onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+          onDragLeave={() => setIsDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragOver(false);
+            void handleFiles(e.dataTransfer.files);
+          }}
+          style={{
+            padding: '1.5rem 1rem',
+            textAlign: 'center',
+            background: isDragOver ? 'rgba(92,253,128,0.08)' : 'rgba(255,255,255,0.02)',
+            border: `1px dashed ${isDragOver ? 'rgba(92,253,128,0.6)' : 'rgba(148,170,255,0.2)'}`,
+            borderRadius: '0.5rem',
+            fontSize: '0.8rem',
+            color: 'var(--color-on-surface-variant)',
+            fontStyle: 'italic',
+            transition: 'all 150ms',
+          }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 28, opacity: 0.5, display: 'block', marginBottom: '0.375rem' }}>
+            {isDragOver ? 'file_download_done' : 'cloud_upload'}
+          </span>
+          {isDragOver
+            ? 'Loslassen zum Hochladen'
+            : 'Hier Dateien reinziehen oder „Datei hinzufügen" klicken (E-Mails .eml, PDFs, Bilder)'}
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+        <div
+          onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+          onDragLeave={() => setIsDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragOver(false);
+            void handleFiles(e.dataTransfer.files);
+          }}
+          style={{
+            display: 'flex', flexDirection: 'column', gap: '0.375rem',
+            padding: isDragOver ? '0.5rem' : 0,
+            border: isDragOver ? '1px dashed rgba(92,253,128,0.6)' : '1px dashed transparent',
+            background: isDragOver ? 'rgba(92,253,128,0.04)' : 'transparent',
+            borderRadius: '0.5rem',
+            transition: 'all 150ms',
+          }}
+        >
           {items.map(att => (
             <div
               key={att.id}
