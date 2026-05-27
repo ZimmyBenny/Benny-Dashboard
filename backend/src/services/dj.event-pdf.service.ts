@@ -417,28 +417,45 @@ export async function generateEventPdf(eventId: number): Promise<Buffer> {
       doc.moveTo(marginLeft, y).lineTo(pageWidth - marginRight, y).lineWidth(0.4).strokeColor('#cccccc').stroke();
       y += 10;
 
-      // Body
+      // Body — doc.y/x manuell setzen statt explizite Koordinaten, damit
+      // pdfkit's LineWrapper bei bufferPages:true korrekt paginiert.
+      // (Mit explizitem (x,y) gerieten Anschlusszeilen in falsche Sections.)
       if (email.body) {
+        doc.x = marginLeft;
+        doc.y = y;
         doc.font('Helvetica').fontSize(10).fillColor('#000000')
-          .text(email.body, marginLeft, y, { width: usableWidth, lineGap: 2 });
+          .text(email.body, { width: usableWidth, lineGap: 2 });
         y = doc.y + 10;
       } else {
+        doc.x = marginLeft;
+        doc.y = y;
         doc.font('Helvetica-Oblique').fontSize(10).fillColor('#888888')
-          .text('(Kein Text-Inhalt — möglicherweise HTML-only E-Mail)', marginLeft, y, { width: usableWidth });
+          .text('(Kein Text-Inhalt — möglicherweise HTML-only E-Mail)', { width: usableWidth });
       }
     }
 
     // Footer einfach: Company-Info
+    // Footer-Loop: pdfkit pagineert text() automatisch wenn doc.y >
+    // page.height - margin.bottom. Da der Footer aber bewusst IM
+    // margin.bottom-Bereich sitzt, muessen wir die Untergrenze temporaer
+    // auf 0 setzen — sonst triggert jeder Footer-text() eine neue Seite
+    // (bekannter pdfkit-Quirk bei bufferPages:true mit Page-Bottom-Footer).
     const range = doc.bufferedPageRange();
     for (let i = 0; i < range.count; i++) {
       doc.switchToPage(range.start + i);
+      const originalBottomMargin = doc.page.margins.bottom;
+      doc.page.margins.bottom = 0;
+
       const footerY = doc.page.height - 65;
       doc.font('Helvetica').fontSize(8).fillColor('#888888');
       const footerLine1 = `${company.name} · ${company.address} · ${company.zip} ${company.city}`;
       const footerLine2 = [company.phone, company.email, company.website].filter(Boolean).join(' · ');
+
       doc.text(footerLine1, marginLeft, footerY, { width: usableWidth, align: 'center', lineBreak: false });
       doc.text(footerLine2, marginLeft, footerY + 11, { width: usableWidth, align: 'center', lineBreak: false });
       doc.text(`Seite ${i + 1} von ${range.count}`, marginLeft, footerY + 26, { width: usableWidth, align: 'center', lineBreak: false });
+
+      doc.page.margins.bottom = originalBottomMargin;
     }
 
     doc.end();
