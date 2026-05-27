@@ -368,6 +368,8 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
   const [customerId, setCustomerId] = useState<number | null>(null);
   const [customerFreetext, setCustomerFreetext] = useState('');
   const [eventType, setEventType] = useState<EventType>('hochzeit');
+  const [eventTypeOther, setEventTypeOther] = useState('');
+  const [calendarUid, setCalendarUid] = useState<string | null>(null);
   const [eventDate, setEventDate] = useState('');
   const [timeStart, setTimeStart] = useState('');
   const [timeEnd, setTimeEnd] = useState('');
@@ -462,6 +464,8 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
       setCustomerId(data.customer_id);
       setCustomerFreetext(data.customer_freetext ?? '');
       setEventType(data.event_type);
+      setEventTypeOther(data.event_type_other ?? '');
+      setCalendarUid(data.calendar_uid ?? null);
       setEventDate(data.event_date ?? '');
       setTimeStart(data.time_start ?? '');
       setTimeEnd(data.time_end ?? '');
@@ -541,6 +545,7 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
 
       const payload = {
         event_type: eventType,
+        event_type_other: eventType === 'sonstige' ? (eventTypeOther.trim() || null) : null,
         event_date: eventDate,
         title: title.trim() || null,
         customer_id: customerId,
@@ -965,6 +970,32 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
           {/* Divider */}
           <div style={{ borderTop: '1px solid rgba(148,170,255,0.1)', margin: '1.5rem 0' }} />
 
+          {/* Kalender-Status (nur im Edit-Modus) */}
+          {isEdit && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.5rem 0.875rem',
+              background: calendarUid ? 'rgba(74,222,128,0.06)' : 'rgba(255,196,87,0.07)',
+              border: `1px solid ${calendarUid ? 'rgba(74,222,128,0.3)' : 'rgba(255,196,87,0.3)'}`,
+              borderRadius: '0.5rem',
+              marginBottom: '1rem',
+              fontSize: '0.8rem',
+              color: calendarUid ? '#4ade80' : '#ffc457',
+              fontFamily: 'var(--font-body)',
+            }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+                {calendarUid ? 'event_available' : 'event_busy'}
+              </span>
+              <span>
+                {calendarUid
+                  ? 'Im Kalender eingetragen'
+                  : 'Noch nicht im Kalender — wird beim nächsten Speichern synchronisiert'}
+              </span>
+            </div>
+          )}
+
           {/* ── Veranstaltung ─────────────────────────────────────── */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem 1rem' }}>
 
@@ -1036,6 +1067,21 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
                   <option key={v} value={v}>{l}</option>
                 ))}
               </select>
+              {eventType === 'sonstige' && (
+                <input
+                  type="text"
+                  placeholder="Bitte spezifizieren (z.B. Weinprobe, Vereinsfeier)…"
+                  value={eventTypeOther}
+                  onChange={e => setEventTypeOther(e.target.value)}
+                  style={{
+                    ...inputStyle,
+                    marginTop: '0.5rem',
+                    fontSize: '0.85rem',
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px dashed rgba(148,170,255,0.3)',
+                  }}
+                />
+              )}
             </div>
 
             {/* Beginn */}

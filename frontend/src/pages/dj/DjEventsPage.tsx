@@ -735,7 +735,9 @@ export function DjEventsPage() {
                               color: 'var(--color-on-surface-variant)',
                               whiteSpace: 'nowrap',
                             }}>
-                              {EVENT_TYPE_LABELS[e.event_type] || e.event_type}
+                              {e.event_type === 'sonstige' && e.event_type_other
+                                ? `Sonstiges: ${e.event_type_other}`
+                                : (EVENT_TYPE_LABELS[e.event_type] || e.event_type)}
                             </span>
                           </td>
 

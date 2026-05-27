@@ -32,6 +32,7 @@ export interface DjEvent {
   location_id: number | null;
   title: string | null;
   event_type: EventType;
+  event_type_other: string | null;
   event_date: string;
   time_start: string | null;
   time_end: string | null;
