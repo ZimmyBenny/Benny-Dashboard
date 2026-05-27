@@ -19,6 +19,7 @@ import { createTask, updateTask, deleteTask, type Task } from '../api/tasks.api'
 import type { TimeEntry } from '../api/zeiterfassung.api';
 import { TaskSlideOver } from '../components/tasks/TaskSlideOver';
 import { fetchPagesByContact, type Page as WorkbookPage } from '../api/workbook.api';
+import apiClient from '../api/client';
 
 // ---------------------------------------------------------------------------
 // Farben fuer Bereich-Badges
@@ -709,6 +710,9 @@ export function ContactDetailPage() {
             );
           })()}
 
+          {/* DJ-Event-Anhaenge-Karte */}
+          <ContactDjAttachmentsCard contactId={Number(id)} cardStyle={cardStyle} labelStyle={labelStyle} />
+
           {/* Zeiterfassungs-Karte (einklappbar) */}
           {(() => {
             const totalSeconds = contactTimeEntries.reduce((sum, e) => sum + e.duration_seconds, 0);
@@ -1141,6 +1145,125 @@ function Field({ label, value }: { label: string; value: string }) {
         textTransform: 'uppercase', color: 'var(--color-outline)', marginBottom: '0.15rem',
       }}>{label}</div>
       <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.9rem', color: 'var(--color-on-surface)' }}>{value}</div>
+    </div>
+  );
+}
+
+// ── DJ-Event-Anhaenge-Karte ─────────────────────────────────────────────────
+// Zeigt alle Anhaenge die zu DJ-Events gehoeren bei denen der Kontakt customer ist.
+interface ContactAttachment {
+  id: number;
+  event_id: number;
+  file_path: string;
+  original_name: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  label: string | null;
+  uploaded_at: string;
+  event_date: string;
+  event_title: string | null;
+  event_type: string;
+}
+
+function ContactDjAttachmentsCard({ contactId, cardStyle, labelStyle }: {
+  contactId: number;
+  cardStyle: React.CSSProperties;
+  labelStyle: React.CSSProperties;
+}) {
+  const [items, setItems] = useState<ContactAttachment[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!contactId) return;
+    setLoading(true);
+    apiClient.get<ContactAttachment[]>(`/contacts/${contactId}/dj-event-attachments`)
+      .then(r => setItems(r.data))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
+  }, [contactId]);
+
+  async function handleDownload(att: ContactAttachment) {
+    try {
+      const res = await apiClient.get(`/dj/events/${att.event_id}/attachments/${att.id}/download`, {
+        responseType: 'blob',
+      });
+      const url = URL.createObjectURL(res.data as Blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = att.original_name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (loading) return null;
+  if (items.length === 0) return null; // Card nur zeigen wenn was vorhanden ist
+
+  return (
+    <div style={cardStyle}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.75rem' }}>
+        <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: '#94aaff' }}>attach_file</span>
+        <span style={labelStyle}>DJ-Anhänge ({items.length})</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+        {items.map(att => (
+          <div
+            key={att.id}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.5rem 0.625rem',
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(148,170,255,0.12)',
+              borderRadius: '0.5rem',
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#94aaff', flexShrink: 0 }}>
+              {(att.mime_type ?? '').startsWith('image/') ? 'image'
+                : (att.mime_type === 'application/pdf' || att.original_name.toLowerCase().endsWith('.pdf')) ? 'picture_as_pdf'
+                : ['eml','msg'].includes(att.original_name.toLowerCase().split('.').pop() ?? '') ? 'mail'
+                : 'attach_file'}
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontFamily: 'var(--font-body)', fontSize: '0.8rem',
+                color: 'var(--color-on-surface)',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }} title={att.original_name}>
+                {att.original_name}
+              </div>
+              <div style={{
+                fontFamily: 'var(--font-body)', fontSize: '0.68rem',
+                color: 'var(--color-on-surface-variant)',
+              }}>
+                {att.event_title || att.event_type} · {new Date(att.event_date).toLocaleDateString('de-DE')}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => { void handleDownload(att); }}
+              title="Herunterladen"
+              style={{
+                background: 'transparent',
+                border: '1px solid rgba(148,170,255,0.25)',
+                color: '#94aaff',
+                borderRadius: '0.375rem',
+                padding: '0.25rem 0.5rem',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>download</span>
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

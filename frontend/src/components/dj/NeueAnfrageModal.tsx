@@ -9,6 +9,7 @@ import {
 import { createContact, type ContactDetail } from '../../api/contacts.api';
 import { createTask } from '../../api/tasks.api';
 import { EVENT_TYPE_LABELS } from './StatusBadge';
+import { EventAttachmentsSection } from './EventAttachmentsSection';
 import { formatDate } from '../../lib/format';
 import { todayLocal, addDaysLocal } from '../../lib/dates';
 import apiClient from '../../api/client';
@@ -1462,6 +1463,22 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
                   {taskSaving ? '…' : '+ Hinzufügen'}
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Anhaenge (nur Edit-Modus) */}
+          {isEdit && eventId && (
+            <div style={{ borderTop: '1px solid rgba(148,170,255,0.1)', marginTop: '1.5rem', paddingTop: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '1.25rem', color: '#94aaff' }}>attach_file</span>
+                <h3 style={{
+                  fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '1rem',
+                  color: 'var(--color-on-surface)', margin: 0,
+                }}>
+                  Dokumente & E-Mails
+                </h3>
+              </div>
+              <EventAttachmentsSection eventId={eventId} />
             </div>
           )}
 

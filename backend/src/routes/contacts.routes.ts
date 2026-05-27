@@ -524,6 +524,25 @@ router.get('/:id/tasks', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /api/contacts/:id/dj-event-attachments — Alle DJ-Event-Anhaenge eines Kontakts
+// ---------------------------------------------------------------------------
+// Liefert alle Anhaenge die zu Events gehoeren bei denen der Kontakt customer_id ist.
+router.get('/:id/dj-event-attachments', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) { res.status(400).json({ error: 'Ungültige ID' }); return; }
+
+  const rows = db.prepare(`
+    SELECT a.*, e.event_date, e.title AS event_title, e.event_type
+    FROM dj_event_attachments a
+    JOIN dj_events e ON e.id = a.event_id
+    WHERE e.customer_id = ? AND e.deleted_at IS NULL
+    ORDER BY a.uploaded_at DESC, a.id DESC
+  `).all(id);
+
+  res.json(rows);
+});
+
+// ---------------------------------------------------------------------------
 // GET /api/contacts/:id — Kontakt-Detail
 // ---------------------------------------------------------------------------
 router.get('/:id', (req, res) => {

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import customersRouter from './dj.customers.routes';
 import eventsRouter from './dj.events.routes';
+import eventAttachmentsRouter from './dj.event-attachments.routes';
 import quotesRouter from './dj.quotes.routes';
 import invoicesRouter from './dj.invoices.routes';
 import servicesRouter from './dj.services.routes';
@@ -204,6 +205,7 @@ router.get('/overview', (req, res) => {
 });
 
 router.use('/customers', customersRouter);
+router.use('/events/:id/attachments', eventAttachmentsRouter);
 router.use('/events', eventsRouter);
 router.use('/quotes', quotesRouter);
 router.use('/invoices', invoicesRouter);

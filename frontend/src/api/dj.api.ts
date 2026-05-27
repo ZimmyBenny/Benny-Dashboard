@@ -471,3 +471,34 @@ export const updateDjQuoteStatus = (id: number, status: string): Promise<DjQuote
 
 export const createDjQuoteRevision = (id: number): Promise<DjQuote> =>
   apiClient.post(`/dj/quotes/${id}/revision`).then(r => r.data);
+
+// ── Event-Anhaenge (Phase 2026-05-27) ─────────────────────────────────────────
+
+export interface DjEventAttachment {
+  id: number;
+  event_id: number;
+  file_path: string;
+  original_name: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  label: string | null;
+  uploaded_at: string;
+}
+
+export const fetchEventAttachments = (eventId: number): Promise<DjEventAttachment[]> =>
+  apiClient.get<DjEventAttachment[]>(`/dj/events/${eventId}/attachments`).then(r => r.data);
+
+export const uploadEventAttachments = (eventId: number, files: File[], label?: string): Promise<DjEventAttachment[]> => {
+  const fd = new FormData();
+  for (const f of files) fd.append('files', f);
+  if (label) fd.append('label', label);
+  return apiClient.post<DjEventAttachment[]>(`/dj/events/${eventId}/attachments`, fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data);
+};
+
+export const deleteEventAttachment = (eventId: number, attachmentId: number): Promise<void> =>
+  apiClient.delete(`/dj/events/${eventId}/attachments/${attachmentId}`).then(() => undefined);
+
+export const downloadEventAttachmentUrl = (eventId: number, attachmentId: number): string =>
+  `${apiClient.defaults.baseURL ?? '/api'}/dj/events/${eventId}/attachments/${attachmentId}/download`;
