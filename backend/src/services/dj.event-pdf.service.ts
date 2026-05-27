@@ -66,6 +66,35 @@ interface ParsedEmail {
   body: string;
 }
 
+/** Body normalisieren: Whitespace reduzieren, gequotete Reply-History entfernen, ggf. kuerzen. */
+function cleanEmailBody(raw: string): string {
+  let body = (raw ?? '').replace(/\r\n/g, '\n').trim();
+  // Mehrfache Leerzeilen auf max 2 reduzieren
+  body = body.replace(/\n{3,}/g, '\n\n');
+  // Trailing whitespace pro Zeile weg
+  body = body.split('\n').map(l => l.replace(/[ \t]+$/, '')).join('\n');
+  // Reply-History entfernen (gaengige deutsche Mail-Clients)
+  // Marker: "Am ... schrieb ...", "Von: ...", "> ..." Blocks am Ende
+  const cutMarkers = [
+    /\n\s*-{2,}\s*Original-Nachricht\s*-{2,}/i,
+    /\n\s*Am .+ schrieb .+:\n/,
+    /\n\s*-{2,}\s*Weitergeleitete Nachricht\s*-{2,}/i,
+    /\n\s*On .+ wrote:\n/,
+  ];
+  for (const m of cutMarkers) {
+    const match = body.match(m);
+    if (match && match.index !== undefined) {
+      body = body.slice(0, match.index).trim() + '\n\n[Antwort-Historie gekürzt]';
+      break;
+    }
+  }
+  // Hard-Limit: 8000 Zeichen
+  if (body.length > 8000) {
+    body = body.slice(0, 8000) + '\n\n[…gekürzt]';
+  }
+  return body;
+}
+
 async function parseEmlFile(absPath: string): Promise<ParsedEmail | null> {
   try {
     const raw = fs.readFileSync(absPath);
@@ -77,7 +106,7 @@ async function parseEmlFile(absPath: string): Promise<ParsedEmail | null> {
         : (parsed.to?.text ?? ''),
       date: parsed.date ? parsed.date.toLocaleString('de-DE') : '',
       subject: parsed.subject ?? '',
-      body: (parsed.text ?? '').trim(),
+      body: cleanEmailBody(parsed.text ?? ''),
     };
   } catch {
     return null;
