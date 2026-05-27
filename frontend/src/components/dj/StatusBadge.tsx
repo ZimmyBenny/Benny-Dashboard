@@ -61,10 +61,11 @@ export function StatusBadge({ status }: { status: AnyStatus }) {
 }
 
 export const EVENT_TYPE_LABELS: Record<string, string> = {
-  hochzeit:     'Hochzeit',
-  firmen_event: 'Firmen-Event',
-  club_bar:     'Club / Bar',
-  geburtstag:   'Geburtstag',
-  festival:     'Polterabend',
-  sonstige:     'Sonstiges',
+  hochzeit:        'Hochzeit',
+  firmen_event:    'Firmen-Event',
+  club_bar:        'Club / Bar',
+  geburtstag:      'Geburtstag',
+  festival:        'Polterabend',
+  weihnachtsfeier: 'Weihnachtsfeier',
+  sonstige:        'Sonstiges',
 };

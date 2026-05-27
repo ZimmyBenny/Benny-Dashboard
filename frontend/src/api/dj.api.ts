@@ -2,7 +2,7 @@ import apiClient from './client';
 
 // ── Typen ──────────────────────────────────────────────────────────────────────
 
-export type EventType = 'hochzeit' | 'firmen_event' | 'club_bar' | 'geburtstag' | 'festival' | 'sonstige';
+export type EventType = 'hochzeit' | 'firmen_event' | 'club_bar' | 'geburtstag' | 'festival' | 'weihnachtsfeier' | 'sonstige';
 export type EventStatus = 'anfrage' | 'neu' | 'vorgespraech_vereinbart' | 'angebot_gesendet' | 'bestaetigt' | 'abgeschlossen' | 'abgesagt';
 export type QuoteStatus = 'entwurf' | 'gesendet' | 'angenommen' | 'abgelehnt' | 'abgelaufen';
 export type InvoiceStatus = 'entwurf' | 'offen' | 'teilbezahlt' | 'bezahlt' | 'ueberfaellig' | 'storniert';
