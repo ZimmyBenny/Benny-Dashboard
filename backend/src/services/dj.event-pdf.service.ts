@@ -4,9 +4,13 @@
 // damit der DJ sie z.B. an einen Kollegen weiterleiten kann.
 
 import path from 'path';
+import os from 'os';
 import fs from 'fs';
 import PDFDocument from 'pdfkit';
+import { simpleParser } from 'mailparser';
 import db from '../db/connection';
+
+const ATTACHMENTS_DIR = path.join(os.homedir(), '.local', 'share', 'benny-dashboard', 'dj-event-attachments');
 
 interface EventRow {
   id: number;
@@ -48,8 +52,36 @@ interface ContactRow {
 
 interface AttachmentRow {
   original_name: string;
+  file_path: string;
+  mime_type: string | null;
   size_bytes: number | null;
   uploaded_at: string;
+}
+
+interface ParsedEmail {
+  from: string;
+  to: string;
+  date: string;
+  subject: string;
+  body: string;
+}
+
+async function parseEmlFile(absPath: string): Promise<ParsedEmail | null> {
+  try {
+    const raw = fs.readFileSync(absPath);
+    const parsed = await simpleParser(raw);
+    return {
+      from: parsed.from?.text ?? '',
+      to: Array.isArray(parsed.to)
+        ? parsed.to.map(t => t.text).join(', ')
+        : (parsed.to?.text ?? ''),
+      date: parsed.date ? parsed.date.toLocaleString('de-DE') : '',
+      subject: parsed.subject ?? '',
+      body: (parsed.text ?? '').trim(),
+    };
+  } catch {
+    return null;
+  }
 }
 
 interface CompanySettings {
@@ -135,8 +167,22 @@ export async function generateEventPdf(eventId: number): Promise<Buffer> {
     : undefined;
 
   const attachments = db.prepare(
-    'SELECT original_name, size_bytes, uploaded_at FROM dj_event_attachments WHERE event_id = ? ORDER BY uploaded_at DESC'
+    'SELECT original_name, file_path, mime_type, size_bytes, uploaded_at FROM dj_event_attachments WHERE event_id = ? ORDER BY uploaded_at ASC'
   ).all(eventId) as AttachmentRow[];
+
+  // .eml-Dateien parsen — Inhalt wird ins PDF gerendert (User-Wunsch 2026-05-27)
+  const emlAttachments = attachments.filter(a =>
+    a.original_name.toLowerCase().endsWith('.eml') ||
+    a.mime_type === 'message/rfc822'
+  );
+  const parsedEmails: Array<{ attachment: AttachmentRow; email: ParsedEmail | null }> = [];
+  for (const att of emlAttachments) {
+    const absPath = path.resolve(ATTACHMENTS_DIR, att.file_path);
+    if (absPath.startsWith(path.resolve(ATTACHMENTS_DIR) + path.sep) && fs.existsSync(absPath)) {
+      const email = await parseEmlFile(absPath);
+      parsedEmails.push({ attachment: att, email });
+    }
+  }
 
   const company = loadCompany();
 
@@ -308,6 +354,49 @@ export async function generateEventPdf(eventId: number): Promise<Buffer> {
         y = doc.y + 2;
       }
       y += 6;
+    }
+
+    // Sektion: E-Mail-Inhalte (.eml geparsed) — User-Wunsch 2026-05-27
+    for (const { attachment, email } of parsedEmails) {
+      if (!email) continue;
+
+      // Neue Seite fuer jede E-Mail (besser lesbar)
+      doc.addPage();
+      y = 71;
+
+      // E-Mail-Header-Card
+      doc.font('Helvetica-Bold').fontSize(13).fillColor('#000000')
+        .text(`E-Mail: ${attachment.original_name}`, marginLeft, y, { width: usableWidth });
+      y = doc.y + 8;
+
+      // Mail-Meta
+      const meta: Array<[string, string]> = [];
+      if (email.from) meta.push(['Von:', email.from]);
+      if (email.to) meta.push(['An:', email.to]);
+      if (email.date) meta.push(['Datum:', email.date]);
+      if (email.subject) meta.push(['Betreff:', email.subject]);
+
+      doc.font('Helvetica').fontSize(9).fillColor('#444444');
+      for (const [label, value] of meta) {
+        doc.font('Helvetica-Bold').text(label, marginLeft, y, { width: 60, continued: false });
+        doc.font('Helvetica').text(value, marginLeft + 60, y, { width: usableWidth - 60 });
+        y = doc.y + 2;
+      }
+
+      // Trennlinie
+      y += 6;
+      doc.moveTo(marginLeft, y).lineTo(pageWidth - marginRight, y).lineWidth(0.4).strokeColor('#cccccc').stroke();
+      y += 10;
+
+      // Body
+      if (email.body) {
+        doc.font('Helvetica').fontSize(10).fillColor('#000000')
+          .text(email.body, marginLeft, y, { width: usableWidth, lineGap: 2 });
+        y = doc.y + 10;
+      } else {
+        doc.font('Helvetica-Oblique').fontSize(10).fillColor('#888888')
+          .text('(Kein Text-Inhalt — möglicherweise HTML-only E-Mail)', marginLeft, y, { width: usableWidth });
+      }
     }
 
     // Footer einfach: Company-Info
