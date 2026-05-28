@@ -48,7 +48,7 @@ export function EventAttachmentsSection({ eventId }: Props) {
       .finally(() => setLoading(false));
   }, [eventId]);
 
-  async function handleFiles(files: FileList | null) {
+  async function handleFiles(files: FileList | File[] | null) {
     if (!files || files.length === 0) return;
     setUploading(true);
     setError(null);
@@ -63,6 +63,40 @@ export function EventAttachmentsSection({ eventId }: Props) {
       if (fileInput.current) fileInput.current.value = '';
     }
   }
+
+  // Paste-Handler fuer Screenshots aus der Zwischenablage (Cmd+V).
+  // Greift global, solange die Komponente gemounted ist (Modal offen).
+  useEffect(() => {
+    if (!eventId) return;
+    const onPaste = (e: ClipboardEvent) => {
+      // Wenn aktiver Fokus auf Input/Textarea liegt: Paste dort durchlassen.
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName?.toLowerCase() ?? '';
+      if (tag === 'input' || tag === 'textarea' || (t?.isContentEditable ?? false)) return;
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const files: File[] = [];
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        if (it.kind === 'file' && it.type.startsWith('image/')) {
+          const blob = it.getAsFile();
+          if (blob) {
+            const ext = it.type === 'image/png' ? 'png' : it.type === 'image/jpeg' ? 'jpg' : 'bin';
+            const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            files.push(new File([blob], `screenshot_${ts}.${ext}`, { type: it.type }));
+          }
+        }
+      }
+      if (files.length > 0) {
+        e.preventDefault();
+        void handleFiles(files);
+      }
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId]);
 
   async function handleDelete(att: DjEventAttachment) {
     if (!window.confirm(`„${att.original_name}" wirklich löschen?`)) return;
@@ -185,7 +219,7 @@ export function EventAttachmentsSection({ eventId }: Props) {
           </span>
           {isDragOver
             ? 'Loslassen zum Hochladen'
-            : 'Hier Dateien reinziehen oder „Datei hinzufügen" klicken (E-Mails .eml, PDFs, Bilder)'}
+            : 'Hier Dateien reinziehen, Screenshot mit ⌘V einfügen oder „Datei hinzufügen" klicken (E-Mails .eml, PDFs, Bilder)'}
         </div>
       ) : (
         <div
