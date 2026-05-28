@@ -669,6 +669,20 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
         }
 
         await queryClient.invalidateQueries({ queryKey: ['dj-events'] });
+
+        // Event nach Save neu laden — sonst zeigt Status-Verlauf den alten Stand
+        // (statusHistory wird nur im initial-load-useEffect gesetzt).
+        try {
+          const refreshed = await fetchDjEvent(eventId!);
+          setStatusHistory(refreshed.statusHistory ?? []);
+          // originalRef aktualisieren fuer Kalender-Diff im naechsten Save
+          if (originalRef.current) {
+            originalRef.current = { ...originalRef.current, ...refreshed };
+          }
+        } catch {
+          // Refresh-Fehler nicht blockieren — User hat ja schon erfolgreich gespeichert
+        }
+
         onUpdated?.();
       } else {
         const newEvent = await createDjEvent({ ...payload, status: 'anfrage' } as Parameters<typeof createDjEvent>[0]);
