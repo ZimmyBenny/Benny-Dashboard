@@ -213,6 +213,23 @@ export async function generateEventPdf(eventId: number): Promise<Buffer> {
     }
   }
 
+  // Bild-Anhaenge sammeln (JPG/PNG) — werden im PDF eingebettet (User-Wunsch 2026-05-28)
+  // pdfkit unterstuetzt nativ nur JPEG und PNG. Andere Formate (HEIC, WebP) werden uebersprungen.
+  const imageAttachments: Array<{ attachment: AttachmentRow; absPath: string }> = [];
+  for (const a of attachments) {
+    const lowerName = a.original_name.toLowerCase();
+    const isImage = (a.mime_type ?? '').startsWith('image/') ||
+                    lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') || lowerName.endsWith('.png');
+    if (!isImage) continue;
+    // Nur JPG/PNG embedden — HEIC etc. nicht
+    const supportedExt = lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') || lowerName.endsWith('.png');
+    if (!supportedExt) continue;
+    const absPath = path.resolve(ATTACHMENTS_DIR, a.file_path);
+    if (absPath.startsWith(path.resolve(ATTACHMENTS_DIR) + path.sep) && fs.existsSync(absPath)) {
+      imageAttachments.push({ attachment: a, absPath });
+    }
+  }
+
   const company = loadCompany();
 
   return new Promise<Buffer>((resolve, reject) => {
@@ -431,6 +448,32 @@ export async function generateEventPdf(eventId: number): Promise<Buffer> {
         doc.y = y;
         doc.font('Helvetica-Oblique').fontSize(10).fillColor('#888888')
           .text('(Kein Text-Inhalt — möglicherweise HTML-only E-Mail)', { width: usableWidth });
+      }
+    }
+
+    // Sektion: Bild-Anhaenge eingebettet (JPG/PNG) — User-Wunsch 2026-05-28
+    for (const { attachment, absPath } of imageAttachments) {
+      doc.addPage();
+      // Header pro Bild
+      doc.x = marginLeft;
+      doc.y = 71;
+      doc.font('Helvetica-Bold').fontSize(13).fillColor('#000000')
+        .text(`Bild: ${attachment.original_name}`, { width: usableWidth });
+      const imageStartY = doc.y + 12;
+
+      // Bild zentriert, in usable area einpassen (max Breite usableWidth, max Hoehe bis kurz vor Footer)
+      const availableHeight = doc.page.height - imageStartY - 90; // 90 = Reserve fuer Footer
+      try {
+        doc.image(absPath, marginLeft, imageStartY, {
+          fit: [usableWidth, availableHeight],
+          align: 'center',
+        });
+      } catch {
+        // Bild kann nicht gerendert werden (z.B. korrupte Datei) — Hinweis-Text statt Crash
+        doc.x = marginLeft;
+        doc.y = imageStartY;
+        doc.font('Helvetica-Oblique').fontSize(10).fillColor('#888888')
+          .text('(Bild konnte nicht eingebettet werden — möglicherweise nicht-unterstütztes Format)', { width: usableWidth });
       }
     }
 
