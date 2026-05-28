@@ -83,7 +83,7 @@ router.post('/', (req, res) => {
     customer_id, customer_freetext, location_id, title, event_type, event_type_other, event_date,
     time_start, time_end, setup_minutes, teardown_minutes,
     guests, status = 'anfrage', contact_on_site_name, contact_on_site_phone,
-    contact_on_site_email, notes, source_channel,
+    contact_on_site_email, notes, internal_notes, source_channel,
     venue_name, venue_street, venue_zip, venue_city,
   } = req.body as Record<string, unknown>;
 
@@ -107,15 +107,16 @@ router.post('/', (req, res) => {
     INSERT INTO dj_events
       (customer_id, customer_freetext, location_id, title, event_type, event_type_other, event_date, time_start, time_end,
        setup_minutes, teardown_minutes, guests, status,
-       contact_on_site_name, contact_on_site_phone, contact_on_site_email, notes, source_channel,
+       contact_on_site_name, contact_on_site_phone, contact_on_site_email, notes, internal_notes, source_channel,
        venue_name, venue_street, venue_zip, venue_city)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     customer_id ?? null, customerFreetextNormalized,
     location_id ?? null, title ?? null, event_type, eventTypeOtherNormalized, eventDateNormalized,
     time_start ?? null, time_end ?? null, setup_minutes ?? 90, teardown_minutes ?? 90,
     guests ?? null, status, contact_on_site_name ?? null,
     contact_on_site_phone ?? null, contact_on_site_email ?? null, notes ?? null,
+    typeof internal_notes === 'string' && internal_notes.trim() ? internal_notes.trim() : null,
     source_channel ?? null,
     venue_name ?? null, venue_street ?? null, venue_zip ?? null, venue_city ?? null,
   );
@@ -141,7 +142,7 @@ router.patch('/:id', (req, res) => {
     customer_id, customer_freetext, location_id, title, event_type, event_type_other, event_date,
     time_start, time_end, setup_minutes, teardown_minutes,
     guests, status, contact_on_site_name, contact_on_site_phone,
-    contact_on_site_email, notes, cancellation_reason, source_channel,
+    contact_on_site_email, notes, internal_notes, cancellation_reason, source_channel,
     venue_name, venue_street, venue_zip, venue_city, calendar_uid,
     vorgespraech_datum, vorgespraech_ort, vorgespraech_notizen, vorgespraech_plz,
   } = req.body as Record<string, unknown>;
@@ -170,6 +171,7 @@ router.patch('/:id', (req, res) => {
       contact_on_site_phone = COALESCE(?, contact_on_site_phone),
       contact_on_site_email = COALESCE(?, contact_on_site_email),
       notes = COALESCE(?, notes),
+      internal_notes = ?,
       cancellation_reason = COALESCE(?, cancellation_reason),
       source_channel = COALESCE(?, source_channel),
       venue_name = COALESCE(?, venue_name),
@@ -194,7 +196,11 @@ router.patch('/:id', (req, res) => {
     eventDateNormalized, time_start ?? null, time_end ?? null,
     setup_minutes ?? null, teardown_minutes ?? null, guests ?? null,
     status ?? null, contact_on_site_name ?? null, contact_on_site_phone ?? null,
-    contact_on_site_email ?? null, notes ?? null, cancellation_reason ?? null,
+    contact_on_site_email ?? null, notes ?? null,
+    'internal_notes' in body
+      ? (typeof internal_notes === 'string' && internal_notes.trim() ? internal_notes.trim() : null)
+      : ((existing as Record<string, unknown>).internal_notes ?? null),
+    cancellation_reason ?? null,
     source_channel ?? null,
     venue_name ?? null, venue_street ?? null, venue_zip ?? null, venue_city ?? null,
     'calendar_uid' in body ? (calendar_uid ?? null) : (existing.calendar_uid ?? null),

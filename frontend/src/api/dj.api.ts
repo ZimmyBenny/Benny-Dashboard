@@ -41,6 +41,7 @@ export interface DjEvent {
   guests: number | null;
   status: EventStatus;
   notes: string | null;
+  internal_notes: string | null;
   source_channel: string | null;
   venue_name: string | null;
   venue_street: string | null;

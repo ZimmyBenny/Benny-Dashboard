@@ -376,6 +376,7 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
   const [timeEnd, setTimeEnd] = useState('');
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
+  const [internalNotes, setInternalNotes] = useState('');
 
   // Neue Felder
   const [venueName, setVenueName] = useState('');
@@ -472,6 +473,7 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
       setTimeEnd(data.time_end ?? '');
       setTitle(data.title ?? '');
       setNotes(data.notes ?? '');
+      setInternalNotes(data.internal_notes ?? '');
       setVenueName(data.venue_name ?? '');
       setVenueStreet(data.venue_street ?? '');
       setVenueZip(data.venue_zip ?? '');
@@ -554,6 +556,7 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
         time_start: timeStart || null,
         time_end: timeEnd || null,
         notes: notes.trim() || null,
+        internal_notes: internalNotes.trim() || null,
         source_channel: sourceChannel || null,
         venue_name: venueName.trim() || null,
         venue_street: venueStreet.trim() || null,
@@ -1213,6 +1216,36 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
                 onChange={e => setNotes(e.target.value)}
                 rows={3}
                 style={{ ...inputStyle, resize: 'vertical' as const }}
+              />
+            </div>
+
+            {/* Interne Notizen — werden NICHT im PDF-Export gerendert */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={{
+                ...labelStyle,
+                display: 'flex', alignItems: 'center', gap: '0.375rem',
+              }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#ffc457' }}>lock</span>
+                Interne Notizen
+                <span style={{
+                  fontSize: '0.65rem', fontWeight: 500, fontStyle: 'italic',
+                  color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0,
+                  marginLeft: '0.375rem',
+                }}>
+                  (nicht im PDF-Export)
+                </span>
+              </label>
+              <textarea
+                placeholder="Nur für dich — Konditionen, Erinnerungen, Vermerke…"
+                value={internalNotes}
+                onChange={e => setInternalNotes(e.target.value)}
+                rows={2}
+                style={{
+                  ...inputStyle,
+                  resize: 'vertical' as const,
+                  background: 'rgba(255,196,87,0.04)',
+                  border: '1px dashed rgba(255,196,87,0.3)',
+                }}
               />
             </div>
           </div>
