@@ -95,6 +95,7 @@ export interface SourcingSample {
   product_id: number;
   sort_order: number;
   is_winner: 0 | 1;
+  sample_ordered: 0 | 1;
   hersteller: string | null;
   sample_kosten: string | null;
   besonderheiten: string | null;
@@ -119,6 +120,7 @@ export type SourcingPatch = Partial<
 
 export type SamplePatch = Partial<{
   is_winner: 0 | 1;
+  sample_ordered: 0 | 1;
   hersteller: string | null;
   sample_kosten: string | null;
   besonderheiten: string | null;
@@ -162,4 +164,98 @@ export async function updateSample(
 
 export async function deleteSample(productId: number, sampleId: number): Promise<void> {
   await apiClient.delete(`/amazon/products/${productId}/sourcing/samples/${sampleId}`);
+}
+
+// ── Brand-Sektion ─────────────────────────────────────────────────────────────
+
+export type BrandStatus = 'offen' | 'in_bearbeitung' | 'erledigt';
+export type ResearchStatus = 'frei' | 'belegt' | 'unklar';
+
+export interface BrandName {
+  product_id: number;
+  status: BrandStatus;
+  is_expanded: 0 | 1;
+  notes: string | null;
+  updated_at: number;
+}
+
+export interface BrandCandidate {
+  id: number;
+  product_id: number;
+  sort_order: number;
+  name: string;
+  is_interesting: 0 | 1;
+  is_maybe: 0 | 1;
+  is_yes: 0 | 1;
+  is_no: 0 | 1;
+  is_favorite: 0 | 1;
+  is_archived: 0 | 1;
+  remarks: string | null;
+  trademark_status: ResearchStatus | null;
+  domain_com_status: ResearchStatus | null;
+  domain_de_status: ResearchStatus | null;
+  social_status: ResearchStatus | null;
+  research_url: string | null;
+  research_notes: string | null;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface BrandPayload {
+  brand: BrandName;
+  names: BrandCandidate[];
+}
+
+export type BrandPatch = Partial<Pick<BrandName, 'status' | 'is_expanded' | 'notes'>>;
+
+export type CandidatePatch = Partial<{
+  name: string;
+  is_interesting: 0 | 1;
+  is_maybe: 0 | 1;
+  is_yes: 0 | 1;
+  is_no: 0 | 1;
+  is_favorite: 0 | 1;
+  is_archived: 0 | 1;
+  remarks: string | null;
+  trademark_status: ResearchStatus | null;
+  domain_com_status: ResearchStatus | null;
+  domain_de_status: ResearchStatus | null;
+  social_status: ResearchStatus | null;
+  research_url: string | null;
+  research_notes: string | null;
+  sort_order: number;
+}>;
+
+export async function fetchBrand(productId: number): Promise<BrandPayload> {
+  const r = await apiClient.get<BrandPayload>(`/amazon/products/${productId}/brand`);
+  return r.data;
+}
+
+export async function updateBrand(productId: number, patch: BrandPatch): Promise<BrandName> {
+  const r = await apiClient.patch<{ brand: BrandName }>(`/amazon/products/${productId}/brand`, patch);
+  return r.data.brand;
+}
+
+export async function createCandidate(productId: number, name: string): Promise<BrandCandidate> {
+  const r = await apiClient.post<{ name: BrandCandidate }>(
+    `/amazon/products/${productId}/brand/names`,
+    { name },
+  );
+  return r.data.name;
+}
+
+export async function updateCandidate(
+  productId: number,
+  candidateId: number,
+  patch: CandidatePatch,
+): Promise<BrandCandidate> {
+  const r = await apiClient.patch<{ name: BrandCandidate }>(
+    `/amazon/products/${productId}/brand/names/${candidateId}`,
+    patch,
+  );
+  return r.data.name;
+}
+
+export async function deleteCandidate(productId: number, candidateId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/brand/names/${candidateId}`);
 }
