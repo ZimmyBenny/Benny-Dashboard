@@ -75,41 +75,6 @@ export function exportBrandPdf(product: { name: string }, payload: BrandPayload)
     y = (doc as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 20;
   }
 
-  // Recherche-Block je Favorit
-  const favorites = visible.filter(c => c.is_favorite === 1);
-  for (const fav of favorites) {
-    if (y > 720) { doc.addPage(); y = 50; }
-
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text(fav.name, marginX, y);
-    doc.setFont('helvetica', 'normal');
-    y += 18;
-
-    doc.setFontSize(10);
-    const rows: Array<[string, string]> = [
-      ['Markenrecht',  fmtStatus(fav.trademark_status)],
-      ['.com Domain',  fmtStatus(fav.domain_com_status)],
-      ['.de Domain',   fmtStatus(fav.domain_de_status)],
-      ['Social Media', fmtStatus(fav.social_status)],
-      ['URL',          fav.research_url ?? '-'],
-    ];
-    for (const [k, v] of rows) {
-      doc.text(`${k}: ${v}`, marginX + 8, y);
-      y += 13;
-      if (y > 760) { doc.addPage(); y = 50; }
-    }
-    if (fav.research_notes) {
-      doc.text('Notizen:', marginX + 8, y);
-      y += 13;
-      const lines = doc.splitTextToSize(fav.research_notes, pageWidth - marginX * 2 - 16);
-      doc.text(lines, marginX + 16, y);
-      y += lines.length * 12 + 12;
-    } else {
-      y += 4;
-    }
-  }
-
   // Footer
   const pageCount = doc.getNumberOfPages();
   for (let p = 1; p <= pageCount; p++) {
