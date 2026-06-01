@@ -43,7 +43,7 @@ export function BrandNameRow({ productId, candidate, onRequestDelete }: Props) {
     patch({ remarks: next });
   }
 
-  function toggle(field: 'is_interesting' | 'is_maybe' | 'is_yes' | 'is_no' | 'is_favorite' | 'is_archived', current: 0 | 1) {
+  function toggle(field: 'is_interesting' | 'is_maybe' | 'is_no' | 'is_favorite' | 'is_archived', current: 0 | 1) {
     patch({ [field]: current === 1 ? 0 : 1 } as CandidatePatch);
   }
 
@@ -60,7 +60,7 @@ export function BrandNameRow({ productId, candidate, onRequestDelete }: Props) {
           style={INPUT_STYLE}
         />
       </td>
-      {(['is_interesting', 'is_maybe', 'is_yes', 'is_no', 'is_favorite'] as const).map(field => (
+      {(['is_interesting', 'is_maybe', 'is_no', 'is_favorite'] as const).map(field => (
         <td key={field} className="p-2 text-center">
           <input
             type="checkbox"

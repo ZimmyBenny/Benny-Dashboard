@@ -29,7 +29,7 @@ interface Props {
 // Bei mehreren aktiven Flags addieren sich die Gewichte; 'Nein' ueberwiegt alles.
 function scoreOf(c: BrandCandidate): number {
   if (c.is_no === 1) return -1000;
-  return c.is_favorite * 50 + c.is_interesting * 30 + c.is_yes * 20 + c.is_maybe * 10;
+  return c.is_favorite * 50 + c.is_interesting * 30 + c.is_maybe * 10;
 }
 
 function sortByScore(list: BrandCandidate[]): BrandCandidate[] {
@@ -124,11 +124,12 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
               search
             </span>
             <input
-              type="search"
+              type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setSearch(''); }}
               placeholder="Suchen …"
-              className="pl-7 pr-2 py-1.5 rounded-md text-sm"
+              className="pl-7 pr-7 py-1.5 rounded-md text-sm"
               style={{
                 background: 'var(--color-surface-container-low)',
                 color: 'var(--color-on-surface)',
@@ -136,6 +137,17 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
                 minWidth: '180px',
               }}
             />
+            {search.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                aria-label="Suche zuruecksetzen"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-white/10"
+                style={{ color: 'var(--color-on-surface-variant)' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>close</span>
+              </button>
+            )}
           </div>
           <button
             type="button"
@@ -184,7 +196,6 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
                 <th style={TH_STYLE}>Name</th>
                 <th style={{ ...TH_STYLE, textAlign: 'center' }}>Interessant</th>
                 <th style={{ ...TH_STYLE, textAlign: 'center' }}>Vielleicht</th>
-                <th style={{ ...TH_STYLE, textAlign: 'center' }}>Ja</th>
                 <th style={{ ...TH_STYLE, textAlign: 'center' }}>Nein</th>
                 <th style={{ ...TH_STYLE, textAlign: 'center' }}>★ Favourit</th>
                 <th style={TH_STYLE}>Bemerkungen</th>
