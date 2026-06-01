@@ -250,4 +250,27 @@ describe('Sourcing API — Samples', () => {
     expect(r.status).toBe(400);
     expect(r.body.error).toMatch(/limit/i);
   });
+
+  it('PATCH setzt sample_ordered = 1', async () => {
+    const productId = makeProduct(db);
+    const sid = (await request(app).post(`/api/amazon/products/${productId}/sourcing/samples`).send({})).body.sample.id;
+
+    const r = await request(app)
+      .patch(`/api/amazon/products/${productId}/sourcing/samples/${sid}`)
+      .send({ sample_ordered: 1 });
+
+    expect(r.status).toBe(200);
+    expect(r.body.sample.sample_ordered).toBe(1);
+  });
+
+  it('PATCH ungueltiges sample_ordered -> 400', async () => {
+    const productId = makeProduct(db);
+    const sid = (await request(app).post(`/api/amazon/products/${productId}/sourcing/samples`).send({})).body.sample.id;
+
+    const r = await request(app)
+      .patch(`/api/amazon/products/${productId}/sourcing/samples/${sid}`)
+      .send({ sample_ordered: 2 });
+
+    expect(r.status).toBe(400);
+  });
 });

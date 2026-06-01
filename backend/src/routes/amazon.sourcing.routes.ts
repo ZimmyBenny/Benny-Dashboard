@@ -76,6 +76,7 @@ interface SampleRow {
   bewertung: number | null;
   status: SampleStatus | null;
   notizen: string | null;
+  sample_ordered: number;
   created_at: number;
   updated_at: number;
 }
@@ -268,6 +269,15 @@ router.patch('/products/:id/sourcing/samples/:sampleId', (req: Request, res: Res
     }
     updates.push('is_winner = ?');
     params.push(body.is_winner);
+  }
+
+  if (body.sample_ordered !== undefined) {
+    if (body.sample_ordered !== 0 && body.sample_ordered !== 1) {
+      res.status(400).json({ error: 'invalid sample_ordered' });
+      return;
+    }
+    updates.push('sample_ordered = ?');
+    params.push(body.sample_ordered);
   }
 
   if (updates.length > 0) {
