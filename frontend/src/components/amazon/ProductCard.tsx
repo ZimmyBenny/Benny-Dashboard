@@ -37,7 +37,7 @@ function ProductImage({ product }: { product: AmazonProduct }) {
   if (!src) {
     return (
       <div
-        className="aspect-[4/3] rounded-t-xl flex items-center justify-center"
+        className="aspect-[4/3] rounded-t-xl overflow-hidden flex items-center justify-center"
         style={{ background: 'var(--color-surface-container-low)' }}
       >
         <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--color-on-surface-variant)', opacity: 0.5 }}>
@@ -48,7 +48,7 @@ function ProductImage({ product }: { product: AmazonProduct }) {
   }
   return (
     <div
-      className="aspect-[4/3] w-full rounded-t-xl flex items-center justify-center"
+      className="aspect-[4/3] w-full rounded-t-xl overflow-hidden flex items-center justify-center"
       style={{ background: 'var(--color-surface-container-lowest)' }}
     >
       <img src={src} alt={product.name} className="w-full h-full object-contain" />
@@ -65,7 +65,7 @@ export function ProductCard({ product, onRequestDelete }: ProductCardProps) {
       className="block group"
     >
       <article
-        className="rounded-xl overflow-hidden cursor-pointer transition-shadow hover:shadow-lg"
+        className="rounded-xl cursor-pointer transition-shadow hover:shadow-lg"
         style={{
           background: 'var(--color-surface-container-low)',
           border: `1px solid ${color}26`,
