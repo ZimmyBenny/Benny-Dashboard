@@ -141,7 +141,7 @@ export function NewProductDialog({ open, onClose }: Props) {
                 const f = e.dataTransfer.files?.[0];
                 if (f) handlePickFile(f);
               }}
-              className="w-full aspect-[16/9] rounded-md flex items-center justify-center text-sm overflow-hidden"
+              className="w-full aspect-[4/3] rounded-md flex items-center justify-center text-sm overflow-hidden"
               style={{
                 background: 'var(--color-surface-container-low)',
                 border: '1px dashed rgba(255,255,255,0.16)',
@@ -149,7 +149,7 @@ export function NewProductDialog({ open, onClose }: Props) {
               }}
             >
               {previewUrl
-                ? <img src={previewUrl} alt="Vorschau" className="w-full h-full object-cover" />
+                ? <img src={previewUrl} alt="Vorschau" className="max-w-full max-h-full object-contain" />
                 : <span>Klicken, Drag&Drop oder Cmd+V einfügen</span>}
             </button>
             <input

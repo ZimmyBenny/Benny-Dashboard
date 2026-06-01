@@ -40,7 +40,7 @@ function ProductImage({ product }: { product: AmazonProduct }) {
   if (!src) {
     return (
       <div
-        className="aspect-[16/9] rounded-t-xl flex items-center justify-center"
+        className="aspect-[4/3] rounded-t-xl flex items-center justify-center"
         style={{ background: 'var(--color-surface-container-low)' }}
       >
         <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--color-on-surface-variant)', opacity: 0.5 }}>
@@ -49,7 +49,14 @@ function ProductImage({ product }: { product: AmazonProduct }) {
       </div>
     );
   }
-  return <img src={src} alt={product.name} className="aspect-[16/9] w-full object-cover rounded-t-xl" />;
+  return (
+    <div
+      className="aspect-[4/3] w-full rounded-t-xl flex items-center justify-center"
+      style={{ background: 'var(--color-surface-container-lowest)' }}
+    >
+      <img src={src} alt={product.name} className="max-h-full max-w-full object-contain" />
+    </div>
+  );
 }
 
 export function ProductCard({ product, onRequestDelete }: ProductCardProps) {
