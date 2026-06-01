@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { type BrandCandidate, type BrandName } from '../../api/amazon.api';
 import { useCreateCandidate } from '../../hooks/amazon/useBrand';
 import { BrandNameRow } from './BrandNameRow';
@@ -52,16 +52,44 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
   const archivedCount = candidates.filter(c => c.is_archived === 1).length;
   const activeCount = candidates.filter(c => c.is_archived === 0).length;
 
+  // Stabile Sortierung: Reihenfolge bleibt bei Status-Klicks unveraendert.
+  // Neu sortiert wird nur bei Add/Delete oder manuellem 'Sortieren'-Klick.
+  const [orderedIds, setOrderedIds] = useState<number[]>(
+    () => sortByScore(candidates).map(c => c.id),
+  );
+
+  useEffect(() => {
+    const known = new Set(orderedIds);
+    const current = new Set(candidates.map(c => c.id));
+    const sameSet = known.size === current.size && [...current].every(id => known.has(id));
+    if (sameSet) return;
+    // Add oder Delete: einmalig neu sortieren
+    setOrderedIds(sortByScore(candidates).map(c => c.id));
+  }, [candidates, orderedIds]);
+
+  function resort() {
+    setOrderedIds(sortByScore(candidates).map(c => c.id));
+  }
+
   const visibleSorted = useMemo(() => {
+    const byId = new Map(candidates.map(c => [c.id, c]));
+    const inOrder = orderedIds
+      .map(id => byId.get(id))
+      .filter((c): c is BrandCandidate => Boolean(c));
+    // Falls neue IDs noch nicht im sortierten Cache sind, ans Ende anhaengen.
+    const inOrderSet = new Set(orderedIds);
+    const extras = candidates.filter(c => !inOrderSet.has(c.id));
+    let merged: BrandCandidate[] = [...inOrder, ...extras];
+
     const q = search.trim().toLowerCase();
-    let filtered = showArchived ? candidates : candidates.filter(c => c.is_archived === 0);
+    if (!showArchived) merged = merged.filter(c => c.is_archived === 0);
     if (q.length > 0) {
-      filtered = filtered.filter(c =>
+      merged = merged.filter(c =>
         c.name.toLowerCase().includes(q) || (c.remarks ?? '').toLowerCase().includes(q),
       );
     }
-    return sortByScore(filtered);
-  }, [candidates, showArchived, search]);
+    return merged;
+  }, [candidates, orderedIds, showArchived, search]);
 
   const existingLower = useMemo(
     () => new Set(candidates.map(c => c.name.toLowerCase())),
@@ -149,6 +177,20 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
               </button>
             )}
           </div>
+          <button
+            type="button"
+            onClick={resort}
+            className="px-3 py-1.5 rounded-md text-sm flex items-center gap-2"
+            style={{
+              background: 'var(--color-surface-container-high)',
+              color: 'var(--color-on-surface)',
+              border: '1px solid rgba(255,255,255,0.08)',
+            }}
+            title="Liste neu sortieren (Favoriten/Interessant nach oben, Nein nach unten)"
+          >
+            <span className="material-symbols-outlined text-base">sort</span>
+            Sortieren
+          </button>
           <button
             type="button"
             onClick={() => setShowArchived(v => !v)}
