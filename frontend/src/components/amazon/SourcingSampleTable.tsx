@@ -49,6 +49,7 @@ export function SourcingSampleTable({ productId, samples }: Props) {
                 <th style={TH_STYLE}>Sample Kosten</th>
                 <th style={TH_STYLE}>Besonderheiten</th>
                 <th style={TH_STYLE}>Lieferzeit</th>
+                <th style={{ ...TH_STYLE, textAlign: 'center' }}>Beauftragt</th>
                 <th style={TH_STYLE}>Qualität</th>
                 <th style={TH_STYLE}>Bewertung</th>
                 <th style={TH_STYLE}>Status</th>

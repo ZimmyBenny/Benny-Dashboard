@@ -126,6 +126,17 @@ export function SourcingSampleRow({ productId, sample, onRequestDelete }: Props)
         />
       </td>
 
+      <td className="p-2 text-center">
+        <input
+          type="checkbox"
+          checked={sample.sample_ordered === 1}
+          onChange={(e) => patch({ sample_ordered: e.target.checked ? 1 : 0 })}
+          aria-label="Sample beauftragt"
+          className="w-4 h-4"
+          style={{ accentColor: 'var(--color-primary)' }}
+        />
+      </td>
+
       <td className="p-2">
         <select
           value={sample.qualitaet ?? ''}
