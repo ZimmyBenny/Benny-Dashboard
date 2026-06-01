@@ -105,3 +105,149 @@ describe('Sourcing API — GET + PATCH', () => {
     expect(r1.body.sourcing.is_expanded).toBe(0);
   });
 });
+
+describe('Sourcing API — Samples', () => {
+  let db: Database.Database;
+  let app: express.Express;
+
+  beforeEach(async () => {
+    db = createTestDb();
+    app = await makeApp(db);
+  });
+
+  it('POST legt leere Sample-Zeile an, sort_order = max+1', async () => {
+    const productId = makeProduct(db);
+
+    const r1 = await request(app).post(`/api/amazon/products/${productId}/sourcing/samples`).send({});
+    expect(r1.status).toBe(201);
+    expect(r1.body.sample).toMatchObject({
+      product_id: productId,
+      sort_order: 1,
+      is_winner: 0,
+      hersteller: null,
+      bewertung: null,
+    });
+
+    const r2 = await request(app).post(`/api/amazon/products/${productId}/sourcing/samples`).send({});
+    expect(r2.body.sample.sort_order).toBe(2);
+
+    const r3 = await request(app).post(`/api/amazon/products/${productId}/sourcing/samples`).send({});
+    expect(r3.body.sample.sort_order).toBe(3);
+  });
+
+  it('POST gibt 404 fuer unbekanntes Produkt', async () => {
+    const r = await request(app).post(`/api/amazon/products/9999/sourcing/samples`).send({});
+    expect(r.status).toBe(404);
+  });
+
+  it('PATCH aktualisiert Felder mit Trim', async () => {
+    const productId = makeProduct(db);
+    const created = await request(app).post(`/api/amazon/products/${productId}/sourcing/samples`).send({});
+    const sid = created.body.sample.id;
+
+    const r = await request(app)
+      .patch(`/api/amazon/products/${productId}/sourcing/samples/${sid}`)
+      .send({ hersteller: '  Lieferant A  ', bewertung: 4, qualitaet: 'gut', status: 'bestellt' });
+
+    expect(r.status).toBe(200);
+    expect(r.body.sample.hersteller).toBe('Lieferant A');
+    expect(r.body.sample.bewertung).toBe(4);
+    expect(r.body.sample.qualitaet).toBe('gut');
+    expect(r.body.sample.status).toBe('bestellt');
+  });
+
+  it('PATCH leerer String wird zu null', async () => {
+    const productId = makeProduct(db);
+    const created = await request(app).post(`/api/amazon/products/${productId}/sourcing/samples`).send({});
+    const sid = created.body.sample.id;
+    await request(app).patch(`/api/amazon/products/${productId}/sourcing/samples/${sid}`)
+      .send({ hersteller: 'X' });
+    const r = await request(app).patch(`/api/amazon/products/${productId}/sourcing/samples/${sid}`)
+      .send({ hersteller: '' });
+    expect(r.body.sample.hersteller).toBeNull();
+  });
+
+  it('PATCH ungueltige bewertung -> 400', async () => {
+    const productId = makeProduct(db);
+    const created = await request(app).post(`/api/amazon/products/${productId}/sourcing/samples`).send({});
+    const sid = created.body.sample.id;
+
+    const r1 = await request(app).patch(`/api/amazon/products/${productId}/sourcing/samples/${sid}`)
+      .send({ bewertung: 7 });
+    expect(r1.status).toBe(400);
+
+    const r2 = await request(app).patch(`/api/amazon/products/${productId}/sourcing/samples/${sid}`)
+      .send({ bewertung: -1 });
+    expect(r2.status).toBe(400);
+  });
+
+  it('PATCH ungueltige qualitaet/status -> 400', async () => {
+    const productId = makeProduct(db);
+    const created = await request(app).post(`/api/amazon/products/${productId}/sourcing/samples`).send({});
+    const sid = created.body.sample.id;
+
+    const r1 = await request(app).patch(`/api/amazon/products/${productId}/sourcing/samples/${sid}`)
+      .send({ qualitaet: 'super_gut' });
+    expect(r1.status).toBe(400);
+
+    const r2 = await request(app).patch(`/api/amazon/products/${productId}/sourcing/samples/${sid}`)
+      .send({ status: 'kaputt' });
+    expect(r2.status).toBe(400);
+  });
+
+  it('PATCH is_winner = 1 setzt alle anderen auf 0 (Transaktion)', async () => {
+    const productId = makeProduct(db);
+    const s1 = (await request(app).post(`/api/amazon/products/${productId}/sourcing/samples`).send({})).body.sample.id;
+    const s2 = (await request(app).post(`/api/amazon/products/${productId}/sourcing/samples`).send({})).body.sample.id;
+    const s3 = (await request(app).post(`/api/amazon/products/${productId}/sourcing/samples`).send({})).body.sample.id;
+
+    await request(app).patch(`/api/amazon/products/${productId}/sourcing/samples/${s1}`).send({ is_winner: 1 });
+    let rows = db.prepare(`SELECT id, is_winner FROM amazon_sourcing_samples WHERE product_id=?`).all(productId) as Array<{ id: number; is_winner: number }>;
+    expect(rows.find(r => r.id === s1)!.is_winner).toBe(1);
+    expect(rows.find(r => r.id === s2)!.is_winner).toBe(0);
+    expect(rows.find(r => r.id === s3)!.is_winner).toBe(0);
+
+    await request(app).patch(`/api/amazon/products/${productId}/sourcing/samples/${s2}`).send({ is_winner: 1 });
+    rows = db.prepare(`SELECT id, is_winner FROM amazon_sourcing_samples WHERE product_id=?`).all(productId) as Array<{ id: number; is_winner: number }>;
+    expect(rows.find(r => r.id === s1)!.is_winner).toBe(0);
+    expect(rows.find(r => r.id === s2)!.is_winner).toBe(1);
+  });
+
+  it('PATCH text-Feld > 500 -> 400', async () => {
+    const productId = makeProduct(db);
+    const sid = (await request(app).post(`/api/amazon/products/${productId}/sourcing/samples`).send({})).body.sample.id;
+    const r = await request(app).patch(`/api/amazon/products/${productId}/sourcing/samples/${sid}`)
+      .send({ notizen: 'x'.repeat(501) });
+    expect(r.status).toBe(400);
+  });
+
+  it('DELETE entfernt Sample', async () => {
+    const productId = makeProduct(db);
+    const sid = (await request(app).post(`/api/amazon/products/${productId}/sourcing/samples`).send({})).body.sample.id;
+
+    const r = await request(app).delete(`/api/amazon/products/${productId}/sourcing/samples/${sid}`);
+    expect(r.status).toBe(204);
+
+    const row = db.prepare(`SELECT * FROM amazon_sourcing_samples WHERE id=?`).get(sid);
+    expect(row).toBeUndefined();
+  });
+
+  it('DELETE eines fremden Sample -> 404', async () => {
+    const productA = makeProduct(db, 'A');
+    const productB = makeProduct(db, 'B');
+    const sid = (await request(app).post(`/api/amazon/products/${productA}/sourcing/samples`).send({})).body.sample.id;
+
+    const r = await request(app).delete(`/api/amazon/products/${productB}/sourcing/samples/${sid}`);
+    expect(r.status).toBe(404);
+  });
+
+  it('Sample-Limit 50: 51. POST -> 400', async () => {
+    const productId = makeProduct(db);
+    const insert = db.prepare(`INSERT INTO amazon_sourcing_samples (product_id, sort_order) VALUES (?, ?)`);
+    for (let i = 1; i <= 50; i++) insert.run(productId, i);
+
+    const r = await request(app).post(`/api/amazon/products/${productId}/sourcing/samples`).send({});
+    expect(r.status).toBe(400);
+    expect(r.body.error).toMatch(/limit/i);
+  });
+});
