@@ -11,7 +11,7 @@ function slug(s: string, max = 50): string {
 }
 
 function fmtStatus(v: ResearchStatus | null): string {
-  if (!v) return '—';
+  if (!v) return '-';
   return v;
 }
 
@@ -23,7 +23,7 @@ export function exportBrandPdf(product: { name: string }, payload: BrandPayload)
 
   // Titel
   doc.setFontSize(20);
-  doc.text(`Markennamen — ${product.name}`, marginX, y);
+  doc.text(`Markennamen - ${product.name}`, marginX, y);
   y += 24;
 
   doc.setFontSize(10);
@@ -84,9 +84,11 @@ export function exportBrandPdf(product: { name: string }, payload: BrandPayload)
   for (const fav of favorites) {
     if (y > 720) { doc.addPage(); y = 50; }
 
-    doc.setFontSize(13);
-    doc.text(`── ${fav.name} ──`, marginX, y);
-    y += 16;
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text(fav.name, marginX, y);
+    doc.setFont('helvetica', 'normal');
+    y += 18;
 
     doc.setFontSize(10);
     const rows: Array<[string, string]> = [
@@ -94,7 +96,7 @@ export function exportBrandPdf(product: { name: string }, payload: BrandPayload)
       ['.com Domain',  fmtStatus(fav.domain_com_status)],
       ['.de Domain',   fmtStatus(fav.domain_de_status)],
       ['Social Media', fmtStatus(fav.social_status)],
-      ['URL',          fav.research_url ?? '—'],
+      ['URL',          fav.research_url ?? '-'],
     ];
     for (const [k, v] of rows) {
       doc.text(`${k}: ${v}`, marginX + 8, y);
