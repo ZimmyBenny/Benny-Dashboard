@@ -1,28 +1,16 @@
 import { useEffect, useState } from 'react';
-import { type AmazonProduct, type AmazonProductStatus, getAmazonProductImageObjectUrl } from '../../api/amazon.api';
+import { type AmazonProduct, getAmazonProductImageObjectUrl } from '../../api/amazon.api';
+import { ProductStatusBadge } from './ProductStatusBadge';
 
-const STATUS_LABEL: Record<AmazonProductStatus, string> = {
-  interessant: 'Interessant',
-  aktiv:       'Aktiv',
-  bestehend:   'Bestehend',
-  verworfen:   'Verworfen',
-};
-const STATUS_ICON: Record<AmazonProductStatus, string> = {
-  interessant: 'star',
-  aktiv:       'settings',
-  bestehend:   'check_circle',
-  verworfen:   'archive',
-};
-const STATUS_COLOR: Record<AmazonProductStatus, string> = {
-  interessant: '#60a5fa', // blue-400
+const BORDER_COLOR: Record<AmazonProduct['status'], string> = {
+  interessant: '#60a5fa',
   aktiv:       '#60a5fa',
-  bestehend:   '#34d399', // emerald-400
-  verworfen:   '#fdba74', // orange-300
+  bestehend:   '#34d399',
+  verworfen:   '#fdba74',
 };
 
 function ProductImage({ product }: { product: AmazonProduct }) {
   const [src, setSrc] = useState<string | null>(null);
-
   useEffect(() => {
     let revoked = false;
     let objectUrl: string | null = null;
@@ -46,10 +34,7 @@ function ProductImage({ product }: { product: AmazonProduct }) {
         className="aspect-[16/9] rounded-t-xl flex items-center justify-center"
         style={{ background: 'var(--color-surface-container-low)' }}
       >
-        <span
-          className="material-symbols-outlined text-4xl"
-          style={{ color: 'var(--color-on-surface-variant)', opacity: 0.5 }}
-        >
+        <span className="material-symbols-outlined text-4xl" style={{ color: 'var(--color-on-surface-variant)', opacity: 0.5 }}>
           image
         </span>
       </div>
@@ -59,23 +44,19 @@ function ProductImage({ product }: { product: AmazonProduct }) {
 }
 
 export function ProductCard({ product }: { product: AmazonProduct }) {
-  const color = STATUS_COLOR[product.status];
+  const color = BORDER_COLOR[product.status];
   return (
     <article
       className="rounded-xl overflow-hidden"
       style={{
         background: 'var(--color-surface-container-low)',
-        border: `1px solid ${color}26`, // ~15% alpha
+        border: `1px solid ${color}26`,
       }}
     >
       <div className="relative">
         <ProductImage product={product} />
-        <div
-          className="absolute top-2 left-2 px-2.5 py-1 rounded-full text-xs flex items-center gap-1 backdrop-blur-sm"
-          style={{ background: `${color}33`, color }}
-        >
-          <span className="material-symbols-outlined text-base">{STATUS_ICON[product.status]}</span>
-          {STATUS_LABEL[product.status]}
+        <div className="absolute top-2 left-2">
+          <ProductStatusBadge productId={product.id} status={product.status} />
         </div>
       </div>
       <div className="p-3">
