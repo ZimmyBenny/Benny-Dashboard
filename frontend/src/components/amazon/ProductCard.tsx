@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { type AmazonProduct, getAmazonProductImageObjectUrl } from '../../api/amazon.api';
-import { useUploadAmazonProductImage } from '../../hooks/amazon/useAmazonProducts';
 import { ProductStatusBadge } from './ProductStatusBadge';
 
 const BORDER_COLOR: Record<AmazonProduct['status'], string> = {
@@ -9,9 +9,6 @@ const BORDER_COLOR: Record<AmazonProduct['status'], string> = {
   bestehend:   '#34d399',
   verworfen:   '#fdba74',
 };
-
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const MAX_BYTES = 5 * 1024 * 1024;
 
 interface ProductCardProps {
   product: AmazonProduct;
@@ -61,74 +58,50 @@ function ProductImage({ product }: { product: AmazonProduct }) {
 
 export function ProductCard({ product, onRequestDelete }: ProductCardProps) {
   const color = BORDER_COLOR[product.status];
-  const upload = useUploadAmazonProductImage();
-  const fileInput = useRef<HTMLInputElement | null>(null);
-
-  function onPick(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    e.target.value = '';
-    if (!f) return;
-    if (!ALLOWED_TYPES.includes(f.type) || f.size > MAX_BYTES) return;
-    upload.mutate({ id: product.id, file: f });
-  }
-
   return (
-    <article
-      className="rounded-xl overflow-hidden group"
-      style={{
-        background: 'var(--color-surface-container-low)',
-        border: `1px solid ${color}26`,
-      }}
+    <Link
+      to={`/amazon/products/${product.id}`}
+      aria-label={`Produkt ${product.name} oeffnen`}
+      className="block group"
     >
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => fileInput.current?.click()}
-          aria-label={product.image_path ? 'Bild ersetzen' : 'Bild hinzufügen'}
-          className="block w-full relative"
-        >
+      <article
+        className="rounded-xl overflow-hidden cursor-pointer transition-shadow hover:shadow-lg"
+        style={{
+          background: 'var(--color-surface-container-low)',
+          border: `1px solid ${color}26`,
+        }}
+      >
+        <div className="relative">
           <ProductImage product={product} />
-          <span
-            className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
-            style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(2px)' }}
+          <div
+            className="absolute top-2 left-2 z-10"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
           >
-            <span
-              className="px-2.5 py-1 rounded-md text-xs flex items-center gap-1"
-              style={{ background: 'var(--color-surface-container)', color: 'var(--color-on-surface)' }}
-            >
-              <span className="material-symbols-outlined text-base">photo_camera</span>
-              {product.image_path ? 'Ersetzen' : 'Hinzufügen'}
-            </span>
-          </span>
-        </button>
-        <input
-          ref={fileInput}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="hidden"
-          onChange={onPick}
-        />
-        <div className="absolute top-2 left-2 z-10">
-          <ProductStatusBadge productId={product.id} status={product.status} />
+            <ProductStatusBadge productId={product.id} status={product.status} />
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onRequestDelete(product);
+            }}
+            aria-label="Produkt loeschen"
+            className="absolute top-2 right-2 z-10 p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
+          >
+            <span className="material-symbols-outlined text-base" style={{ color: '#fca5a5' }}>delete</span>
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => onRequestDelete(product)}
-          aria-label="Produkt löschen"
-          className="absolute top-2 right-2 z-10 p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
-          style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
-        >
-          <span className="material-symbols-outlined text-base" style={{ color: '#fca5a5' }}>delete</span>
-        </button>
-      </div>
-      <div className="p-3">
-        <h3 className="font-semibold mb-2" style={{ color: 'var(--color-on-surface)' }}>
-          {product.name}
-        </h3>
-        <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
-          {new Date(product.created_at * 1000).toLocaleDateString('de-DE')}
-        </p>
-      </div>
-    </article>
+        <div className="p-3">
+          <h3 className="font-semibold mb-2" style={{ color: 'var(--color-on-surface)' }}>
+            {product.name}
+          </h3>
+          <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
+            {new Date(product.created_at * 1000).toLocaleDateString('de-DE')}
+          </p>
+        </div>
+      </article>
+    </Link>
   );
 }
