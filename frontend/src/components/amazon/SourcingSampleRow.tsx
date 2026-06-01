@@ -148,7 +148,7 @@ export function SourcingSampleRow({ productId, sample, onRequestDelete }: Props)
                 key={n}
                 type="button"
                 aria-label={`${n} Sterne`}
-                onClick={() => patch({ bewertung: n })}
+                onClick={() => patch({ bewertung: sample.bewertung === n ? null : n })}
                 className="w-5 h-5 flex items-center justify-center"
               >
                 <span
