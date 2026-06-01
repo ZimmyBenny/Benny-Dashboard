@@ -61,7 +61,7 @@ function ProductImageLarge({ product }: { product: AmazonProduct }) {
       className="aspect-[4/3] w-full rounded-lg flex items-center justify-center overflow-hidden"
       style={{ background: 'var(--color-surface-container-lowest)' }}
     >
-      <img src={src} alt={product.name} className="max-h-full max-w-full object-contain" />
+      <img src={src} alt={product.name} className="w-full h-full object-contain" />
     </div>
   );
 }
