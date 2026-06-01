@@ -60,7 +60,7 @@ export function ProductCard({ product, onRequestDelete }: ProductCardProps) {
   const color = BORDER_COLOR[product.status];
   return (
     <Link
-      to={`/amazon/products/${product.id}`}
+      to={`/amazon/entwicklung/products/${product.id}`}
       aria-label={`Produkt ${product.name} oeffnen`}
       className="block group"
     >

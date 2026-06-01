@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { PrivateRoute } from './PrivateRoute';
 import { AppShell } from '../components/layout/AppShell';
 import { LoginPage } from '../pages/LoginPage';
@@ -69,8 +69,9 @@ export const router = createBrowserRouter([
           { path: '/dj/accounting',       element: <DjAccountingPage /> },
           { path: '/dj/settings',         element: <DjSettingsPage /> },
           { path: '/finances',       element: <FinancesPage /> },
-          { path: '/amazon',                 element: <AmazonOverviewPage /> },
-          { path: '/amazon/products/:id',    element: <AmazonProductDetailPage /> },
+          { path: '/amazon',                       element: <Navigate to="/amazon/entwicklung" replace /> },
+          { path: '/amazon/entwicklung',           element: <AmazonOverviewPage /> },
+          { path: '/amazon/entwicklung/products/:id', element: <AmazonProductDetailPage /> },
           { path: '/ki-agenten',     element: <KiAgentsPage /> },
           { path: '/settings',       element: <SettingsPage /> },
           // Kontakte — WICHTIG: /new und /import VOR /:id

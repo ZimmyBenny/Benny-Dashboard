@@ -126,7 +126,7 @@ export function AmazonProductDetailPage() {
         <div className="flex flex-col gap-3">
           <p style={{ color: 'var(--color-on-surface)' }}>Produkt nicht gefunden.</p>
           <Link
-            to="/amazon"
+            to="/amazon/entwicklung"
             className="px-3 py-1.5 rounded-md text-sm self-start"
             style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}
           >
@@ -145,7 +145,7 @@ export function AmazonProductDetailPage() {
       <header className="flex items-center gap-4 mb-6">
         <button
           type="button"
-          onClick={() => navigate('/amazon')}
+          onClick={() => navigate('/amazon/entwicklung')}
           aria-label="Zurueck"
           className="p-2 rounded-md"
           style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}

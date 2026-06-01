@@ -24,7 +24,9 @@ export const navItems: NavItem[] = [
     { path: '/dj/accounting',   label: 'Buchhaltung',        icon: 'account_balance' },
     { path: '/dj/settings',     label: 'DJ Einstellungen',   icon: 'tune' },
   ]},
-  { path: '/amazon',          label: 'Amazon',            icon: 'shopping_cart' },
+  { path: '/amazon', label: 'Amazon', icon: 'shopping_cart', subItems: [
+    { path: '/amazon/entwicklung',  label: 'Entwicklung',  icon: 'settings' },
+  ]},
   { path: '/finances', label: 'Finanzen', icon: 'account_balance_wallet', subItems: [
     { path: '/finances',              label: 'Bewertungen',        icon: 'reviews' },
   ]},
@@ -67,7 +69,8 @@ export const pageNames: Record<string, string> = {
   '/dj/accounting':   'Buchhaltung',
   '/dj/settings':     'DJ Einstellungen',
   '/finances':        'Finanzen',
-  '/amazon':          'Amazon',
+  '/amazon':                'Amazon',
+  '/amazon/entwicklung':    'Entwicklung',
   '/contacts':        'Kontakte',
   '/haushalt': 'Haushalt',
   '/contracts':       'Verträge & Fristen',
