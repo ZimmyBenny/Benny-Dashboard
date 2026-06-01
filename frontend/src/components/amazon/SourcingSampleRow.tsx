@@ -55,9 +55,8 @@ export function SourcingSampleRow({ productId, sample, onRequestDelete }: Props)
     patch({ [field]: next } as SamplePatch);
   }
 
-  function setWinner() {
-    if (sample.is_winner === 1) return;
-    patch({ is_winner: 1 });
+  function toggleWinner() {
+    patch({ is_winner: sample.is_winner === 1 ? 0 : 1 });
   }
 
   return (
@@ -66,7 +65,7 @@ export function SourcingSampleRow({ productId, sample, onRequestDelete }: Props)
         <button
           type="button"
           aria-label={sample.is_winner === 1 ? 'Winner' : 'Als Winner markieren'}
-          onClick={setWinner}
+          onClick={toggleWinner}
           className="w-5 h-5 rounded-full flex items-center justify-center"
           style={{
             border: '2px solid ' + (sample.is_winner === 1 ? '#34d399' : 'rgba(255,255,255,0.3)'),
