@@ -119,14 +119,14 @@ describe('Brand API — Candidates', () => {
     expect(r.status).toBe(400);
   });
 
-  it('Candidate-Limit 100: 101. POST -> 400', async () => {
+  it('POST hat kein Hard-Limit (100+ Namen sind moeglich)', async () => {
     const pid = makeProduct(db);
     const insert = db.prepare(`INSERT INTO amazon_brand_name_candidates (product_id, name, sort_order) VALUES (?, ?, ?)`);
     for (let i = 1; i <= 100; i++) insert.run(pid, `N${i}`, i);
 
-    const r = await request(app).post(`/api/amazon/products/${pid}/brand/names`).send({ name: 'overflow' });
-    expect(r.status).toBe(400);
-    expect(r.body.error).toMatch(/limit/i);
+    const r = await request(app).post(`/api/amazon/products/${pid}/brand/names`).send({ name: 'Beyond' });
+    expect(r.status).toBe(201);
+    expect(r.body.name.sort_order).toBe(101);
   });
 
   it('PATCH Bool-Felder + remarks mit Trim', async () => {

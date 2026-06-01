@@ -9,7 +9,6 @@ const VALID_BRAND_STATUS: ReadonlySet<BrandStatus> = new Set(['offen', 'in_bearb
 type ResearchStatus = 'frei' | 'belegt' | 'unklar';
 const VALID_RESEARCH_STATUS: ReadonlySet<ResearchStatus> = new Set(['frei', 'belegt', 'unklar']);
 
-const CANDIDATE_LIMIT = 100;
 const MAX_NAME = 200;
 const MAX_REMARKS = 300;
 const MAX_URL = 500;
@@ -151,14 +150,6 @@ router.post('/products/:id/brand/names', (req: Request, res: Response) => {
   const v = normalizeText(nameRaw, MAX_NAME);
   if (!v.ok || v.value === null) {
     res.status(400).json({ error: 'name length invalid' });
-    return;
-  }
-
-  const count = (db.prepare(
-    `SELECT COUNT(*) AS c FROM amazon_brand_name_candidates WHERE product_id = ?`
-  ).get(id) as { c: number }).c;
-  if (count >= CANDIDATE_LIMIT) {
-    res.status(400).json({ error: 'candidate limit reached' });
     return;
   }
 

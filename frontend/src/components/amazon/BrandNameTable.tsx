@@ -4,8 +4,6 @@ import { useCreateCandidate } from '../../hooks/amazon/useBrand';
 import { BrandNameRow } from './BrandNameRow';
 import { DeleteBrandNameDialog } from './DeleteBrandNameDialog';
 
-const CANDIDATE_LIMIT = 100;
-
 const TH_STYLE: React.CSSProperties = {
   textAlign: 'left',
   fontSize: '12px',
@@ -13,6 +11,11 @@ const TH_STYLE: React.CSSProperties = {
   color: 'var(--color-on-surface-variant)',
   padding: '8px',
   whiteSpace: 'nowrap',
+  position: 'sticky',
+  top: 0,
+  background: 'var(--color-surface-container-low)',
+  zIndex: 1,
+  borderBottom: '1px solid rgba(255,255,255,0.08)',
 };
 
 interface Props {
@@ -37,37 +40,46 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
   const [newName, setNewName] = useState('');
 
   const archivedCount = candidates.filter(c => c.is_archived === 1).length;
-  const atLimit = candidates.length >= CANDIDATE_LIMIT;
+  const totalCount = candidates.length;
+  const visibleCount = candidates.filter(c => c.is_archived === 0).length;
 
   const visibleSorted = useMemo(() => {
     const filtered = showArchived ? candidates : candidates.filter(c => c.is_archived === 0);
     return sortFavoritesFirst(filtered);
   }, [candidates, showArchived]);
 
-  const parsedNames = useMemo(
-    () => newName.split(',').map(s => s.trim()).filter(s => s.length > 0 && s.length <= 200),
-    [newName],
-  );
-  const remainingSlots = Math.max(0, CANDIDATE_LIMIT - candidates.length);
-  const willAdd = Math.min(parsedNames.length, remainingSlots);
-
   const existingLower = useMemo(
     () => new Set(candidates.map(c => c.name.toLowerCase())),
     [candidates],
   );
-  const duplicates = useMemo(
-    () => parsedNames.filter(n => existingLower.has(n.toLowerCase())),
-    [parsedNames, existingLower],
-  );
+
+  // Parsed and DEDUPLICATED list: drops names that already exist + drops within-input duplicates.
+  const { uniqueNew, skippedDuplicates } = useMemo(() => {
+    const raw = newName.split(',').map(s => s.trim()).filter(s => s.length > 0 && s.length <= 200);
+    const seenInInput = new Set<string>();
+    const unique: string[] = [];
+    const skipped: string[] = [];
+    for (const n of raw) {
+      const low = n.toLowerCase();
+      if (seenInInput.has(low) || existingLower.has(low)) {
+        skipped.push(n);
+        continue;
+      }
+      seenInInput.add(low);
+      unique.push(n);
+    }
+    return { uniqueNew: unique, skippedDuplicates: skipped };
+  }, [newName, existingLower]);
+
+  const willAdd = uniqueNew.length;
 
   async function handleAdd() {
-    if (willAdd <= 0) return;
-    const toAdd = parsedNames.slice(0, willAdd);
-    for (const name of toAdd) {
+    if (willAdd === 0) return;
+    for (const name of uniqueNew) {
       try {
         await create.mutateAsync(name);
       } catch {
-        // einzelne Fehler (z.B. Limit-Verletzung) ueberspringen, weitere versuchen
+        // einzelne Fehler ueberspringen, weitere versuchen
       }
     }
     setNewName('');
@@ -80,6 +92,13 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
         <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--color-on-surface)' }}>
           <span className="material-symbols-outlined text-base">list</span>
           Namensliste
+          <span
+            className="px-2 py-0.5 rounded-full text-xs"
+            style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)' }}
+            title={`${visibleCount} sichtbar, ${archivedCount} archiviert`}
+          >
+            {totalCount}
+          </span>
         </h3>
         <div className="flex items-center gap-2">
           <button
@@ -101,7 +120,7 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
           <button
             type="button"
             onClick={onExportPdf}
-            disabled={candidates.filter(c => c.is_archived === 0).length === 0}
+            disabled={visibleCount === 0}
             className="px-3 py-1.5 rounded-md text-sm flex items-center gap-2 disabled:opacity-50"
             style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}
           >
@@ -120,10 +139,10 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
           Noch keine Namen — unten einen ersten Vorschlag eintragen.
         </p>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="overflow-auto rounded-md" style={{ maxHeight: '60vh' }}>
           <table className="w-full" style={{ minWidth: '800px' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <tr>
                 <th style={TH_STYLE}>Name</th>
                 <th style={{ ...TH_STYLE, textAlign: 'center' }}>Interessant</th>
                 <th style={{ ...TH_STYLE, textAlign: 'center' }}>Vielleicht</th>
@@ -157,7 +176,6 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
-            disabled={atLimit}
             placeholder="Neuer Markenname … (mehrere durch Komma trennen)"
             className="w-full px-3 py-2 rounded-md text-sm"
             style={{
@@ -166,34 +184,31 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
               border: '1px solid rgba(255,255,255,0.08)',
             }}
           />
-          {parsedNames.length > 1 && (
+          {(willAdd > 0 || skippedDuplicates.length > 0) && (
             <p className="text-xs mt-1" style={{ color: 'var(--color-on-surface-variant)' }}>
-              {willAdd === parsedNames.length
-                ? `${willAdd} Namen werden angelegt.`
-                : `Nur ${willAdd} von ${parsedNames.length} Namen passen ins Limit (${remainingSlots} frei).`}
-              {duplicates.length > 0 && ` ${duplicates.length} Duplikat${duplicates.length === 1 ? '' : 'e'} dabei.`}
-            </p>
-          )}
-          {parsedNames.length === 1 && duplicates.length === 1 && (
-            <p className="text-xs mt-1" style={{ color: '#fdba74' }}>
-              Name „{duplicates[0]}" existiert bereits.
+              {willAdd > 0 && `${willAdd} neue${willAdd === 1 ? 'r' : ''} Name${willAdd === 1 ? '' : 'n'} wird angelegt.`}
+              {skippedDuplicates.length > 0 && (
+                <span style={{ color: '#fdba74' }}>
+                  {willAdd > 0 ? ' ' : ''}
+                  {skippedDuplicates.length} Duplikat{skippedDuplicates.length === 1 ? '' : 'e'} {skippedDuplicates.length === 1 ? 'wird' : 'werden'} übersprungen.
+                </span>
+              )}
             </p>
           )}
         </div>
         <button
           type="button"
           onClick={handleAdd}
-          disabled={willAdd <= 0 || create.isPending}
+          disabled={willAdd === 0 || create.isPending}
           className="px-3 py-2 rounded-md text-sm flex items-center gap-2 disabled:opacity-50"
           style={{
             background: 'var(--color-surface-container-high)',
             color: 'var(--color-on-surface)',
             border: '1px solid rgba(255,255,255,0.08)',
           }}
-          title={atLimit ? `Maximal ${CANDIDATE_LIMIT} Namen pro Produkt` : undefined}
         >
           <span className="material-symbols-outlined text-base">add</span>
-          {parsedNames.length > 1 ? `${willAdd} Namen hinzufügen` : 'Name hinzufügen'}
+          {willAdd > 1 ? `${willAdd} Namen hinzufügen` : 'Name hinzufügen'}
         </button>
       </div>
 
