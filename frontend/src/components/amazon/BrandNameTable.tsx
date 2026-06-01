@@ -241,6 +241,7 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
           <table className="w-full" style={{ minWidth: '800px' }}>
             <thead>
               <tr>
+                <th style={{ ...TH_STYLE, textAlign: 'right', width: 36 }}>#</th>
                 <th style={TH_STYLE}>Name</th>
                 <th style={{ ...TH_STYLE, textAlign: 'center' }}>Interessant</th>
                 <th style={{ ...TH_STYLE, textAlign: 'center' }}>★ Favourit</th>
@@ -251,11 +252,12 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
               </tr>
             </thead>
             <tbody>
-              {visibleSorted.map(c => (
+              {visibleSorted.map((c, idx) => (
                 <BrandNameRow
                   key={c.id}
                   productId={productId}
                   candidate={c}
+                  rowNumber={idx + 1}
                   onRequestDelete={setPendingDelete}
                 />
               ))}

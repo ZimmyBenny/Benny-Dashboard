@@ -5,6 +5,7 @@ import { useUpdateCandidate } from '../../hooks/amazon/useBrand';
 interface Props {
   productId: number;
   candidate: BrandCandidate;
+  rowNumber: number;
   onRequestDelete: (c: BrandCandidate) => void;
 }
 
@@ -16,7 +17,7 @@ const INPUT_STYLE: React.CSSProperties = {
 
 type StatusFlag = 'is_interesting' | 'is_favorite' | 'is_archived';
 
-export function BrandNameRow({ productId, candidate, onRequestDelete }: Props) {
+export function BrandNameRow({ productId, candidate, rowNumber, onRequestDelete }: Props) {
   const update = useUpdateCandidate(productId);
 
   const [name, setName] = useState(candidate.name);
@@ -69,6 +70,9 @@ export function BrandNameRow({ productId, candidate, onRequestDelete }: Props) {
 
   return (
     <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', opacity: candidate.is_archived === 1 ? 0.55 : 1 }}>
+      <td className="p-2 text-right tabular-nums text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
+        {rowNumber}
+      </td>
       <td className="p-2">
         <input
           type="text"
