@@ -25,11 +25,13 @@ interface Props {
   onExportPdf: () => void;
 }
 
-// Sortier-Score: Nein → ganz unten, Favourit + Interessant → ganz oben.
-// Bei mehreren aktiven Flags addieren sich die Gewichte; 'Nein' ueberwiegt alles.
+// Sortier-Score:
+//   3⭐ → 300, 2⭐ → 200, 1⭐ → 100
+//   + FAV +50, Interessant +20
+//   archiviert ist standardmaessig ausgeblendet (eigener Toggle).
 function scoreOf(c: BrandCandidate): number {
-  if (c.is_no === 1) return -1000;
-  return c.is_favorite * 50 + c.is_interesting * 30 + c.is_maybe * 10;
+  const ranking = (c.ranking ?? 0) * 100;
+  return ranking + c.is_favorite * 50 + c.is_interesting * 20;
 }
 
 function sortByScore(list: BrandCandidate[]): BrandCandidate[] {
@@ -190,7 +192,7 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
               color: 'var(--color-on-surface)',
               border: '1px solid rgba(255,255,255,0.08)',
             }}
-            title="Liste neu sortieren (Favoriten/Interessant nach oben, Nein nach unten)"
+            title="Liste neu sortieren (Sterne und Status entscheiden ueber die Reihenfolge)"
           >
             <span className="material-symbols-outlined text-base">sort</span>
             Sortieren
@@ -241,11 +243,10 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
               <tr>
                 <th style={TH_STYLE}>Name</th>
                 <th style={{ ...TH_STYLE, textAlign: 'center' }}>Interessant</th>
-                <th style={{ ...TH_STYLE, textAlign: 'center' }}>Vielleicht</th>
-                <th style={{ ...TH_STYLE, textAlign: 'center' }}>Nein</th>
                 <th style={{ ...TH_STYLE, textAlign: 'center' }}>★ Favourit</th>
-                <th style={TH_STYLE}>Bemerkungen</th>
                 <th style={{ ...TH_STYLE, textAlign: 'center' }}>Archiv</th>
+                <th style={{ ...TH_STYLE, textAlign: 'center' }}>Ranking</th>
+                <th style={TH_STYLE}>Bemerkungen</th>
                 <th style={{ ...TH_STYLE, textAlign: 'right' }}></th>
               </tr>
             </thead>

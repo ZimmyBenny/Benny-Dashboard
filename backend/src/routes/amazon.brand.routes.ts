@@ -40,6 +40,7 @@ interface CandidateRow {
   social_status: ResearchStatus | null;
   research_url: string | null;
   research_notes: string | null;
+  ranking: number | null;
   created_at: number;
   updated_at: number;
 }
@@ -231,6 +232,17 @@ router.patch('/products/:id/brand/names/:nameId', (req: Request, res: Response) 
       updates.push(`${col} = ?`);
       params.push(body[col]);
     }
+  }
+
+  if (body.ranking !== undefined) {
+    if (body.ranking !== null &&
+        (typeof body.ranking !== 'number' || !Number.isInteger(body.ranking) ||
+         body.ranking < 1 || body.ranking > 3)) {
+      res.status(400).json({ error: 'invalid ranking' });
+      return;
+    }
+    updates.push('ranking = ?');
+    params.push(body.ranking);
   }
 
   if (body.sort_order !== undefined) {

@@ -197,6 +197,7 @@ export interface BrandCandidate {
   social_status: ResearchStatus | null;
   research_url: string | null;
   research_notes: string | null;
+  ranking: number | null;
   created_at: number;
   updated_at: number;
 }
@@ -223,6 +224,7 @@ export type CandidatePatch = Partial<{
   social_status: ResearchStatus | null;
   research_url: string | null;
   research_notes: string | null;
+  ranking: number | null;
   sort_order: number;
 }>;
 

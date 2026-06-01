@@ -55,13 +55,12 @@ export function exportBrandPdf(product: { name: string }, payload: BrandPayload)
   if (visible.length > 0) {
     autoTable(doc, {
       startY: y,
-      head: [['Name', 'Interessant', 'Vielleicht', 'Nein', 'Fav', 'Bemerkungen']],
+      head: [['Name', 'Interessant', 'Fav', 'Ranking', 'Bemerkungen']],
       body: visible.map(c => [
         c.name,
         c.is_interesting === 1 ? 'X' : '',
-        c.is_maybe === 1       ? 'X' : '',
-        c.is_no === 1          ? 'X' : '',
         c.is_favorite === 1    ? 'X' : '',
+        c.ranking ? '*'.repeat(c.ranking) : '',
         c.remarks ?? '',
       ]),
       styles: { fontSize: 9, cellPadding: 4 },
@@ -70,7 +69,6 @@ export function exportBrandPdf(product: { name: string }, payload: BrandPayload)
         1: { halign: 'center' },
         2: { halign: 'center' },
         3: { halign: 'center' },
-        4: { halign: 'center' },
       },
       margin: { left: marginX, right: marginX },
     });

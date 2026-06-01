@@ -14,6 +14,8 @@ const INPUT_STYLE: React.CSSProperties = {
   border: '1px solid rgba(255,255,255,0.08)',
 };
 
+type StatusFlag = 'is_interesting' | 'is_favorite' | 'is_archived';
+
 export function BrandNameRow({ productId, candidate, onRequestDelete }: Props) {
   const update = useUpdateCandidate(productId);
 
@@ -43,8 +45,26 @@ export function BrandNameRow({ productId, candidate, onRequestDelete }: Props) {
     patch({ remarks: next });
   }
 
-  function toggle(field: 'is_interesting' | 'is_maybe' | 'is_no' | 'is_favorite' | 'is_archived', current: 0 | 1) {
-    patch({ [field]: current === 1 ? 0 : 1 } as CandidatePatch);
+  // Status ist exklusiv: nur einer von 'is_interesting' | 'is_favorite' | 'is_archived' kann aktiv sein.
+  function toggleStatus(field: StatusFlag) {
+    const isAlreadyActive = candidate[field] === 1;
+    if (isAlreadyActive) {
+      // Klick auf bereits aktiven → ausschalten
+      patch({ [field]: 0 } as CandidatePatch);
+      return;
+    }
+    // Setze den geklickten, deaktiviere die anderen beiden
+    const others: StatusFlag[] = (['is_interesting', 'is_favorite', 'is_archived'] as StatusFlag[]).filter(f => f !== field);
+    const partial: CandidatePatch = { [field]: 1 } as CandidatePatch;
+    for (const o of others) {
+      if (candidate[o] === 1) (partial as Record<string, 0 | 1>)[o] = 0;
+    }
+    patch(partial);
+  }
+
+  function setRanking(n: 1 | 2 | 3) {
+    const next: number | null = candidate.ranking === n ? null : n;
+    patch({ ranking: next });
   }
 
   return (
@@ -64,18 +84,63 @@ export function BrandNameRow({ productId, candidate, onRequestDelete }: Props) {
           style={INPUT_STYLE}
         />
       </td>
-      {(['is_interesting', 'is_maybe', 'is_no', 'is_favorite'] as const).map(field => (
-        <td key={field} className="p-2 text-center">
-          <input
-            type="checkbox"
-            checked={candidate[field] === 1}
-            onChange={() => toggle(field, candidate[field] as 0 | 1)}
-            className="w-4 h-4"
-            style={{ accentColor: field === 'is_favorite' ? '#fbbf24' : 'var(--color-primary)' }}
-            aria-label={field}
-          />
-        </td>
-      ))}
+      <td className="p-2 text-center">
+        <input
+          type="checkbox"
+          checked={candidate.is_interesting === 1}
+          onChange={() => toggleStatus('is_interesting')}
+          className="w-4 h-4"
+          style={{ accentColor: 'var(--color-primary)' }}
+          aria-label="Interessant"
+        />
+      </td>
+      <td className="p-2 text-center">
+        <input
+          type="checkbox"
+          checked={candidate.is_favorite === 1}
+          onChange={() => toggleStatus('is_favorite')}
+          className="w-4 h-4"
+          style={{ accentColor: '#fbbf24' }}
+          aria-label="Favourit"
+        />
+      </td>
+      <td className="p-2 text-center">
+        <input
+          type="checkbox"
+          checked={candidate.is_archived === 1}
+          onChange={() => toggleStatus('is_archived')}
+          className="w-4 h-4"
+          style={{ accentColor: '#fdba74' }}
+          aria-label="Archiv"
+        />
+      </td>
+      <td className="p-2">
+        <div className="flex items-center justify-center gap-0.5">
+          {[1, 2, 3].map(n => {
+            const active = candidate.ranking !== null && candidate.ranking !== undefined && n <= candidate.ranking;
+            return (
+              <button
+                key={n}
+                type="button"
+                aria-label={`Ranking ${n}`}
+                onClick={() => setRanking(n as 1 | 2 | 3)}
+                className="w-5 h-5 flex items-center justify-center"
+              >
+                <span
+                  className="material-symbols-outlined"
+                  style={{
+                    fontSize: '18px',
+                    color: active ? '#fbbf24' : 'rgba(255,255,255,0.25)',
+                    fontVariationSettings: active ? '"FILL" 1' : '"FILL" 0',
+                  }}
+                >
+                  star
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </td>
       <td className="p-2">
         <input
           type="text"
@@ -90,16 +155,6 @@ export function BrandNameRow({ productId, candidate, onRequestDelete }: Props) {
           spellCheck={false}
           className="w-full px-2 py-1 rounded text-sm"
           style={INPUT_STYLE}
-        />
-      </td>
-      <td className="p-2 text-center">
-        <input
-          type="checkbox"
-          checked={candidate.is_archived === 1}
-          onChange={() => toggle('is_archived', candidate.is_archived as 0 | 1)}
-          className="w-4 h-4"
-          style={{ accentColor: '#fdba74' }}
-          aria-label="archiviert"
         />
       </td>
       <td className="p-2 text-right">
