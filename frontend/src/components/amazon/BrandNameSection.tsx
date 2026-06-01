@@ -50,9 +50,18 @@ export function BrandNameSection({ productId, productName }: Props) {
   const { brand, names } = data;
   const expanded = brand.is_expanded === 1;
 
-  function handleExport() {
-    if (!data) return;
-    exportBrandPdf({ name: productName }, data);
+  async function handleExport() {
+    // Aktive Eingabe verlassen, damit ausstehendes on-blur-Save ausgeloest wird
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    // Kurz warten, damit pending Mutations beim Server ankommen
+    await new Promise(r => setTimeout(r, 350));
+    // Frische Daten holen
+    const fresh = await refetch();
+    if (fresh.data) {
+      exportBrandPdf({ name: productName }, fresh.data);
+    }
   }
 
   type ReuseStatus = Parameters<typeof SectionStatusBadge>[0]['status'];
