@@ -30,11 +30,11 @@ export function DeleteSampleDialog({ productId, sample, onClose }: Props) {
         style={{ background: 'var(--color-surface-container)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="font-semibold mb-2" style={{ color: 'var(--color-on-surface)' }}>Sample loeschen?</h2>
+        <h2 className="font-semibold mb-2" style={{ color: 'var(--color-on-surface)' }}>Sample löschen?</h2>
         <p className="text-sm mb-4" style={{ color: 'var(--color-on-surface-variant)' }}>
           „{sample.hersteller || 'Unbenanntes Sample'}" wird dauerhaft entfernt.
         </p>
-        {del.isError && <p className="text-sm mb-2" style={{ color: '#fca5a5' }}>Loeschen fehlgeschlagen.</p>}
+        {del.isError && <p className="text-sm mb-2" style={{ color: '#fca5a5' }}>Löschen fehlgeschlagen.</p>}
         <div className="flex justify-end gap-2">
           <button
             type="button"
@@ -52,7 +52,7 @@ export function DeleteSampleDialog({ productId, sample, onClose }: Props) {
             className="px-4 py-2 rounded-md text-sm"
             style={{ background: '#dc2626', color: '#fff' }}
           >
-            {del.isPending ? 'Loesche…' : 'Loeschen'}
+            {del.isPending ? 'Lösche…' : 'Löschen'}
           </button>
         </div>
       </div>

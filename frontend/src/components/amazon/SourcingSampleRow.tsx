@@ -134,7 +134,7 @@ export function SourcingSampleRow({ productId, sample, onRequestDelete }: Props)
           className="w-full px-2 py-1 rounded text-sm"
           style={INPUT_STYLE}
         >
-          <option value="">Qualitaet</option>
+          <option value="">Qualität</option>
           {QUALITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </td>
@@ -195,7 +195,7 @@ export function SourcingSampleRow({ productId, sample, onRequestDelete }: Props)
         <button
           type="button"
           onClick={() => onRequestDelete(sample)}
-          aria-label="Sample loeschen"
+          aria-label="Sample löschen"
           className="p-1 rounded hover:bg-white/5"
         >
           <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#fca5a5' }}>delete</span>

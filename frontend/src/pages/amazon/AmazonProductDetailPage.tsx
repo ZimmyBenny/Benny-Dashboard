@@ -19,7 +19,7 @@ const MAX_BYTES = 5 * 1024 * 1024;
 
 function validateFile(file: File): string | null {
   if (!ALLOWED_TYPES.includes(file.type)) return 'Nur JPG, PNG oder WEBP.';
-  if (file.size > MAX_BYTES) return 'Bild ist groesser als 5 MB.';
+  if (file.size > MAX_BYTES) return 'Bild ist größer als 5 MB.';
   return null;
 }
 
@@ -132,7 +132,7 @@ export function AmazonProductDetailPage() {
             className="px-3 py-1.5 rounded-md text-sm self-start"
             style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}
           >
-            Zurueck zur Uebersicht
+            Zurück zur Übersicht
           </Link>
         </div>
       </PageWrapper>
@@ -148,7 +148,7 @@ export function AmazonProductDetailPage() {
         <button
           type="button"
           onClick={() => navigate('/amazon/entwicklung')}
-          aria-label="Zurueck"
+          aria-label="Zurück"
           className="p-2 rounded-md"
           style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}
         >
@@ -182,7 +182,7 @@ export function AmazonProductDetailPage() {
             }}
             className="block w-full"
             disabled={uploading}
-            aria-label={product.image_path ? 'Bild ersetzen' : 'Bild hinzufuegen'}
+            aria-label={product.image_path ? 'Bild ersetzen' : 'Bild hinzufügen'}
           >
             <ProductImageLarge product={product} />
           </button>

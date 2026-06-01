@@ -37,7 +37,7 @@ export function SourcingSampleTable({ productId, samples }: Props) {
           className="text-sm text-center py-6 rounded-md"
           style={{ color: 'var(--color-on-surface-variant)', background: 'var(--color-surface-container-low)' }}
         >
-          Noch keine Samples — auf „+ Sample hinzufuegen" klicken.
+          Noch keine Samples — auf „+ Sample hinzufügen" klicken.
         </p>
       ) : (
         <div className="overflow-x-auto">
@@ -49,7 +49,7 @@ export function SourcingSampleTable({ productId, samples }: Props) {
                 <th style={TH_STYLE}>Sample Kosten</th>
                 <th style={TH_STYLE}>Besonderheiten</th>
                 <th style={TH_STYLE}>Lieferzeit</th>
-                <th style={TH_STYLE}>Qualitaet</th>
+                <th style={TH_STYLE}>Qualität</th>
                 <th style={TH_STYLE}>Bewertung</th>
                 <th style={TH_STYLE}>Status</th>
                 <th style={TH_STYLE}>Notizen</th>
@@ -84,7 +84,7 @@ export function SourcingSampleTable({ productId, samples }: Props) {
           }}
         >
           <span className="material-symbols-outlined text-base">add</span>
-          Sample hinzufuegen
+          Sample hinzufügen
         </button>
       </div>
 

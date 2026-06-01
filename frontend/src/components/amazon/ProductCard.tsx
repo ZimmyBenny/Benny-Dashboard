@@ -86,7 +86,7 @@ export function ProductCard({ product, onRequestDelete }: ProductCardProps) {
               e.stopPropagation();
               onRequestDelete(product);
             }}
-            aria-label="Produkt loeschen"
+            aria-label="Produkt löschen"
             className="absolute top-2 right-2 z-10 p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
             style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
           >

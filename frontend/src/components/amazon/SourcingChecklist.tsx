@@ -5,11 +5,11 @@ const ITEMS: Array<{ key: SourcingCpKey; label: string }> = [
   { key: 'cp_hersteller_gefiltert',       label: 'Hersteller gefiltert' },
   { key: 'cp_anforderungen_kommuniziert', label: 'Anforderungen kommuniziert' },
   { key: 'cp_erste_preise_erhalten',      label: 'Erste Preise erhalten' },
-  { key: 'cp_usp_geprueft',               label: 'USP Umsetzbarkeit geprueft' },
+  { key: 'cp_usp_geprueft',               label: 'USP Umsetzbarkeit geprüft' },
   { key: 'cp_samples_angefragt',          label: 'Samples angefragt' },
-  { key: 'cp_sample_analyse',             label: 'Sample Analyse durchgefuehrt' },
+  { key: 'cp_sample_analyse',             label: 'Sample Analyse durchgeführt' },
   { key: 'cp_vergleichstabelle',          label: 'Vergleichstabelle erstellt' },
-  { key: 'cp_finale_verhandlung',         label: 'Finale Verhandlung durchgefuehrt' },
+  { key: 'cp_finale_verhandlung',         label: 'Finale Verhandlung durchgeführt' },
   { key: 'cp_zahlungsziel',               label: 'Zahlungsziel verhandelt' },
 ];
 

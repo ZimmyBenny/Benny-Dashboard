@@ -31,7 +31,7 @@ export function AutosaveIndicator() {
   }
   return (
     <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)', opacity: 0.6 }}>
-      Aenderungen werden automatisch gespeichert
+      Änderungen werden automatisch gespeichert
     </p>
   );
 }
