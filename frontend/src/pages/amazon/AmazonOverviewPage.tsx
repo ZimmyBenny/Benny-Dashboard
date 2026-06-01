@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { useAmazonProducts } from '../../hooks/amazon/useAmazonProducts';
 import { ProductBoard } from '../../components/amazon/ProductBoard';
+import { NewProductDialog } from '../../components/amazon/NewProductDialog';
 
 export function AmazonOverviewPage() {
   const [showDiscarded, _setShowDiscarded] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const { data: products = [], isLoading, isError, refetch } = useAmazonProducts(showDiscarded);
 
   return (
@@ -31,6 +33,22 @@ export function AmazonOverviewPage() {
         </div>
       </header>
 
+      <div className="flex justify-end mb-4">
+        <button
+          type="button"
+          onClick={() => setDialogOpen(true)}
+          className="px-4 py-2 rounded-md text-sm flex items-center gap-2"
+          style={{
+            background: 'var(--color-surface-container-high)',
+            color: 'var(--color-on-surface)',
+            border: '1px solid rgba(255,255,255,0.08)',
+          }}
+        >
+          <span className="material-symbols-outlined text-base">add</span>
+          Produkt direkt entwickeln
+        </button>
+      </div>
+
       {isLoading && <p style={{ color: 'var(--color-on-surface-variant)' }}>Lade Produkte …</p>}
       {isError && (
         <div className="rounded-lg p-4" style={{ background: 'var(--color-surface-container-low)' }}>
@@ -46,6 +64,7 @@ export function AmazonOverviewPage() {
         </div>
       )}
       {!isLoading && !isError && <ProductBoard products={products} showDiscarded={showDiscarded} />}
+      <NewProductDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
     </PageWrapper>
   );
 }
