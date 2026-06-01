@@ -55,18 +55,25 @@ export function exportBrandPdf(product: { name: string }, payload: BrandPayload)
   if (visible.length > 0) {
     autoTable(doc, {
       startY: y,
-      head: [['Name', 'Interessant', 'Vielleicht', 'Ja', 'Nein', '★', 'Bemerkungen']],
+      head: [['Name', 'Interessant', 'Vielleicht', 'Ja', 'Nein', 'Fav', 'Bemerkungen']],
       body: visible.map(c => [
         c.name,
-        c.is_interesting === 1 ? '✓' : '',
-        c.is_maybe === 1       ? '✓' : '',
-        c.is_yes === 1         ? '✓' : '',
-        c.is_no === 1          ? '✓' : '',
-        c.is_favorite === 1    ? '★' : '',
+        c.is_interesting === 1 ? 'X' : '',
+        c.is_maybe === 1       ? 'X' : '',
+        c.is_yes === 1         ? 'X' : '',
+        c.is_no === 1          ? 'X' : '',
+        c.is_favorite === 1    ? 'X' : '',
         c.remarks ?? '',
       ]),
       styles: { fontSize: 9, cellPadding: 4 },
       headStyles: { fillColor: [50, 50, 80] },
+      columnStyles: {
+        1: { halign: 'center' },
+        2: { halign: 'center' },
+        3: { halign: 'center' },
+        4: { halign: 'center' },
+        5: { halign: 'center' },
+      },
       margin: { left: marginX, right: marginX },
     });
     y = (doc as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 20;
