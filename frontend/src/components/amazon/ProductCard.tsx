@@ -9,6 +9,11 @@ const BORDER_COLOR: Record<AmazonProduct['status'], string> = {
   verworfen:   '#fdba74',
 };
 
+interface ProductCardProps {
+  product: AmazonProduct;
+  onRequestDelete: (product: AmazonProduct) => void;
+}
+
 function ProductImage({ product }: { product: AmazonProduct }) {
   const [src, setSrc] = useState<string | null>(null);
   useEffect(() => {
@@ -43,11 +48,11 @@ function ProductImage({ product }: { product: AmazonProduct }) {
   return <img src={src} alt={product.name} className="aspect-[16/9] w-full object-cover rounded-t-xl" />;
 }
 
-export function ProductCard({ product }: { product: AmazonProduct }) {
+export function ProductCard({ product, onRequestDelete }: ProductCardProps) {
   const color = BORDER_COLOR[product.status];
   return (
     <article
-      className="rounded-xl overflow-hidden"
+      className="rounded-xl overflow-hidden group"
       style={{
         background: 'var(--color-surface-container-low)',
         border: `1px solid ${color}26`,
@@ -58,6 +63,15 @@ export function ProductCard({ product }: { product: AmazonProduct }) {
         <div className="absolute top-2 left-2">
           <ProductStatusBadge productId={product.id} status={product.status} />
         </div>
+        <button
+          type="button"
+          onClick={() => onRequestDelete(product)}
+          aria-label="Produkt löschen"
+          className="absolute top-2 right-2 p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+          style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
+        >
+          <span className="material-symbols-outlined text-base" style={{ color: '#fca5a5' }}>delete</span>
+        </button>
       </div>
       <div className="p-3">
         <h3 className="font-semibold mb-2" style={{ color: 'var(--color-on-surface)' }}>

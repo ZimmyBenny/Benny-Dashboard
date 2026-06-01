@@ -4,10 +4,13 @@ import { useAmazonProducts } from '../../hooks/amazon/useAmazonProducts';
 import { ProductBoard } from '../../components/amazon/ProductBoard';
 import { NewProductDialog } from '../../components/amazon/NewProductDialog';
 import { DiscardedToggleButton } from '../../components/amazon/DiscardedToggleButton';
+import { DeleteProductDialog } from '../../components/amazon/DeleteProductDialog';
+import { type AmazonProduct } from '../../api/amazon.api';
 
 export function AmazonOverviewPage() {
   const [showDiscarded, setShowDiscarded] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<AmazonProduct | null>(null);
   const { data: products = [], isLoading, isError, refetch } = useAmazonProducts(true);
   const discardedCount = products.filter(p => p.status === 'verworfen').length;
   const visibleProducts = showDiscarded ? products : products.filter(p => p.status !== 'verworfen');
@@ -74,7 +77,14 @@ export function AmazonOverviewPage() {
           </button>
         </div>
       )}
-      {!isLoading && !isError && <ProductBoard products={visibleProducts} showDiscarded={showDiscarded} />}
+      {!isLoading && !isError && (
+        <ProductBoard
+          products={visibleProducts}
+          showDiscarded={showDiscarded}
+          onRequestDelete={setPendingDelete}
+        />
+      )}
+      <DeleteProductDialog product={pendingDelete} onClose={() => setPendingDelete(null)} />
       <NewProductDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
     </PageWrapper>
   );
