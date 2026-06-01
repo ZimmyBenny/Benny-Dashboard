@@ -44,18 +44,33 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
     return sortFavoritesFirst(filtered);
   }, [candidates, showArchived]);
 
-  const trimmedNew = newName.trim();
-  const duplicate = useMemo(() => {
-    if (trimmedNew.length === 0) return null;
-    return candidates.find(c => c.name.toLowerCase() === trimmedNew.toLowerCase()) ?? null;
-  }, [candidates, trimmedNew]);
+  const parsedNames = useMemo(
+    () => newName.split(',').map(s => s.trim()).filter(s => s.length > 0 && s.length <= 200),
+    [newName],
+  );
+  const remainingSlots = Math.max(0, CANDIDATE_LIMIT - candidates.length);
+  const willAdd = Math.min(parsedNames.length, remainingSlots);
 
-  function handleAdd() {
-    if (trimmedNew.length === 0 || trimmedNew.length > 200) return;
-    if (atLimit) return;
-    create.mutate(trimmedNew, {
-      onSuccess: () => setNewName(''),
-    });
+  const existingLower = useMemo(
+    () => new Set(candidates.map(c => c.name.toLowerCase())),
+    [candidates],
+  );
+  const duplicates = useMemo(
+    () => parsedNames.filter(n => existingLower.has(n.toLowerCase())),
+    [parsedNames, existingLower],
+  );
+
+  async function handleAdd() {
+    if (willAdd <= 0) return;
+    const toAdd = parsedNames.slice(0, willAdd);
+    for (const name of toAdd) {
+      try {
+        await create.mutateAsync(name);
+      } catch {
+        // einzelne Fehler (z.B. Limit-Verletzung) ueberspringen, weitere versuchen
+      }
+    }
+    setNewName('');
   }
 
   return (
@@ -142,9 +157,8 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
-            maxLength={200}
             disabled={atLimit}
-            placeholder="Neuer Markenname …"
+            placeholder="Neuer Markenname … (mehrere durch Komma trennen)"
             className="w-full px-3 py-2 rounded-md text-sm"
             style={{
               background: 'var(--color-surface-container-low)',
@@ -152,16 +166,24 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
               border: '1px solid rgba(255,255,255,0.08)',
             }}
           />
-          {duplicate && (
+          {parsedNames.length > 1 && (
+            <p className="text-xs mt-1" style={{ color: 'var(--color-on-surface-variant)' }}>
+              {willAdd === parsedNames.length
+                ? `${willAdd} Namen werden angelegt.`
+                : `Nur ${willAdd} von ${parsedNames.length} Namen passen ins Limit (${remainingSlots} frei).`}
+              {duplicates.length > 0 && ` ${duplicates.length} Duplikat${duplicates.length === 1 ? '' : 'e'} dabei.`}
+            </p>
+          )}
+          {parsedNames.length === 1 && duplicates.length === 1 && (
             <p className="text-xs mt-1" style={{ color: '#fdba74' }}>
-              Name „{duplicate.name}" existiert bereits{duplicate.is_archived === 1 ? ' (archiviert)' : ''}.
+              Name „{duplicates[0]}" existiert bereits.
             </p>
           )}
         </div>
         <button
           type="button"
           onClick={handleAdd}
-          disabled={trimmedNew.length === 0 || atLimit || create.isPending}
+          disabled={willAdd <= 0 || create.isPending}
           className="px-3 py-2 rounded-md text-sm flex items-center gap-2 disabled:opacity-50"
           style={{
             background: 'var(--color-surface-container-high)',
@@ -171,7 +193,7 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
           title={atLimit ? `Maximal ${CANDIDATE_LIMIT} Namen pro Produkt` : undefined}
         >
           <span className="material-symbols-outlined text-base">add</span>
-          Name hinzufügen
+          {parsedNames.length > 1 ? `${willAdd} Namen hinzufügen` : 'Name hinzufügen'}
         </button>
       </div>
 
