@@ -47,14 +47,21 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
   const [showArchived, setShowArchived] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<BrandCandidate | null>(null);
   const [newName, setNewName] = useState('');
+  const [search, setSearch] = useState('');
 
   const archivedCount = candidates.filter(c => c.is_archived === 1).length;
   const activeCount = candidates.filter(c => c.is_archived === 0).length;
 
   const visibleSorted = useMemo(() => {
-    const filtered = showArchived ? candidates : candidates.filter(c => c.is_archived === 0);
+    const q = search.trim().toLowerCase();
+    let filtered = showArchived ? candidates : candidates.filter(c => c.is_archived === 0);
+    if (q.length > 0) {
+      filtered = filtered.filter(c =>
+        c.name.toLowerCase().includes(q) || (c.remarks ?? '').toLowerCase().includes(q),
+      );
+    }
     return sortByScore(filtered);
-  }, [candidates, showArchived]);
+  }, [candidates, showArchived, search]);
 
   const existingLower = useMemo(
     () => new Set(candidates.map(c => c.name.toLowerCase())),
@@ -108,7 +115,28 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
             {activeCount}
           </span>
         </h3>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <span
+              className="material-symbols-outlined text-base absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none"
+              style={{ color: 'var(--color-on-surface-variant)', fontSize: '16px' }}
+            >
+              search
+            </span>
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Suchen …"
+              className="pl-7 pr-2 py-1.5 rounded-md text-sm"
+              style={{
+                background: 'var(--color-surface-container-low)',
+                color: 'var(--color-on-surface)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                minWidth: '180px',
+              }}
+            />
+          </div>
           <button
             type="button"
             onClick={() => setShowArchived(v => !v)}
@@ -144,7 +172,9 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
           className="text-sm text-center py-6 rounded-md"
           style={{ color: 'var(--color-on-surface-variant)', background: 'var(--color-surface-container-low)' }}
         >
-          Noch keine Namen — unten einen ersten Vorschlag eintragen.
+          {search.trim().length > 0
+            ? `Kein Name passt zu „${search.trim()}".`
+            : 'Noch keine Namen — unten einen ersten Vorschlag eintragen.'}
         </p>
       ) : (
         <div className="overflow-auto rounded-md" style={{ maxHeight: '60vh' }}>
