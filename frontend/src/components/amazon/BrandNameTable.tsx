@@ -49,8 +49,7 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
   const [newName, setNewName] = useState('');
 
   const archivedCount = candidates.filter(c => c.is_archived === 1).length;
-  const totalCount = candidates.length;
-  const visibleCount = candidates.filter(c => c.is_archived === 0).length;
+  const activeCount = candidates.filter(c => c.is_archived === 0).length;
 
   const visibleSorted = useMemo(() => {
     const filtered = showArchived ? candidates : candidates.filter(c => c.is_archived === 0);
@@ -104,9 +103,9 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
           <span
             className="px-2 py-0.5 rounded-full text-xs"
             style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)' }}
-            title={`${visibleCount} sichtbar, ${archivedCount} archiviert`}
+            title={`${activeCount} aktiv, ${archivedCount} archiviert`}
           >
-            {totalCount}
+            {activeCount}
           </span>
         </h3>
         <div className="flex items-center gap-2">
@@ -129,7 +128,7 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
           <button
             type="button"
             onClick={onExportPdf}
-            disabled={visibleCount === 0}
+            disabled={activeCount === 0}
             className="px-3 py-1.5 rounded-md text-sm flex items-center gap-2 disabled:opacity-50"
             style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}
           >
