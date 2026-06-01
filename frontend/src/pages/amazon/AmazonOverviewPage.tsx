@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { useAmazonProducts } from '../../hooks/amazon/useAmazonProducts';
+import { ProductBoard } from '../../components/amazon/ProductBoard';
 
 export function AmazonOverviewPage() {
   const [showDiscarded, _setShowDiscarded] = useState(false);
@@ -44,11 +45,7 @@ export function AmazonOverviewPage() {
           </button>
         </div>
       )}
-      {!isLoading && !isError && (
-        <p style={{ color: 'var(--color-on-surface-variant)' }}>
-          {products.length} Produkt(e) — Komponenten folgen in den nächsten Tasks.
-        </p>
-      )}
+      {!isLoading && !isError && <ProductBoard products={products} showDiscarded={showDiscarded} />}
     </PageWrapper>
   );
 }
