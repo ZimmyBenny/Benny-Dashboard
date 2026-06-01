@@ -12,6 +12,7 @@ import {
 } from '../../api/amazon.api';
 import { ProductStatusBadge } from '../../components/amazon/ProductStatusBadge';
 import { SourcingSection } from '../../components/amazon/SourcingSection';
+import { BrandNameSection } from '../../components/amazon/BrandNameSection';
 import { AutosaveIndicator } from '../../components/amazon/AutosaveIndicator';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -238,6 +239,7 @@ export function AmazonProductDetailPage() {
         {/* Sektionen — volle Breite */}
         <div className="flex flex-col gap-4">
           <SourcingSection productId={product.id} />
+          <BrandNameSection productId={product.id} productName={product.name} />
         </div>
       </div>
       <div className="mt-4">
