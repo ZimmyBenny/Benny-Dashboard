@@ -18,7 +18,7 @@ import { DjTripsPage } from '../pages/dj/DjTripsPage';
 import { DjAccountingPage } from '../pages/dj/DjAccountingPage';
 import { DjSettingsPage } from '../pages/dj/DjSettingsPage';
 import { FinancesPage } from '../pages/FinancesPage';
-import { AmazonPage } from '../pages/AmazonPage';
+import { AmazonOverviewPage } from '../pages/amazon/AmazonOverviewPage';
 import { KiAgentsPage } from '../pages/KiAgentsPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { ZeiterfassungPage } from '../pages/ZeiterfassungPage';
@@ -68,7 +68,7 @@ export const router = createBrowserRouter([
           { path: '/dj/accounting',       element: <DjAccountingPage /> },
           { path: '/dj/settings',         element: <DjSettingsPage /> },
           { path: '/finances',       element: <FinancesPage /> },
-          { path: '/amazon',         element: <AmazonPage /> },
+          { path: '/amazon',         element: <AmazonOverviewPage /> },
           { path: '/ki-agenten',     element: <KiAgentsPage /> },
           { path: '/settings',       element: <SettingsPage /> },
           // Kontakte — WICHTIG: /new und /import VOR /:id
