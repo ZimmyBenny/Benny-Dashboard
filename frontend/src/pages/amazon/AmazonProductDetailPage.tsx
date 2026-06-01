@@ -168,10 +168,10 @@ export function AmazonProductDetailPage() {
         <ProductStatusBadge productId={product.id} status={product.status} />
       </header>
 
-      {/* Zwei-Spalten-Layout: Bild links, Felder rechts */}
-      <div className="grid gap-6 grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+      {/* Bild oben (begrenzt), Sektionen darunter mit voller Breite */}
+      <div className="flex flex-col gap-6">
         {/* Bild-Bereich */}
-        <section className="flex flex-col gap-3">
+        <section className="flex flex-col gap-3 max-w-md">
           <button
             type="button"
             onClick={() => fileInput.current?.click()}
@@ -230,12 +230,12 @@ export function AmazonProductDetailPage() {
           </div>
 
           <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)', opacity: 0.7 }}>
-            Auch per Drag&amp;Drop oder Cmd+V einfuegbar. JPG/PNG/WEBP, max 5 MB.
+            Auch per Drag&amp;Drop oder Cmd+V einfügbar. JPG/PNG/WEBP, max 5 MB.
           </p>
           {error && <p className="text-sm" style={{ color: '#fca5a5' }}>{error}</p>}
         </section>
 
-        {/* Sections-Spalte */}
+        {/* Sektionen — volle Breite */}
         <div className="flex flex-col gap-4">
           <SourcingSection productId={product.id} />
         </div>
