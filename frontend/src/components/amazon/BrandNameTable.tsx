@@ -25,9 +25,18 @@ interface Props {
   onExportPdf: () => void;
 }
 
-function sortFavoritesFirst(list: BrandCandidate[]): BrandCandidate[] {
+// Sortier-Score: Nein → ganz unten, Favourit + Interessant → ganz oben.
+// Bei mehreren aktiven Flags addieren sich die Gewichte; 'Nein' ueberwiegt alles.
+function scoreOf(c: BrandCandidate): number {
+  if (c.is_no === 1) return -1000;
+  return c.is_favorite * 50 + c.is_interesting * 30 + c.is_yes * 20 + c.is_maybe * 10;
+}
+
+function sortByScore(list: BrandCandidate[]): BrandCandidate[] {
   return [...list].sort((a, b) => {
-    if (a.is_favorite !== b.is_favorite) return b.is_favorite - a.is_favorite;
+    const sa = scoreOf(a);
+    const sb = scoreOf(b);
+    if (sa !== sb) return sb - sa; // hoeherer Score zuerst
     if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
     return a.id - b.id;
   });
@@ -45,7 +54,7 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
 
   const visibleSorted = useMemo(() => {
     const filtered = showArchived ? candidates : candidates.filter(c => c.is_archived === 0);
-    return sortFavoritesFirst(filtered);
+    return sortByScore(filtered);
   }, [candidates, showArchived]);
 
   const existingLower = useMemo(

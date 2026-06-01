@@ -87,13 +87,13 @@ export function BrandNameSection({ productId, productName }: Props) {
       {expanded && (
         <>
           <BrandNotes productId={productId} notes={brand.notes} />
+          <BrandFavoritesPanel productId={productId} candidates={names} />
           <BrandNameTable
             productId={productId}
             brand={brand}
             candidates={names}
             onExportPdf={handleExport}
           />
-          <BrandFavoritesPanel productId={productId} candidates={names} />
         </>
       )}
     </section>
