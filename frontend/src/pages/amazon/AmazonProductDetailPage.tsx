@@ -11,6 +11,8 @@ import {
   type AmazonProduct,
 } from '../../api/amazon.api';
 import { ProductStatusBadge } from '../../components/amazon/ProductStatusBadge';
+import { SourcingSection } from '../../components/amazon/SourcingSection';
+import { AutosaveIndicator } from '../../components/amazon/AutosaveIndicator';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -233,21 +235,13 @@ export function AmazonProductDetailPage() {
           {error && <p className="text-sm" style={{ color: '#fca5a5' }}>{error}</p>}
         </section>
 
-        {/* Felder-Spalte (vorerst leer) */}
-        <section
-          className="rounded-xl p-5"
-          style={{
-            background: 'var(--color-surface-container-low)',
-            border: '1px solid rgba(255,255,255,0.06)',
-          }}
-        >
-          <h2 className="font-semibold mb-2" style={{ color: 'var(--color-on-surface)' }}>
-            Details
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
-            Felder fuer USP, Marge, Sourcing, Notizen und Tags folgen in den naechsten Schritten.
-          </p>
-        </section>
+        {/* Sections-Spalte */}
+        <div className="flex flex-col gap-4">
+          <SourcingSection productId={product.id} />
+        </div>
+      </div>
+      <div className="mt-4">
+        <AutosaveIndicator />
       </div>
     </PageWrapper>
   );
