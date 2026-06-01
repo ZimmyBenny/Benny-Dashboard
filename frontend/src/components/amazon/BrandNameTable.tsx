@@ -157,6 +157,10 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Escape') setSearch(''); }}
               placeholder="Suchen …"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
               className="pl-7 pr-7 py-1.5 rounded-md text-sm"
               style={{
                 background: 'var(--color-surface-container-low)',
@@ -268,6 +272,10 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
             placeholder="Neuer Markenname … (mehrere durch Komma trennen)"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
             className="w-full px-3 py-2 rounded-md text-sm"
             style={{
               background: 'var(--color-surface-container-low)',

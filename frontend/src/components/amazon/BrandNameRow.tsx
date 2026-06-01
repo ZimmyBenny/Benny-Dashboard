@@ -56,6 +56,10 @@ export function BrandNameRow({ productId, candidate, onRequestDelete }: Props) {
           onChange={(e) => setName(e.target.value)}
           onBlur={saveName}
           maxLength={200}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
           className="w-full px-2 py-1 rounded text-sm"
           style={INPUT_STYLE}
         />
@@ -80,6 +84,10 @@ export function BrandNameRow({ productId, candidate, onRequestDelete }: Props) {
           onBlur={saveRemarks}
           maxLength={300}
           placeholder="Bemerkungen"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
           className="w-full px-2 py-1 rounded text-sm"
           style={INPUT_STYLE}
         />
