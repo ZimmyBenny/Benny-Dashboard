@@ -47,7 +47,7 @@ CREATE INDEX amazon_products_status_idx
 ```
 
 - **Sortierung in Spalten:** `created_at DESC` (neueste oben). Kein `sort_order` jetzt — kann später additiv ergänzt werden.
-- **Bilder:** Pfad relativ zum Uploads-Root (`amazon/<uuid>.png`). Datei liegt in `backend/uploads/amazon/`.
+- **Bilder:** Pfad relativ zum Upload-Root. Dateien liegen in `~/.local/share/benny-dashboard/amazon-products/` (außerhalb iCloud, analog zu `dj-event-attachments` — iCloud-Sync würde Uploads und Backup-Bilder permutieren). `image_path` speichert nur den UUID-basierten Dateinamen.
 - **Migration:** neue Datei in `backend/src/db/migrations/`. Schema-only — automatisches Backup von `migrate.ts` greift, kein manueller `createBackup()`-Aufruf nötig.
 
 ## Backend-API
@@ -60,6 +60,7 @@ Neue Datei `backend/src/routes/amazon.products.routes.ts`, in `backend/src/app.t
 | POST   | `/api/amazon/products` | `{ name: string }` | `201 { id, name, status:'interessant', image_path:null, created_at, updated_at }` |
 | PATCH  | `/api/amazon/products/:id` | `Partial<{ name, status }>` | `200 { … aktualisiertes Produkt }` |
 | POST   | `/api/amazon/products/:id/image` | `multipart/form-data` (Feld `file`) | `200 { image_path }` |
+| GET    | `/api/amazon/products/:id/image` | — | `200` Bild-Stream mit korrektem `Content-Type` (404 wenn ohne Bild) |
 | DELETE | `/api/amazon/products/:id/image` | — | `204` |
 | DELETE | `/api/amazon/products/:id` | — | `204` |
 
@@ -69,7 +70,8 @@ Neue Datei `backend/src/routes/amazon.products.routes.ts`, in `backend/src/app.t
 - Bild: MIME-Filter `image/jpeg | image/png | image/webp`, Limit 5 MB. Multer-Errors werden zu `400` gemappt.
 
 ### Mechanik
-- **Image-Upload:** `multer` mit Disk-Storage in `backend/uploads/amazon/`. Dateiname = `crypto.randomUUID() + ext`. Bei Ersetzen wird die alte Datei via `fs.unlink` entfernt (Fehler ignoriert, falls Datei fehlt). Vor Implementierung wird geprüft, dass `express.static('uploads')` in `app.ts` aktiv ist; falls nicht, wird sie ergänzt.
+- **Image-Upload:** `multer` mit Disk-Storage in `~/.local/share/benny-dashboard/amazon-products/` (außerhalb iCloud). Dateiname = `crypto.randomUUID() + ext`. Bei Ersetzen wird die alte Datei via `fs.unlink` entfernt (Fehler ignoriert, falls Datei fehlt).
+- **Image-Serve:** Eigener `GET /:id/image`-Endpoint streamt die Datei mit korrektem `Content-Type`. Path-Traversal-Schutz: `path.resolve` gegen den Upload-Root, `startsWith`-Prüfung. Auslieferung über die JWT-geschützte Route — `express.static` wird **nicht** verwendet (kein Auth-Bypass).
 - **Hartes Löschen** (`DELETE /:id`): entfernt Zeile **und** ggf. zugehörige Bilddatei.
 - Trennung zwischen JSON-CRUD und Datei-Upload-Endpoints folgt dem DJ-Event-Attachment-Pattern — keine gemischten `multipart/json`-Bodies.
 
