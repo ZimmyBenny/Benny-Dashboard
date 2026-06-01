@@ -3,11 +3,14 @@ import { PageWrapper } from '../../components/layout/PageWrapper';
 import { useAmazonProducts } from '../../hooks/amazon/useAmazonProducts';
 import { ProductBoard } from '../../components/amazon/ProductBoard';
 import { NewProductDialog } from '../../components/amazon/NewProductDialog';
+import { DiscardedToggleButton } from '../../components/amazon/DiscardedToggleButton';
 
 export function AmazonOverviewPage() {
-  const [showDiscarded, _setShowDiscarded] = useState(false);
+  const [showDiscarded, setShowDiscarded] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const { data: products = [], isLoading, isError, refetch } = useAmazonProducts(showDiscarded);
+  const { data: products = [], isLoading, isError, refetch } = useAmazonProducts(true);
+  const discardedCount = products.filter(p => p.status === 'verworfen').length;
+  const visibleProducts = showDiscarded ? products : products.filter(p => p.status !== 'verworfen');
 
   return (
     <PageWrapper>
@@ -49,6 +52,14 @@ export function AmazonOverviewPage() {
         </button>
       </div>
 
+      <div className="flex justify-end mb-4">
+        <DiscardedToggleButton
+          active={showDiscarded}
+          count={discardedCount}
+          onToggle={() => setShowDiscarded(v => !v)}
+        />
+      </div>
+
       {isLoading && <p style={{ color: 'var(--color-on-surface-variant)' }}>Lade Produkte …</p>}
       {isError && (
         <div className="rounded-lg p-4" style={{ background: 'var(--color-surface-container-low)' }}>
@@ -63,7 +74,7 @@ export function AmazonOverviewPage() {
           </button>
         </div>
       )}
-      {!isLoading && !isError && <ProductBoard products={products} showDiscarded={showDiscarded} />}
+      {!isLoading && !isError && <ProductBoard products={visibleProducts} showDiscarded={showDiscarded} />}
       <NewProductDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
     </PageWrapper>
   );
