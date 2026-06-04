@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 interface DraggableItem<Id extends string> {
   id: Id;
@@ -13,11 +13,13 @@ interface Props<Id extends string> {
 const DRAG_THRESHOLD_PX = 6;
 
 // Wrapper-Liste mit Drag-and-Drop am Section-Header.
-// - pointerdown auf einer Header-Region (role="button" + nicht innerhalb interaktiver Kinder)
-//   startet die Drag-Detection.
-// - Sobald Bewegung > THRESHOLD: Drag-Modus aktiv, Click wird nach pointerup unterdrueckt,
-//   damit der Toggle-Click des SectionHeaders nicht ausgeloest wird.
-// - Drop bei pointerup: schiebt die Quell-Section vor die Section unter dem Cursor.
+//
+// Wichtig: setPointerCapture wird NICHT verwendet. Capture wuerde den Click
+// auf den Wrapper umlenken und damit den Toggle-Click des SectionHeaders
+// blockieren. Stattdessen wird auf pointerdown ein Window-Listener fuer
+// pointermove/up registriert. Sobald die Bewegung > THRESHOLD ist, geht das
+// Element in den Drag-Modus; ein anschliessender Click wird einmalig
+// unterdrueckt.
 export function DraggableSectionList<Id extends string>({ items, onReorder }: Props<Id>) {
   const [draggingId, setDraggingId] = useState<Id | null>(null);
   const [dropTargetId, setDropTargetId] = useState<Id | null>(null);
@@ -32,53 +34,71 @@ export function DraggableSectionList<Id extends string>({ items, onReorder }: Pr
     return el.closest('header[role="button"]') !== null;
   }
 
-  function onPointerDown(e: React.PointerEvent<HTMLDivElement>, id: Id) {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    if (!startsOnHeader(e.target)) return;
-
-    startRef.current = { x: e.clientX, y: e.clientY, id };
-    movedRef.current = false;
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }
-
-  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    if (!startRef.current) return;
-    const dx = e.clientX - startRef.current.x;
-    const dy = e.clientY - startRef.current.y;
-    if (!movedRef.current) {
-      if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
-      movedRef.current = true;
-      setDraggingId(startRef.current.id);
-    }
-    let hit: Id | null = null;
+  function findHitId(clientY: number): Id | null {
     for (const [id, el] of itemRefs.current.entries()) {
       const rect = el.getBoundingClientRect();
-      if (e.clientY >= rect.top && e.clientY <= rect.bottom) {
-        hit = id;
-        break;
+      if (clientY >= rect.top && clientY <= rect.bottom) return id;
+    }
+    return null;
+  }
+
+  // Globale Listener nur waehrend einer aktiven pointerdown-Sequenz.
+  useEffect(() => {
+    function onMove(ev: PointerEvent) {
+      if (!startRef.current) return;
+      const dx = ev.clientX - startRef.current.x;
+      const dy = ev.clientY - startRef.current.y;
+      if (!movedRef.current) {
+        if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+        movedRef.current = true;
+        setDraggingId(startRef.current.id);
       }
+      setDropTargetId(findHitId(ev.clientY));
     }
-    setDropTargetId(hit);
-  }
+    function onUp(_ev: PointerEvent) {
+      const wasDragging = movedRef.current;
+      const from = startRef.current?.id ?? null;
+      const to = dropTargetId;
 
-  function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
-    const wasDragging = movedRef.current;
-    const from = draggingId ?? startRef.current?.id ?? null;
-    const to = dropTargetId;
+      if (wasDragging && from && to && from !== to) {
+        onReorder(from, to);
+        const suppress = (clickEv: Event) => { clickEv.stopPropagation(); clickEv.preventDefault(); };
+        window.addEventListener('click', suppress, { capture: true, once: true });
+      }
 
-    if (wasDragging && from && to && from !== to) {
-      onReorder(from, to);
-      // verhindert dass der pending click den Section-Header-Toggle ausloest
-      const suppress = (ev: Event) => { ev.stopPropagation(); ev.preventDefault(); };
-      window.addEventListener('click', suppress, { capture: true, once: true });
+      startRef.current = null;
+      movedRef.current = false;
+      setDraggingId(null);
+      setDropTargetId(null);
+
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
     }
-
-    startRef.current = null;
-    movedRef.current = false;
-    setDraggingId(null);
-    setDropTargetId(null);
-    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
-  }
+    function onDownCapture(ev: PointerEvent) {
+      if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+      if (!startsOnHeader(ev.target)) return;
+      // Welche Section war der Ursprung?
+      let foundId: Id | null = null;
+      for (const [id, el] of itemRefs.current.entries()) {
+        if (el.contains(ev.target as Node)) { foundId = id; break; }
+      }
+      if (!foundId) return;
+      startRef.current = { x: ev.clientX, y: ev.clientY, id: foundId };
+      movedRef.current = false;
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
+    }
+    // capture: false, damit React-Handler vor uns laufen koennen (z.B. button clicks)
+    window.addEventListener('pointerdown', onDownCapture);
+    return () => {
+      window.removeEventListener('pointerdown', onDownCapture);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+  }, [dropTargetId, onReorder]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -92,17 +112,12 @@ export function DraggableSectionList<Id extends string>({ items, onReorder }: Pr
               if (el) itemRefs.current.set(item.id, el);
               else itemRefs.current.delete(item.id);
             }}
-            onPointerDown={(e) => onPointerDown(e, item.id)}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
             style={{
               opacity: isDragging ? 0.45 : 1,
               outline: isDropTarget ? '2px solid var(--color-primary)' : 'none',
               outlineOffset: '2px',
               borderRadius: '12px',
               transition: 'opacity 0.12s, outline-color 0.12s',
-              touchAction: 'pan-y',
             }}
           >
             {item.render()}
