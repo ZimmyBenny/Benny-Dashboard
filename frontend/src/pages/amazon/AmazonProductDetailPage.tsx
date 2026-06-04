@@ -171,7 +171,7 @@ export function AmazonProductDetailPage() {
             Erstellt am {new Date(product.created_at * 1000).toLocaleDateString('de-DE')}
           </p>
         </div>
-        <ProductStatusBadge productId={product.id} status={product.status} />
+        <ProductStatusBadge productId={product.id} status={product.status} align="right" />
       </header>
 
       {/* Bild oben (begrenzt), Sektionen darunter mit voller Breite */}

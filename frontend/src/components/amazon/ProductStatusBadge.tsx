@@ -22,7 +22,13 @@ const COLOR: Record<AmazonProductStatus, string> = {
 };
 const ORDER: AmazonProductStatus[] = ['interessant', 'aktiv', 'bestehend', 'verworfen'];
 
-export function ProductStatusBadge({ productId, status }: { productId: number; status: AmazonProductStatus }) {
+export function ProductStatusBadge({
+  productId, status, align = 'left',
+}: {
+  productId: number;
+  status: AmazonProductStatus;
+  align?: 'left' | 'right';
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
   const update = useUpdateAmazonProductStatus();
@@ -64,7 +70,7 @@ export function ProductStatusBadge({ productId, status }: { productId: number; s
       {open && (
         <div
           role="menu"
-          className="absolute left-0 mt-1 rounded-lg shadow-lg overflow-hidden z-20 w-max min-w-[180px]"
+          className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} mt-1 rounded-lg shadow-lg overflow-hidden z-20 w-max min-w-[180px]`}
           style={{ background: 'var(--color-surface-container-high)', border: '1px solid rgba(255,255,255,0.08)' }}
         >
           {ORDER.map((s) => {

@@ -15,10 +15,13 @@ export function ProductNotes({ productId, initialNotes }: Props) {
   const lastSavedRef = useRef<string>(initialNotes ?? '');
   const timerRef = useRef<number | null>(null);
 
+  // Setze den Initialwert nur bei Produkt-Wechsel — nicht bei jedem Refetch,
+  // sonst wuerde der User-Input ueberschrieben waehrend des Tippens.
   useEffect(() => {
     setValue(initialNotes ?? '');
     lastSavedRef.current = initialNotes ?? '';
-  }, [productId, initialNotes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productId]);
 
   function persist(next: string) {
     if (next === lastSavedRef.current) return;
