@@ -7,6 +7,7 @@ export interface AmazonProduct {
   name: string;
   status: AmazonProductStatus;
   image_path: string | null;
+  notes: string | null;
   created_at: number; // unix seconds
   updated_at: number;
 }
@@ -25,7 +26,7 @@ export async function createAmazonProduct(name: string): Promise<AmazonProduct> 
 
 export async function updateAmazonProduct(
   id: number,
-  patch: Partial<{ name: string; status: AmazonProductStatus }>,
+  patch: Partial<{ name: string; status: AmazonProductStatus; notes: string | null }>,
 ): Promise<AmazonProduct> {
   const r = await apiClient.patch<AmazonProduct>(`/amazon/products/${id}`, patch);
   return r.data;

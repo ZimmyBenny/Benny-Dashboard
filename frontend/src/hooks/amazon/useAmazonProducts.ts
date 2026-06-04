@@ -48,6 +48,27 @@ export function useUpdateAmazonProductStatus() {
   });
 }
 
+export function useUpdateAmazonProductNotes() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, notes }: { id: number; notes: string | null }) =>
+      updateAmazonProduct(id, { notes }),
+    onMutate: async ({ id, notes }) => {
+      await qc.cancelQueries({ queryKey: AMAZON_PRODUCTS_KEY });
+      const snapshots = qc.getQueriesData<AmazonProduct[]>({ queryKey: AMAZON_PRODUCTS_KEY });
+      for (const [key, list] of snapshots) {
+        if (!list) continue;
+        qc.setQueryData<AmazonProduct[]>(key, list.map(p => p.id === id ? { ...p, notes } : p));
+      }
+      return { snapshots };
+    },
+    onError: (_err, _vars, ctx) => {
+      for (const [key, list] of ctx?.snapshots ?? []) qc.setQueryData(key, list);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: AMAZON_PRODUCTS_KEY }),
+  });
+}
+
 export function useDeleteAmazonProduct() {
   const invalidate = useInvalidate();
   return useMutation({
