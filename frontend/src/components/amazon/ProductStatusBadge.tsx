@@ -50,12 +50,7 @@ export function ProductStatusBadge({
   const color = COLOR[status];
 
   return (
-    <div
-      ref={ref}
-      className="relative"
-      onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
-      onMouseDown={(e) => { e.stopPropagation(); }}
-    >
+    <div ref={ref} className="relative">
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); e.preventDefault(); setOpen(o => !o); }}
