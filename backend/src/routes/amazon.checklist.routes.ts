@@ -188,4 +188,227 @@ router.delete('/checklist/master/items/:id', (req: Request, res: Response) => {
   res.status(204).end();
 });
 
+// ── Helpers fuer Produkt ─────────────────────────────────────────────────────
+
+function ensureProduct(id: number): boolean {
+  return db.prepare(`SELECT 1 FROM amazon_products WHERE id = ?`).get(id) !== undefined;
+}
+
+function loadProductItems(sectionId: number): ItemRow[] {
+  return db.prepare(
+    `SELECT * FROM amazon_checklist_product_items WHERE section_id = ? ORDER BY sort_order, id`
+  ).all(sectionId) as ItemRow[];
+}
+
+function loadProductSectionsWithItems(productId: number): Array<ProductSectionRow & { items: ItemRow[] }> {
+  const sections = db.prepare(
+    `SELECT * FROM amazon_checklist_product_sections WHERE product_id = ? ORDER BY sort_order, id`
+  ).all(productId) as ProductSectionRow[];
+  return sections.map(s => ({ ...s, items: loadProductItems(s.id) }));
+}
+
+function initProductFromMaster(productId: number): void {
+  const masterSections = db.prepare(
+    `SELECT * FROM amazon_checklist_master_sections ORDER BY sort_order, id`
+  ).all() as SectionRow[];
+  const insSec = db.prepare(
+    `INSERT INTO amazon_checklist_product_sections (product_id, sort_order, title) VALUES (?, ?, ?)`
+  );
+  const insItem = db.prepare(
+    `INSERT INTO amazon_checklist_product_items
+       (section_id, sort_order, description, remark, link_url, link_label, is_done)
+     VALUES (?, ?, ?, ?, ?, ?, 0)`
+  );
+  const trx = db.transaction(() => {
+    for (const sec of masterSections) {
+      const r = insSec.run(productId, sec.sort_order, sec.title);
+      const newSectionId = Number(r.lastInsertRowid);
+      const items = db.prepare(
+        `SELECT * FROM amazon_checklist_master_items WHERE section_id = ? ORDER BY sort_order, id`
+      ).all(sec.id) as ItemRow[];
+      for (const it of items) {
+        insItem.run(newSectionId, it.sort_order, it.description, it.remark, it.link_url, it.link_label);
+      }
+    }
+  });
+  trx();
+}
+
+function loadProductSection(productId: number, sectionId: number): ProductSectionRow | undefined {
+  return db.prepare(
+    `SELECT * FROM amazon_checklist_product_sections WHERE id = ? AND product_id = ?`
+  ).get(sectionId, productId) as ProductSectionRow | undefined;
+}
+
+function loadProductItem(productId: number, itemId: number): (ItemRow & { product_id: number }) | undefined {
+  return db.prepare(
+    `SELECT i.*, s.product_id
+     FROM amazon_checklist_product_items i
+     JOIN amazon_checklist_product_sections s ON s.id = i.section_id
+     WHERE i.id = ? AND s.product_id = ?`
+  ).get(itemId, productId) as (ItemRow & { product_id: number }) | undefined;
+}
+
+// ── Produkt-Endpoints ────────────────────────────────────────────────────────
+
+router.get('/products/:id/checklist', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) {
+    res.status(404).json({ error: 'product not found' }); return;
+  }
+  const count = (db.prepare(
+    `SELECT COUNT(*) AS c FROM amazon_checklist_product_sections WHERE product_id = ?`
+  ).get(id) as { c: number }).c;
+  if (count === 0) initProductFromMaster(id);
+  res.json({ sections: loadProductSectionsWithItems(id) });
+});
+
+router.post('/products/:id/checklist/sections', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) {
+    res.status(404).json({ error: 'product not found' }); return;
+  }
+  const title = requireText((req.body as { title?: unknown })?.title, MAX_TITLE);
+  if (!title.ok) { res.status(400).json({ error: 'invalid title' }); return; }
+  const maxOrder = (db.prepare(
+    `SELECT COALESCE(MAX(sort_order), 0) AS m FROM amazon_checklist_product_sections WHERE product_id = ?`
+  ).get(id) as { m: number }).m;
+  const result = db.prepare(
+    `INSERT INTO amazon_checklist_product_sections (product_id, sort_order, title) VALUES (?, ?, ?)`
+  ).run(id, maxOrder + 1, title.value);
+  const row = db.prepare(`SELECT * FROM amazon_checklist_product_sections WHERE id = ?`).get(result.lastInsertRowid) as ProductSectionRow;
+  res.status(201).json({ section: { ...row, items: [] } });
+});
+
+router.patch('/products/:id/checklist/sections/:sid', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const sid = Number(req.params.sid);
+  if (!Number.isInteger(id) || !Number.isInteger(sid)) {
+    res.status(404).json({ error: 'not found' }); return;
+  }
+  if (!ensureProduct(id) || !loadProductSection(id, sid)) {
+    res.status(404).json({ error: 'not found' }); return;
+  }
+  const body = (req.body as Record<string, unknown>) ?? {};
+  const updates: string[] = []; const params: unknown[] = [];
+  if (body.title !== undefined) {
+    const t = requireText(body.title, MAX_TITLE);
+    if (!t.ok) { res.status(400).json({ error: 'invalid title' }); return; }
+    updates.push('title = ?'); params.push(t.value);
+  }
+  if (body.sort_order !== undefined) {
+    if (typeof body.sort_order !== 'number' || !Number.isInteger(body.sort_order)) {
+      res.status(400).json({ error: 'invalid sort_order' }); return;
+    }
+    updates.push('sort_order = ?'); params.push(body.sort_order);
+  }
+  if (updates.length > 0) {
+    updates.push('updated_at = unixepoch()'); params.push(sid);
+    db.prepare(`UPDATE amazon_checklist_product_sections SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+  }
+  const row = db.prepare(`SELECT * FROM amazon_checklist_product_sections WHERE id = ?`).get(sid) as ProductSectionRow;
+  res.json({ section: { ...row, items: loadProductItems(sid) } });
+});
+
+router.delete('/products/:id/checklist/sections/:sid', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const sid = Number(req.params.sid);
+  if (!Number.isInteger(id) || !Number.isInteger(sid)) {
+    res.status(404).json({ error: 'not found' }); return;
+  }
+  if (!ensureProduct(id) || !loadProductSection(id, sid)) {
+    res.status(404).json({ error: 'not found' }); return;
+  }
+  db.prepare(`DELETE FROM amazon_checklist_product_sections WHERE id = ?`).run(sid);
+  res.status(204).end();
+});
+
+router.post('/products/:id/checklist/sections/:sid/items', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const sid = Number(req.params.sid);
+  if (!Number.isInteger(id) || !Number.isInteger(sid)) {
+    res.status(404).json({ error: 'not found' }); return;
+  }
+  if (!ensureProduct(id) || !loadProductSection(id, sid)) {
+    res.status(404).json({ error: 'not found' }); return;
+  }
+  const body = (req.body as Record<string, unknown>) ?? {};
+  const desc = requireText(body.description, MAX_DESCRIPTION);
+  if (!desc.ok) { res.status(400).json({ error: 'invalid description' }); return; }
+  const remark = normalizeText(body.remark, MAX_REMARK);
+  if (!remark.ok) { res.status(400).json({ error: 'invalid remark' }); return; }
+  const linkUrl = normalizeText(body.link_url, MAX_URL);
+  if (!linkUrl.ok) { res.status(400).json({ error: 'invalid link_url' }); return; }
+  const linkLabel = normalizeText(body.link_label, MAX_LABEL);
+  if (!linkLabel.ok) { res.status(400).json({ error: 'invalid link_label' }); return; }
+
+  const maxOrder = (db.prepare(
+    `SELECT COALESCE(MAX(sort_order), 0) AS m FROM amazon_checklist_product_items WHERE section_id = ?`
+  ).get(sid) as { m: number }).m;
+  const result = db.prepare(
+    `INSERT INTO amazon_checklist_product_items
+       (section_id, sort_order, description, remark, link_url, link_label)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(sid, maxOrder + 1, desc.value, remark.value, linkUrl.value, linkLabel.value);
+  const row = db.prepare(`SELECT * FROM amazon_checklist_product_items WHERE id = ?`).get(result.lastInsertRowid) as ItemRow;
+  res.status(201).json({ item: row });
+});
+
+router.patch('/products/:id/checklist/items/:iid', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const iid = Number(req.params.iid);
+  if (!Number.isInteger(id) || !Number.isInteger(iid)) {
+    res.status(404).json({ error: 'not found' }); return;
+  }
+  if (!ensureProduct(id) || !loadProductItem(id, iid)) {
+    res.status(404).json({ error: 'not found' }); return;
+  }
+  const body = (req.body as Record<string, unknown>) ?? {};
+  const updates: string[] = []; const params: unknown[] = [];
+
+  if (body.description !== undefined) {
+    const v = requireText(body.description, MAX_DESCRIPTION);
+    if (!v.ok) { res.status(400).json({ error: 'invalid description' }); return; }
+    updates.push('description = ?'); params.push(v.value);
+  }
+  for (const [col, max] of [['remark', MAX_REMARK], ['link_url', MAX_URL], ['link_label', MAX_LABEL]] as const) {
+    if (body[col] !== undefined) {
+      const v = normalizeText(body[col], max);
+      if (!v.ok) { res.status(400).json({ error: `invalid ${col}` }); return; }
+      updates.push(`${col} = ?`); params.push(v.value);
+    }
+  }
+  if (body.sort_order !== undefined) {
+    if (typeof body.sort_order !== 'number' || !Number.isInteger(body.sort_order)) {
+      res.status(400).json({ error: 'invalid sort_order' }); return;
+    }
+    updates.push('sort_order = ?'); params.push(body.sort_order);
+  }
+  if (body.is_done !== undefined) {
+    if (body.is_done !== 0 && body.is_done !== 1) {
+      res.status(400).json({ error: 'invalid is_done' }); return;
+    }
+    updates.push('is_done = ?'); params.push(body.is_done);
+  }
+  if (updates.length > 0) {
+    updates.push('updated_at = unixepoch()'); params.push(iid);
+    db.prepare(`UPDATE amazon_checklist_product_items SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+  }
+  const row = db.prepare(`SELECT * FROM amazon_checklist_product_items WHERE id = ?`).get(iid) as ItemRow;
+  res.json({ item: row });
+});
+
+router.delete('/products/:id/checklist/items/:iid', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const iid = Number(req.params.iid);
+  if (!Number.isInteger(id) || !Number.isInteger(iid)) {
+    res.status(404).json({ error: 'not found' }); return;
+  }
+  if (!ensureProduct(id) || !loadProductItem(id, iid)) {
+    res.status(404).json({ error: 'not found' }); return;
+  }
+  db.prepare(`DELETE FROM amazon_checklist_product_items WHERE id = ?`).run(iid);
+  res.status(204).end();
+});
+
 export default router;

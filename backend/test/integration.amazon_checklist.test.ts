@@ -128,3 +128,115 @@ describe('Checklist API — Master', () => {
     expect(r.status).toBe(204);
   });
 });
+
+describe('Checklist API — Produkt', () => {
+  let db: Database.Database;
+  let app: express.Express;
+
+  beforeEach(async () => {
+    db = createTestDb();
+    app = await makeApp(db);
+  });
+
+  it('GET /products/:id/checklist initialisiert lazy aus Master', async () => {
+    const pid = makeProduct(db);
+    const r = await request(app).get(`/api/amazon/products/${pid}/checklist`);
+    expect(r.status).toBe(200);
+    expect(r.body.sections).toHaveLength(5);
+    const total = r.body.sections.reduce(
+      (sum: number, s: { items: unknown[] }) => sum + s.items.length, 0,
+    );
+    expect(total).toBe(66);
+    // is_done = 0 fuer alle
+    const allDone = r.body.sections.flatMap((s: { items: { is_done: number }[] }) => s.items.map(i => i.is_done));
+    expect(allDone.every((d: number) => d === 0)).toBe(true);
+  });
+
+  it('GET zweimal hintereinander dupliziert nichts', async () => {
+    const pid = makeProduct(db);
+    await request(app).get(`/api/amazon/products/${pid}/checklist`);
+    await request(app).get(`/api/amazon/products/${pid}/checklist`);
+    const sec = (db.prepare(
+      `SELECT COUNT(*) AS c FROM amazon_checklist_product_sections WHERE product_id=?`
+    ).get(pid) as { c: number }).c;
+    expect(sec).toBe(5);
+  });
+
+  it('GET 404 fuer unbekanntes Produkt', async () => {
+    const r = await request(app).get('/api/amazon/products/9999/checklist');
+    expect(r.status).toBe(404);
+  });
+
+  it('Produkt-Item PATCH is_done aendert nur Produkt, Master bleibt unveraendert', async () => {
+    const pid = makeProduct(db);
+    const initial = await request(app).get(`/api/amazon/products/${pid}/checklist`);
+    const firstItem = initial.body.sections[0].items[0];
+
+    const r = await request(app)
+      .patch(`/api/amazon/products/${pid}/checklist/items/${firstItem.id}`)
+      .send({ is_done: 1 });
+    expect(r.body.item.is_done).toBe(1);
+
+    const masterFirst = db.prepare(
+      `SELECT is_done FROM amazon_checklist_master_items ORDER BY section_id, sort_order LIMIT 1`
+    ).get() as { is_done: number };
+    expect(masterFirst.is_done).toBe(0);
+  });
+
+  it('Produkt POST /sections legt neue Section nur fuer das Produkt an', async () => {
+    const pid = makeProduct(db);
+    await request(app).get(`/api/amazon/products/${pid}/checklist`); // lazy-init
+    const r = await request(app)
+      .post(`/api/amazon/products/${pid}/checklist/sections`)
+      .send({ title: 'Eigene Section' });
+    expect(r.status).toBe(201);
+    expect(r.body.section.title).toBe('Eigene Section');
+  });
+
+  it('Produkt POST /sections/:sid/items legt Item an', async () => {
+    const pid = makeProduct(db);
+    const init = await request(app).get(`/api/amazon/products/${pid}/checklist`);
+    const firstSectionId = init.body.sections[0].id;
+
+    const r = await request(app)
+      .post(`/api/amazon/products/${pid}/checklist/sections/${firstSectionId}/items`)
+      .send({ description: 'Mein eigener Eintrag', remark: 'B' });
+    expect(r.status).toBe(201);
+    expect(r.body.item).toMatchObject({ description: 'Mein eigener Eintrag', remark: 'B', is_done: 0 });
+  });
+
+  it('Produkt DELETE Cross-Produkt -> 404', async () => {
+    const pA = makeProduct(db, 'A');
+    const pB = makeProduct(db, 'B');
+    const initA = await request(app).get(`/api/amazon/products/${pA}/checklist`);
+    const itemId = initA.body.sections[0].items[0].id;
+
+    const r = await request(app).delete(`/api/amazon/products/${pB}/checklist/items/${itemId}`);
+    expect(r.status).toBe(404);
+  });
+
+  it('Produkt-Section DELETE entfernt Items (Cascade)', async () => {
+    const pid = makeProduct(db);
+    const init = await request(app).get(`/api/amazon/products/${pid}/checklist`);
+    const secId = init.body.sections[4].id; // OSS-Section mit 1 Item
+
+    const r = await request(app).delete(`/api/amazon/products/${pid}/checklist/sections/${secId}`);
+    expect(r.status).toBe(204);
+    const items = db.prepare(
+      `SELECT COUNT(*) AS c FROM amazon_checklist_product_items WHERE section_id=?`
+    ).get(secId) as { c: number };
+    expect(items.c).toBe(0);
+  });
+
+  it('Master-Aenderung wirkt nicht auf bestehende Produkt-Checklist', async () => {
+    const pid = makeProduct(db);
+    await request(app).get(`/api/amazon/products/${pid}/checklist`);
+
+    await request(app)
+      .post('/api/amazon/checklist/master/sections')
+      .send({ title: 'Brand-New-Master' });
+
+    const r = await request(app).get(`/api/amazon/products/${pid}/checklist`);
+    expect(r.body.sections).toHaveLength(5);
+  });
+});

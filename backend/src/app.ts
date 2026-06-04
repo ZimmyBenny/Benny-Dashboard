@@ -23,6 +23,7 @@ import reviewsRoutes from './routes/reviews.routes';
 import amazonProductsRoutes from './routes/amazon.products.routes';
 import amazonSourcingRoutes from './routes/amazon.sourcing.routes';
 import amazonBrandRoutes from './routes/amazon.brand.routes';
+import amazonChecklistRoutes from './routes/amazon.checklist.routes';
 import { verifyToken, type AuthenticatedRequest } from './middleware/auth';
 
 export function createApp() {
@@ -69,6 +70,7 @@ export function createApp() {
   app.use('/api/amazon', amazonProductsRoutes);
   app.use('/api/amazon', amazonSourcingRoutes);
   app.use('/api/amazon', amazonBrandRoutes);
+  app.use('/api/amazon', amazonChecklistRoutes);
 
   // Temporary probe route to verify the guard end-to-end (kept; Plan 3 may remove)
   app.get('/api/_probe', (req: AuthenticatedRequest, res) => {
