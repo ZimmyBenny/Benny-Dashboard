@@ -7,6 +7,13 @@ import {
 
 export const AMAZON_PRODUCTS_KEY = ['amazon', 'products'] as const;
 
+// Praezise Filter-Funktion: matcht NUR die Produkt-Listen-Query.
+// Wichtig, weil andere Queries (z.B. ['amazon','products', id, 'checklist'])
+// mit demselben Prefix beginnen, aber Objekt-Daten haben — list.map crasht sonst.
+const productsListFilter = (queryKey: readonly unknown[]) =>
+  queryKey[0] === 'amazon' && queryKey[1] === 'products' &&
+  queryKey.length === 3 && typeof queryKey[2] === 'object';
+
 export function useAmazonProducts(includeDiscarded: boolean) {
   return useQuery({
     queryKey: [...AMAZON_PRODUCTS_KEY, { includeDiscarded }],
@@ -36,7 +43,7 @@ export function useUpdateAmazonProductStatus() {
       await qc.cancelQueries({ queryKey: AMAZON_PRODUCTS_KEY });
       const snapshots = qc.getQueriesData<AmazonProduct[]>({ queryKey: AMAZON_PRODUCTS_KEY });
       for (const [key, list] of snapshots) {
-        if (!list) continue;
+        if (!Array.isArray(list)) continue;
         qc.setQueryData<AmazonProduct[]>(key, list.map(p => p.id === id ? { ...p, status } : p));
       }
       return { snapshots };
@@ -57,7 +64,7 @@ export function useUpdateAmazonProductNotes() {
       await qc.cancelQueries({ queryKey: AMAZON_PRODUCTS_KEY });
       const snapshots = qc.getQueriesData<AmazonProduct[]>({ queryKey: AMAZON_PRODUCTS_KEY });
       for (const [key, list] of snapshots) {
-        if (!list) continue;
+        if (!Array.isArray(list)) continue;
         qc.setQueryData<AmazonProduct[]>(key, list.map(p => p.id === id ? { ...p, notes } : p));
       }
       return { snapshots };

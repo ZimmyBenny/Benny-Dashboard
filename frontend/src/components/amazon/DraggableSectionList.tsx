@@ -25,7 +25,13 @@ export function DraggableSectionList<Id extends string>({ items, onReorder }: Pr
   const [dropTargetId, setDropTargetId] = useState<Id | null>(null);
   const startRef = useRef<{ x: number; y: number; id: Id } | null>(null);
   const movedRef = useRef(false);
+  const dropTargetRef = useRef<Id | null>(null);
+  const onReorderRef = useRef(onReorder);
   const itemRefs = useRef<Map<Id, HTMLDivElement>>(new Map());
+
+  // Refs aktuell halten ohne den globalen Listener neu zu registrieren.
+  useEffect(() => { onReorderRef.current = onReorder; }, [onReorder]);
+  useEffect(() => { dropTargetRef.current = dropTargetId; }, [dropTargetId]);
 
   function startsOnHeader(target: EventTarget | null): boolean {
     const el = target as HTMLElement | null;
@@ -42,7 +48,8 @@ export function DraggableSectionList<Id extends string>({ items, onReorder }: Pr
     return null;
   }
 
-  // Globale Listener nur waehrend einer aktiven pointerdown-Sequenz.
+  // Listener werden EINMAL beim Mount registriert (leeres dep-array).
+  // Sonst loescht jeder setDropTargetId-Re-render die laufende Drag-Sequenz.
   useEffect(() => {
     function onMove(ev: PointerEvent) {
       if (!startRef.current) return;
@@ -53,21 +60,24 @@ export function DraggableSectionList<Id extends string>({ items, onReorder }: Pr
         movedRef.current = true;
         setDraggingId(startRef.current.id);
       }
-      setDropTargetId(findHitId(ev.clientY));
+      const hit = findHitId(ev.clientY);
+      dropTargetRef.current = hit;
+      setDropTargetId(hit);
     }
     function onUp(_ev: PointerEvent) {
       const wasDragging = movedRef.current;
       const from = startRef.current?.id ?? null;
-      const to = dropTargetId;
+      const to = dropTargetRef.current;
 
       if (wasDragging && from && to && from !== to) {
-        onReorder(from, to);
+        onReorderRef.current(from, to);
         const suppress = (clickEv: Event) => { clickEv.stopPropagation(); clickEv.preventDefault(); };
         window.addEventListener('click', suppress, { capture: true, once: true });
       }
 
       startRef.current = null;
       movedRef.current = false;
+      dropTargetRef.current = null;
       setDraggingId(null);
       setDropTargetId(null);
 
@@ -75,10 +85,9 @@ export function DraggableSectionList<Id extends string>({ items, onReorder }: Pr
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onUp);
     }
-    function onDownCapture(ev: PointerEvent) {
+    function onDown(ev: PointerEvent) {
       if (ev.pointerType === 'mouse' && ev.button !== 0) return;
       if (!startsOnHeader(ev.target)) return;
-      // Welche Section war der Ursprung?
       let foundId: Id | null = null;
       for (const [id, el] of itemRefs.current.entries()) {
         if (el.contains(ev.target as Node)) { foundId = id; break; }
@@ -90,15 +99,14 @@ export function DraggableSectionList<Id extends string>({ items, onReorder }: Pr
       window.addEventListener('pointerup', onUp);
       window.addEventListener('pointercancel', onUp);
     }
-    // capture: false, damit React-Handler vor uns laufen koennen (z.B. button clicks)
-    window.addEventListener('pointerdown', onDownCapture);
+    window.addEventListener('pointerdown', onDown);
     return () => {
-      window.removeEventListener('pointerdown', onDownCapture);
+      window.removeEventListener('pointerdown', onDown);
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onUp);
     };
-  }, [dropTargetId, onReorder]);
+  }, []);
 
   return (
     <div className="flex flex-col gap-4">
