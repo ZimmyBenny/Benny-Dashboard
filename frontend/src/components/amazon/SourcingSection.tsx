@@ -50,7 +50,7 @@ export function SourcingSection({ productId }: Props) {
 
   return (
     <section
-      className="rounded-xl overflow-hidden"
+      className="rounded-xl"
       style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}
     >
       <SectionHeader
