@@ -261,3 +261,103 @@ export async function updateCandidate(
 export async function deleteCandidate(productId: number, candidateId: number): Promise<void> {
   await apiClient.delete(`/amazon/products/${productId}/brand/names/${candidateId}`);
 }
+
+// ── Checkliste ────────────────────────────────────────────────────────────────
+
+export interface ChecklistItem {
+  id: number;
+  section_id: number;
+  sort_order: number;
+  description: string;
+  remark: string | null;
+  link_url: string | null;
+  link_label: string | null;
+  is_done: 0 | 1;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface ChecklistSection {
+  id: number;
+  sort_order: number;
+  title: string;
+  items: ChecklistItem[];
+  created_at: number;
+  updated_at: number;
+}
+
+export interface ChecklistPayload {
+  sections: ChecklistSection[];
+}
+
+export type ChecklistSectionPatch = Partial<{ title: string; sort_order: number }>;
+export type ChecklistItemPatch = Partial<{
+  description: string;
+  remark: string | null;
+  link_url: string | null;
+  link_label: string | null;
+  sort_order: number;
+  is_done: 0 | 1;
+}>;
+export interface ChecklistItemCreate {
+  description: string;
+  remark?: string | null;
+  link_url?: string | null;
+  link_label?: string | null;
+}
+
+// Master
+export async function fetchChecklistMaster(): Promise<ChecklistPayload> {
+  const r = await apiClient.get<ChecklistPayload>('/amazon/checklist/master');
+  return r.data;
+}
+export async function createMasterSection(title: string): Promise<ChecklistSection> {
+  const r = await apiClient.post<{ section: ChecklistSection }>('/amazon/checklist/master/sections', { title });
+  return r.data.section;
+}
+export async function updateMasterSection(id: number, patch: ChecklistSectionPatch): Promise<ChecklistSection> {
+  const r = await apiClient.patch<{ section: ChecklistSection }>(`/amazon/checklist/master/sections/${id}`, patch);
+  return r.data.section;
+}
+export async function deleteMasterSection(id: number): Promise<void> {
+  await apiClient.delete(`/amazon/checklist/master/sections/${id}`);
+}
+export async function createMasterItem(sectionId: number, input: ChecklistItemCreate): Promise<ChecklistItem> {
+  const r = await apiClient.post<{ item: ChecklistItem }>(`/amazon/checklist/master/sections/${sectionId}/items`, input);
+  return r.data.item;
+}
+export async function updateMasterItem(id: number, patch: ChecklistItemPatch): Promise<ChecklistItem> {
+  const r = await apiClient.patch<{ item: ChecklistItem }>(`/amazon/checklist/master/items/${id}`, patch);
+  return r.data.item;
+}
+export async function deleteMasterItem(id: number): Promise<void> {
+  await apiClient.delete(`/amazon/checklist/master/items/${id}`);
+}
+
+// Produkt
+export async function fetchChecklistProduct(productId: number): Promise<ChecklistPayload> {
+  const r = await apiClient.get<ChecklistPayload>(`/amazon/products/${productId}/checklist`);
+  return r.data;
+}
+export async function createProductSection(productId: number, title: string): Promise<ChecklistSection> {
+  const r = await apiClient.post<{ section: ChecklistSection }>(`/amazon/products/${productId}/checklist/sections`, { title });
+  return r.data.section;
+}
+export async function updateProductSection(productId: number, sectionId: number, patch: ChecklistSectionPatch): Promise<ChecklistSection> {
+  const r = await apiClient.patch<{ section: ChecklistSection }>(`/amazon/products/${productId}/checklist/sections/${sectionId}`, patch);
+  return r.data.section;
+}
+export async function deleteProductSection(productId: number, sectionId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/checklist/sections/${sectionId}`);
+}
+export async function createProductItem(productId: number, sectionId: number, input: ChecklistItemCreate): Promise<ChecklistItem> {
+  const r = await apiClient.post<{ item: ChecklistItem }>(`/amazon/products/${productId}/checklist/sections/${sectionId}/items`, input);
+  return r.data.item;
+}
+export async function updateProductItem(productId: number, itemId: number, patch: ChecklistItemPatch): Promise<ChecklistItem> {
+  const r = await apiClient.patch<{ item: ChecklistItem }>(`/amazon/products/${productId}/checklist/items/${itemId}`, patch);
+  return r.data.item;
+}
+export async function deleteProductItem(productId: number, itemId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/checklist/items/${itemId}`);
+}
