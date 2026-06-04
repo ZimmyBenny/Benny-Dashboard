@@ -14,7 +14,10 @@ import { ProductStatusBadge } from '../../components/amazon/ProductStatusBadge';
 import { SourcingSection } from '../../components/amazon/SourcingSection';
 import { BrandNameSection } from '../../components/amazon/BrandNameSection';
 import { ChecklistSection } from '../../components/amazon/checklist/ChecklistSection';
+import { ProductNotes } from '../../components/amazon/ProductNotes';
 import { AutosaveIndicator } from '../../components/amazon/AutosaveIndicator';
+import { DraggableSectionList } from '../../components/amazon/DraggableSectionList';
+import { useDetailSectionOrder, type DetailSectionId } from '../../hooks/amazon/useDetailSectionOrder';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -82,6 +85,7 @@ export function AmazonProductDetailPage() {
   const removeImage = useDeleteAmazonProductImage();
   const fileInput = useRef<HTMLInputElement | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { order: sectionOrder, move: moveSection } = useDetailSectionOrder();
 
   function handlePickFile(f: File | undefined | null) {
     if (!f || !product) return;
@@ -172,8 +176,10 @@ export function AmazonProductDetailPage() {
 
       {/* Bild oben (begrenzt), Sektionen darunter mit voller Breite */}
       <div className="flex flex-col gap-6">
+        {/* Bild + Notizen nebeneinander */}
+        <div className="flex flex-col md:flex-row gap-4 items-stretch">
         {/* Bild-Bereich */}
-        <section className="flex flex-col gap-3 max-w-md">
+        <section className="flex flex-col gap-3 w-full md:w-[420px] md:flex-shrink-0">
           <button
             type="button"
             onClick={() => fileInput.current?.click()}
@@ -204,14 +210,14 @@ export function AmazonProductDetailPage() {
               type="button"
               onClick={() => fileInput.current?.click()}
               disabled={uploading}
-              className="flex-1 px-3 py-2 rounded-md text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+              className="px-2.5 py-1 rounded-md text-xs flex items-center gap-1.5 disabled:opacity-50"
               style={{
                 background: 'var(--color-surface-container-high)',
                 color: 'var(--color-on-surface)',
                 border: '1px solid rgba(255,255,255,0.08)',
               }}
             >
-              <span className="material-symbols-outlined text-base">photo_camera</span>
+              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>photo_camera</span>
               {product.image_path ? 'Ersetzen' : 'Hochladen'}
             </button>
             {product.image_path && (
@@ -222,10 +228,10 @@ export function AmazonProductDetailPage() {
                   removeImage.mutate(product.id);
                 }}
                 disabled={uploading}
-                className="px-3 py-2 rounded-md text-sm flex items-center gap-2 disabled:opacity-50"
+                className="px-2.5 py-1 rounded-md text-xs flex items-center gap-1.5 disabled:opacity-50"
                 style={{ background: 'var(--color-surface-container-high)', color: '#fca5a5' }}
               >
-                <span className="material-symbols-outlined text-base">delete</span>
+                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>delete</span>
                 Entfernen
               </button>
             )}
@@ -237,12 +243,21 @@ export function AmazonProductDetailPage() {
           {error && <p className="text-sm" style={{ color: '#fca5a5' }}>{error}</p>}
         </section>
 
-        {/* Sektionen — volle Breite */}
-        <div className="flex flex-col gap-4">
-          <SourcingSection productId={product.id} />
-          <BrandNameSection productId={product.id} productName={product.name} />
-          <ChecklistSection productId={product.id} />
+        <ProductNotes productId={product.id} initialNotes={product.notes} />
         </div>
+
+        {/* Sektionen — volle Breite, sortierbar via Drag am Header */}
+        <DraggableSectionList<DetailSectionId>
+          items={sectionOrder.map(id => ({
+            id,
+            render: () => {
+              if (id === 'sourcing') return <SourcingSection productId={product.id} />;
+              if (id === 'brand') return <BrandNameSection productId={product.id} productName={product.name} />;
+              return <ChecklistSection productId={product.id} />;
+            },
+          }))}
+          onReorder={moveSection}
+        />
       </div>
       <div className="mt-4">
         <AutosaveIndicator />
