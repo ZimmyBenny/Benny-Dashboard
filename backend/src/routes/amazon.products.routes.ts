@@ -44,12 +44,14 @@ const router = Router();
 type Status = 'interessant' | 'aktiv' | 'bestehend' | 'verworfen';
 const VALID_STATUS: ReadonlySet<Status> = new Set(['interessant', 'aktiv', 'bestehend', 'verworfen']);
 const MAX_NAME_LEN = 200;
+const MAX_NOTES_LEN = 5000;
 
 interface ProductRow {
   id: number;
   name: string;
   status: Status;
   image_path: string | null;
+  notes: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -90,7 +92,7 @@ router.patch('/products/:id', (req: Request, res: Response) => {
   const existing = db.prepare(`SELECT * FROM amazon_products WHERE id = ?`).get(id) as ProductRow | undefined;
   if (!existing) { res.status(404).json({ error: 'not found' }); return; }
 
-  const body = (req.body as { name?: unknown; status?: unknown }) ?? {};
+  const body = (req.body as { name?: unknown; status?: unknown; notes?: unknown }) ?? {};
   const updates: string[] = [];
   const params: unknown[] = [];
 
@@ -107,6 +109,23 @@ router.patch('/products/:id', (req: Request, res: Response) => {
     }
     updates.push('status = ?');
     params.push(body.status);
+  }
+  if (body.notes !== undefined) {
+    if (body.notes === null) {
+      updates.push('notes = ?');
+      params.push(null);
+    } else if (typeof body.notes !== 'string') {
+      res.status(400).json({ error: 'invalid notes' });
+      return;
+    } else {
+      const trimmed = body.notes;
+      if (trimmed.length > MAX_NOTES_LEN) {
+        res.status(400).json({ error: 'notes too long' });
+        return;
+      }
+      updates.push('notes = ?');
+      params.push(trimmed.length === 0 ? null : trimmed);
+    }
   }
 
   if (updates.length === 0) { res.json(existing); return; }
