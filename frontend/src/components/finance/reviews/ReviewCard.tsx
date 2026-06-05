@@ -206,7 +206,7 @@ export function ReviewCard({ review, onCardClick, onForward }: Props) {
         {approvalDays !== null ? (
           // Status=bewertet UND seller_notified -> Wartezeit-Counter (>=3 Tage = orange)
           <span
-            title={`${approvalDays} Tag${approvalDays === 1 ? '' : 'e'} seit Bewertung gesendet — Amazon-Freigabe meist 1-2 Tage`}
+            title={`${approvalDays} Tag${approvalDays === 1 ? '' : 'e'} seit Bewertung gesendet — Geldeingang meist 1-2 Tage`}
             style={{
               background: approvalDays >= 3 ? 'rgba(255,140,0,0.15)' : 'rgba(92,253,128,0.12)',
               color: approvalDays >= 3 ? '#ffb84d' : '#5cfd80',
@@ -224,10 +224,10 @@ export function ReviewCard({ review, onCardClick, onForward }: Props) {
               {approvalDays >= 3 ? 'schedule' : 'mark_email_read'}
             </span>
             {approvalDays === 0
-              ? 'Wartet auf Freigabe'
+              ? 'Wartet auf Geldeingang'
               : approvalDays >= 3
                 ? `Nachfragen? (${approvalDays} T.)`
-                : `Wartet auf Freigabe (${approvalDays} T.)`}
+                : `Wartet auf Geldeingang (${approvalDays} T.)`}
           </span>
         ) : review.seller_notified === 1 ? (
           // seller_notified=1 aber nicht im 'bewertet'-Status (z.B. weiter durchgezogen) -> einfache Gesendet-Pill
