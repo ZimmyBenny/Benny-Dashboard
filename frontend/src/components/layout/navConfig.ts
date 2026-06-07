@@ -27,6 +27,7 @@ export const navItems: NavItem[] = [
   { path: '/amazon', label: 'Amazon', icon: 'shopping_cart', subItems: [
     { path: '/amazon/entwicklung',             label: 'Entwicklung',  icon: 'settings' },
     { path: '/amazon/entwicklung/checkliste',  label: 'Checkliste',   icon: 'checklist' },
+    { path: '/amazon/entwicklung/markenname',  label: 'Markenname',   icon: 'label' },
   ]},
   { path: '/finances', label: 'Finanzen', icon: 'account_balance_wallet', subItems: [
     { path: '/finances',              label: 'Bewertungen',        icon: 'reviews' },
@@ -73,6 +74,7 @@ export const pageNames: Record<string, string> = {
   '/amazon':                          'Amazon',
   '/amazon/entwicklung':              'Entwicklung',
   '/amazon/entwicklung/checkliste':   'Checkliste',
+  '/amazon/entwicklung/markenname':   'Markenname',
   '/contacts':        'Kontakte',
   '/haushalt': 'Haushalt',
   '/contracts':       'Verträge & Fristen',
