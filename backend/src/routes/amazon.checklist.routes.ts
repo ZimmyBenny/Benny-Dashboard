@@ -209,7 +209,7 @@ function loadProductSectionsWithItems(productId: number): Array<ProductSectionRo
 
 function initProductFromMaster(productId: number): void {
   const masterSections = db.prepare(
-    `SELECT * FROM amazon_checklist_master_sections ORDER BY sort_order, id`
+    `SELECT * FROM amazon_checklist_master_sections WHERE copy_to_products = 1 ORDER BY sort_order, id`
   ).all() as SectionRow[];
   const insSec = db.prepare(
     `INSERT INTO amazon_checklist_product_sections (product_id, sort_order, title) VALUES (?, ?, ?)`
