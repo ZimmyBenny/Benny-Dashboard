@@ -12,7 +12,6 @@ import {
 } from '../../api/amazon.api';
 import { ProductStatusBadge } from '../../components/amazon/ProductStatusBadge';
 import { SourcingSection } from '../../components/amazon/SourcingSection';
-import { BrandNameSection } from '../../components/amazon/BrandNameSection';
 import { ChecklistSection } from '../../components/amazon/checklist/ChecklistSection';
 import { ProductNotes } from '../../components/amazon/ProductNotes';
 import { AutosaveIndicator } from '../../components/amazon/AutosaveIndicator';
@@ -252,7 +251,6 @@ export function AmazonProductDetailPage() {
             id,
             render: () => {
               if (id === 'sourcing') return <SourcingSection productId={product.id} />;
-              if (id === 'brand') return <BrandNameSection productId={product.id} productName={product.name} />;
               return <ChecklistSection productId={product.id} />;
             },
           }))}
