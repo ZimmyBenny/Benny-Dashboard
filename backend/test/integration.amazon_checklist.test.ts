@@ -142,11 +142,11 @@ describe('Checklist API — Produkt', () => {
     const pid = makeProduct(db);
     const r = await request(app).get(`/api/amazon/products/${pid}/checklist`);
     expect(r.status).toBe(200);
-    expect(r.body.sections).toHaveLength(5);
+    expect(r.body.sections).toHaveLength(4);
     const total = r.body.sections.reduce(
       (sum: number, s: { items: unknown[] }) => sum + s.items.length, 0,
     );
-    expect(total).toBe(66);
+    expect(total).toBe(52);
     // is_done = 0 fuer alle
     const allDone = r.body.sections.flatMap((s: { items: { is_done: number }[] }) => s.items.map(i => i.is_done));
     expect(allDone.every((d: number) => d === 0)).toBe(true);
@@ -159,7 +159,7 @@ describe('Checklist API — Produkt', () => {
     const sec = (db.prepare(
       `SELECT COUNT(*) AS c FROM amazon_checklist_product_sections WHERE product_id=?`
     ).get(pid) as { c: number }).c;
-    expect(sec).toBe(5);
+    expect(sec).toBe(4);
   });
 
   it('GET 404 fuer unbekanntes Produkt', async () => {
@@ -218,7 +218,7 @@ describe('Checklist API — Produkt', () => {
   it('Produkt-Section DELETE entfernt Items (Cascade)', async () => {
     const pid = makeProduct(db);
     const init = await request(app).get(`/api/amazon/products/${pid}/checklist`);
-    const secId = init.body.sections[4].id; // OSS-Section mit 1 Item
+    const secId = init.body.sections[init.body.sections.length - 1].id; // OSS-Section mit 1 Item
 
     const r = await request(app).delete(`/api/amazon/products/${pid}/checklist/sections/${secId}`);
     expect(r.status).toBe(204);
@@ -237,6 +237,71 @@ describe('Checklist API — Produkt', () => {
       .send({ title: 'Brand-New-Master' });
 
     const r = await request(app).get(`/api/amazon/products/${pid}/checklist`);
+    expect(r.body.sections).toHaveLength(4);
+  });
+
+  it('Produkt-Init ueberspringt die Gruendungs-Sektion', async () => {
+    const pid = makeProduct(db);
+    const r = await request(app).get(`/api/amazon/products/${pid}/checklist`);
+    expect(r.status).toBe(200);
+    const titles = r.body.sections.map((s: { title: string }) => s.title);
+    expect(titles).not.toContain('Gründung und einmalige Aufgaben');
+    expect(titles).toEqual([
+      'Produktsuche',
+      'Produkteinkauf',
+      'Amazon Listing erstellen',
+      'Bei Verkäufen außerhalb der EU',
+    ]);
+  });
+
+  it('Master behaelt die Gruendungs-Sektion', async () => {
+    const r = await request(app).get('/api/amazon/checklist/master');
+    expect(r.status).toBe(200);
+    const titles = r.body.sections.map((s: { title: string }) => s.title);
+    expect(titles).toContain('Gründung und einmalige Aufgaben');
     expect(r.body.sections).toHaveLength(5);
+  });
+
+  it('copy_to_products-Flag: Gruendung=0, uebrige=1', async () => {
+    const gruendung = db.prepare(
+      `SELECT copy_to_products AS c FROM amazon_checklist_master_sections WHERE title = 'Gründung und einmalige Aufgaben'`
+    ).get() as { c: number };
+    expect(gruendung.c).toBe(0);
+    const others = db.prepare(
+      `SELECT COUNT(*) AS c FROM amazon_checklist_master_sections WHERE title != 'Gründung und einmalige Aufgaben' AND copy_to_products != 1`
+    ).get() as { c: number };
+    expect(others.c).toBe(0);
+  });
+
+  it('Bereinigung entfernt bereits kopierte Gruendungs-Sektion (Items zuerst)', async () => {
+    const pid = makeProduct(db);
+    const secRes = db.prepare(
+      `INSERT INTO amazon_checklist_product_sections (product_id, sort_order, title) VALUES (?, 1, 'Gründung und einmalige Aufgaben')`
+    ).run(pid);
+    const sid = Number(secRes.lastInsertRowid);
+    db.prepare(
+      `INSERT INTO amazon_checklist_product_items (section_id, sort_order, description) VALUES (?, 1, 'Alt-Eintrag')`
+    ).run(sid);
+
+    db.prepare(
+      `DELETE FROM amazon_checklist_product_items
+         WHERE section_id IN (
+           SELECT id FROM amazon_checklist_product_sections
+           WHERE title = 'Gründung und einmalige Aufgaben'
+         )`
+    ).run();
+    db.prepare(
+      `DELETE FROM amazon_checklist_product_sections
+         WHERE title = 'Gründung und einmalige Aufgaben'`
+    ).run();
+
+    const secLeft = (db.prepare(
+      `SELECT COUNT(*) AS c FROM amazon_checklist_product_sections WHERE id = ?`
+    ).get(sid) as { c: number }).c;
+    const itemsLeft = (db.prepare(
+      `SELECT COUNT(*) AS c FROM amazon_checklist_product_items WHERE section_id = ?`
+    ).get(sid) as { c: number }).c;
+    expect(secLeft).toBe(0);
+    expect(itemsLeft).toBe(0);
   });
 });
