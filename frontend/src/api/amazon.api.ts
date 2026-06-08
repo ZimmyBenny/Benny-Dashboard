@@ -507,6 +507,7 @@ export interface ManufacturerOffer {
   id: number; manufacturer_id: number; sort_order: number;
   menge_variante: string | null; preis: string | null; moq: string | null;
   lieferzeit: string | null; datum: string | null; notiz: string | null;
+  currency: 'USD' | 'EUR'; is_latest: number;
   created_at: number; updated_at: number;
 }
 export interface Manufacturer {
@@ -515,12 +516,15 @@ export interface Manufacturer {
   webseite: string | null; notizen: string | null; created_at: number; updated_at: number;
   offers: ManufacturerOffer[];
 }
-export interface ManufacturersPayload { manufacturers: Manufacturer[]; }
+export interface ManufacturersPayload { manufacturers: Manufacturer[]; settings: { usd_eur_rate: string | null }; }
 export type ManufacturerPatch = Partial<Pick<Manufacturer, 'name' | 'ansprechpartner' | 'adresse' | 'email' | 'webseite' | 'notizen'>>;
-export type OfferPatch = Partial<Pick<ManufacturerOffer, 'menge_variante' | 'preis' | 'moq' | 'lieferzeit' | 'datum' | 'notiz'>>;
+export type OfferPatch = Partial<Pick<ManufacturerOffer, 'menge_variante' | 'preis' | 'moq' | 'lieferzeit' | 'datum' | 'notiz' | 'currency' | 'is_latest'>>;
 
 export async function fetchManufacturers(productId: number): Promise<ManufacturersPayload> {
   return (await apiClient.get(`/amazon/products/${productId}/manufacturers`)).data as ManufacturersPayload;
+}
+export async function updateManufacturerSettings(productId: number, usdEurRate: string): Promise<{ usd_eur_rate: string | null }> {
+  return ((await apiClient.patch(`/amazon/products/${productId}/manufacturers/settings`, { usd_eur_rate: usdEurRate })).data as { settings: { usd_eur_rate: string | null } }).settings;
 }
 export async function createManufacturer(productId: number, name?: string): Promise<Manufacturer> {
   return ((await apiClient.post(`/amazon/products/${productId}/manufacturers`, name !== undefined ? { name } : {})).data as { manufacturer: Manufacturer }).manufacturer;

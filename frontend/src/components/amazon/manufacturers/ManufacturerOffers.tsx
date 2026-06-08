@@ -55,6 +55,15 @@ function OfferRow({ productId, mId, offer }: OfferRowProps) {
         className="px-2 py-1 rounded-md text-xs w-24"
         style={inputStyle}
       />
+      <select
+        value={offer.currency}
+        onChange={(e) => update.mutate({ mId, oId: offer.id, patch: { currency: e.target.value as 'USD' | 'EUR' } })}
+        className="px-2 py-1 rounded-md text-xs"
+        style={inputStyle}
+      >
+        <option value="USD">USD</option>
+        <option value="EUR">EUR</option>
+      </select>
       <input
         value={moq}
         onChange={(e) => setMoq(e.target.value)}
@@ -87,6 +96,16 @@ function OfferRow({ productId, mId, offer }: OfferRowProps) {
         className="px-2 py-1 rounded-md text-xs flex-1 min-w-28"
         style={inputStyle}
       />
+      <button
+        type="button"
+        onClick={() => update.mutate({ mId, oId: offer.id, patch: { is_latest: offer.is_latest ? 0 : 1 } })}
+        className="p-1 rounded-md flex-shrink-0"
+        style={{ color: offer.is_latest ? '#fbbf24' : 'var(--color-on-surface-variant)' }}
+        title={offer.is_latest ? 'Aktuellstes Angebot' : 'Als aktuellstes markieren'}
+        aria-label="Aktuellstes Angebot"
+      >
+        <span className="material-symbols-outlined" style={{ fontSize: 18, fontVariationSettings: offer.is_latest ? "'FILL' 1" : "'FILL' 0" }}>star</span>
+      </button>
       {confirmDelete ? (
         <div className="flex items-center gap-1 flex-shrink-0">
           <span className="text-xs" style={{ color: '#fca5a5' }}>Wirklich löschen?</span>

@@ -1,11 +1,12 @@
 import { type Manufacturer } from '../../../api/amazon.api';
-import { parsePreis } from '../../../hooks/amazon/useManufacturers';
+import { eurPreis } from '../../../hooks/amazon/useManufacturers';
 
 interface Props {
   manufacturers: Manufacturer[];
+  rate: number | null;
 }
 
-export function ManufacturerComparison({ manufacturers }: Props) {
+export function ManufacturerComparison({ manufacturers, rate }: Props) {
   const rows: { herstellerName: string; offer: (typeof manufacturers)[0]['offers'][0] }[] = [];
   for (const m of manufacturers) {
     for (const o of m.offers) {
@@ -21,23 +22,16 @@ export function ManufacturerComparison({ manufacturers }: Props) {
     );
   }
 
-  // Sort by parsed price ascending; unparseable prices go to end
+  const eurOf = (o: { preis: string | null; currency: 'USD' | 'EUR' }) => eurPreis(o, rate);
   const sorted = [...rows].sort((a, b) => {
-    const pa = parsePreis(a.offer.preis);
-    const pb = parsePreis(b.offer.preis);
+    const pa = eurOf(a.offer); const pb = eurOf(b.offer);
     if (pa !== null && pb !== null) return pa - pb;
     if (pa !== null) return -1;
     if (pb !== null) return 1;
     return 0;
   });
-
-  // Find cheapest parseable price (the first row after sorting that has a parsed price)
-  const cheapestId = (() => {
-    for (const row of sorted) {
-      if (parsePreis(row.offer.preis) !== null) return row.offer.id;
-    }
-    return null;
-  })();
+  const cheapestId = (() => { for (const r of sorted) if (eurOf(r.offer) !== null) return r.offer.id; return null; })();
+  const fmtEur = (n: number | null) => n === null ? '—' : n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 
   return (
     <div className="mt-4 rounded-xl overflow-hidden" style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -52,6 +46,7 @@ export function ManufacturerComparison({ manufacturers }: Props) {
               <th className="px-3 py-2 text-left text-xs font-medium" style={{ color: 'var(--color-on-surface-variant)' }}>Hersteller</th>
               <th className="px-3 py-2 text-left text-xs font-medium" style={{ color: 'var(--color-on-surface-variant)' }}>Menge/Variante</th>
               <th className="px-3 py-2 text-left text-xs font-medium" style={{ color: 'var(--color-on-surface-variant)' }}>Preis</th>
+              <th className="px-3 py-2 text-left text-xs font-medium" style={{ color: 'var(--color-on-surface-variant)' }}>EUR-Preis</th>
               <th className="px-3 py-2 text-left text-xs font-medium" style={{ color: 'var(--color-on-surface-variant)' }}>MOQ</th>
               <th className="px-3 py-2 text-left text-xs font-medium" style={{ color: 'var(--color-on-surface-variant)' }}>Lieferzeit</th>
               <th className="px-3 py-2 text-left text-xs font-medium" style={{ color: 'var(--color-on-surface-variant)' }}>Datum</th>
@@ -69,9 +64,10 @@ export function ManufacturerComparison({ manufacturers }: Props) {
                       : { borderLeft: '3px solid transparent' }
                   }
                 >
-                  <td className="px-3 py-2 text-xs" style={{ color: 'var(--color-on-surface)' }}>{herstellerName}</td>
+                  <td className="px-3 py-2 text-xs" style={{ color: 'var(--color-on-surface)' }}>{herstellerName}{offer.is_latest ? <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px]" style={{ background: '#fbbf24', color: '#08131f' }}>Aktuell</span> : null}</td>
                   <td className="px-3 py-2 text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{offer.menge_variante || '—'}</td>
-                  <td className="px-3 py-2 text-xs font-medium" style={{ color: isCheapest ? '#34d399' : 'var(--color-on-surface)' }}>{offer.preis || '—'}</td>
+                  <td className="px-3 py-2 text-xs font-medium" style={{ color: isCheapest ? '#34d399' : 'var(--color-on-surface)' }}>{offer.preis ? `${offer.preis} ${offer.currency}` : '—'}</td>
+                  <td className="px-3 py-2 text-xs" style={{ color: isCheapest ? '#34d399' : 'var(--color-on-surface)' }}>{fmtEur(eurOf(offer))}</td>
                   <td className="px-3 py-2 text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{offer.moq || '—'}</td>
                   <td className="px-3 py-2 text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{offer.lieferzeit || '—'}</td>
                   <td className="px-3 py-2 text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{offer.datum || '—'}</td>
