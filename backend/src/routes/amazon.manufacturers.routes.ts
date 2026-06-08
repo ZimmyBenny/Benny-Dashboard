@@ -56,7 +56,7 @@ interface OfferRow {
   currency: string; is_latest: number;
   created_at: number; updated_at: number;
 }
-interface SettingsRow { product_id: number; usd_eur_rate: string | null; updated_at: number; }
+interface SettingsRow { product_id: number; usd_eur_rate: string | null; rate_date: string | null; updated_at: number; }
 
 function loadManufacturer(productId: number, mId: number): ManufacturerRow | undefined {
   return db.prepare(`SELECT * FROM amazon_manufacturers WHERE id = ? AND product_id = ?`).get(mId, productId) as ManufacturerRow | undefined;
@@ -95,6 +95,19 @@ function normText(raw: unknown): { skip: true } | { skip: false; value: string |
   return { skip: false, value: t };
 }
 
+router.get('/fx/eur-usd', async (_req: Request, res: Response) => {
+  try {
+    const r = await fetch('https://api.frankfurter.app/latest?from=EUR&to=USD');
+    if (!r.ok) { res.status(502).json({ error: 'fx unavailable' }); return; }
+    const data = await r.json() as { rates?: { USD?: number }; date?: string };
+    const rate = data?.rates?.USD; const date = data?.date;
+    if (typeof rate !== 'number' || typeof date !== 'string') { res.status(502).json({ error: 'fx unavailable' }); return; }
+    res.json({ rate, date });
+  } catch {
+    res.status(502).json({ error: 'fx unavailable' });
+  }
+});
+
 router.get('/products/:id/manufacturers', (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'product not found' }); return; }
@@ -117,13 +130,21 @@ router.post('/products/:id/manufacturers', (req: Request, res: Response) => {
 router.patch('/products/:id/manufacturers/settings', (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
-  const raw = (req.body as { usd_eur_rate?: unknown })?.usd_eur_rate;
+  const body = (req.body ?? {}) as { usd_eur_rate?: unknown; rate_date?: unknown };
+  const raw = body.usd_eur_rate;
   let value: string | null;
   if (raw === undefined || raw === null) value = null;
   else if (typeof raw !== 'string') { res.status(400).json({ error: 'invalid usd_eur_rate' }); return; }
   else { const t = raw.trim(); value = t.length === 0 ? null : t.slice(0, 50); }
+  let dateValue: string | null = null;
+  if ('rate_date' in body) {
+    const rd = body.rate_date;
+    if (rd === undefined || rd === null) dateValue = null;
+    else if (typeof rd !== 'string') { res.status(400).json({ error: 'invalid rate_date' }); return; }
+    else { const t = rd.trim(); dateValue = t.length === 0 ? null : t.slice(0, 30); }
+  }
   getOrCreateSettings(id);
-  db.prepare(`UPDATE amazon_manufacturer_settings SET usd_eur_rate = ?, updated_at = unixepoch() WHERE product_id = ?`).run(value, id);
+  db.prepare(`UPDATE amazon_manufacturer_settings SET usd_eur_rate = ?, rate_date = ?, updated_at = unixepoch() WHERE product_id = ?`).run(value, dateValue, id);
   res.json({ settings: getOrCreateSettings(id) });
 });
 

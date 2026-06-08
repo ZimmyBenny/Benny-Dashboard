@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 import type Database from 'better-sqlite3';
@@ -183,5 +183,31 @@ describe('Amazon Hersteller — CRUD', () => {
     const list2 = await request(app).get(`/api/amazon/products/${pid}/manufacturers`);
     const direkt = (list2.body.manufacturers as Array<{ name: string; machbarkeit: unknown }>).find(x => x.name === 'Direkt');
     expect(direkt!.machbarkeit).toBeNull();
+  });
+});
+
+describe('Amazon Hersteller — Kurs/FX', () => {
+  let db: Database.Database; let app: express.Express;
+  beforeEach(async () => { db = createTestDb(); app = await makeApp(db); });
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('GET /fx/eur-usd liefert rate+date (gemockt)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ rates: { USD: 1.0865 }, date: '2026-06-06' }) })));
+    const r = await request(app).get('/api/amazon/fx/eur-usd');
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ rate: 1.0865, date: '2026-06-06' });
+  });
+
+  it('GET /fx/eur-usd 502 bei Fehler', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }));
+    expect((await request(app).get('/api/amazon/fx/eur-usd')).status).toBe(502);
+  });
+
+  it('Settings rate_date setzen + manuell loeschen', async () => {
+    const pid = makeProduct(db);
+    const p = await request(app).patch(`/api/amazon/products/${pid}/manufacturers/settings`).send({ usd_eur_rate: '1,15', rate_date: '2026-06-06' });
+    expect(p.body.settings).toMatchObject({ usd_eur_rate: '1,15', rate_date: '2026-06-06' });
+    const m = await request(app).patch(`/api/amazon/products/${pid}/manufacturers/settings`).send({ usd_eur_rate: '1,20' });
+    expect(m.body.settings).toMatchObject({ usd_eur_rate: '1,20', rate_date: null });
   });
 });

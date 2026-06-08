@@ -56,7 +56,7 @@ export function useReorderOffers(productId: number) {
 
 export function useUpdateManufacturerSettings(productId: number) {
   const inval = useInval(productId);
-  return useMutation({ mutationFn: (usdEurRate: string) => updateManufacturerSettings(productId, usdEurRate), onSettled: inval });
+  return useMutation({ mutationFn: ({ usdEurRate, rateDate }: { usdEurRate: string; rateDate?: string | null }) => updateManufacturerSettings(productId, usdEurRate, rateDate), onSettled: inval });
 }
 export function useUploadOfferFile(productId: number) {
   const inval = useInval(productId);
@@ -79,6 +79,6 @@ export function eurPreis(offer: { preis: string | null; currency: 'USD' | 'EUR' 
   const p = parsePreis(offer.preis);
   if (p === null) return null;
   if (offer.currency === 'EUR') return p;
-  if (rate === null) return null;
-  return p * rate;
+  if (rate === null || rate === 0) return null;
+  return p / rate;
 }
