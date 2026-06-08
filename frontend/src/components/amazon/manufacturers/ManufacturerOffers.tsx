@@ -44,8 +44,10 @@ function OfferFileRow({ productId, mId, oId, file, onDelete }: OfferFileRowProps
   return (
     <div className="flex items-center gap-1.5 px-2 py-1 rounded-md"
       style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}>
-      {isImage && thumb
-        ? <button type="button" onClick={view} className="flex-shrink-0 rounded overflow-hidden" style={{ width: 28, height: 28, border: '1px solid rgba(255,255,255,0.08)' }} title="Vorschau"><img src={thumb} alt="" className="w-full h-full object-cover" /></button>
+      {isImage
+        ? <button type="button" onClick={view} className="flex-shrink-0 rounded overflow-hidden flex items-center justify-center" style={{ width: 28, height: 28, border: '1px solid rgba(255,255,255,0.08)', background: 'var(--color-surface-container)' }} title="Vorschau">
+            {thumb ? <img src={thumb} alt="" className="w-full h-full object-cover" /> : <span className="material-symbols-outlined" style={{ fontSize: 14, color: 'var(--color-on-surface-variant)' }}>image</span>}
+          </button>
         : <span className="material-symbols-outlined flex-shrink-0" style={{ fontSize: 14, color: 'var(--color-on-surface-variant)' }}>description</span>}
       <span className="text-xs truncate flex-1 min-w-0" style={{ color: 'var(--color-on-surface)' }} title={file.original_name ?? undefined}>
         {file.original_name || 'Datei'}
