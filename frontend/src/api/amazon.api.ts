@@ -191,6 +191,7 @@ export interface BrandCandidate {
   is_no: 0 | 1;
   is_favorite: 0 | 1;
   is_archived: 0 | 1;
+  is_final: 0 | 1;
   remarks: string | null;
   trademark_status: ResearchStatus | null;
   domain_com_status: ResearchStatus | null;
@@ -218,6 +219,7 @@ export type CandidatePatch = Partial<{
   is_no: 0 | 1;
   is_favorite: 0 | 1;
   is_archived: 0 | 1;
+  is_final: 0 | 1;
   remarks: string | null;
   trademark_status: ResearchStatus | null;
   domain_com_status: ResearchStatus | null;
@@ -371,7 +373,7 @@ export interface UspPoint { id: number; product_id: number; sort_order: number; 
 export interface UspManufacturer { id: number; product_id: number; sort_order: number; name: string; ansprechpartner: string | null; datum: string | null; notes: string | null; created_at: number; updated_at: number; }
 export type UspFeasibilityStatus = 'offen' | 'umsetzbar' | 'teilweise' | 'nicht';
 export interface UspFeasibility { id: number; point_id: number; manufacturer_id: number; status: UspFeasibilityStatus; note: string | null; include_in_pdf: number; updated_at: number; }
-export interface UspPayload { meta: UspMeta; points: UspPoint[]; manufacturers: UspManufacturer[]; feasibility: UspFeasibility[]; kaufgruende: UspKaufgrund[]; files: UspFile[]; }
+export interface UspPayload { meta: UspMeta; points: UspPoint[]; manufacturers: UspManufacturer[]; feasibility: UspFeasibility[]; kaufgruende: UspKaufgrund[]; files: UspFile[]; final_marke: string | null; }
 export type UspMetaPatch = Partial<Pick<UspMeta, 'marke' | 'hauptfokus' | 'status' | 'bsp_amazon' | 'bsp_alibaba' | 'bsp_pinterest' | 'differenzierung'>>;
 export type UspPointPatch = Partial<Pick<UspPoint, 'title' | 'body'>>;
 export type UspManufacturerPatch = Partial<Pick<UspManufacturer, 'name' | 'ansprechpartner' | 'datum' | 'notes'>>;
