@@ -5,6 +5,8 @@ import {
   useCreateManufacturer,
   useDeleteManufacturer,
   useReorderManufacturers,
+  useUpdateManufacturerSettings,
+  parsePreis,
 } from '../../../hooks/amazon/useManufacturers';
 import { SectionHeader } from '../SectionHeader';
 import { ManufacturerCard } from './ManufacturerCard';
@@ -65,6 +67,8 @@ export function ManufacturersSection({ productId }: Props) {
   const create = useCreateManufacturer(productId);
   const del = useDeleteManufacturer(productId);
   const reorder = useReorderManufacturers(productId);
+  const updateSettings = useUpdateManufacturerSettings(productId);
+  const [rateInput, setRateInput] = useState<string | null>(null);
 
   const [expanded, setExpanded] = useState(true);
   const [order, setOrder] = useState<number[] | null>(null);
@@ -102,6 +106,8 @@ export function ManufacturersSection({ productId }: Props) {
   }
 
   const { manufacturers } = data;
+  const rateValue = rateInput ?? (data.settings.usd_eur_rate ?? '');
+  const rate = parsePreis(data.settings.usd_eur_rate);
 
   const ids = order ?? manufacturers.map(m => m.id);
   const byId = new Map(manufacturers.map(m => [m.id, m]));
@@ -143,6 +149,18 @@ export function ManufacturersSection({ productId }: Props) {
       />
       {expanded && (
         <div className="px-5 pb-5 flex flex-col gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>1 USD =</span>
+            <input
+              value={rateValue}
+              onChange={(e) => setRateInput(e.target.value)}
+              onBlur={() => { if (rateInput !== null && rateInput !== (data.settings.usd_eur_rate ?? '')) updateSettings.mutate(rateInput); setRateInput(null); }}
+              placeholder="z. B. 0,92"
+              className="px-2 py-1 rounded-md text-xs w-24"
+              style={{ background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}
+            />
+            <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>€</span>
+          </div>
           {ordered.map((m, idx) => (
             <ManufacturerCard
               key={m.id}
@@ -165,7 +183,7 @@ export function ManufacturersSection({ productId }: Props) {
           >
             <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>Hersteller hinzufügen
           </button>
-          <ManufacturerComparison manufacturers={manufacturers} />
+          <ManufacturerComparison manufacturers={manufacturers} rate={rate} />
         </div>
       )}
       {pendingDelete && (

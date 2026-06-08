@@ -503,24 +503,31 @@ export async function getUspFileObjectUrl(productId: number, fId: number): Promi
 }
 
 // ===== Amazon Hersteller =====
+export interface OfferFile { id: number; offer_id: number; sort_order: number; file_path: string; original_name: string | null; mime: string | null; created_at: number; }
 export interface ManufacturerOffer {
   id: number; manufacturer_id: number; sort_order: number;
   menge_variante: string | null; preis: string | null; moq: string | null;
   lieferzeit: string | null; datum: string | null; notiz: string | null;
+  currency: 'USD' | 'EUR'; is_latest: number;
   created_at: number; updated_at: number;
+  files: OfferFile[];
 }
 export interface Manufacturer {
   id: number; product_id: number; sort_order: number; name: string;
   ansprechpartner: string | null; adresse: string | null; email: string | null;
   webseite: string | null; notizen: string | null; created_at: number; updated_at: number;
   offers: ManufacturerOffer[];
+  machbarkeit: { umsetzbar: number; teilweise: number; nicht: number; offen: number; total: number } | null;
 }
-export interface ManufacturersPayload { manufacturers: Manufacturer[]; }
+export interface ManufacturersPayload { manufacturers: Manufacturer[]; settings: { usd_eur_rate: string | null }; }
 export type ManufacturerPatch = Partial<Pick<Manufacturer, 'name' | 'ansprechpartner' | 'adresse' | 'email' | 'webseite' | 'notizen'>>;
-export type OfferPatch = Partial<Pick<ManufacturerOffer, 'menge_variante' | 'preis' | 'moq' | 'lieferzeit' | 'datum' | 'notiz'>>;
+export type OfferPatch = Partial<Pick<ManufacturerOffer, 'menge_variante' | 'preis' | 'moq' | 'lieferzeit' | 'datum' | 'notiz' | 'currency' | 'is_latest'>>;
 
 export async function fetchManufacturers(productId: number): Promise<ManufacturersPayload> {
   return (await apiClient.get(`/amazon/products/${productId}/manufacturers`)).data as ManufacturersPayload;
+}
+export async function updateManufacturerSettings(productId: number, usdEurRate: string): Promise<{ usd_eur_rate: string | null }> {
+  return ((await apiClient.patch(`/amazon/products/${productId}/manufacturers/settings`, { usd_eur_rate: usdEurRate })).data as { settings: { usd_eur_rate: string | null } }).settings;
 }
 export async function createManufacturer(productId: number, name?: string): Promise<Manufacturer> {
   return ((await apiClient.post(`/amazon/products/${productId}/manufacturers`, name !== undefined ? { name } : {})).data as { manufacturer: Manufacturer }).manufacturer;
@@ -545,4 +552,15 @@ export async function deleteOffer(productId: number, mId: number, oId: number): 
 }
 export async function reorderOffers(productId: number, mId: number, order: number[]): Promise<void> {
   await apiClient.patch(`/amazon/products/${productId}/manufacturers/${mId}/offers/reorder`, { order });
+}
+export async function uploadOfferFile(productId: number, mId: number, oId: number, file: File): Promise<OfferFile> {
+  const fd = new FormData(); fd.append('file', file);
+  return ((await apiClient.post(`/amazon/products/${productId}/manufacturers/${mId}/offers/${oId}/files`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })).data as { file: OfferFile }).file;
+}
+export async function getOfferFileObjectUrl(productId: number, mId: number, oId: number, fId: number): Promise<string> {
+  const r = await apiClient.get(`/amazon/products/${productId}/manufacturers/${mId}/offers/${oId}/files/${fId}`, { responseType: 'blob' });
+  return URL.createObjectURL(r.data as Blob);
+}
+export async function deleteOfferFile(productId: number, mId: number, oId: number, fId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/manufacturers/${mId}/offers/${oId}/files/${fId}`);
 }

@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  type ManufacturersPayload, type ManufacturerPatch, type OfferPatch,
+  type ManufacturersPayload, type ManufacturerPatch, type OfferPatch, type ManufacturerOffer,
   fetchManufacturers, createManufacturer, updateManufacturer, deleteManufacturer, reorderManufacturers,
-  createOffer, updateOffer, deleteOffer, reorderOffers,
+  createOffer, updateOffer, deleteOffer, reorderOffers, updateManufacturerSettings,
+  uploadOfferFile, deleteOfferFile,
 } from '../../api/amazon.api';
 
 export const manufacturersKey = (productId: number) =>
@@ -53,10 +54,31 @@ export function useReorderOffers(productId: number) {
   return useMutation({ mutationFn: ({ mId, order }: { mId: number; order: number[] }) => reorderOffers(productId, mId, order), onSettled: inval });
 }
 
+export function useUpdateManufacturerSettings(productId: number) {
+  const inval = useInval(productId);
+  return useMutation({ mutationFn: (usdEurRate: string) => updateManufacturerSettings(productId, usdEurRate), onSettled: inval });
+}
+export function useUploadOfferFile(productId: number) {
+  const inval = useInval(productId);
+  return useMutation({ mutationFn: ({ mId, oId, file }: { mId: number; oId: number; file: File }) => uploadOfferFile(productId, mId, oId, file), onSettled: inval });
+}
+export function useDeleteOfferFile(productId: number) {
+  const inval = useInval(productId);
+  return useMutation({ mutationFn: ({ mId, oId, fId }: { mId: number; oId: number; fId: number }) => deleteOfferFile(productId, mId, oId, fId), onSettled: inval });
+}
+
 // Preis bestmöglich in Zahl wandeln (für „günstigstes" hervorheben). Nicht parsebar -> null.
 export function parsePreis(s: string | null | undefined): number | null {
   if (!s) return null;
   const cleaned = s.replace(/[^0-9.,]/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(',', '.');
   const n = parseFloat(cleaned);
   return Number.isFinite(n) ? n : null;
+}
+
+export function eurPreis(offer: { preis: string | null; currency: 'USD' | 'EUR' }, rate: number | null): number | null {
+  const p = parsePreis(offer.preis);
+  if (p === null) return null;
+  if (offer.currency === 'EUR') return p;
+  if (rate === null) return null;
+  return p * rate;
 }
