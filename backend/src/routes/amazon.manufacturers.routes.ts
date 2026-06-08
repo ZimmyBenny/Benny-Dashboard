@@ -7,6 +7,14 @@ const MAX_TEXT_LEN = 2000;
 function ensureProduct(id: number): boolean {
   return db.prepare(`SELECT 1 FROM amazon_products WHERE id = ?`).get(id) !== undefined;
 }
+function getOrCreateSettings(productId: number): SettingsRow {
+  let row = db.prepare(`SELECT * FROM amazon_manufacturer_settings WHERE product_id = ?`).get(productId) as SettingsRow | undefined;
+  if (!row) {
+    db.prepare(`INSERT INTO amazon_manufacturer_settings (product_id) VALUES (?)`).run(productId);
+    row = db.prepare(`SELECT * FROM amazon_manufacturer_settings WHERE product_id = ?`).get(productId) as SettingsRow;
+  }
+  return row;
+}
 
 interface ManufacturerRow {
   id: number; product_id: number; sort_order: number; name: string;
@@ -17,8 +25,10 @@ interface OfferRow {
   id: number; manufacturer_id: number; sort_order: number;
   menge_variante: string | null; preis: string | null; moq: string | null;
   lieferzeit: string | null; datum: string | null; notiz: string | null;
+  currency: string; is_latest: number;
   created_at: number; updated_at: number;
 }
+interface SettingsRow { product_id: number; usd_eur_rate: string | null; updated_at: number; }
 
 function loadManufacturer(productId: number, mId: number): ManufacturerRow | undefined {
   return db.prepare(`SELECT * FROM amazon_manufacturers WHERE id = ? AND product_id = ?`).get(mId, productId) as ManufacturerRow | undefined;
@@ -46,7 +56,7 @@ router.get('/products/:id/manufacturers', (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'product not found' }); return; }
   const rows = db.prepare(`SELECT * FROM amazon_manufacturers WHERE product_id = ? ORDER BY sort_order, id`).all(id) as ManufacturerRow[];
-  res.json({ manufacturers: rows.map(withOffers) });
+  res.json({ manufacturers: rows.map(withOffers), settings: getOrCreateSettings(id) });
 });
 
 router.post('/products/:id/manufacturers', (req: Request, res: Response) => {
@@ -60,7 +70,20 @@ router.post('/products/:id/manufacturers', (req: Request, res: Response) => {
   res.status(201).json({ manufacturer: withOffers(row) });
 });
 
-// reorder MUST be registered before /:mId to prevent Express matching "reorder" as the param
+// settings + reorder MUST be registered before /:mId to prevent Express matching literal paths as the param
+router.patch('/products/:id/manufacturers/settings', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  const raw = (req.body as { usd_eur_rate?: unknown })?.usd_eur_rate;
+  let value: string | null;
+  if (raw === undefined || raw === null) value = null;
+  else if (typeof raw !== 'string') { res.status(400).json({ error: 'invalid usd_eur_rate' }); return; }
+  else { const t = raw.trim(); value = t.length === 0 ? null : t.slice(0, 50); }
+  getOrCreateSettings(id);
+  db.prepare(`UPDATE amazon_manufacturer_settings SET usd_eur_rate = ?, updated_at = unixepoch() WHERE product_id = ?`).run(value, id);
+  res.json({ settings: getOrCreateSettings(id) });
+});
+
 router.patch('/products/:id/manufacturers/reorder', (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
@@ -144,9 +167,22 @@ router.patch('/products/:id/manufacturers/:mId/offers/:oId', (req: Request, res:
       if (!n.skip) { sets.push(`${field} = ?`); vals.push(n.value); }
     }
   }
+  if (body.currency !== undefined) {
+    if (body.currency !== 'USD' && body.currency !== 'EUR') { res.status(400).json({ error: 'invalid currency' }); return; }
+    sets.push('currency = ?'); vals.push(body.currency);
+  }
+  let setLatestExclusive = false;
+  if (body.is_latest !== undefined) {
+    if (body.is_latest !== 0 && body.is_latest !== 1) { res.status(400).json({ error: 'invalid is_latest' }); return; }
+    sets.push('is_latest = ?'); vals.push(body.is_latest);
+    if (body.is_latest === 1) setLatestExclusive = true;
+  }
   if (sets.length === 0) { res.json({ offer: loadOffer(mId, oId) as OfferRow }); return; }
   sets.push('updated_at = unixepoch()');
-  db.prepare(`UPDATE amazon_manufacturer_offers SET ${sets.join(', ')} WHERE id = ?`).run(...vals, oId);
+  db.transaction(() => {
+    db.prepare(`UPDATE amazon_manufacturer_offers SET ${sets.join(', ')} WHERE id = ?`).run(...vals, oId);
+    if (setLatestExclusive) db.prepare(`UPDATE amazon_manufacturer_offers SET is_latest = 0 WHERE manufacturer_id = ? AND id != ?`).run(mId, oId);
+  })();
   res.json({ offer: loadOffer(mId, oId) as OfferRow });
 });
 
