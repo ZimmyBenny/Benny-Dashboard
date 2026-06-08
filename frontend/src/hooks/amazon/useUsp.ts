@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   fetchUsp, updateUspMeta, createUspPoint, updateUspPoint, deleteUspPoint, reorderUspPoints,
-  uploadUspPointImage, deleteUspPointImage, reorderUspPointImages,
+  uploadUspPointImage, deleteUspPointImage, addUspPointImageFromFile, reorderUspPointImages,
   createUspManufacturer, updateUspManufacturer, deleteUspManufacturer, reorderUspManufacturers,
   setUspFeasibility, uploadUspLogo, deleteUspLogo,
   createUspPointQuestion, updateUspPointQuestion, deleteUspPointQuestion,
@@ -67,6 +67,10 @@ export function useUploadUspPointImage(productId: number) {
 export function useDeleteUspPointImage(productId: number) {
   const qc = useQueryClient();
   return useMutation({ mutationFn: ({ pointId, imageId }: { pointId: number; imageId: number }) => deleteUspPointImage(productId, pointId, imageId), onSettled: inval(productId, qc) });
+}
+export function useAddUspPointImageFromFile(productId: number) {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: ({ pointId, fileId }: { pointId: number; fileId: number }) => addUspPointImageFromFile(productId, pointId, fileId), onSettled: inval(productId, qc) });
 }
 export function useReorderUspPointImages(productId: number) {
   const qc = useQueryClient();
