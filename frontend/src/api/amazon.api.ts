@@ -364,15 +364,15 @@ export async function deleteProductItem(productId: number, itemId: number): Prom
 }
 
 // ── USP (Phase 1) ─────────────────────────────────────────────────────────────
-export interface UspMeta { product_id: number; marke: string | null; hauptfokus: string | null; logo_path: string | null; status: SourcingStatus; updated_at: number; }
+export interface UspMeta { product_id: number; marke: string | null; hauptfokus: string | null; logo_path: string | null; status: SourcingStatus; bsp_amazon: string | null; bsp_alibaba: string | null; bsp_pinterest: string | null; differenzierung: string | null; updated_at: number; }
 export interface UspPointImage { id: number; point_id: number; sort_order: number; file_path: string; created_at: number; }
 export interface UspPointQuestion { id: number; point_id: number; sort_order: number; text: string; created_at: number; updated_at: number; }
 export interface UspPoint { id: number; product_id: number; sort_order: number; title: string; body: string | null; created_at: number; updated_at: number; images: UspPointImage[]; questions: UspPointQuestion[]; }
 export interface UspManufacturer { id: number; product_id: number; sort_order: number; name: string; ansprechpartner: string | null; datum: string | null; notes: string | null; created_at: number; updated_at: number; }
 export type UspFeasibilityStatus = 'offen' | 'umsetzbar' | 'teilweise' | 'nicht';
 export interface UspFeasibility { id: number; point_id: number; manufacturer_id: number; status: UspFeasibilityStatus; note: string | null; include_in_pdf: number; updated_at: number; }
-export interface UspPayload { meta: UspMeta; points: UspPoint[]; manufacturers: UspManufacturer[]; feasibility: UspFeasibility[]; }
-export type UspMetaPatch = Partial<Pick<UspMeta, 'marke' | 'hauptfokus' | 'status'>>;
+export interface UspPayload { meta: UspMeta; points: UspPoint[]; manufacturers: UspManufacturer[]; feasibility: UspFeasibility[]; kaufgruende: UspKaufgrund[]; files: UspFile[]; }
+export type UspMetaPatch = Partial<Pick<UspMeta, 'marke' | 'hauptfokus' | 'status' | 'bsp_amazon' | 'bsp_alibaba' | 'bsp_pinterest' | 'differenzierung'>>;
 export type UspPointPatch = Partial<Pick<UspPoint, 'title' | 'body'>>;
 export type UspManufacturerPatch = Partial<Pick<UspManufacturer, 'name' | 'ansprechpartner' | 'datum' | 'notes'>>;
 
@@ -465,4 +465,31 @@ export async function getUspVersionPdfObjectUrl(productId: number, vId: number):
 }
 export async function deleteUspVersion(productId: number, vId: number): Promise<void> {
   await apiClient.delete(`/amazon/products/${productId}/usp/versions/${vId}`);
+}
+
+export interface UspKaufgrund { id: number; product_id: number; sort_order: number; text: string; created_at: number; updated_at: number; }
+export interface UspFile { id: number; product_id: number; sort_order: number; file_path: string; original_name: string; mime: string; created_at: number; }
+
+export async function createUspKaufgrund(productId: number, text?: string): Promise<UspKaufgrund> {
+  return ((await apiClient.post(`/amazon/products/${productId}/usp/kaufgruende`, text !== undefined ? { text } : {})).data as { kaufgrund: UspKaufgrund }).kaufgrund;
+}
+export async function updateUspKaufgrund(productId: number, kId: number, text: string): Promise<UspKaufgrund> {
+  return ((await apiClient.patch(`/amazon/products/${productId}/usp/kaufgruende/${kId}`, { text })).data as { kaufgrund: UspKaufgrund }).kaufgrund;
+}
+export async function deleteUspKaufgrund(productId: number, kId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/usp/kaufgruende/${kId}`);
+}
+export async function reorderUspKaufgruende(productId: number, order: number[]): Promise<void> {
+  await apiClient.patch(`/amazon/products/${productId}/usp/kaufgruende/reorder`, { order });
+}
+export async function uploadUspFile(productId: number, file: File): Promise<UspFile> {
+  const fd = new FormData(); fd.append('file', file);
+  return ((await apiClient.post(`/amazon/products/${productId}/usp/files`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })).data as { file: UspFile }).file;
+}
+export async function deleteUspFile(productId: number, fId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/usp/files/${fId}`);
+}
+export async function getUspFileObjectUrl(productId: number, fId: number): Promise<string> {
+  const r = await apiClient.get(`/amazon/products/${productId}/usp/files/${fId}`, { responseType: 'blob' });
+  return URL.createObjectURL(r.data as Blob);
 }
