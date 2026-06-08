@@ -12,21 +12,38 @@ function slug(s: string, max = 40): string {
   return s.normalize('NFKD').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, max) || 'x';
 }
 
+const MAX_IMG_PX = 1000;     // laengste Kante runterskalieren
+const JPEG_QUALITY = 0.72;   // PDF-Dateigroesse klein halten
+
+// Bild laden, auf max. MAX_IMG_PX skalieren und als kompaktes JPEG (weisser Grund) zurueckgeben.
 async function loadImage(url: string): Promise<{ dataUrl: string; w: number; h: number }> {
   const blob = await (await fetch(url)).blob();
-  const dataUrl: string = await new Promise((res, rej) => {
-    const fr = new FileReader();
-    fr.onload = () => res(fr.result as string);
-    fr.onerror = rej;
-    fr.readAsDataURL(blob);
-  });
-  const dims: { w: number; h: number } = await new Promise((res) => {
-    const im = new Image();
-    im.onload = () => res({ w: im.naturalWidth, h: im.naturalHeight });
-    im.onerror = () => res({ w: 0, h: 0 });
-    im.src = dataUrl;
-  });
-  return { dataUrl, ...dims };
+  const objUrl = URL.createObjectURL(blob);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = reject;
+      im.src = objUrl;
+    });
+    const ow = img.naturalWidth, oh = img.naturalHeight;
+    if (!ow || !oh) return { dataUrl: '', w: 0, h: 0 };
+    const scale = Math.min(1, MAX_IMG_PX / Math.max(ow, oh));
+    const cw = Math.max(1, Math.round(ow * scale));
+    const ch = Math.max(1, Math.round(oh * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = cw; canvas.height = ch;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return { dataUrl: '', w: 0, h: 0 };
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.drawImage(img, 0, 0, cw, ch);
+    return { dataUrl: canvas.toDataURL('image/jpeg', JPEG_QUALITY), w: cw, h: ch };
+  } catch {
+    return { dataUrl: '', w: 0, h: 0 };
+  } finally {
+    URL.revokeObjectURL(objUrl);
+  }
 }
 
 function isBullet(line: string): boolean {
