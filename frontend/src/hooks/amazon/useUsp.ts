@@ -5,6 +5,8 @@ import {
   createUspManufacturer, updateUspManufacturer, deleteUspManufacturer, reorderUspManufacturers,
   setUspFeasibility, uploadUspLogo, deleteUspLogo,
   createUspPointQuestion, updateUspPointQuestion, deleteUspPointQuestion,
+  createUspKaufgrund, updateUspKaufgrund, deleteUspKaufgrund, reorderUspKaufgruende,
+  uploadUspFile, deleteUspFile,
   fetchUspVersions, saveUspVersion, deleteUspVersion,
   type UspMetaPatch, type UspPointPatch, type UspManufacturerPatch, type UspFeasibilityStatus,
 } from '../../api/amazon.api';
@@ -112,4 +114,29 @@ export function useDeleteUspVersion(productId: number) {
     mutationFn: (vId: number) => deleteUspVersion(productId, vId),
     onSettled: () => qc.invalidateQueries({ queryKey: versionsKey(productId) }),
   });
+}
+
+export function useCreateUspKaufgrund(productId: number) {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (text?: string) => createUspKaufgrund(productId, text), onSettled: inval(productId, qc) });
+}
+export function useUpdateUspKaufgrund(productId: number) {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: ({ kId, text }: { kId: number; text: string }) => updateUspKaufgrund(productId, kId, text), onSettled: inval(productId, qc) });
+}
+export function useDeleteUspKaufgrund(productId: number) {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (kId: number) => deleteUspKaufgrund(productId, kId), onSettled: inval(productId, qc) });
+}
+export function useReorderUspKaufgruende(productId: number) {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (order: number[]) => reorderUspKaufgruende(productId, order), onSettled: inval(productId, qc) });
+}
+export function useUploadUspFile(productId: number) {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (file: File) => uploadUspFile(productId, file), onSettled: inval(productId, qc) });
+}
+export function useDeleteUspFile(productId: number) {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (fId: number) => deleteUspFile(productId, fId), onSettled: inval(productId, qc) });
 }
