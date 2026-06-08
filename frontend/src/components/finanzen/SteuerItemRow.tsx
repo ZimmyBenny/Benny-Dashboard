@@ -13,9 +13,11 @@ const MAX_BYTES = 20 * 1024 * 1024;
 interface Props {
   jahr: number;
   item: SteuerItem;
+  selected: boolean;
+  onToggleSelect: () => void;
 }
 
-export function SteuerItemRow({ jahr, item }: Props) {
+export function SteuerItemRow({ jahr, item, selected, onToggleSelect }: Props) {
   const update = useUpdateSteuerItem(jahr);
   const delItem = useDeleteSteuerItem(jahr);
   const upload = useUploadSteuerFile(jahr);
@@ -101,6 +103,10 @@ export function SteuerItemRow({ jahr, item }: Props) {
             <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
           </button>
         )}
+        <label className="flex items-center gap-1 flex-shrink-0 cursor-pointer" title="Für PDF-Export auswählen">
+          <input type="checkbox" checked={selected} onChange={onToggleSelect} />
+          <span className="material-symbols-outlined" style={{ fontSize: 16, color: selected ? '#34d399' : 'var(--color-on-surface-variant)' }}>picture_as_pdf</span>
+        </label>
       </div>
 
       {/* Notiz */}
