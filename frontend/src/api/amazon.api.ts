@@ -406,6 +406,9 @@ export async function reorderUspPointImages(productId: number, pointId: number, 
 export async function deleteUspPointImage(productId: number, pointId: number, imageId: number): Promise<void> {
   await apiClient.delete(`/amazon/products/${productId}/usp/points/${pointId}/images/${imageId}`);
 }
+export async function addUspPointImageFromFile(productId: number, pointId: number, fileId: number): Promise<UspPointImage> {
+  return ((await apiClient.post(`/amazon/products/${productId}/usp/points/${pointId}/images/from-file`, { file_id: fileId })).data as { image: UspPointImage }).image;
+}
 export async function getUspImageObjectUrl(productId: number, imageId: number): Promise<string> {
   const r = await apiClient.get(`/amazon/products/${productId}/usp/images/${imageId}`, { responseType: 'blob' });
   return URL.createObjectURL(r.data as Blob);

@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react';
-import { type UspPoint, type UspFeasibility } from '../../../api/amazon.api';
+import { type UspPoint, type UspFeasibility, type UspFile } from '../../../api/amazon.api';
 import { useReorderUspPoints, useSetUspFeasibility } from '../../../hooks/amazon/useUsp';
 import { UspPointRow } from './UspPointRow';
 
-export function UspPointList({ productId, points, manufacturerId, feasibility, onRequestDelete }: {
-  productId: number; points: UspPoint[]; manufacturerId: number | null; feasibility: UspFeasibility[]; onRequestDelete: (p: UspPoint) => void;
+export function UspPointList({ productId, points, manufacturerId, feasibility, onRequestDelete, imageFiles }: {
+  productId: number; points: UspPoint[]; manufacturerId: number | null; feasibility: UspFeasibility[]; onRequestDelete: (p: UspPoint) => void; imageFiles: UspFile[];
 }) {
   const reorder = useReorderUspPoints(productId);
   const setFeas = useSetUspFeasibility(productId);
@@ -37,6 +37,7 @@ export function UspPointList({ productId, points, manufacturerId, feasibility, o
           <UspPointRow key={p.id} productId={productId} index={idx} point={p} onRequestDelete={onRequestDelete}
             hasManufacturer={manufacturerId != null}
             includeInPdf={included}
+            imageFiles={imageFiles}
             onToggleInclude={() => { if (manufacturerId != null) setFeas.mutate({ point_id: p.id, manufacturer_id: manufacturerId, include_in_pdf: included ? 0 : 1 }); }}
             dragHandleProps={{ onPointerDown: (e) => down(idx, e), onPointerEnter: () => enter(idx), onPointerUp: up }} />
         );
