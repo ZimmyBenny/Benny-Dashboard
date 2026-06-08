@@ -68,9 +68,19 @@ export function useDeleteOfferFile(productId: number) {
 }
 
 // Preis bestmöglich in Zahl wandeln (für „günstigstes" hervorheben). Nicht parsebar -> null.
+// Hinweis: hier gilt der Punkt als Tausender-Trennzeichen (deutsche Preisschreibweise, z. B. "1.000,50").
 export function parsePreis(s: string | null | undefined): number | null {
   if (!s) return null;
   const cleaned = s.replace(/[^0-9.,]/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(',', '.');
+  const n = parseFloat(cleaned);
+  return Number.isFinite(n) ? n : null;
+}
+
+// Wechselkurs als kleine Dezimalzahl (z. B. "1,154" oder "1.154" = 1,154). Anders als beim Preis sind
+// hier BEIDE — Punkt und Komma — Dezimaltrennzeichen; ein Kurs hat keinen Tausenderpunkt.
+export function parseRate(s: string | null | undefined): number | null {
+  if (!s) return null;
+  const cleaned = s.replace(',', '.').replace(/[^0-9.]/g, '');
   const n = parseFloat(cleaned);
   return Number.isFinite(n) ? n : null;
 }
