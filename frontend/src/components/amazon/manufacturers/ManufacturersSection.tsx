@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { type Manufacturer } from '../../../api/amazon.api';
+import { type Manufacturer, fetchEurUsdRate } from '../../../api/amazon.api';
 import {
   useManufacturers,
   useCreateManufacturer,
@@ -26,6 +26,8 @@ export function ManufacturersSection({ productId }: Props) {
   const [expanded, setExpanded] = useState(true);
   const [order, setOrder] = useState<number[] | null>(null);
   const [rateInput, setRateInput] = useState<string | null>(null);
+  const [fxLoading, setFxLoading] = useState(false);
+  const [fxError, setFxError] = useState(false);
   const dragIndex = useRef<number | null>(null);
 
   if (isLoading) {
@@ -72,6 +74,15 @@ export function ManufacturersSection({ productId }: Props) {
     dragIndex.current = null;
   }
 
+  async function holeAktuellenKurs() {
+    setFxError(false); setFxLoading(true);
+    try {
+      const { rate, date } = await fetchEurUsdRate();
+      await updateSettings.mutateAsync({ usdEurRate: String(rate), rateDate: date });
+    } catch { setFxError(true); }
+    finally { setFxLoading(false); }
+  }
+
   function openManufacturer(mId: number) {
     navigate(`/amazon/entwicklung/products/${productId}/hersteller/${mId}`);
   }
@@ -86,17 +97,29 @@ export function ManufacturersSection({ productId }: Props) {
       <SectionHeader icon="factory" title="Hersteller" accent={ACCENT} expanded={expanded} onToggleExpand={() => setExpanded(e => !e)} />
       {expanded && (
         <div className="px-5 pb-5 flex flex-col gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>1 USD =</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>1 EUR =</span>
             <input
               value={rateValue}
               onChange={(e) => setRateInput(e.target.value)}
-              onBlur={() => { if (rateInput !== null && rateInput !== (data.settings.usd_eur_rate ?? '')) updateSettings.mutate(rateInput); setRateInput(null); }}
-              placeholder="z. B. 0,92"
+              onBlur={() => { if (rateInput !== null && rateInput !== (data.settings.usd_eur_rate ?? '')) updateSettings.mutate({ usdEurRate: rateInput }); setRateInput(null); }}
+              placeholder="z. B. 1,15"
               className="px-2 py-1 rounded-md text-xs w-24"
               style={{ background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}
             />
-            <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>€</span>
+            <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>$</span>
+            <button
+              type="button"
+              onClick={holeAktuellenKurs}
+              disabled={fxLoading}
+              className="px-2 py-1 rounded-md text-xs flex items-center gap-1"
+              style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)', opacity: fxLoading ? 0.6 : 1 }}
+              title="Aktuellen EZB-Kurs holen"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>sync</span>{fxLoading ? 'Lädt …' : 'Aktuell holen'}
+            </button>
+            {data.settings.rate_date ? <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>Stand: {data.settings.rate_date}</span> : null}
+            {fxError ? <span className="text-xs" style={{ color: '#fca5a5' }}>Kurs nicht erreichbar (offline?)</span> : null}
           </div>
 
           <div className="flex flex-col gap-2">

@@ -519,15 +519,19 @@ export interface Manufacturer {
   offers: ManufacturerOffer[];
   machbarkeit: { umsetzbar: number; teilweise: number; nicht: number; offen: number; total: number } | null;
 }
-export interface ManufacturersPayload { manufacturers: Manufacturer[]; settings: { usd_eur_rate: string | null }; }
+export interface ManufacturersPayload { manufacturers: Manufacturer[]; settings: { usd_eur_rate: string | null; rate_date: string | null }; }
 export type ManufacturerPatch = Partial<Pick<Manufacturer, 'name' | 'ansprechpartner' | 'adresse' | 'email' | 'webseite' | 'notizen'>>;
 export type OfferPatch = Partial<Pick<ManufacturerOffer, 'menge_variante' | 'preis' | 'moq' | 'lieferzeit' | 'datum' | 'notiz' | 'currency' | 'is_latest'>>;
 
 export async function fetchManufacturers(productId: number): Promise<ManufacturersPayload> {
   return (await apiClient.get(`/amazon/products/${productId}/manufacturers`)).data as ManufacturersPayload;
 }
-export async function updateManufacturerSettings(productId: number, usdEurRate: string): Promise<{ usd_eur_rate: string | null }> {
-  return ((await apiClient.patch(`/amazon/products/${productId}/manufacturers/settings`, { usd_eur_rate: usdEurRate })).data as { settings: { usd_eur_rate: string | null } }).settings;
+export async function updateManufacturerSettings(productId: number, usdEurRate: string, rateDate?: string | null): Promise<{ usd_eur_rate: string | null; rate_date: string | null }> {
+  const body = rateDate !== undefined ? { usd_eur_rate: usdEurRate, rate_date: rateDate } : { usd_eur_rate: usdEurRate };
+  return ((await apiClient.patch(`/amazon/products/${productId}/manufacturers/settings`, body)).data as { settings: { usd_eur_rate: string | null; rate_date: string | null } }).settings;
+}
+export async function fetchEurUsdRate(): Promise<{ rate: number; date: string }> {
+  return (await apiClient.get(`/amazon/fx/eur-usd`)).data as { rate: number; date: string };
 }
 export async function createManufacturer(productId: number, name?: string): Promise<Manufacturer> {
   return ((await apiClient.post(`/amazon/products/${productId}/manufacturers`, name !== undefined ? { name } : {})).data as { manufacturer: Manufacturer }).manufacturer;
