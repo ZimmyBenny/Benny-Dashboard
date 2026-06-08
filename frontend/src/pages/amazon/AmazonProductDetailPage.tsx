@@ -17,6 +17,7 @@ import { ProductNotes } from '../../components/amazon/ProductNotes';
 import { AutosaveIndicator } from '../../components/amazon/AutosaveIndicator';
 import { DraggableSectionList } from '../../components/amazon/DraggableSectionList';
 import { useDetailSectionOrder, type DetailSectionId } from '../../hooks/amazon/useDetailSectionOrder';
+import { UspSection } from '../../components/amazon/usp/UspSection';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -251,6 +252,7 @@ export function AmazonProductDetailPage() {
             id,
             render: () => {
               if (id === 'sourcing') return <SourcingSection productId={product.id} />;
+              if (id === 'usp') return <UspSection productId={product.id} productName={product.name} />;
               return <ChecklistSection productId={product.id} />;
             },
           }))}

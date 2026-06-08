@@ -362,3 +362,87 @@ export async function updateProductItem(productId: number, itemId: number, patch
 export async function deleteProductItem(productId: number, itemId: number): Promise<void> {
   await apiClient.delete(`/amazon/products/${productId}/checklist/items/${itemId}`);
 }
+
+// ── USP (Phase 1) ─────────────────────────────────────────────────────────────
+export interface UspMeta { product_id: number; marke: string | null; hauptfokus: string | null; logo_path: string | null; status: SourcingStatus; updated_at: number; }
+export interface UspPointImage { id: number; point_id: number; sort_order: number; file_path: string; created_at: number; }
+export interface UspPointQuestion { id: number; point_id: number; sort_order: number; text: string; created_at: number; updated_at: number; }
+export interface UspPoint { id: number; product_id: number; sort_order: number; title: string; body: string | null; created_at: number; updated_at: number; images: UspPointImage[]; questions: UspPointQuestion[]; }
+export interface UspManufacturer { id: number; product_id: number; sort_order: number; name: string; ansprechpartner: string | null; datum: string | null; notes: string | null; created_at: number; updated_at: number; }
+export type UspFeasibilityStatus = 'offen' | 'umsetzbar' | 'teilweise' | 'nicht';
+export interface UspFeasibility { id: number; point_id: number; manufacturer_id: number; status: UspFeasibilityStatus; note: string | null; include_in_pdf: number; updated_at: number; }
+export interface UspPayload { meta: UspMeta; points: UspPoint[]; manufacturers: UspManufacturer[]; feasibility: UspFeasibility[]; }
+export type UspMetaPatch = Partial<Pick<UspMeta, 'marke' | 'hauptfokus' | 'status'>>;
+export type UspPointPatch = Partial<Pick<UspPoint, 'title' | 'body'>>;
+export type UspManufacturerPatch = Partial<Pick<UspManufacturer, 'name' | 'ansprechpartner' | 'datum' | 'notes'>>;
+
+export async function fetchUsp(productId: number): Promise<UspPayload> {
+  return (await apiClient.get(`/amazon/products/${productId}/usp`)).data as UspPayload;
+}
+export async function updateUspMeta(productId: number, patch: UspMetaPatch): Promise<UspMeta> {
+  return ((await apiClient.patch(`/amazon/products/${productId}/usp`, patch)).data as { meta: UspMeta }).meta;
+}
+export async function createUspPoint(productId: number, title?: string): Promise<UspPoint> {
+  return ((await apiClient.post(`/amazon/products/${productId}/usp/points`, title !== undefined ? { title } : {})).data as { point: UspPoint }).point;
+}
+export async function updateUspPoint(productId: number, pointId: number, patch: UspPointPatch): Promise<UspPoint> {
+  return ((await apiClient.patch(`/amazon/products/${productId}/usp/points/${pointId}`, patch)).data as { point: UspPoint }).point;
+}
+export async function deleteUspPoint(productId: number, pointId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/usp/points/${pointId}`);
+}
+export async function reorderUspPoints(productId: number, order: number[]): Promise<void> {
+  await apiClient.patch(`/amazon/products/${productId}/usp/points/reorder`, { order });
+}
+export async function uploadUspPointImage(productId: number, pointId: number, file: File): Promise<UspPointImage> {
+  const fd = new FormData(); fd.append('file', file);
+  return ((await apiClient.post(`/amazon/products/${productId}/usp/points/${pointId}/images`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })).data as { image: UspPointImage }).image;
+}
+export async function reorderUspPointImages(productId: number, pointId: number, order: number[]): Promise<void> {
+  await apiClient.patch(`/amazon/products/${productId}/usp/points/${pointId}/images/reorder`, { order });
+}
+export async function deleteUspPointImage(productId: number, pointId: number, imageId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/usp/points/${pointId}/images/${imageId}`);
+}
+export async function getUspImageObjectUrl(productId: number, imageId: number): Promise<string> {
+  const r = await apiClient.get(`/amazon/products/${productId}/usp/images/${imageId}`, { responseType: 'blob' });
+  return URL.createObjectURL(r.data as Blob);
+}
+export async function createUspPointQuestion(productId: number, pointId: number, text?: string): Promise<UspPointQuestion> {
+  return ((await apiClient.post(`/amazon/products/${productId}/usp/points/${pointId}/questions`, text !== undefined ? { text } : {})).data as { question: UspPointQuestion }).question;
+}
+export async function updateUspPointQuestion(productId: number, pointId: number, qId: number, text: string): Promise<UspPointQuestion> {
+  return ((await apiClient.patch(`/amazon/products/${productId}/usp/points/${pointId}/questions/${qId}`, { text })).data as { question: UspPointQuestion }).question;
+}
+export async function deleteUspPointQuestion(productId: number, pointId: number, qId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/usp/points/${pointId}/questions/${qId}`);
+}
+export async function uploadUspLogo(productId: number, file: File): Promise<UspMeta> {
+  const fd = new FormData(); fd.append('file', file);
+  return ((await apiClient.post(`/amazon/products/${productId}/usp/logo`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })).data as { meta: UspMeta }).meta;
+}
+export async function deleteUspLogo(productId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/usp/logo`);
+}
+export async function getUspLogoObjectUrl(productId: number): Promise<string> {
+  const r = await apiClient.get(`/amazon/products/${productId}/usp/logo`, { responseType: 'blob' });
+  return URL.createObjectURL(r.data as Blob);
+}
+export async function createUspManufacturer(productId: number, name?: string): Promise<UspManufacturer> {
+  return ((await apiClient.post(`/amazon/products/${productId}/usp/manufacturers`, name !== undefined ? { name } : {})).data as { manufacturer: UspManufacturer }).manufacturer;
+}
+export async function updateUspManufacturer(productId: number, mId: number, patch: UspManufacturerPatch): Promise<UspManufacturer> {
+  return ((await apiClient.patch(`/amazon/products/${productId}/usp/manufacturers/${mId}`, patch)).data as { manufacturer: UspManufacturer }).manufacturer;
+}
+export async function deleteUspManufacturer(productId: number, mId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/usp/manufacturers/${mId}`);
+}
+export async function reorderUspManufacturers(productId: number, order: number[]): Promise<void> {
+  await apiClient.patch(`/amazon/products/${productId}/usp/manufacturers/reorder`, { order });
+}
+export async function setUspFeasibility(
+  productId: number,
+  input: { point_id: number; manufacturer_id: number; status?: UspFeasibilityStatus; note?: string | null; include_in_pdf?: number },
+): Promise<UspFeasibility> {
+  return ((await apiClient.put(`/amazon/products/${productId}/usp/feasibility`, input)).data as { feasibility: UspFeasibility }).feasibility;
+}

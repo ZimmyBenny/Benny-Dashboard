@@ -1,0 +1,217 @@
+import jsPDF from 'jspdf';
+import { getUspImageObjectUrl, getUspLogoObjectUrl, type UspMeta, type UspPoint, type UspManufacturer } from '../../api/amazon.api';
+
+// ── Druckfreundliche Palette (weisser Hintergrund) ────────────────────────────
+const BG: [number, number, number] = [255, 255, 255];     // weisser Hintergrund (Druck)
+const BLUE: [number, number, number] = [45, 70, 150];     // Titel & Ueberschriften (auf Weiss lesbar)
+const BODY: [number, number, number] = [38, 40, 48];       // dunkler Fliesstext
+const MUTED: [number, number, number] = [120, 122, 134];   // Kopf/Fuss/Hinweis
+const RED: [number, number, number] = [153, 27, 27];       // Fragen an Hersteller
+
+function slug(s: string, max = 40): string {
+  return s.normalize('NFKD').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, max) || 'x';
+}
+
+const MAX_IMG_PX = 1000;     // laengste Kante runterskalieren
+const JPEG_QUALITY = 0.72;   // PDF-Dateigroesse klein halten
+
+// Bild laden, auf max. MAX_IMG_PX skalieren und als kompaktes JPEG (weisser Grund) zurueckgeben.
+async function loadImage(url: string): Promise<{ dataUrl: string; w: number; h: number }> {
+  const blob = await (await fetch(url)).blob();
+  const objUrl = URL.createObjectURL(blob);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = reject;
+      im.src = objUrl;
+    });
+    const ow = img.naturalWidth, oh = img.naturalHeight;
+    if (!ow || !oh) return { dataUrl: '', w: 0, h: 0 };
+    const scale = Math.min(1, MAX_IMG_PX / Math.max(ow, oh));
+    const cw = Math.max(1, Math.round(ow * scale));
+    const ch = Math.max(1, Math.round(oh * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = cw; canvas.height = ch;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return { dataUrl: '', w: 0, h: 0 };
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.drawImage(img, 0, 0, cw, ch);
+    return { dataUrl: canvas.toDataURL('image/jpeg', JPEG_QUALITY), w: cw, h: ch };
+  } catch {
+    return { dataUrl: '', w: 0, h: 0 };
+  } finally {
+    URL.revokeObjectURL(objUrl);
+  }
+}
+
+function isBullet(line: string): boolean {
+  return /^\s*[•\-*–]\s+/.test(line);
+}
+function stripBullet(line: string): string {
+  return line.replace(/^\s*[•\-*–]\s+/, '');
+}
+
+export async function exportUspPdf(
+  productId: number,
+  productName: string,
+  meta: UspMeta,
+  points: UspPoint[],
+  manufacturer: UspManufacturer,
+): Promise<void> {
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const cx = pageW / 2;
+  const marginX = 56;
+  const contentW = pageW - marginX * 2;
+  const topY = 64;
+  const bottomY = pageH - 44;
+  const runningHeader = `${productName} Anforderungen`;
+
+  function paintPage(): void {
+    doc.setFillColor(...BG);
+    doc.rect(0, 0, pageW, pageH, 'F');
+    // Kopfzeile
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(9);
+    doc.setTextColor(...MUTED);
+    doc.text(runningHeader, cx, 34, { align: 'center' });
+  }
+
+  let y = topY;
+  paintPage();
+
+  function footer(): void {
+    const total = doc.getNumberOfPages();
+    for (let i = 1; i <= total; i++) {
+      doc.setPage(i);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(...MUTED);
+      doc.text(`Seite ${i} / ${total}`, cx, pageH - 24, { align: 'center' });
+    }
+  }
+
+  function newPageIfNeeded(need: number): void {
+    if (y + need > bottomY) {
+      doc.addPage();
+      paintPage();
+      y = topY;
+    }
+  }
+
+  // Block aus zentrierten, umgebrochenen Zeilen; Aufzaehlungszeilen bekommen einen Punkt.
+  function paragraph(text: string, opts: { size: number; color: [number, number, number]; style?: 'normal' | 'bold' | 'italic'; lh?: number; gap?: number }): void {
+    doc.setFont('helvetica', opts.style ?? 'normal');
+    doc.setFontSize(opts.size);
+    doc.setTextColor(...opts.color);
+    const lh = opts.lh ?? opts.size + 4;
+    for (const raw of text.split('\n')) {
+      const bullet = isBullet(raw);
+      const content = bullet ? `•  ${stripBullet(raw)}` : raw;
+      const wrapped = doc.splitTextToSize(content, contentW) as string[];
+      for (const line of wrapped) {
+        newPageIfNeeded(lh);
+        doc.text(line, cx, y, { align: 'center' });
+        y += lh;
+      }
+    }
+    if (opts.gap) y += opts.gap;
+  }
+
+  function heading(text: string): void {
+    newPageIfNeeded(26);
+    y += 6;
+    paragraph(text, { size: 14, color: BLUE, style: 'bold', lh: 18, gap: 4 });
+  }
+
+  // ── Titel ──
+  paragraph('PRODUKTANFRAGE', { size: 22, color: BLUE, style: 'bold', lh: 26, gap: 4 });
+  paragraph(productName, { size: 15, color: BLUE, style: 'bold', lh: 19, gap: 12 });
+
+  // ── Meta: Marke, dann Logo darunter, dann der Rest ──
+  paragraph(`Marke: ${meta.marke ?? 'wird nachgereicht'}`, { size: 10, color: BODY, lh: 15, gap: 6 });
+
+  if (meta.logo_path) {
+    try {
+      const url = await getUspLogoObjectUrl(productId);
+      const { dataUrl, w, h } = await loadImage(url);
+      URL.revokeObjectURL(url);
+      if (w && h) {
+        const drawW = Math.min(140, contentW);
+        const drawH = (h / w) * drawW;
+        newPageIfNeeded(drawH + 10);
+        const fmt = dataUrl.includes('image/png') ? 'PNG' : dataUrl.includes('image/webp') ? 'WEBP' : 'JPEG';
+        doc.addImage(dataUrl, fmt, cx - drawW / 2, y, drawW, drawH);
+        y += drawH + 10;
+      }
+    } catch { /* Logo ueberspringen */ }
+  }
+
+  const metaLines: string[] = [`Hersteller: ${manufacturer.name || '—'}`];
+  if (manufacturer.ansprechpartner) metaLines.push(`Ansprechpartner: ${manufacturer.ansprechpartner}`);
+  metaLines.push(`Datum: ${manufacturer.datum ?? '—'}`);
+  paragraph(metaLines.join('\n'), { size: 10, color: BODY, lh: 15, gap: 14 });
+
+  // ── Hauptfokus ──
+  if (meta.hauptfokus) {
+    heading('Hauptfokus');
+    paragraph(meta.hauptfokus, { size: 10.5, color: BODY, lh: 15, gap: 14 });
+  }
+
+  // ── Punkte (Auswahl wurde bereits pro Hersteller gefiltert) ──
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i];
+    const num = i + 1;
+    heading(p.title ? `Punkt ${num} – ${p.title}` : `Punkt ${num}`);
+    if (p.body) {
+      paragraph('Anforderungen', { size: 11, color: BODY, style: 'bold', lh: 15, gap: 2 });
+      paragraph(p.body, { size: 10.5, color: BODY, lh: 15, gap: 6 });
+    }
+
+    for (const img of p.images) {
+      try {
+        const url = await getUspImageObjectUrl(productId, img.id);
+        const { dataUrl, w, h } = await loadImage(url);
+        URL.revokeObjectURL(url);
+        if (!w || !h) continue;
+        const drawW = Math.min(contentW, 300);
+        const drawH = (h / w) * drawW;
+        newPageIfNeeded(drawH + 10);
+        const fmt = dataUrl.includes('image/png') ? 'PNG' : dataUrl.includes('image/webp') ? 'WEBP' : 'JPEG';
+        doc.addImage(dataUrl, fmt, cx - drawW / 2, y, drawW, drawH);
+        y += drawH + 10;
+      } catch {
+        /* Bild ueberspringen */
+      }
+    }
+
+    // ── Fragen an Hersteller (nur wenn vorhanden) ──
+    const questions = p.questions.filter(q => q.text.trim().length > 0);
+    if (questions.length > 0) {
+      paragraph('Fragen an Hersteller', { size: 11, color: RED, style: 'bold', lh: 15, gap: 2 });
+      questions.forEach((q, qi) => paragraph(`${qi + 1}. ${q.text}`, { size: 10.5, color: BODY, lh: 15, gap: 2 }));
+      y += 4;
+    }
+
+    // ── Anmerkung Hersteller — immer, auch ohne Frage ──
+    paragraph('Anmerkung Hersteller', { size: 11, color: BLUE, style: 'bold', lh: 15, gap: 12 });
+    doc.setDrawColor(180, 182, 195);
+    const lineGap = 22;
+    for (let li = 0; li < 3; li++) {
+      newPageIfNeeded(lineGap);
+      doc.line(marginX, y, pageW - marginX, y);
+      y += lineGap;
+    }
+    y += 4;
+
+    y += 8;
+  }
+
+  footer();
+  doc.save(
+    `Produktanfrage_${slug(productName)}_${slug(manufacturer.name || 'Hersteller')}_${new Date().toLocaleDateString('en-CA')}.pdf`,
+  );
+}
