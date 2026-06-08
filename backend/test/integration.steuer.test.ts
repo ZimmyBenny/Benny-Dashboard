@@ -92,4 +92,23 @@ describe('Steuer-Checkliste API', () => {
     expect(cp.body.categories[0].items[0]).toMatchObject({ title: 'Beleg', is_done: 0 });
     expect((await request(app).post('/api/steuer/copy-year').send({ from_jahr: 2025, to_jahr: 2026 })).status).toBe(400);
   });
+
+  it('Export: liefert PDF fuer Punkte mit Dokumenten; leere Auswahl -> 400', async () => {
+    const catId = (await request(app).post('/api/steuer/2025/categories').send({ name: 'Privat' })).body.category.id;
+    const itemId = (await request(app).post(`/api/steuer/categories/${catId}/items`).send({ title: 'Beleg' })).body.item.id;
+    // ohne Dokumente: 400
+    const empty = await request(app).post('/api/steuer/2025/export').send({ item_ids: 'all' });
+    expect(empty.status).toBe(400);
+    // mit Dokument: 200 + PDF
+    await request(app).post(`/api/steuer/items/${itemId}/files`).attach('file', PNG, { filename: 'beleg.png', contentType: 'image/png' });
+    const all = await request(app).post('/api/steuer/2025/export').send({ item_ids: 'all' });
+    expect(all.status).toBe(200);
+    expect(all.headers['content-type']).toContain('application/pdf');
+    const sel = await request(app).post('/api/steuer/2025/export').send({ item_ids: [itemId] });
+    expect(sel.status).toBe(200);
+    expect(sel.headers['content-type']).toContain('application/pdf');
+    // Auswahl ohne Treffer (fremde id) -> 400
+    const none = await request(app).post('/api/steuer/2025/export').send({ item_ids: [999999] });
+    expect(none.status).toBe(400);
+  });
 });
