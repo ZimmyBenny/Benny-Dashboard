@@ -3,6 +3,7 @@ import {
   type ManufacturersPayload, type ManufacturerPatch, type OfferPatch, type ManufacturerOffer,
   fetchManufacturers, createManufacturer, updateManufacturer, deleteManufacturer, reorderManufacturers,
   createOffer, updateOffer, deleteOffer, reorderOffers, updateManufacturerSettings,
+  uploadOfferFile, deleteOfferFile,
 } from '../../api/amazon.api';
 
 export const manufacturersKey = (productId: number) =>
@@ -56,6 +57,14 @@ export function useReorderOffers(productId: number) {
 export function useUpdateManufacturerSettings(productId: number) {
   const inval = useInval(productId);
   return useMutation({ mutationFn: (usdEurRate: string) => updateManufacturerSettings(productId, usdEurRate), onSettled: inval });
+}
+export function useUploadOfferFile(productId: number) {
+  const inval = useInval(productId);
+  return useMutation({ mutationFn: ({ mId, oId, file }: { mId: number; oId: number; file: File }) => uploadOfferFile(productId, mId, oId, file), onSettled: inval });
+}
+export function useDeleteOfferFile(productId: number) {
+  const inval = useInval(productId);
+  return useMutation({ mutationFn: ({ mId, oId, fId }: { mId: number; oId: number; fId: number }) => deleteOfferFile(productId, mId, oId, fId), onSettled: inval });
 }
 
 // Preis bestmöglich in Zahl wandeln (für „günstigstes" hervorheben). Nicht parsebar -> null.

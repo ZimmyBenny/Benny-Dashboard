@@ -503,12 +503,14 @@ export async function getUspFileObjectUrl(productId: number, fId: number): Promi
 }
 
 // ===== Amazon Hersteller =====
+export interface OfferFile { id: number; offer_id: number; sort_order: number; file_path: string; original_name: string | null; mime: string | null; created_at: number; }
 export interface ManufacturerOffer {
   id: number; manufacturer_id: number; sort_order: number;
   menge_variante: string | null; preis: string | null; moq: string | null;
   lieferzeit: string | null; datum: string | null; notiz: string | null;
   currency: 'USD' | 'EUR'; is_latest: number;
   created_at: number; updated_at: number;
+  files: OfferFile[];
 }
 export interface Manufacturer {
   id: number; product_id: number; sort_order: number; name: string;
@@ -549,4 +551,15 @@ export async function deleteOffer(productId: number, mId: number, oId: number): 
 }
 export async function reorderOffers(productId: number, mId: number, order: number[]): Promise<void> {
   await apiClient.patch(`/amazon/products/${productId}/manufacturers/${mId}/offers/reorder`, { order });
+}
+export async function uploadOfferFile(productId: number, mId: number, oId: number, file: File): Promise<OfferFile> {
+  const fd = new FormData(); fd.append('file', file);
+  return ((await apiClient.post(`/amazon/products/${productId}/manufacturers/${mId}/offers/${oId}/files`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })).data as { file: OfferFile }).file;
+}
+export async function getOfferFileObjectUrl(productId: number, mId: number, oId: number, fId: number): Promise<string> {
+  const r = await apiClient.get(`/amazon/products/${productId}/manufacturers/${mId}/offers/${oId}/files/${fId}`, { responseType: 'blob' });
+  return URL.createObjectURL(r.data as Blob);
+}
+export async function deleteOfferFile(productId: number, mId: number, oId: number, fId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/manufacturers/${mId}/offers/${oId}/files/${fId}`);
 }
