@@ -265,6 +265,24 @@ router.post('/products/:id/usp/points/:pointId/images', (req: Request, res: Resp
   });
 });
 
+router.post('/products/:id/usp/points/:pointId/images/from-file', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const pointId = Number(req.params.pointId);
+  if (!Number.isInteger(id) || !Number.isInteger(pointId)) { res.status(404).json({ error: 'not found' }); return; }
+  if (!ensureProduct(id) || !loadPointForProduct(id, pointId)) { res.status(404).json({ error: 'not found' }); return; }
+  const fileId = Number((req.body as { file_id?: unknown })?.file_id);
+  if (!Number.isInteger(fileId)) { res.status(400).json({ error: 'invalid file_id' }); return; }
+  const file = loadFileForProduct(id, fileId);
+  if (!file) { res.status(404).json({ error: 'not found' }); return; }
+  if (!ALLOWED_MIME.has(file.mime)) { res.status(400).json({ error: 'not an image' }); return; }
+  const src = path.resolve(FILES_DIR, file.file_path);
+  if (!src.startsWith(path.resolve(FILES_DIR) + path.sep) || !fs.existsSync(src)) { res.status(404).json({ error: 'not found' }); return; }
+  const destName = `${crypto.randomUUID()}${path.extname(file.file_path) || ''}`;
+  fs.copyFileSync(src, path.join(UPLOAD_DIR, destName));
+  const maxOrder = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_usp_point_images WHERE point_id = ?`).get(pointId) as { m: number }).m;
+  const r = db.prepare(`INSERT INTO amazon_usp_point_images (point_id, sort_order, file_path) VALUES (?, ?, ?)`).run(pointId, maxOrder + 1, destName);
+  res.status(201).json({ image: db.prepare(`SELECT * FROM amazon_usp_point_images WHERE id = ?`).get(r.lastInsertRowid) as ImageRow });
+});
+
 router.patch('/products/:id/usp/points/:pointId/images/reorder', (req: Request, res: Response) => {
   const id = Number(req.params.id); const pointId = Number(req.params.pointId);
   if (!Number.isInteger(id) || !Number.isInteger(pointId)) { res.status(404).json({ error: 'not found' }); return; }

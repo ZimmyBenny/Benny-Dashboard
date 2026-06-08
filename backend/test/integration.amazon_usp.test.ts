@@ -364,3 +364,70 @@ describe('USP API — finale Marke aus Brand', () => {
     expect(r1.body.final_marke).toBe('ZwergenZauber');
   });
 });
+
+describe('USP API — Punkt-Bild aus Datei', () => {
+  let db: Database.Database; let app: express.Express;
+  beforeEach(async () => { db = createTestDb(); app = await makeApp(db); });
+  const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+  const PDF = Buffer.from('%PDF-1.4 testdatei');
+  async function makePoint(pid: number): Promise<number> {
+    const a = await request(app).post(`/api/amazon/products/${pid}/usp/points`).send({});
+    return a.body.point.id;
+  }
+  async function uploadFile(pid: number, buf: Buffer, name: string, type: string): Promise<number> {
+    const up = await request(app).post(`/api/amazon/products/${pid}/usp/files`).attach('file', buf, { filename: name, contentType: type });
+    return up.body.file.id;
+  }
+
+  it('kopiert ein Bild aus den Dateien als Punkt-Bild (eigene Kopie)', async () => {
+    const pid = makeProduct(db); await request(app).get(`/api/amazon/products/${pid}/usp`);
+    const point = await makePoint(pid);
+    const fileId = await uploadFile(pid, PNG, 'idee.png', 'image/png');
+    const srcPath = (db.prepare(`SELECT file_path FROM amazon_usp_files WHERE id=?`).get(fileId) as { file_path: string }).file_path;
+
+    const r = await request(app).post(`/api/amazon/products/${pid}/usp/points/${point}/images/from-file`).send({ file_id: fileId });
+    expect(r.status).toBe(201);
+    expect(r.body.image).toMatchObject({ point_id: point, sort_order: 1 });
+    expect(r.body.image.file_path).not.toBe(srcPath);
+    const get = await request(app).get(`/api/amazon/products/${pid}/usp/images/${r.body.image.id}`);
+    expect(get.status).toBe(200);
+    expect(get.headers['content-type']).toContain('image/png');
+  });
+
+  it('Punkt-Bild überlebt das Löschen der persönlichen Datei', async () => {
+    const pid = makeProduct(db); await request(app).get(`/api/amazon/products/${pid}/usp`);
+    const point = await makePoint(pid);
+    const fileId = await uploadFile(pid, PNG, 'idee.png', 'image/png');
+    const r = await request(app).post(`/api/amazon/products/${pid}/usp/points/${point}/images/from-file`).send({ file_id: fileId });
+    const imageId = r.body.image.id;
+    expect((await request(app).delete(`/api/amazon/products/${pid}/usp/files/${fileId}`)).status).toBe(204);
+    expect((db.prepare(`SELECT COUNT(*) AS c FROM amazon_usp_point_images WHERE id=?`).get(imageId) as { c: number }).c).toBe(1);
+    expect((await request(app).get(`/api/amazon/products/${pid}/usp/images/${imageId}`)).status).toBe(200);
+  });
+
+  it('Nicht-Bild-Datei -> 400, kein Punkt-Bild', async () => {
+    const pid = makeProduct(db); await request(app).get(`/api/amazon/products/${pid}/usp`);
+    const point = await makePoint(pid);
+    const fileId = await uploadFile(pid, PDF, 'doku.pdf', 'application/pdf');
+    const r = await request(app).post(`/api/amazon/products/${pid}/usp/points/${point}/images/from-file`).send({ file_id: fileId });
+    expect(r.status).toBe(400);
+    expect((db.prepare(`SELECT COUNT(*) AS c FROM amazon_usp_point_images WHERE point_id=?`).get(point) as { c: number }).c).toBe(0);
+  });
+
+  it('fremde Datei eines anderen Produkts -> 404', async () => {
+    const pA = makeProduct(db, 'A'); const pB = makeProduct(db, 'B');
+    await request(app).get(`/api/amazon/products/${pA}/usp`);
+    await request(app).get(`/api/amazon/products/${pB}/usp`);
+    const pointA = await makePoint(pA);
+    const fileB = await uploadFile(pB, PNG, 'b.png', 'image/png');
+    const r = await request(app).post(`/api/amazon/products/${pA}/usp/points/${pointA}/images/from-file`).send({ file_id: fileB });
+    expect(r.status).toBe(404);
+  });
+
+  it('ungültige file_id -> 400', async () => {
+    const pid = makeProduct(db); await request(app).get(`/api/amazon/products/${pid}/usp`);
+    const point = await makePoint(pid);
+    const r = await request(app).post(`/api/amazon/products/${pid}/usp/points/${point}/images/from-file`).send({ file_id: 'x' });
+    expect(r.status).toBe(400);
+  });
+});
