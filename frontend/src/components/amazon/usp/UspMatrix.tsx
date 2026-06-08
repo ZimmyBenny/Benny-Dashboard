@@ -75,8 +75,16 @@ export function UspMatrix({ productId, points, manufacturers, feasibility }: {
           <tbody>
             {points.map((p, idx) => (
               <tr key={p.id} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                <td className="px-2 py-1 text-sm" style={{ color: 'var(--color-on-surface)', position: 'sticky', left: 0, background: 'var(--color-surface-container-low)', maxWidth: 200 }}>
-                  {idx + 1}. {p.title || '—'}
+                <td className="px-2 py-1 text-sm" style={{ position: 'sticky', left: 0, background: 'var(--color-surface-container-low)', maxWidth: 200 }}>
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById(`usp-point-${p.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                    className="text-left hover:underline"
+                    style={{ color: 'var(--color-on-surface)', cursor: 'pointer', background: 'transparent', border: 'none', padding: 0 }}
+                    title="Zum Punkt springen"
+                  >
+                    {idx + 1}. {p.title || '—'}
+                  </button>
                 </td>
                 {manufacturers.map(m => {
                   const f = map.get(key(p.id, m.id));

@@ -65,7 +65,7 @@ export function UspPointRow({ productId, index, point, onRequestDelete, hasManuf
     setError(null); uploadImg.mutate({ pointId: point.id, file });
   }
   return (
-    <div className="rounded-lg p-4" style={{ background: 'var(--color-surface-container)', border: '1px solid rgba(255,255,255,0.12)', borderLeft: '3px solid #60a5fa', boxShadow: '0 1px 4px rgba(0,0,0,0.25)' }}
+    <div id={`usp-point-${point.id}`} className="rounded-lg p-4" style={{ background: 'var(--color-surface-container)', border: '1px solid rgba(255,255,255,0.12)', borderLeft: '3px solid #60a5fa', boxShadow: '0 1px 4px rgba(0,0,0,0.25)', scrollMarginTop: '80px' }}
       onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); pick(e.dataTransfer.files?.[0]); }}>
       <div className="flex items-center gap-2 mb-2">
         <div {...dragHandleProps} className="flex items-center justify-center rounded-md cursor-grab select-none"
