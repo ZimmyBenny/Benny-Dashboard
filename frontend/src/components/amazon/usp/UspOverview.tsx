@@ -29,9 +29,8 @@ export function UspOverview({ points, manufacturers, feasibility }: {
             <span style={{ color: '#34d399' }}>{r.umsetzbar} umsetzbar</span>
             <span style={{ color: '#fdba74' }}>{r.teilweise} teilweise</span>
             <span style={{ color: '#fca5a5' }}>{r.nicht} nicht</span>
-            <span style={{ color: 'var(--color-on-surface-variant)' }}>{r.offen} offen</span>
-            <span style={{ color: 'var(--color-on-surface-variant)', marginLeft: 'auto' }}>von {total}</span>
-            {r.canAll && <span style={{ color: '#34d399', fontWeight: 700 }}>kann alles</span>}
+            <span style={{ color: 'var(--color-on-surface-variant)' }}>{r.offen} offen von {total}</span>
+            {r.canAll && <span style={{ color: '#34d399', fontWeight: 700, marginLeft: 'auto' }}>kann alles</span>}
           </div>
         ))}
       </div>
