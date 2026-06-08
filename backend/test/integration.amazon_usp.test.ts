@@ -14,9 +14,11 @@ async function makeApp(db: Database.Database) {
   // @ts-expect-error test injection
   conn.default = db;
   const routes = (await import('../src/routes/amazon.usp.routes')).default;
+  const manRoutes = (await import('../src/routes/amazon.manufacturers.routes')).default;
   const app = express();
   app.use(express.json());
   app.use('/api/amazon', routes);
+  app.use('/api/amazon', manRoutes);
   return app;
 }
 
@@ -429,5 +431,70 @@ describe('USP API — Punkt-Bild aus Datei', () => {
     const point = await makePoint(pid);
     const r = await request(app).post(`/api/amazon/products/${pid}/usp/points/${point}/images/from-file`).send({ file_id: 'x' });
     expect(r.status).toBe(400);
+  });
+});
+
+describe('USP API — In Hersteller übernehmen', () => {
+  let db: Database.Database; let app: express.Express;
+  beforeEach(async () => { db = createTestDb(); app = await makeApp(db); });
+
+  async function makeUspMan(pid: number, name: string, ansprech?: string): Promise<number> {
+    await request(app).get(`/api/amazon/products/${pid}/usp`);
+    const c = await request(app).post(`/api/amazon/products/${pid}/usp/manufacturers`).send({ name });
+    const mId = c.body.manufacturer.id;
+    if (ansprech !== undefined) await request(app).patch(`/api/amazon/products/${pid}/usp/manufacturers/${mId}`).send({ ansprechpartner: ansprech });
+    return mId;
+  }
+
+  it('übernehmen legt Stammeintrag + Sourcing-Muster an und verknüpft', async () => {
+    const pid = makeProduct(db);
+    const mId = await makeUspMan(pid, 'Acme', 'Herr X');
+    const r = await request(app).post(`/api/amazon/products/${pid}/usp/manufacturers/${mId}/uebernehmen`).send({});
+    expect(r.status).toBe(201);
+    const stamm = db.prepare(`SELECT * FROM amazon_manufacturers WHERE product_id=?`).all(pid) as Array<{ id: number; name: string; ansprechpartner: string | null }>;
+    expect(stamm).toHaveLength(1);
+    expect(stamm[0]).toMatchObject({ name: 'Acme', ansprechpartner: 'Herr X' });
+    const link = db.prepare(`SELECT manufacturer_id FROM amazon_usp_manufacturers WHERE id=?`).get(mId) as { manufacturer_id: number | null };
+    expect(link.manufacturer_id).toBe(stamm[0].id);
+    const samples = db.prepare(`SELECT hersteller, notizen FROM amazon_sourcing_samples WHERE product_id=?`).all(pid) as Array<{ hersteller: string | null; notizen: string | null }>;
+    expect(samples).toHaveLength(1);
+    expect(samples[0].hersteller).toBe('Acme');
+    expect(samples[0].notizen ?? '').toContain('Herr X');
+  });
+
+  it('zweiter Aufruf -> 409, nichts doppelt', async () => {
+    const pid = makeProduct(db);
+    const mId = await makeUspMan(pid, 'Acme', 'Herr X');
+    await request(app).post(`/api/amazon/products/${pid}/usp/manufacturers/${mId}/uebernehmen`).send({});
+    const r2 = await request(app).post(`/api/amazon/products/${pid}/usp/manufacturers/${mId}/uebernehmen`).send({});
+    expect(r2.status).toBe(409);
+    expect((db.prepare(`SELECT COUNT(*) AS c FROM amazon_manufacturers WHERE product_id=?`).get(pid) as { c: number }).c).toBe(1);
+    expect((db.prepare(`SELECT COUNT(*) AS c FROM amazon_sourcing_samples WHERE product_id=?`).get(pid) as { c: number }).c).toBe(1);
+  });
+
+  it('übernehmen ohne Namen -> 400', async () => {
+    const pid = makeProduct(db);
+    const mId = await makeUspMan(pid, '');
+    const r = await request(app).post(`/api/amazon/products/${pid}/usp/manufacturers/${mId}/uebernehmen`).send({});
+    expect(r.status).toBe(400);
+  });
+
+  it('Stammeintrag löschen löst USP-Verknüpfung (manufacturer_id -> NULL)', async () => {
+    const pid = makeProduct(db);
+    const mId = await makeUspMan(pid, 'Acme', 'Herr X');
+    await request(app).post(`/api/amazon/products/${pid}/usp/manufacturers/${mId}/uebernehmen`).send({});
+    const stammId = (db.prepare(`SELECT id FROM amazon_manufacturers WHERE product_id=?`).get(pid) as { id: number }).id;
+    expect((await request(app).delete(`/api/amazon/products/${pid}/manufacturers/${stammId}`)).status).toBe(204);
+    const link = db.prepare(`SELECT manufacturer_id FROM amazon_usp_manufacturers WHERE id=?`).get(mId) as { manufacturer_id: number | null };
+    expect(link.manufacturer_id).toBeNull();
+  });
+
+  it('GET USP liefert manufacturer_id der Hersteller', async () => {
+    const pid = makeProduct(db);
+    const mId = await makeUspMan(pid, 'Acme');
+    await request(app).post(`/api/amazon/products/${pid}/usp/manufacturers/${mId}/uebernehmen`).send({});
+    const usp = await request(app).get(`/api/amazon/products/${pid}/usp`);
+    const man = (usp.body.manufacturers as Array<{ id: number; manufacturer_id: number | null }>).find(m => m.id === mId);
+    expect(man?.manufacturer_id).not.toBeNull();
   });
 });
