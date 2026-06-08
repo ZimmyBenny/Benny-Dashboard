@@ -13,9 +13,11 @@ interface Props {
   index: number;
   dragHandleProps: React.HTMLAttributes<HTMLDivElement>;
   onRequestDelete: (c: SteuerCategory) => void;
+  selectedIds: Set<number>;
+  onToggleSelect: (itemId: number) => void;
 }
 
-export function SteuerCategoryBlock({ jahr, category, index, dragHandleProps, onRequestDelete }: Props) {
+export function SteuerCategoryBlock({ jahr, category, index, dragHandleProps, onRequestDelete, selectedIds, onToggleSelect }: Props) {
   const updateCat = useUpdateSteuerCategory(jahr);
   const createItem = useCreateSteuerItem(jahr);
   const reorderItems = useReorderSteuerItems(jahr);
@@ -108,7 +110,7 @@ export function SteuerCategoryBlock({ jahr, category, index, dragHandleProps, on
               <span className="material-symbols-outlined" style={{ fontSize: 12 }}>drag_indicator</span>
             </div>
             <div className="flex-1 min-w-0">
-              <SteuerItemRow jahr={jahr} item={item} />
+              <SteuerItemRow jahr={jahr} item={item} selected={selectedIds.has(item.id)} onToggleSelect={() => onToggleSelect(item.id)} />
             </div>
           </div>
         ))}

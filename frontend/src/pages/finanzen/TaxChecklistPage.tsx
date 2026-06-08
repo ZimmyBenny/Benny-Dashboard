@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { PageWrapper } from '../../components/layout/PageWrapper';
-import { type SteuerCategory } from '../../api/steuer.api';
+import { type SteuerCategory, exportSteuerPdf } from '../../api/steuer.api';
 import {
   useSteuerJahre,
   useSteuer,
@@ -57,7 +57,23 @@ export function TaxChecklistPage() {
   const [pendingDelete, setPendingDelete] = useState<SteuerCategory | null>(null);
   const [catOrder, setCatOrder] = useState<number[] | null>(null);
   const [newYearInput, setNewYearInput] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [exporting, setExporting] = useState(false);
   const dragCatIndex = useRef<number | null>(null);
+
+  function toggleSelect(id: number) {
+    setSelectedIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }
+
+  async function doExport(ids: number[] | 'all') {
+    setExporting(true);
+    try {
+      const blob = await exportSteuerPdf(jahr, ids);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = `Steuer-${jahr}.pdf`; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    } finally { setExporting(false); }
+  }
 
   const { data: jahreData } = useSteuerJahre();
   const { data, isLoading, isError, refetch } = useSteuer(jahr);
@@ -103,7 +119,7 @@ export function TaxChecklistPage() {
 
   function openYear() {
     const y = parseInt(newYearInput, 10);
-    if (Number.isInteger(y) && y >= 1990 && y <= 2100) { setJahr(y); setCatOrder(null); setNewYearInput(''); }
+    if (Number.isInteger(y) && y >= 1990 && y <= 2100) { setJahr(y); setCatOrder(null); setNewYearInput(''); setSelectedIds(new Set()); }
   }
 
   return (
@@ -128,7 +144,7 @@ export function TaxChecklistPage() {
       <div className="flex items-center gap-2 flex-wrap mb-6">
         <select
           value={jahr}
-          onChange={(e) => { setJahr(Number(e.target.value)); setCatOrder(null); }}
+          onChange={(e) => { setJahr(Number(e.target.value)); setCatOrder(null); setSelectedIds(new Set()); }}
           className="px-3 py-1.5 rounded-md text-sm"
           style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}
         >
@@ -218,6 +234,37 @@ export function TaxChecklistPage() {
             </div>
           )}
 
+          {/* Export-Leiste */}
+          {data.categories.length > 0 && (
+            <div
+              className="flex items-center gap-2 flex-wrap rounded-xl px-4 py-3"
+              style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.08)' }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#60a5fa' }}>picture_as_pdf</span>
+              <button
+                type="button"
+                onClick={() => doExport('all')}
+                disabled={exporting}
+                className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 flex-shrink-0"
+                style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)', opacity: exporting ? 0.6 : 1 }}
+              >
+                {exporting ? 'Erstelle PDF …' : 'Alle exportieren'}
+              </button>
+              <button
+                type="button"
+                onClick={() => doExport(Array.from(selectedIds))}
+                disabled={selectedIds.size === 0 || exporting}
+                className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 flex-shrink-0"
+                style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)', opacity: (selectedIds.size === 0 || exporting) ? 0.5 : 1 }}
+              >
+                {exporting ? 'Erstelle PDF …' : `Ausgewählte exportieren (${selectedIds.size})`}
+              </button>
+              <span className="text-xs flex-1" style={{ color: 'var(--color-on-surface-variant)' }}>
+                Nur Punkte mit Dokumenten landen im PDF.
+              </span>
+            </div>
+          )}
+
           {/* Kategorie-Liste mit Drag-Reorder */}
           {orderedCats.map((cat, idx) => (
             <SteuerCategoryBlock
@@ -231,6 +278,8 @@ export function TaxChecklistPage() {
                 onPointerUp: catUp,
               }}
               onRequestDelete={(c) => setPendingDelete(c)}
+              selectedIds={selectedIds}
+              onToggleSelect={toggleSelect}
             />
           ))}
 

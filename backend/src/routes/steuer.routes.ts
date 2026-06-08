@@ -5,6 +5,7 @@ import path from 'path';
 import os from 'os';
 import fs from 'fs';
 import crypto from 'crypto';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 const router = Router();
 const MAX_NAME = 300;
@@ -50,6 +51,78 @@ function normText(raw: unknown, max: number): { skip: true } | { skip: false; va
   if (t.length === 0) return { skip: false, value: null };
   if (t.length > max) return { error: true };
   return { skip: false, value: t };
+}
+
+// pdf-lib StandardFont (WinAnsi) kann nicht alle Unicode-Zeichen — ASCII + deutsche Umlaute behalten, Rest -> '?'
+function safeText(s: string): string {
+  return Array.from(s ?? '').map(ch => {
+    const c = ch.codePointAt(0) ?? 0;
+    if (c >= 32 && c <= 126) return ch;
+    if ('äöüÄÖÜß€'.includes(ch)) return ch;
+    return '?';
+  }).join('');
+}
+
+async function buildExportPdf(jahr: number, itemIds: number[] | 'all'): Promise<Buffer | null> {
+  const cats = db.prepare(`SELECT * FROM steuer_categories WHERE jahr = ? ORDER BY sort_order, id`).all(jahr) as CategoryRow[];
+  const wanted = itemIds === 'all' ? null : new Set(itemIds);
+  type Entry = { categoryName: string; item: ItemRow; files: FileRow[] };
+  const entries: Entry[] = [];
+  for (const c of cats) {
+    const items = db.prepare(`SELECT * FROM steuer_items WHERE category_id = ? ORDER BY sort_order, id`).all(c.id) as ItemRow[];
+    for (const it of items) {
+      if (wanted && !wanted.has(it.id)) continue;
+      const files = loadFiles(it.id);
+      if (files.length === 0) continue;
+      entries.push({ categoryName: c.name, item: it, files });
+    }
+  }
+  if (entries.length === 0) return null;
+
+  const A4W = 595.28, A4H = 841.89, MARGIN = 40;
+  const out = await PDFDocument.create();
+  const font = await out.embedFont(StandardFonts.Helvetica);
+  const fontBold = await out.embedFont(StandardFonts.HelveticaBold);
+
+  function drawImagePage(img: { width: number; height: number }, embed: import('pdf-lib').PDFImage) {
+    const maxW = A4W - MARGIN * 2, maxH = A4H - MARGIN * 2;
+    const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+    const w = img.width * scale, h = img.height * scale;
+    const page = out.addPage([A4W, A4H]);
+    page.drawImage(embed, { x: (A4W - w) / 2, y: (A4H - h) / 2, width: w, height: h });
+  }
+
+  for (const e of entries) {
+    const hp = out.addPage([A4W, A4H]);
+    hp.drawText(safeText(e.categoryName || 'Überbegriff'), { x: 50, y: A4H - 80, size: 12, font, color: rgb(0.4, 0.4, 0.4) });
+    hp.drawText(safeText(e.item.title || 'Punkt'), { x: 50, y: A4H - 110, size: 22, font: fontBold, color: rgb(0, 0, 0) });
+    for (const f of e.files) {
+      const abs = path.resolve(FILES_DIR, f.file_path);
+      if (!abs.startsWith(path.resolve(FILES_DIR) + path.sep) || !fs.existsSync(abs)) continue;
+      const mime = (f.mime ?? '').toLowerCase();
+      try {
+        if (mime === 'application/pdf') {
+          const src = await PDFDocument.load(fs.readFileSync(abs));
+          const pages = await out.copyPages(src, src.getPageIndices());
+          pages.forEach(p => out.addPage(p));
+        } else if (mime === 'image/jpeg' || mime === 'image/jpg') {
+          const img = await out.embedJpg(fs.readFileSync(abs));
+          drawImagePage(img, img);
+        } else if (mime === 'image/png') {
+          const img = await out.embedPng(fs.readFileSync(abs));
+          drawImagePage(img, img);
+        } else {
+          const np = out.addPage([A4W, A4H]);
+          np.drawText(safeText(`Datei "${f.original_name ?? 'Datei'}" — keine Vorschau einbettbar (separat senden).`), { x: 50, y: A4H - 80, size: 11, font, color: rgb(0.6, 0, 0) });
+        }
+      } catch {
+        const np = out.addPage([A4W, A4H]);
+        np.drawText(safeText(`Datei "${f.original_name ?? 'Datei'}" konnte nicht eingebettet werden.`), { x: 50, y: A4H - 80, size: 11, font, color: rgb(0.6, 0, 0) });
+      }
+    }
+  }
+  const bytes = await out.save();
+  return Buffer.from(bytes);
 }
 
 // Jahre (literal — VOR /:jahr registrieren)
@@ -101,6 +174,21 @@ router.post('/:jahr/categories', (req: Request, res: Response) => {
   const r = db.prepare(`INSERT INTO steuer_categories (jahr, sort_order, name) VALUES (?, ?, ?)`).run(jahr, maxOrder + 1, name);
   const cat = loadCategory(Number(r.lastInsertRowid)) as CategoryRow;
   res.status(201).json({ category: { ...cat, items: [] } });
+});
+
+router.post('/:jahr/export', async (req: Request, res: Response) => {
+  const jahr = Number(req.params.jahr);
+  if (!Number.isInteger(jahr)) { res.status(400).json({ error: 'invalid jahr' }); return; }
+  const raw = (req.body as { item_ids?: unknown })?.item_ids;
+  let itemIds: number[] | 'all';
+  if (raw === 'all') itemIds = 'all';
+  else if (Array.isArray(raw) && raw.every(x => Number.isInteger(x))) itemIds = raw as number[];
+  else { res.status(400).json({ error: 'invalid item_ids' }); return; }
+  const pdf = await buildExportPdf(jahr, itemIds);
+  if (!pdf) { res.status(400).json({ error: 'keine dokumente' }); return; }
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="Steuer-${jahr}.pdf"`);
+  res.send(pdf);
 });
 
 router.patch('/categories/:id', (req: Request, res: Response) => {
