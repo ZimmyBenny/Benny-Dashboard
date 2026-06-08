@@ -44,3 +44,7 @@ export async function exportSteuerPdf(jahr: number, itemIds: number[] | 'all'): 
   const r = await apiClient.post(`/steuer/${jahr}/export`, { item_ids: itemIds }, { responseType: 'blob' });
   return r.data as Blob;
 }
+export async function exportSteuerZip(jahr: number, itemIds: number[] | 'all'): Promise<Blob> {
+  const r = await apiClient.post(`/steuer/${jahr}/export-zip`, { item_ids: itemIds }, { responseType: 'blob' });
+  return r.data as Blob;
+}
