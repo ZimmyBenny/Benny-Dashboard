@@ -8,8 +8,10 @@ import {
   createUspKaufgrund, updateUspKaufgrund, deleteUspKaufgrund, reorderUspKaufgruende,
   uploadUspFile, deleteUspFile,
   fetchUspVersions, saveUspVersion, deleteUspVersion,
+  uebernehmeUspManufacturer,
   type UspMetaPatch, type UspPointPatch, type UspManufacturerPatch, type UspFeasibilityStatus,
 } from '../../api/amazon.api';
+import { manufacturersKey } from './useManufacturers';
 
 function key(productId: number) { return ['amazon', 'products', productId, 'usp'] as const; }
 
@@ -143,4 +145,15 @@ export function useUploadUspFile(productId: number) {
 export function useDeleteUspFile(productId: number) {
   const qc = useQueryClient();
   return useMutation({ mutationFn: (fId: number) => deleteUspFile(productId, fId), onSettled: inval(productId, qc) });
+}
+export function useUebernehmeUspManufacturer(productId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (mId: number) => uebernehmeUspManufacturer(productId, mId),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: key(productId) });
+      qc.invalidateQueries({ queryKey: manufacturersKey(productId) });
+      qc.invalidateQueries({ queryKey: ['amazon', 'products', productId, 'sourcing'] });
+    },
+  });
 }

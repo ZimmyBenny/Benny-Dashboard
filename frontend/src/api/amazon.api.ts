@@ -370,7 +370,7 @@ export interface UspMeta { product_id: number; marke: string | null; hauptfokus:
 export interface UspPointImage { id: number; point_id: number; sort_order: number; file_path: string; created_at: number; }
 export interface UspPointQuestion { id: number; point_id: number; sort_order: number; text: string; created_at: number; updated_at: number; }
 export interface UspPoint { id: number; product_id: number; sort_order: number; title: string; body: string | null; created_at: number; updated_at: number; images: UspPointImage[]; questions: UspPointQuestion[]; }
-export interface UspManufacturer { id: number; product_id: number; sort_order: number; name: string; ansprechpartner: string | null; datum: string | null; notes: string | null; created_at: number; updated_at: number; }
+export interface UspManufacturer { id: number; product_id: number; sort_order: number; name: string; ansprechpartner: string | null; datum: string | null; notes: string | null; manufacturer_id: number | null; created_at: number; updated_at: number; }
 export type UspFeasibilityStatus = 'offen' | 'umsetzbar' | 'teilweise' | 'nicht';
 export interface UspFeasibility { id: number; point_id: number; manufacturer_id: number; status: UspFeasibilityStatus; note: string | null; include_in_pdf: number; updated_at: number; }
 export interface UspPayload { meta: UspMeta; points: UspPoint[]; manufacturers: UspManufacturer[]; feasibility: UspFeasibility[]; kaufgruende: UspKaufgrund[]; files: UspFile[]; final_marke: string | null; }
@@ -444,6 +444,9 @@ export async function deleteUspManufacturer(productId: number, mId: number): Pro
 }
 export async function reorderUspManufacturers(productId: number, order: number[]): Promise<void> {
   await apiClient.patch(`/amazon/products/${productId}/usp/manufacturers/reorder`, { order });
+}
+export async function uebernehmeUspManufacturer(productId: number, mId: number): Promise<{ manufacturer_id: number }> {
+  return (await apiClient.post(`/amazon/products/${productId}/usp/manufacturers/${mId}/uebernehmen`, {})).data as { manufacturer_id: number };
 }
 export async function setUspFeasibility(
   productId: number,
