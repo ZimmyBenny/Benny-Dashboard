@@ -320,3 +320,32 @@ describe('USP API — Persoenlich: Meta-Felder + Kaufgruende', () => {
     expect((db.prepare(`SELECT COUNT(*) AS c FROM amazon_usp_kaufgruende WHERE id=?`).get(a.body.kaufgrund.id) as { c: number }).c).toBe(0);
   });
 });
+
+describe('USP API — Persoenlich: Dateien', () => {
+  let db: Database.Database; let app: express.Express;
+  beforeEach(async () => { db = createTestDb(); app = await makeApp(db); });
+  const BIN = Buffer.from('hello world pdf-ish', 'latin1');
+
+  it('Upload + im Payload + GET serve + DELETE', async () => {
+    const pid = makeProduct(db);
+    const up = await request(app).post(`/api/amazon/products/${pid}/usp/files`)
+      .attach('file', BIN, { filename: 'doku.pdf', contentType: 'application/pdf' });
+    expect(up.status).toBe(201);
+    expect(up.body.file).toMatchObject({ product_id: pid, original_name: 'doku.pdf', mime: 'application/pdf', sort_order: 1 });
+    const list = await request(app).get(`/api/amazon/products/${pid}/usp`);
+    expect(list.body.files).toHaveLength(1);
+    const get = await request(app).get(`/api/amazon/products/${pid}/usp/files/${up.body.file.id}`);
+    expect(get.status).toBe(200);
+    expect(get.headers['content-type']).toContain('application/pdf');
+    const del = await request(app).delete(`/api/amazon/products/${pid}/usp/files/${up.body.file.id}`);
+    expect(del.status).toBe(204);
+  });
+
+  it('Datei Cross-Produkt -> 404; Cascade beim Produkt-Loeschen', async () => {
+    const pA = makeProduct(db, 'A'); const pB = makeProduct(db, 'B');
+    const up = await request(app).post(`/api/amazon/products/${pA}/usp/files`).attach('file', BIN, { filename: 'a.bin', contentType: 'application/octet-stream' });
+    expect((await request(app).delete(`/api/amazon/products/${pB}/usp/files/${up.body.file.id}`)).status).toBe(404);
+    db.prepare(`DELETE FROM amazon_products WHERE id=?`).run(pA);
+    expect((db.prepare(`SELECT COUNT(*) AS c FROM amazon_usp_files WHERE id=?`).get(up.body.file.id) as { c: number }).c).toBe(0);
+  });
+});

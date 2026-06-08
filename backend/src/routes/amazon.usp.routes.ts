@@ -42,6 +42,26 @@ function deleteVersionFile(filename: string | null | undefined) {
   try { fs.unlinkSync(abs); } catch { /* schon weg */ }
 }
 interface VersionRow { id: number; product_id: number; manufacturer_name: string; file_path: string; created_at: number; }
+
+const FILES_DIR = path.join(os.homedir(), '.local', 'share', 'benny-dashboard', 'amazon-usp-files');
+if (!fs.existsSync(FILES_DIR)) fs.mkdirSync(FILES_DIR, { recursive: true });
+const fileUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, FILES_DIR),
+    filename: (_req, file, cb) => cb(null, `${crypto.randomUUID()}${path.extname(file.originalname) || ''}`),
+  }),
+  limits: { fileSize: 20 * 1024 * 1024 },
+});
+function deleteFilesFile(filename: string | null | undefined) {
+  if (!filename) return;
+  const abs = path.resolve(FILES_DIR, filename);
+  if (!abs.startsWith(path.resolve(FILES_DIR) + path.sep)) return;
+  try { fs.unlinkSync(abs); } catch { /* schon weg */ }
+}
+interface FileRow { id: number; product_id: number; sort_order: number; file_path: string; original_name: string; mime: string; created_at: number; }
+function loadFileForProduct(productId: number, fId: number): FileRow | undefined {
+  return db.prepare(`SELECT * FROM amazon_usp_files WHERE id = ? AND product_id = ?`).get(fId, productId) as FileRow | undefined;
+}
 function loadVersionForProduct(productId: number, vId: number): VersionRow | undefined {
   return db.prepare(`SELECT * FROM amazon_usp_versions WHERE id = ? AND product_id = ?`).get(vId, productId) as VersionRow | undefined;
 }
@@ -133,7 +153,9 @@ function loadKaufgruende(productId: number): KaufgrundRow[] {
 function loadKaufgrundForProduct(productId: number, kId: number): KaufgrundRow | undefined {
   return db.prepare(`SELECT * FROM amazon_usp_kaufgruende WHERE id = ? AND product_id = ?`).get(kId, productId) as KaufgrundRow | undefined;
 }
-function loadFiles(_productId: number): unknown[] { return []; }
+function loadFiles(productId: number): FileRow[] {
+  return db.prepare(`SELECT * FROM amazon_usp_files WHERE product_id = ? ORDER BY sort_order, id`).all(productId) as FileRow[];
+}
 router.get('/products/:id/usp', (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'product not found' }); return; }
@@ -537,6 +559,42 @@ router.delete('/products/:id/usp/kaufgruende/:kId', (req: Request, res: Response
   if (!Number.isInteger(id) || !Number.isInteger(kId)) { res.status(404).json({ error: 'not found' }); return; }
   if (!ensureProduct(id) || !loadKaufgrundForProduct(id, kId)) { res.status(404).json({ error: 'not found' }); return; }
   db.prepare(`DELETE FROM amazon_usp_kaufgruende WHERE id = ?`).run(kId);
+  res.status(204).end();
+});
+
+router.post('/products/:id/usp/files', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'product not found' }); return; }
+  fileUpload.single('file')(req, res, (err: unknown) => {
+    if (err) { res.status(400).json({ error: err instanceof Error ? err.message : 'upload failed' }); return; }
+    const file = (req as Request & { file?: { filename: string; originalname: string; mimetype: string } }).file;
+    if (!file) { res.status(400).json({ error: 'no file' }); return; }
+    const maxOrder = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_usp_files WHERE product_id = ?`).get(id) as { m: number }).m;
+    const r = db.prepare(`INSERT INTO amazon_usp_files (product_id, sort_order, file_path, original_name, mime) VALUES (?, ?, ?, ?, ?)`)
+      .run(id, maxOrder + 1, file.filename, file.originalname.slice(0, 300), file.mimetype.slice(0, 200));
+    res.status(201).json({ file: db.prepare(`SELECT * FROM amazon_usp_files WHERE id = ?`).get(r.lastInsertRowid) as FileRow });
+  });
+});
+
+router.get('/products/:id/usp/files/:fId', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const fId = Number(req.params.fId);
+  if (!Number.isInteger(id) || !Number.isInteger(fId) || !ensureProduct(id)) { res.status(404).end(); return; }
+  const f = loadFileForProduct(id, fId);
+  if (!f) { res.status(404).end(); return; }
+  const abs = path.resolve(FILES_DIR, f.file_path);
+  if (!abs.startsWith(path.resolve(FILES_DIR) + path.sep) || !fs.existsSync(abs)) { res.status(404).end(); return; }
+  res.setHeader('Content-Type', f.mime || 'application/octet-stream');
+  res.setHeader('Content-Disposition', `inline; filename="${f.original_name.replace(/"/g, '')}"`);
+  fs.createReadStream(abs).pipe(res);
+});
+
+router.delete('/products/:id/usp/files/:fId', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const fId = Number(req.params.fId);
+  if (!Number.isInteger(id) || !Number.isInteger(fId) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  const f = loadFileForProduct(id, fId);
+  if (!f) { res.status(404).json({ error: 'not found' }); return; }
+  db.prepare(`DELETE FROM amazon_usp_files WHERE id = ?`).run(fId);
+  deleteFilesFile(f.file_path);
   res.status(204).end();
 });
 
