@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { type UspPoint, type SourcingStatus } from '../../../api/amazon.api';
-import { useUsp, useCreateUspPoint, useDeleteUspPoint, useUpdateUspMeta } from '../../../hooks/amazon/useUsp';
+import { useUsp, useCreateUspPoint, useDeleteUspPoint, useUpdateUspMeta, useSaveUspVersion } from '../../../hooks/amazon/useUsp';
 import { SectionHeader } from '../SectionHeader';
 import { SectionStatusBadge } from '../SectionStatusBadge';
 import { UspMetaForm } from './UspMetaForm';
@@ -9,6 +9,7 @@ import { UspManufacturers } from './UspManufacturers';
 import { UspMatrix } from './UspMatrix';
 import { UspOverview } from './UspOverview';
 import { DeleteUspPointDialog } from './DeleteUspPointDialog';
+import { UspVersions } from './UspVersions';
 import { exportUspPdf } from '../../../lib/amazon/exportUspPdf';
 
 const ACCENT = '#60a5fa';
@@ -36,6 +37,7 @@ export function UspSection({ productId, productName }: Props) {
   const createPoint = useCreateUspPoint(productId);
   const deletePoint = useDeleteUspPoint(productId);
   const updateMeta = useUpdateUspMeta(productId);
+  const saveVersion = useSaveUspVersion(productId);
   const [expanded, setExpanded] = useState(() => readExpanded(productId));
   const [pendingDelete, setPendingDelete] = useState<UspPoint | null>(null);
   const [selectedMId, setSelectedMId] = useState<number | null>(null);
@@ -53,20 +55,32 @@ export function UspSection({ productId, productName }: Props) {
     });
   }
 
-  async function handleExport() {
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
+  async function buildPdf(): Promise<{ blob: Blob; filename: string; manufacturerName: string } | null> {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     await new Promise(r => setTimeout(r, 350));
     const fresh = await refetch();
-    if (!fresh.data) return;
+    if (!fresh.data) return null;
     const m = fresh.data.manufacturers.find(x => x.id === selectedMId) ?? fresh.data.manufacturers[0];
-    if (!m) return;
-    // Pro Hersteller nur die Punkte, die fuer ihn auf "im PDF" stehen (Default: ja).
+    if (!m) return null;
     const incMap = new Map<number, number>();
     for (const f of fresh.data.feasibility) if (f.manufacturer_id === m.id) incMap.set(f.point_id, f.include_in_pdf);
     const included = fresh.data.points.filter(p => (incMap.get(p.id) ?? 1) !== 0);
-    await exportUspPdf(productId, productName, fresh.data.meta, included, m);
+    const { blob, filename } = await exportUspPdf(productId, productName, fresh.data.meta, included, m);
+    return { blob, filename, manufacturerName: m.name || 'Hersteller' };
+  }
+  async function handlePreview() {
+    const r = await buildPdf();
+    if (r) window.open(URL.createObjectURL(r.blob), '_blank');
+  }
+  async function handleDownload() {
+    const r = await buildPdf();
+    if (!r) return;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(r.blob); a.download = r.filename; a.click();
+  }
+  async function handleSaveVersion() {
+    const r = await buildPdf();
+    if (r) saveVersion.mutate({ manufacturerName: r.manufacturerName, blob: r.blob });
   }
 
   return (
@@ -167,16 +181,20 @@ export function UspSection({ productId, productName }: Props) {
                     <option key={m.id} value={m.id}>{m.name || 'Hersteller'}</option>
                   ))}
                 </select>
-                <button
-                  type="button"
-                  onClick={handleExport}
-                  className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5"
-                  style={{ background: ACCENT, color: '#08131f' }}
-                >
-                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>picture_as_pdf</span>
-                  PDF exportieren
+                <button type="button" onClick={handlePreview} className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5"
+                  style={{ background: ACCENT, color: '#08131f' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>visibility</span>Vorschau
+                </button>
+                <button type="button" onClick={handleDownload} className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5"
+                  style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>download</span>Herunterladen
+                </button>
+                <button type="button" onClick={handleSaveVersion} className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5"
+                  style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>save</span>Als Version speichern
                 </button>
               </div>
+              <UspVersions productId={productId} />
             </>
           )}
           {pendingDelete && (

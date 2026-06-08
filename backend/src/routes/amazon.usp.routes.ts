@@ -25,6 +25,27 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => { if (!ALLOWED_MIME.has(file.mimetype)) return cb(new Error('mime not allowed')); cb(null, true); },
 });
+const VERSIONS_DIR = path.join(os.homedir(), '.local', 'share', 'benny-dashboard', 'amazon-usp-versions');
+if (!fs.existsSync(VERSIONS_DIR)) fs.mkdirSync(VERSIONS_DIR, { recursive: true });
+const pdfUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, VERSIONS_DIR),
+    filename: (_req, _file, cb) => cb(null, `${crypto.randomUUID()}.pdf`),
+  }),
+  limits: { fileSize: 25 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => { if (file.mimetype !== 'application/pdf') return cb(new Error('pdf only')); cb(null, true); },
+});
+function deleteVersionFile(filename: string | null | undefined) {
+  if (!filename) return;
+  const abs = path.resolve(VERSIONS_DIR, filename);
+  if (!abs.startsWith(path.resolve(VERSIONS_DIR) + path.sep)) return;
+  try { fs.unlinkSync(abs); } catch { /* schon weg */ }
+}
+interface VersionRow { id: number; product_id: number; manufacturer_name: string; file_path: string; created_at: number; }
+function loadVersionForProduct(productId: number, vId: number): VersionRow | undefined {
+  return db.prepare(`SELECT * FROM amazon_usp_versions WHERE id = ? AND product_id = ?`).get(vId, productId) as VersionRow | undefined;
+}
+
 function deleteUspImageFile(filename: string | null | undefined) {
   if (!filename) return;
   const abs = path.resolve(UPLOAD_DIR, filename);
@@ -415,6 +436,52 @@ router.get('/products/:id/usp/logo', (req: Request, res: Response) => {
   if (!abs.startsWith(path.resolve(UPLOAD_DIR) + path.sep) || !fs.existsSync(abs)) { res.status(404).end(); return; }
   res.setHeader('Content-Type', CONTENT_BY_EXT[path.extname(abs).toLowerCase()] ?? 'application/octet-stream');
   fs.createReadStream(abs).pipe(res);
+});
+
+// ── Versionen (gespeicherte PDFs) ──
+router.post('/products/:id/usp/versions', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'product not found' }); return; }
+  pdfUpload.single('file')(req, res, (err: unknown) => {
+    if (err) { res.status(400).json({ error: err instanceof Error ? err.message : 'upload failed' }); return; }
+    const file = (req as Request & { file?: { filename: string } }).file;
+    if (!file) { res.status(400).json({ error: 'no file' }); return; }
+    const nameRaw = (req.body as { manufacturer_name?: unknown })?.manufacturer_name;
+    const name = typeof nameRaw === 'string' ? nameRaw.trim().slice(0, 200) : '';
+    const r = db.prepare(`INSERT INTO amazon_usp_versions (product_id, manufacturer_name, file_path) VALUES (?, ?, ?)`).run(id, name, file.filename);
+    res.status(201).json({ version: db.prepare(`SELECT id, product_id, manufacturer_name, created_at FROM amazon_usp_versions WHERE id = ?`).get(r.lastInsertRowid) as Omit<VersionRow, 'file_path'> });
+  });
+});
+
+router.get('/products/:id/usp/versions', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'product not found' }); return; }
+  const versions = db.prepare(
+    `SELECT id, product_id, manufacturer_name, created_at FROM amazon_usp_versions WHERE product_id = ? ORDER BY created_at DESC, id DESC`
+  ).all(id) as Array<Omit<VersionRow, 'file_path'>>;
+  res.json({ versions });
+});
+
+router.get('/products/:id/usp/versions/:vId/pdf', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const vId = Number(req.params.vId);
+  if (!Number.isInteger(id) || !Number.isInteger(vId) || !ensureProduct(id)) { res.status(404).end(); return; }
+  const v = loadVersionForProduct(id, vId);
+  if (!v) { res.status(404).end(); return; }
+  const abs = path.resolve(VERSIONS_DIR, v.file_path);
+  if (!abs.startsWith(path.resolve(VERSIONS_DIR) + path.sep) || !fs.existsSync(abs)) { res.status(404).end(); return; }
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'inline');
+  fs.createReadStream(abs).pipe(res);
+});
+
+router.delete('/products/:id/usp/versions/:vId', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const vId = Number(req.params.vId);
+  if (!Number.isInteger(id) || !Number.isInteger(vId) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  const v = loadVersionForProduct(id, vId);
+  if (!v) { res.status(404).json({ error: 'not found' }); return; }
+  db.prepare(`DELETE FROM amazon_usp_versions WHERE id = ?`).run(vId);
+  deleteVersionFile(v.file_path);
+  res.status(204).end();
 });
 
 export default router;

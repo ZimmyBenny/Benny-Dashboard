@@ -59,14 +59,14 @@ export async function exportUspPdf(
   meta: UspMeta,
   points: UspPoint[],
   manufacturer: UspManufacturer,
-): Promise<void> {
+): Promise<{ blob: Blob; filename: string }> {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const cx = pageW / 2;
   const marginX = 56;
   const contentW = pageW - marginX * 2;
-  const topY = 64;
+  const topY = 88;   // mehr Luft unter der Kopfzeile (Leerzeile vor PRODUKTANFRAGE)
   const bottomY = pageH - 44;
   const runningHeader = `${productName} Anforderungen`;
 
@@ -211,7 +211,6 @@ export async function exportUspPdf(
   }
 
   footer();
-  doc.save(
-    `Produktanfrage_${slug(productName)}_${slug(manufacturer.name || 'Hersteller')}_${new Date().toLocaleDateString('en-CA')}.pdf`,
-  );
+  const filename = `Produktanfrage_${slug(productName)}_${slug(manufacturer.name || 'Hersteller')}_${new Date().toLocaleDateString('en-CA')}.pdf`;
+  return { blob: doc.output('blob'), filename };
 }

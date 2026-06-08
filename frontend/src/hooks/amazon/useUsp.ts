@@ -5,6 +5,7 @@ import {
   createUspManufacturer, updateUspManufacturer, deleteUspManufacturer, reorderUspManufacturers,
   setUspFeasibility, uploadUspLogo, deleteUspLogo,
   createUspPointQuestion, updateUspPointQuestion, deleteUspPointQuestion,
+  fetchUspVersions, saveUspVersion, deleteUspVersion,
   type UspMetaPatch, type UspPointPatch, type UspManufacturerPatch, type UspFeasibilityStatus,
 } from '../../api/amazon.api';
 
@@ -90,5 +91,25 @@ export function useSetUspFeasibility(productId: number) {
   return useMutation({
     mutationFn: (input: { point_id: number; manufacturer_id: number; status?: UspFeasibilityStatus; note?: string | null }) => setUspFeasibility(productId, input),
     onSettled: inval(productId, qc),
+  });
+}
+
+function versionsKey(productId: number) { return ['amazon', 'products', productId, 'usp', 'versions'] as const; }
+
+export function useUspVersions(productId: number) {
+  return useQuery({ queryKey: versionsKey(productId), queryFn: () => fetchUspVersions(productId) });
+}
+export function useSaveUspVersion(productId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ manufacturerName, blob }: { manufacturerName: string; blob: Blob }) => saveUspVersion(productId, manufacturerName, blob),
+    onSettled: () => qc.invalidateQueries({ queryKey: versionsKey(productId) }),
+  });
+}
+export function useDeleteUspVersion(productId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vId: number) => deleteUspVersion(productId, vId),
+    onSettled: () => qc.invalidateQueries({ queryKey: versionsKey(productId) }),
   });
 }
