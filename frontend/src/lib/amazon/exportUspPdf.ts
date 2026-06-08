@@ -171,23 +171,24 @@ export async function exportUspPdf(
       }
     }
 
-    // ── Fragen an Hersteller + leere Antwort-Kaestchen ──
+    // ── Fragen an Hersteller (nur wenn vorhanden) ──
     const questions = p.questions.filter(q => q.text.trim().length > 0);
     if (questions.length > 0) {
       paragraph('Fragen an Hersteller', { size: 11, color: RED, style: 'bold', lh: 15, gap: 2 });
       questions.forEach((q, qi) => paragraph(`${qi + 1}. ${q.text}`, { size: 10.5, color: BODY, lh: 15, gap: 2 }));
-
-      y += 4;
-      paragraph('Anmerkung Hersteller', { size: 11, color: BLUE, style: 'bold', lh: 15, gap: 12 });
-      doc.setDrawColor(180, 182, 195);
-      const lineGap = 22;
-      for (let li = 0; li < 3; li++) {
-        newPageIfNeeded(lineGap);
-        doc.line(marginX, y, pageW - marginX, y);
-        y += lineGap;
-      }
       y += 4;
     }
+
+    // ── Anmerkung Hersteller — immer, auch ohne Frage ──
+    paragraph('Anmerkung Hersteller', { size: 11, color: BLUE, style: 'bold', lh: 15, gap: 12 });
+    doc.setDrawColor(180, 182, 195);
+    const lineGap = 22;
+    for (let li = 0; li < 3; li++) {
+      newPageIfNeeded(lineGap);
+      doc.line(marginX, y, pageW - marginX, y);
+      y += lineGap;
+    }
+    y += 4;
 
     y += 8;
   }
