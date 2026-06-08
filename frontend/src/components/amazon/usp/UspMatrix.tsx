@@ -52,7 +52,12 @@ export function UspMatrix({ productId, points, manufacturers, feasibility }: {
             <tr>
               <th className="text-left px-2 py-1 text-xs" style={{ color: 'var(--color-on-surface-variant)', position: 'sticky', left: 0, background: 'var(--color-surface-container-low)' }}>Punkt</th>
               {manufacturers.map(m => (
-                <th key={m.id} className="px-2 py-1 text-xs" style={{ color: 'var(--color-on-surface)' }}>{m.name || 'Hersteller'}</th>
+                <th key={m.id} className="px-2 py-1 text-xs" style={{ color: 'var(--color-on-surface)' }}>
+                  <div>{m.name || 'Hersteller'}</div>
+                  {m.ansprechpartner && (
+                    <div style={{ color: 'var(--color-on-surface-variant)', fontWeight: 400 }}>{m.ansprechpartner}</div>
+                  )}
+                </th>
               ))}
             </tr>
           </thead>

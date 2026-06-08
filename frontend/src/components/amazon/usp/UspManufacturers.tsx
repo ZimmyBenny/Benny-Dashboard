@@ -7,9 +7,11 @@ function ManufacturerCard({ productId, m }: { productId: number; m: UspManufactu
   const update = useUpdateUspManufacturer(productId);
   const del = useDeleteUspManufacturer(productId);
   const [name, setName] = useState(m.name);
+  const [ansprechpartner, setAnsprechpartner] = useState(m.ansprechpartner ?? '');
   const [datum, setDatum] = useState(m.datum ?? '');
   const [pendingDelete, setPendingDelete] = useState(false);
   useEffect(() => { setName(m.name); }, [m.name]);
+  useEffect(() => { setAnsprechpartner(m.ansprechpartner ?? ''); }, [m.ansprechpartner]);
   useEffect(() => { setDatum(m.datum ?? ''); }, [m.datum]);
   return (
     <div className="rounded-lg p-2 flex flex-col gap-1.5" style={{ minWidth: 160, background: 'var(--color-surface-container)', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -22,6 +24,10 @@ function ManufacturerCard({ productId, m }: { productId: number; m: UspManufactu
           <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
         </button>
       </div>
+      <input value={ansprechpartner} onChange={(e) => setAnsprechpartner(e.target.value)}
+        onBlur={() => { if (ansprechpartner !== (m.ansprechpartner ?? '')) update.mutate({ mId: m.id, patch: { ansprechpartner } }); }}
+        placeholder="Ansprechpartner" className="px-2 py-1 rounded-md text-xs"
+        style={{ background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface-variant)', border: '1px solid rgba(255,255,255,0.08)' }} />
       <input value={datum} onChange={(e) => setDatum(e.target.value)}
         onBlur={() => { if (datum !== (m.datum ?? '')) update.mutate({ mId: m.id, patch: { datum } }); }}
         placeholder="Datum" className="px-2 py-1 rounded-md text-xs"

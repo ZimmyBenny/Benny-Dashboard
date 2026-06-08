@@ -40,13 +40,13 @@ function loadImageForProduct(productId: number, pointId: number, imageId: number
 }
 
 const MAX_MARKE = 200, MAX_HAUPTFOKUS = 2000, MAX_TITLE = 200, MAX_BODY = 5000;
-const MAX_MNAME = 200, MAX_DATUM = 50, MAX_MNOTES = 2000, MAX_FNOTE = 1000;
+const MAX_MNAME = 200, MAX_DATUM = 50, MAX_MNOTES = 2000, MAX_FNOTE = 1000, MAX_ANSPRECH = 200;
 const VALID_STATUS = new Set(['offen', 'umsetzbar', 'teilweise', 'nicht']);
 
 interface MetaRow { product_id: number; marke: string | null; hauptfokus: string | null; updated_at: number; }
 interface PointRow { id: number; product_id: number; sort_order: number; title: string; body: string | null; created_at: number; updated_at: number; }
 interface ImageRow { id: number; point_id: number; sort_order: number; file_path: string; created_at: number; }
-interface ManufacturerRow { id: number; product_id: number; sort_order: number; name: string; datum: string | null; notes: string | null; created_at: number; updated_at: number; }
+interface ManufacturerRow { id: number; product_id: number; sort_order: number; name: string; ansprechpartner: string | null; datum: string | null; notes: string | null; created_at: number; updated_at: number; }
 interface FeasibilityRow { id: number; point_id: number; manufacturer_id: number; status: string; note: string | null; updated_at: number; }
 
 function normalizeText(raw: unknown, max: number): { ok: true; value: string | null } | { ok: false } {
@@ -271,6 +271,11 @@ router.patch('/products/:id/usp/manufacturers/:mId', (req: Request, res: Respons
   if (body.name !== undefined) {
     if (typeof body.name !== 'string' || body.name.trim().length > MAX_MNAME) { res.status(400).json({ error: 'invalid name' }); return; }
     updates.push('name = ?'); params.push(body.name.trim());
+  }
+  if (body.ansprechpartner !== undefined) {
+    const v = normalizeText(body.ansprechpartner, MAX_ANSPRECH);
+    if (!v.ok) { res.status(400).json({ error: 'invalid ansprechpartner' }); return; }
+    updates.push('ansprechpartner = ?'); params.push(v.value);
   }
   if (body.datum !== undefined) {
     const v = normalizeText(body.datum, MAX_DATUM);
