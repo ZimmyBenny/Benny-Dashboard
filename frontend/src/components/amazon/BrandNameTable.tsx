@@ -246,6 +246,7 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
                 <th style={{ ...TH_STYLE, textAlign: 'center' }}>Interessant</th>
                 <th style={{ ...TH_STYLE, textAlign: 'center' }}>★ Favourit</th>
                 <th style={{ ...TH_STYLE, textAlign: 'center' }}>Archiv</th>
+                <th style={{ ...TH_STYLE, textAlign: 'center' }}>Marke</th>
                 <th style={{ ...TH_STYLE, textAlign: 'center' }}>Ranking</th>
                 <th style={TH_STYLE}>Bemerkungen</th>
                 <th style={{ ...TH_STYLE, textAlign: 'right' }}></th>

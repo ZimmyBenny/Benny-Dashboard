@@ -118,6 +118,21 @@ export function BrandNameRow({ productId, candidate, rowNumber, onRequestDelete 
           aria-label="Archiv"
         />
       </td>
+      <td className="p-2 text-center">
+        <button
+          type="button"
+          onClick={() => patch({ is_final: candidate.is_final === 1 ? 0 : 1 })}
+          aria-label="Finale Marke"
+          title={candidate.is_final === 1 ? 'Finale Marke (klicken zum Entfernen)' : 'Als finale Marke markieren'}
+          className="p-1 rounded"
+        >
+          <span className="material-symbols-outlined" style={{
+            fontSize: '18px',
+            color: candidate.is_final === 1 ? '#fbbf24' : 'rgba(255,255,255,0.25)',
+            fontVariationSettings: candidate.is_final === 1 ? '"FILL" 1' : '"FILL" 0',
+          }}>workspace_premium</span>
+        </button>
+      </td>
       <td className="p-2">
         <div className="flex items-center justify-center gap-0.5">
           {[1, 2, 3].map(n => {

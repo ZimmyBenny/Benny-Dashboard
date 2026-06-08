@@ -161,7 +161,9 @@ router.get('/products/:id/usp', (req: Request, res: Response) => {
   if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'product not found' }); return; }
   const meta = getOrCreateMeta(id);
   ensureDefaultManufacturer(id);
-  res.json({ meta, points: loadPoints(id), manufacturers: loadManufacturers(id), feasibility: loadFeasibility(id), kaufgruende: loadKaufgruende(id), files: loadFiles(id) });
+  const finalRow = db.prepare(`SELECT name FROM amazon_brand_name_candidates WHERE product_id = ? AND is_final = 1 ORDER BY id LIMIT 1`).get(id) as { name: string } | undefined;
+  const final_marke = finalRow?.name ?? null;
+  res.json({ meta, points: loadPoints(id), manufacturers: loadManufacturers(id), feasibility: loadFeasibility(id), kaufgruende: loadKaufgruende(id), files: loadFiles(id), final_marke });
 });
 
 router.patch('/products/:id/usp', (req: Request, res: Response) => {
