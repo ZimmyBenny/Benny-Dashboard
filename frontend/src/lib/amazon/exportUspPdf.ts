@@ -131,7 +131,8 @@ export async function exportUspPdf(
   // ── Punkte ──
   for (let i = 0; i < points.length; i++) {
     const p = points[i];
-    heading(p.title || `Punkt ${i + 1}`);
+    const num = i + 1;
+    heading(p.title ? `Punkt ${num} – ${p.title}` : `Punkt ${num}`);
     if (p.body) paragraph(p.body, { size: 10.5, color: BODY, lh: 15, gap: 6 });
 
     for (const img of p.images) {
