@@ -56,6 +56,7 @@ export function TaxChecklistPage() {
   const [jahr, setJahr] = useState(() => currentYear);
   const [pendingDelete, setPendingDelete] = useState<SteuerCategory | null>(null);
   const [catOrder, setCatOrder] = useState<number[] | null>(null);
+  const [newYearInput, setNewYearInput] = useState('');
   const dragCatIndex = useRef<number | null>(null);
 
   const { data: jahreData } = useSteuerJahre();
@@ -100,9 +101,9 @@ export function TaxChecklistPage() {
     dragCatIndex.current = null;
   }
 
-  function handleNewYear() {
-    const maxYear = jahreData && jahreData.length > 0 ? Math.max(...jahreData) : currentYear;
-    setJahr(Math.max(currentYear, maxYear) + 1);
+  function openYear() {
+    const y = parseInt(newYearInput, 10);
+    if (Number.isInteger(y) && y >= 1990 && y <= 2100) { setJahr(y); setCatOrder(null); setNewYearInput(''); }
   }
 
   return (
@@ -135,13 +136,22 @@ export function TaxChecklistPage() {
             <option key={y} value={y}>{y}</option>
           ))}
         </select>
+        <input
+          type="number"
+          value={newYearInput}
+          onChange={(e) => setNewYearInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') openYear(); }}
+          placeholder="Jahr, z. B. 2024"
+          className="px-3 py-1.5 rounded-md text-sm w-36"
+          style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}
+        />
         <button
           type="button"
-          onClick={handleNewYear}
+          onClick={openYear}
           className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5"
           style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}
         >
-          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>+ Neues Jahr
+          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>Jahr öffnen
         </button>
       </div>
 
