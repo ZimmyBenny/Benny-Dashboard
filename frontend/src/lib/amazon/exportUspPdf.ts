@@ -1,11 +1,11 @@
 import jsPDF from 'jspdf';
 import { getUspImageObjectUrl, type UspMeta, type UspPoint, type UspManufacturer } from '../../api/amazon.api';
 
-// ── Electric-Noir-Farbpalette fuer das PDF ────────────────────────────────────
-const BG: [number, number, number] = [26, 27, 34];        // dunkler Hintergrund
-const BLUE: [number, number, number] = [139, 156, 219];   // Titel & Ueberschriften
-const BODY: [number, number, number] = [206, 209, 220];    // Fliesstext
-const MUTED: [number, number, number] = [150, 152, 168];   // Kopf/Fuss/Hinweis
+// ── Druckfreundliche Palette (weisser Hintergrund) ────────────────────────────
+const BG: [number, number, number] = [255, 255, 255];     // weisser Hintergrund (Druck)
+const BLUE: [number, number, number] = [45, 70, 150];     // Titel & Ueberschriften (auf Weiss lesbar)
+const BODY: [number, number, number] = [38, 40, 48];       // dunkler Fliesstext
+const MUTED: [number, number, number] = [120, 122, 134];   // Kopf/Fuss/Hinweis
 
 function slug(s: string, max = 40): string {
   return s.normalize('NFKD').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, max) || 'x';
