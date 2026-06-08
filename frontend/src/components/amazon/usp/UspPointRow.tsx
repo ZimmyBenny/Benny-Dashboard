@@ -43,9 +43,10 @@ export function UspPointRow({ productId, index, point, onRequestDelete, dragHand
           className="px-2 py-1 rounded-md text-xs flex items-center gap-1 flex-shrink-0"
           title={point.include_in_pdf ? 'Wird ins PDF aufgenommen — klicken zum Ausschließen' : 'Nicht im PDF — klicken zum Aufnehmen'}
           style={{
-            background: point.include_in_pdf ? 'var(--color-primary)' : 'var(--color-surface-container-low)',
-            color: point.include_in_pdf ? 'var(--color-on-primary)' : 'var(--color-on-surface-variant)',
+            background: point.include_in_pdf ? '#34d399' : '#fca5a5',
+            color: '#08131f',
             border: '1px solid rgba(255,255,255,0.08)',
+            fontWeight: 600,
           }}>
           <span className="material-symbols-outlined" style={{ fontSize: 14 }}>picture_as_pdf</span>
           {point.include_in_pdf ? 'im PDF' : 'kein PDF'}
