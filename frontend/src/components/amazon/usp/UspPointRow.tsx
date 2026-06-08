@@ -9,9 +9,12 @@ const MAX_BYTES = 5 * 1024 * 1024;
 interface Props {
   productId: number; index: number; point: UspPoint;
   onRequestDelete: (p: UspPoint) => void;
+  hasManufacturer: boolean;
+  includeInPdf: boolean;
+  onToggleInclude: () => void;
   dragHandleProps: React.HTMLAttributes<HTMLDivElement>;
 }
-export function UspPointRow({ productId, index, point, onRequestDelete, dragHandleProps }: Props) {
+export function UspPointRow({ productId, index, point, onRequestDelete, hasManufacturer, includeInPdf, onToggleInclude, dragHandleProps }: Props) {
   const update = useUpdateUspPoint(productId);
   const uploadImg = useUploadUspPointImage(productId);
   const [title, setTitle] = useState(point.title);
@@ -38,19 +41,21 @@ export function UspPointRow({ productId, index, point, onRequestDelete, dragHand
           onBlur={() => { if (title !== point.title) update.mutate({ pointId: point.id, patch: { title } }); }}
           placeholder="Titel (z. B. Design & Farbe)" className="flex-1 px-2 py-1.5 rounded-md text-sm"
           style={{ background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }} />
-        <button type="button"
-          onClick={() => update.mutate({ pointId: point.id, patch: { include_in_pdf: point.include_in_pdf ? 0 : 1 } })}
-          className="px-2 py-1 rounded-md text-xs flex items-center gap-1 flex-shrink-0"
-          title={point.include_in_pdf ? 'Wird ins PDF aufgenommen — klicken zum Ausschließen' : 'Nicht im PDF — klicken zum Aufnehmen'}
-          style={{
-            background: point.include_in_pdf ? '#34d399' : '#fca5a5',
-            color: '#08131f',
-            border: '1px solid rgba(255,255,255,0.08)',
-            fontWeight: 600,
-          }}>
-          <span className="material-symbols-outlined" style={{ fontSize: 14 }}>picture_as_pdf</span>
-          {point.include_in_pdf ? 'im PDF' : 'kein PDF'}
-        </button>
+        {hasManufacturer && (
+          <button type="button"
+            onClick={onToggleInclude}
+            className="px-2 py-1 rounded-md text-xs flex items-center gap-1 flex-shrink-0"
+            title={includeInPdf ? 'Im PDF dieses Herstellers — klicken zum Ausschließen' : 'Nicht im PDF dieses Herstellers — klicken zum Aufnehmen'}
+            style={{
+              background: includeInPdf ? '#34d399' : '#fca5a5',
+              color: '#08131f',
+              border: '1px solid rgba(255,255,255,0.08)',
+              fontWeight: 600,
+            }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>picture_as_pdf</span>
+            {includeInPdf ? 'im PDF' : 'kein PDF'}
+          </button>
+        )}
         <button type="button" onClick={() => onRequestDelete(point)} className="p-1.5 rounded-md" style={{ color: '#fca5a5' }} aria-label="Punkt löschen">
           <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete</span>
         </button>

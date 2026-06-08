@@ -62,9 +62,6 @@ export function UspMatrix({ productId, points, manufacturers, feasibility }: {
                   {m.ansprechpartner && (
                     <div style={{ color: 'var(--color-on-surface-variant)', fontWeight: 400 }}>{m.ansprechpartner}</div>
                   )}
-                  <div style={{ marginTop: 2, fontSize: 10, fontWeight: 600, color: m.gesendet ? '#34d399' : 'var(--color-on-surface-variant)' }}>
-                    {m.gesendet ? '✓ Gesendet' : 'Nicht gesendet'}
-                  </div>
                 </th>
               ))}
             </tr>

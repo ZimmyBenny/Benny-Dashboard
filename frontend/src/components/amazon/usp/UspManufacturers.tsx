@@ -32,14 +32,6 @@ function ManufacturerCard({ productId, m }: { productId: number; m: UspManufactu
         onBlur={() => { if (datum !== (m.datum ?? '')) update.mutate({ mId: m.id, patch: { datum } }); }}
         placeholder="Datum" className="px-2 py-1 rounded-md text-xs"
         style={{ background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface-variant)', border: '1px solid rgba(255,255,255,0.08)' }} />
-      <button type="button"
-        onClick={() => update.mutate({ mId: m.id, patch: { gesendet: m.gesendet ? 0 : 1 } })}
-        className="px-2 py-1 rounded-md text-xs flex items-center justify-center gap-1"
-        title={m.gesendet ? 'Anfrage wurde gesendet — klicken zum Zuruecksetzen' : 'Noch nicht gesendet — klicken zum Markieren'}
-        style={{ background: m.gesendet ? '#34d399' : 'var(--color-surface-container-low)', color: m.gesendet ? '#08131f' : 'var(--color-on-surface-variant)', border: '1px solid rgba(255,255,255,0.08)', fontWeight: 600 }}>
-        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>{m.gesendet ? 'check_circle' : 'schedule'}</span>
-        {m.gesendet ? 'Gesendet' : 'Nicht gesendet'}
-      </button>
       {pendingDelete && (
         <DeleteUspManufacturerDialog manufacturerName={m.name} onConfirm={() => del.mutate(m.id)} onClose={() => setPendingDelete(false)} />
       )}

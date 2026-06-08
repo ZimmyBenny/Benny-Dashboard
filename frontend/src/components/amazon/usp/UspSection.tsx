@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { type UspPoint } from '../../../api/amazon.api';
-import { useUsp, useCreateUspPoint, useDeleteUspPoint, useUpdateUspManufacturer } from '../../../hooks/amazon/useUsp';
+import { useUsp, useCreateUspPoint, useDeleteUspPoint } from '../../../hooks/amazon/useUsp';
 import { SectionHeader } from '../SectionHeader';
 import { UspMetaForm } from './UspMetaForm';
 import { UspPointList } from './UspPointList';
@@ -34,10 +34,10 @@ export function UspSection({ productId, productName }: Props) {
   const { data, isLoading, isError, refetch } = useUsp(productId);
   const createPoint = useCreateUspPoint(productId);
   const deletePoint = useDeleteUspPoint(productId);
-  const updateManufacturer = useUpdateUspManufacturer(productId);
   const [expanded, setExpanded] = useState(() => readExpanded(productId));
   const [pendingDelete, setPendingDelete] = useState<UspPoint | null>(null);
-  const [exportMId, setExportMId] = useState<number | null>(null);
+  const [selectedMId, setSelectedMId] = useState<number | null>(null);
+  const activeMId = selectedMId ?? (data?.manufacturers[0]?.id ?? null);
 
   function toggle() {
     setExpanded(prev => {
@@ -58,11 +58,13 @@ export function UspSection({ productId, productName }: Props) {
     await new Promise(r => setTimeout(r, 350));
     const fresh = await refetch();
     if (!fresh.data) return;
-    const m = fresh.data.manufacturers.find(x => x.id === exportMId) ?? fresh.data.manufacturers[0];
+    const m = fresh.data.manufacturers.find(x => x.id === selectedMId) ?? fresh.data.manufacturers[0];
     if (!m) return;
-    await exportUspPdf(productId, productName, fresh.data.meta, fresh.data.points, m);
-    // Hersteller als 'gesendet' markieren (Anfrage wurde exportiert/verschickt)
-    if (!m.gesendet) updateManufacturer.mutate({ mId: m.id, patch: { gesendet: 1 } });
+    // Pro Hersteller nur die Punkte, die fuer ihn auf "im PDF" stehen (Default: ja).
+    const incMap = new Map<number, number>();
+    for (const f of fresh.data.feasibility) if (f.manufacturer_id === m.id) incMap.set(f.point_id, f.include_in_pdf);
+    const included = fresh.data.points.filter(p => (incMap.get(p.id) ?? 1) !== 0);
+    await exportUspPdf(productId, productName, fresh.data.meta, included, m);
   }
 
   return (
@@ -98,9 +100,21 @@ export function UspSection({ productId, productName }: Props) {
           {data && (
             <>
               <UspMetaForm productId={productId} meta={data.meta} />
+              {data.manufacturers.length > 0 && (
+                <div className="flex items-center gap-2 mb-2 text-sm">
+                  <span style={{ color: 'var(--color-on-surface-variant)' }}>PDF-Auswahl für Hersteller:</span>
+                  <select value={activeMId ?? ''} onChange={(e) => setSelectedMId(Number(e.target.value))}
+                    className="px-2 py-1 rounded-md text-sm"
+                    style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    {data.manufacturers.map(m => <option key={m.id} value={m.id}>{m.name || 'Hersteller'}</option>)}
+                  </select>
+                </div>
+              )}
               <UspPointList
                 productId={productId}
                 points={data.points}
+                manufacturerId={activeMId}
+                feasibility={data.feasibility}
                 onRequestDelete={setPendingDelete}
               />
               <div className="mt-2 mb-4">
@@ -132,8 +146,8 @@ export function UspSection({ productId, productName }: Props) {
               />
               <div className="flex items-center gap-2">
                 <select
-                  value={exportMId ?? (data.manufacturers[0]?.id ?? '')}
-                  onChange={(e) => setExportMId(Number(e.target.value))}
+                  value={activeMId ?? ''}
+                  onChange={(e) => setSelectedMId(Number(e.target.value))}
                   className="px-2 py-1.5 rounded-md text-sm"
                   style={{
                     background: 'var(--color-surface-container-high)',

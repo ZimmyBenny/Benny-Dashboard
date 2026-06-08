@@ -161,9 +161,9 @@ describe('USP API — Hersteller + Feasibility', () => {
     await request(app).get(`/api/amazon/products/${pid}/usp`);
     const pt = await request(app).post(`/api/amazon/products/${pid}/usp/points`).send({ title: 'P' });
     const m = await request(app).post(`/api/amazon/products/${pid}/usp/manufacturers`).send({ name: 'M' });
-    const f1 = await request(app).put(`/api/amazon/products/${pid}/usp/feasibility`).send({ point_id: pt.body.point.id, manufacturer_id: m.body.manufacturer.id, status: 'umsetzbar', note: 'ok' });
+    const f1 = await request(app).put(`/api/amazon/products/${pid}/usp/feasibility`).send({ point_id: pt.body.point.id, manufacturer_id: m.body.manufacturer.id, status: 'umsetzbar', note: 'ok', include_in_pdf: 0 });
     expect(f1.status).toBe(200);
-    expect(f1.body.feasibility).toMatchObject({ status: 'umsetzbar', note: 'ok' });
+    expect(f1.body.feasibility).toMatchObject({ status: 'umsetzbar', note: 'ok', include_in_pdf: 0 });
     const f2 = await request(app).put(`/api/amazon/products/${pid}/usp/feasibility`).send({ point_id: pt.body.point.id, manufacturer_id: m.body.manufacturer.id, status: 'teilweise' });
     expect(f2.body.feasibility.status).toBe('teilweise');
     const c = (db.prepare(`SELECT COUNT(*) AS c FROM amazon_usp_feasibility WHERE point_id=? AND manufacturer_id=?`).get(pt.body.point.id, m.body.manufacturer.id) as { c: number }).c;

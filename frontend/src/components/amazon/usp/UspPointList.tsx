@@ -1,10 +1,16 @@
 import { useRef, useState } from 'react';
-import { type UspPoint } from '../../../api/amazon.api';
-import { useReorderUspPoints } from '../../../hooks/amazon/useUsp';
+import { type UspPoint, type UspFeasibility } from '../../../api/amazon.api';
+import { useReorderUspPoints, useSetUspFeasibility } from '../../../hooks/amazon/useUsp';
 import { UspPointRow } from './UspPointRow';
 
-export function UspPointList({ productId, points, onRequestDelete }: { productId: number; points: UspPoint[]; onRequestDelete: (p: UspPoint) => void; }) {
+export function UspPointList({ productId, points, manufacturerId, feasibility, onRequestDelete }: {
+  productId: number; points: UspPoint[]; manufacturerId: number | null; feasibility: UspFeasibility[]; onRequestDelete: (p: UspPoint) => void;
+}) {
   const reorder = useReorderUspPoints(productId);
+  const setFeas = useSetUspFeasibility(productId);
+  // include_in_pdf je Punkt fuer den aktuell gewaehlten Hersteller (fehlend = 1 = im PDF)
+  const includeMap = new Map<number, number>();
+  if (manufacturerId != null) for (const f of feasibility) if (f.manufacturer_id === manufacturerId) includeMap.set(f.point_id, f.include_in_pdf);
   const [order, setOrder] = useState<number[] | null>(null);
   const dragIndex = useRef<number | null>(null);
   const ids = order ?? points.map(p => p.id);
@@ -25,10 +31,16 @@ export function UspPointList({ productId, points, onRequestDelete }: { productId
   function up() { if (dragIndex.current !== null && order) reorder.mutate(order); dragIndex.current = null; }
   return (
     <div className="flex flex-col gap-2">
-      {ordered.map((p, idx) => (
-        <UspPointRow key={p.id} productId={productId} index={idx} point={p} onRequestDelete={onRequestDelete}
-          dragHandleProps={{ onPointerDown: (e) => down(idx, e), onPointerEnter: () => enter(idx), onPointerUp: up }} />
-      ))}
+      {ordered.map((p, idx) => {
+        const included = manufacturerId == null ? true : (includeMap.get(p.id) ?? 1) !== 0;
+        return (
+          <UspPointRow key={p.id} productId={productId} index={idx} point={p} onRequestDelete={onRequestDelete}
+            hasManufacturer={manufacturerId != null}
+            includeInPdf={included}
+            onToggleInclude={() => { if (manufacturerId != null) setFeas.mutate({ point_id: p.id, manufacturer_id: manufacturerId, include_in_pdf: included ? 0 : 1 }); }}
+            dragHandleProps={{ onPointerDown: (e) => down(idx, e), onPointerEnter: () => enter(idx), onPointerUp: up }} />
+        );
+      })}
     </div>
   );
 }

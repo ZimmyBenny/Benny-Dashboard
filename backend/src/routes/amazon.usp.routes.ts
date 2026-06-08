@@ -47,7 +47,7 @@ interface MetaRow { product_id: number; marke: string | null; hauptfokus: string
 interface PointRow { id: number; product_id: number; sort_order: number; title: string; body: string | null; include_in_pdf: number; created_at: number; updated_at: number; }
 interface ImageRow { id: number; point_id: number; sort_order: number; file_path: string; created_at: number; }
 interface ManufacturerRow { id: number; product_id: number; sort_order: number; name: string; ansprechpartner: string | null; datum: string | null; notes: string | null; gesendet: number; created_at: number; updated_at: number; }
-interface FeasibilityRow { id: number; point_id: number; manufacturer_id: number; status: string; note: string | null; updated_at: number; }
+interface FeasibilityRow { id: number; point_id: number; manufacturer_id: number; status: string; note: string | null; include_in_pdf: number; updated_at: number; }
 
 function normalizeText(raw: unknown, max: number): { ok: true; value: string | null } | { ok: false } {
   if (raw === null || raw === undefined) return { ok: true, value: null };
@@ -324,10 +324,12 @@ router.put('/products/:id/usp/feasibility', (req: Request, res: Response) => {
     if (!v.ok) { res.status(400).json({ error: 'invalid note' }); return; }
     note = v.value;
   }
+  if (body.include_in_pdf !== undefined && body.include_in_pdf !== 0 && body.include_in_pdf !== 1) { res.status(400).json({ error: 'invalid include_in_pdf' }); return; }
   db.prepare(`INSERT OR IGNORE INTO amazon_usp_feasibility (point_id, manufacturer_id) VALUES (?, ?)`).run(pointId, mId);
   const updates: string[] = []; const params: unknown[] = [];
   if (body.status !== undefined) { updates.push('status = ?'); params.push(body.status); }
   if (note !== undefined) { updates.push('note = ?'); params.push(note); }
+  if (body.include_in_pdf !== undefined) { updates.push('include_in_pdf = ?'); params.push(body.include_in_pdf); }
   if (updates.length > 0) {
     updates.push('updated_at = unixepoch()'); params.push(pointId, mId);
     db.prepare(`UPDATE amazon_usp_feasibility SET ${updates.join(', ')} WHERE point_id = ? AND manufacturer_id = ?`).run(...params);
