@@ -109,7 +109,13 @@ export async function exportUspPdf(
     paragraph(text, { size: 14, color: BLUE, style: 'bold', lh: 18, gap: 4 });
   }
 
-  // ── Logo (falls vorhanden), zentriert oben ──
+  // ── Titel ──
+  paragraph('PRODUKTANFRAGE', { size: 22, color: BLUE, style: 'bold', lh: 26, gap: 4 });
+  paragraph(productName, { size: 15, color: BLUE, style: 'bold', lh: 19, gap: 12 });
+
+  // ── Meta: Marke, dann Logo darunter, dann der Rest ──
+  paragraph(`Marke: ${meta.marke ?? 'wird nachgereicht'}`, { size: 10, color: BODY, lh: 15, gap: 6 });
+
   if (meta.logo_path) {
     try {
       const url = await getUspLogoObjectUrl(productId);
@@ -118,22 +124,15 @@ export async function exportUspPdf(
       if (w && h) {
         const drawW = Math.min(140, contentW);
         const drawH = (h / w) * drawW;
+        newPageIfNeeded(drawH + 10);
         const fmt = dataUrl.includes('image/png') ? 'PNG' : dataUrl.includes('image/webp') ? 'WEBP' : 'JPEG';
         doc.addImage(dataUrl, fmt, cx - drawW / 2, y, drawW, drawH);
-        y += drawH + 12;
+        y += drawH + 10;
       }
     } catch { /* Logo ueberspringen */ }
   }
 
-  // ── Titel ──
-  paragraph('PRODUKTANFRAGE', { size: 22, color: BLUE, style: 'bold', lh: 26, gap: 4 });
-  paragraph(productName, { size: 15, color: BLUE, style: 'bold', lh: 19, gap: 12 });
-
-  // ── Meta ──
-  const metaLines = [
-    `Marke: ${meta.marke ?? 'wird nachgereicht'}`,
-    `Hersteller: ${manufacturer.name || '—'}`,
-  ];
+  const metaLines: string[] = [`Hersteller: ${manufacturer.name || '—'}`];
   if (manufacturer.ansprechpartner) metaLines.push(`Ansprechpartner: ${manufacturer.ansprechpartner}`);
   metaLines.push(`Datum: ${manufacturer.datum ?? '—'}`);
   paragraph(metaLines.join('\n'), { size: 10, color: BODY, lh: 15, gap: 14 });
