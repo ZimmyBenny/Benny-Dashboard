@@ -43,7 +43,7 @@ const MAX_MARKE = 200, MAX_HAUPTFOKUS = 2000, MAX_TITLE = 200, MAX_BODY = 5000;
 const MAX_MNAME = 200, MAX_DATUM = 50, MAX_MNOTES = 2000, MAX_FNOTE = 1000, MAX_ANSPRECH = 200;
 const VALID_STATUS = new Set(['offen', 'umsetzbar', 'teilweise', 'nicht']);
 
-interface MetaRow { product_id: number; marke: string | null; hauptfokus: string | null; updated_at: number; }
+interface MetaRow { product_id: number; marke: string | null; hauptfokus: string | null; logo_path: string | null; updated_at: number; }
 interface PointRow { id: number; product_id: number; sort_order: number; title: string; body: string | null; include_in_pdf: number; created_at: number; updated_at: number; }
 interface ImageRow { id: number; point_id: number; sort_order: number; file_path: string; created_at: number; }
 interface ManufacturerRow { id: number; product_id: number; sort_order: number; name: string; ansprechpartner: string | null; datum: string | null; notes: string | null; gesendet: number; created_at: number; updated_at: number; }
@@ -335,6 +335,42 @@ router.put('/products/:id/usp/feasibility', (req: Request, res: Response) => {
     db.prepare(`UPDATE amazon_usp_feasibility SET ${updates.join(', ')} WHERE point_id = ? AND manufacturer_id = ?`).run(...params);
   }
   res.json({ feasibility: db.prepare(`SELECT * FROM amazon_usp_feasibility WHERE point_id = ? AND manufacturer_id = ?`).get(pointId, mId) as FeasibilityRow });
+});
+
+// ── Logo (ein Bild je Produkt-USP) ──
+router.post('/products/:id/usp/logo', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'product not found' }); return; }
+  getOrCreateMeta(id);
+  upload.single('file')(req, res, (err: unknown) => {
+    if (err) { res.status(400).json({ error: err instanceof Error ? err.message : 'upload failed' }); return; }
+    const file = (req as Request & { file?: { filename: string } }).file;
+    if (!file) { res.status(400).json({ error: 'no file' }); return; }
+    const prev = db.prepare(`SELECT logo_path FROM amazon_usp WHERE product_id = ?`).get(id) as { logo_path: string | null } | undefined;
+    db.prepare(`UPDATE amazon_usp SET logo_path = ?, updated_at = unixepoch() WHERE product_id = ?`).run(file.filename, id);
+    if (prev?.logo_path) deleteUspImageFile(prev.logo_path);
+    res.json({ meta: db.prepare(`SELECT * FROM amazon_usp WHERE product_id = ?`).get(id) as MetaRow });
+  });
+});
+
+router.delete('/products/:id/usp/logo', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'product not found' }); return; }
+  const prev = db.prepare(`SELECT logo_path FROM amazon_usp WHERE product_id = ?`).get(id) as { logo_path: string | null } | undefined;
+  db.prepare(`UPDATE amazon_usp SET logo_path = NULL, updated_at = unixepoch() WHERE product_id = ?`).run(id);
+  if (prev?.logo_path) deleteUspImageFile(prev.logo_path);
+  res.status(204).end();
+});
+
+router.get('/products/:id/usp/logo', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).end(); return; }
+  const row = db.prepare(`SELECT logo_path FROM amazon_usp WHERE product_id = ?`).get(id) as { logo_path: string | null } | undefined;
+  if (!row?.logo_path) { res.status(404).end(); return; }
+  const abs = path.resolve(UPLOAD_DIR, row.logo_path);
+  if (!abs.startsWith(path.resolve(UPLOAD_DIR) + path.sep) || !fs.existsSync(abs)) { res.status(404).end(); return; }
+  res.setHeader('Content-Type', CONTENT_BY_EXT[path.extname(abs).toLowerCase()] ?? 'application/octet-stream');
+  fs.createReadStream(abs).pipe(res);
 });
 
 export default router;

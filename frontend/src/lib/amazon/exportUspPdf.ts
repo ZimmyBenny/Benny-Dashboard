@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import { getUspImageObjectUrl, type UspMeta, type UspPoint, type UspManufacturer } from '../../api/amazon.api';
+import { getUspImageObjectUrl, getUspLogoObjectUrl, type UspMeta, type UspPoint, type UspManufacturer } from '../../api/amazon.api';
 
 // ── Druckfreundliche Palette (weisser Hintergrund) ────────────────────────────
 const BG: [number, number, number] = [255, 255, 255];     // weisser Hintergrund (Druck)
@@ -107,6 +107,22 @@ export async function exportUspPdf(
     newPageIfNeeded(26);
     y += 6;
     paragraph(text, { size: 14, color: BLUE, style: 'bold', lh: 18, gap: 4 });
+  }
+
+  // ── Logo (falls vorhanden), zentriert oben ──
+  if (meta.logo_path) {
+    try {
+      const url = await getUspLogoObjectUrl(productId);
+      const { dataUrl, w, h } = await loadImage(url);
+      URL.revokeObjectURL(url);
+      if (w && h) {
+        const drawW = Math.min(140, contentW);
+        const drawH = (h / w) * drawW;
+        const fmt = dataUrl.includes('image/png') ? 'PNG' : dataUrl.includes('image/webp') ? 'WEBP' : 'JPEG';
+        doc.addImage(dataUrl, fmt, cx - drawW / 2, y, drawW, drawH);
+        y += drawH + 12;
+      }
+    } catch { /* Logo ueberspringen */ }
   }
 
   // ── Titel ──

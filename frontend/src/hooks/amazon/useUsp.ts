@@ -3,7 +3,7 @@ import {
   fetchUsp, updateUspMeta, createUspPoint, updateUspPoint, deleteUspPoint, reorderUspPoints,
   uploadUspPointImage, deleteUspPointImage, reorderUspPointImages,
   createUspManufacturer, updateUspManufacturer, deleteUspManufacturer, reorderUspManufacturers,
-  setUspFeasibility,
+  setUspFeasibility, uploadUspLogo, deleteUspLogo,
   type UspMetaPatch, type UspPointPatch, type UspManufacturerPatch, type UspFeasibilityStatus,
 } from '../../api/amazon.api';
 
@@ -19,6 +19,14 @@ function inval(productId: number, qc: ReturnType<typeof useQueryClient>) {
 export function useUpdateUspMeta(productId: number) {
   const qc = useQueryClient();
   return useMutation({ mutationFn: (patch: UspMetaPatch) => updateUspMeta(productId, patch), onSettled: inval(productId, qc) });
+}
+export function useUploadUspLogo(productId: number) {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (file: File) => uploadUspLogo(productId, file), onSettled: inval(productId, qc) });
+}
+export function useDeleteUspLogo(productId: number) {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: () => deleteUspLogo(productId), onSettled: inval(productId, qc) });
 }
 export function useCreateUspPoint(productId: number) {
   const qc = useQueryClient();

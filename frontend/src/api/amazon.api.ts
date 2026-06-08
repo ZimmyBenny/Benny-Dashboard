@@ -364,7 +364,7 @@ export async function deleteProductItem(productId: number, itemId: number): Prom
 }
 
 // ── USP (Phase 1) ─────────────────────────────────────────────────────────────
-export interface UspMeta { product_id: number; marke: string | null; hauptfokus: string | null; updated_at: number; }
+export interface UspMeta { product_id: number; marke: string | null; hauptfokus: string | null; logo_path: string | null; updated_at: number; }
 export interface UspPointImage { id: number; point_id: number; sort_order: number; file_path: string; created_at: number; }
 export interface UspPoint { id: number; product_id: number; sort_order: number; title: string; body: string | null; include_in_pdf: number; created_at: number; updated_at: number; images: UspPointImage[]; }
 export interface UspManufacturer { id: number; product_id: number; sort_order: number; name: string; ansprechpartner: string | null; datum: string | null; notes: string | null; created_at: number; updated_at: number; }
@@ -405,6 +405,17 @@ export async function deleteUspPointImage(productId: number, pointId: number, im
 }
 export async function getUspImageObjectUrl(productId: number, imageId: number): Promise<string> {
   const r = await apiClient.get(`/amazon/products/${productId}/usp/images/${imageId}`, { responseType: 'blob' });
+  return URL.createObjectURL(r.data as Blob);
+}
+export async function uploadUspLogo(productId: number, file: File): Promise<UspMeta> {
+  const fd = new FormData(); fd.append('file', file);
+  return ((await apiClient.post(`/amazon/products/${productId}/usp/logo`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })).data as { meta: UspMeta }).meta;
+}
+export async function deleteUspLogo(productId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/usp/logo`);
+}
+export async function getUspLogoObjectUrl(productId: number): Promise<string> {
+  const r = await apiClient.get(`/amazon/products/${productId}/usp/logo`, { responseType: 'blob' });
   return URL.createObjectURL(r.data as Blob);
 }
 export async function createUspManufacturer(productId: number, name?: string): Promise<UspManufacturer> {
