@@ -10,7 +10,7 @@ const STATUSES: { value: Exclude<UspFeasibilityStatus, 'offen'>; label: string; 
 
 function key(pointId: number, mId: number) { return `${pointId}:${mId}`; }
 
-function Cell({ productId, pointId, mId, current, note }: { productId: number; pointId: number; mId: number; current: UspFeasibilityStatus; note: string }) {
+function Cell({ productId, pointId, mId, current, note, includeInPdf }: { productId: number; pointId: number; mId: number; current: UspFeasibilityStatus; note: string; includeInPdf: boolean }) {
   const set = useSetUspFeasibility(productId);
   const [n, setN] = useState(note);
   const taRef = useRef<HTMLTextAreaElement | null>(null);
@@ -20,7 +20,13 @@ function Cell({ productId, pointId, mId, current, note }: { productId: number; p
     if (ta) { ta.style.height = 'auto'; ta.style.height = `${ta.scrollHeight}px`; }
   }, [n]);
   return (
-    <div className="flex flex-col gap-1 p-1" style={{ minWidth: 150 }}>
+    <div className="flex flex-col gap-1 p-1" style={{ minWidth: 150, opacity: includeInPdf ? 1 : 0.6 }}>
+      {!includeInPdf && (
+        <div className="flex items-center gap-1" style={{ fontSize: 10, fontWeight: 700, color: '#fca5a5' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 12 }}>block</span>
+          Nicht im PDF
+        </div>
+      )}
       <div className="flex gap-1">
         {STATUSES.map(s => {
           const active = current === s.value;
@@ -76,7 +82,7 @@ export function UspMatrix({ productId, points, manufacturers, feasibility }: {
                   const f = map.get(key(p.id, m.id));
                   return (
                     <td key={m.id} style={{ verticalAlign: 'top', borderLeft: '2px solid rgba(255,255,255,0.14)' }}>
-                      <Cell productId={productId} pointId={p.id} mId={m.id} current={f?.status ?? 'offen'} note={f?.note ?? ''} />
+                      <Cell productId={productId} pointId={p.id} mId={m.id} current={f?.status ?? 'offen'} note={f?.note ?? ''} includeInPdf={(f?.include_in_pdf ?? 1) !== 0} />
                     </td>
                   );
                 })}
