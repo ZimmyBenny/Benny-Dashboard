@@ -59,7 +59,7 @@ export async function exportUspPdf(
   meta: UspMeta,
   points: UspPoint[],
   manufacturer: UspManufacturer,
-): Promise<void> {
+): Promise<{ blob: Blob; filename: string }> {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -211,7 +211,6 @@ export async function exportUspPdf(
   }
 
   footer();
-  doc.save(
-    `Produktanfrage_${slug(productName)}_${slug(manufacturer.name || 'Hersteller')}_${new Date().toLocaleDateString('en-CA')}.pdf`,
-  );
+  const filename = `Produktanfrage_${slug(productName)}_${slug(manufacturer.name || 'Hersteller')}_${new Date().toLocaleDateString('en-CA')}.pdf`;
+  return { blob: doc.output('blob'), filename };
 }
