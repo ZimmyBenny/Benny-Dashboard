@@ -1,106 +1,45 @@
 import { useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { type Manufacturer } from '../../../api/amazon.api';
 import {
   useManufacturers,
   useCreateManufacturer,
-  useDeleteManufacturer,
   useReorderManufacturers,
   useUpdateManufacturerSettings,
   parsePreis,
+  eurPreis,
 } from '../../../hooks/amazon/useManufacturers';
 import { SectionHeader } from '../SectionHeader';
-import { ManufacturerCard } from './ManufacturerCard';
 import { ManufacturerComparison } from './ManufacturerComparison';
 
-const ACCENT = '#34d399'; // emerald-400
+const ACCENT = '#34d399';
 
-interface DeleteDialogProps {
-  name: string;
-  onConfirm: () => void;
-  onClose: () => void;
-}
-
-function DeleteManufacturerDialog({ name, onConfirm, onClose }: DeleteDialogProps) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.6)' }}
-      onClick={onClose}
-    >
-      <div
-        className="rounded-xl p-5 w-[90%] max-w-sm"
-        style={{ background: 'var(--color-surface-container-high)', border: '1px solid rgba(255,255,255,0.08)' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <p className="mb-4" style={{ color: 'var(--color-on-surface)' }}>
-          Hersteller „{name || 'Hersteller'}" wird dauerhaft gelöscht.
-        </p>
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-3 py-1.5 rounded-md text-sm"
-            style={{ background: 'var(--color-surface-container)', color: 'var(--color-on-surface)' }}
-          >
-            Abbrechen
-          </button>
-          <button
-            type="button"
-            onClick={() => { onConfirm(); onClose(); }}
-            className="px-3 py-1.5 rounded-md text-sm"
-            style={{ background: '#7f1d1d', color: '#fecaca' }}
-          >
-            Löschen
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-interface Props {
-  productId: number;
-}
+interface Props { productId: number; }
 
 export function ManufacturersSection({ productId }: Props) {
+  const navigate = useNavigate();
   const { data, isLoading, isError, refetch } = useManufacturers(productId);
   const create = useCreateManufacturer(productId);
-  const del = useDeleteManufacturer(productId);
   const reorder = useReorderManufacturers(productId);
   const updateSettings = useUpdateManufacturerSettings(productId);
-  const [rateInput, setRateInput] = useState<string | null>(null);
 
   const [expanded, setExpanded] = useState(true);
   const [order, setOrder] = useState<number[] | null>(null);
-  const [pendingDelete, setPendingDelete] = useState<Manufacturer | null>(null);
+  const [rateInput, setRateInput] = useState<string | null>(null);
   const dragIndex = useRef<number | null>(null);
 
   if (isLoading) {
     return (
-      <section
-        className="rounded-xl p-5"
-        style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}
-      >
+      <section className="rounded-xl p-5" style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}>
         <p style={{ color: 'var(--color-on-surface-variant)' }}>Lade Hersteller …</p>
       </section>
     );
   }
-
   if (isError || !data) {
     return (
-      <section
-        className="rounded-xl p-5"
-        style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}
-      >
+      <section className="rounded-xl p-5" style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}>
         <p className="mb-2" style={{ color: 'var(--color-on-surface)' }}>Hersteller konnten nicht geladen werden.</p>
-        <button
-          type="button"
-          onClick={() => refetch()}
-          className="px-3 py-1.5 rounded-md text-sm"
-          style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}
-        >
-          Erneut laden
-        </button>
+        <button type="button" onClick={() => refetch()} className="px-3 py-1.5 rounded-md text-sm" style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>Erneut laden</button>
       </section>
     );
   }
@@ -118,7 +57,6 @@ export function ManufacturersSection({ productId }: Props) {
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     if (!order) setOrder(manufacturers.map(m => m.id));
   }
-
   function enter(idx: number) {
     if (dragIndex.current === null || dragIndex.current === idx) return;
     setOrder(prev => {
@@ -129,26 +67,25 @@ export function ManufacturersSection({ productId }: Props) {
       return arr;
     });
   }
-
   function up() {
     if (dragIndex.current !== null && order) reorder.mutate(order, { onSettled: () => setOrder(null) });
     dragIndex.current = null;
   }
 
+  function openManufacturer(mId: number) {
+    navigate(`/amazon/entwicklung/products/${productId}/hersteller/${mId}`);
+  }
+  function cheapestEur(m: Manufacturer): string {
+    const vals = m.offers.map(o => eurPreis(o, rate)).filter((n): n is number => n !== null);
+    if (vals.length === 0) return '—';
+    return Math.min(...vals).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+  }
+
   return (
-    <section
-      className="rounded-xl"
-      style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}
-    >
-      <SectionHeader
-        icon="factory"
-        title="Hersteller"
-        accent={ACCENT}
-        expanded={expanded}
-        onToggleExpand={() => setExpanded(e => !e)}
-      />
+    <section className="rounded-xl" style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <SectionHeader icon="factory" title="Hersteller" accent={ACCENT} expanded={expanded} onToggleExpand={() => setExpanded(e => !e)} />
       {expanded && (
-        <div className="px-5 pb-5 flex flex-col gap-4">
+        <div className="px-5 pb-5 flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>1 USD =</span>
             <input
@@ -161,37 +98,45 @@ export function ManufacturersSection({ productId }: Props) {
             />
             <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>€</span>
           </div>
-          {ordered.map((m, idx) => (
-            <ManufacturerCard
-              key={m.id}
-              productId={productId}
-              manufacturer={m}
-              index={idx}
-              onRequestDelete={setPendingDelete}
-              dragHandleProps={{
-                onPointerDown: (e) => down(idx, e),
-                onPointerEnter: () => enter(idx),
-                onPointerUp: up,
-              }}
-            />
-          ))}
+
+          <div className="flex flex-col gap-2">
+            {ordered.map((m, idx) => (
+              <div key={m.id} className="flex items-center gap-2 rounded-lg" style={{ background: 'var(--color-surface-container)', border: '1px solid rgba(255,255,255,0.10)', borderLeft: `3px solid ${ACCENT}` }}>
+                <div
+                  onPointerDown={(e) => down(idx, e)}
+                  onPointerEnter={() => enter(idx)}
+                  onPointerUp={up}
+                  className="flex items-center justify-center rounded-md cursor-grab select-none flex-shrink-0 ml-2"
+                  style={{ width: 26, height: 26, background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)' }}
+                  title="Zum Sortieren ziehen"
+                >
+                  <span style={{ fontSize: 12, fontWeight: 700 }}>{idx + 1}</span>
+                </div>
+                <button type="button" onClick={() => openManufacturer(m.id)} className="flex-1 flex items-center gap-3 text-left px-2 py-3 min-w-0">
+                  <span className="font-semibold truncate" style={{ color: 'var(--color-on-surface)' }}>{m.name || 'Hersteller'}</span>
+                  {m.ansprechpartner ? <span className="text-xs truncate" style={{ color: 'var(--color-on-surface-variant)' }}>{m.ansprechpartner}</span> : null}
+                  <span className="ml-auto flex items-center gap-3 flex-shrink-0">
+                    {m.offers.some(o => o.is_latest) ? <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#fbbf24', fontVariationSettings: "'FILL' 1" }}>star</span> : null}
+                    <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{m.offers.length} Angebot{m.offers.length === 1 ? '' : 'e'}</span>
+                    <span className="text-xs font-medium" style={{ color: 'var(--color-on-surface)' }}>{cheapestEur(m)}</span>
+                    <span className="material-symbols-outlined" style={{ fontSize: 18, color: 'var(--color-on-surface-variant)' }}>chevron_right</span>
+                  </span>
+                </button>
+              </div>
+            ))}
+          </div>
+
           <button
             type="button"
-            onClick={() => create.mutate(undefined)}
+            onClick={() => create.mutate(undefined, { onSuccess: (m) => openManufacturer(m.id) })}
             className="self-start px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5"
             style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}
           >
             <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>Hersteller hinzufügen
           </button>
+
           <ManufacturerComparison manufacturers={manufacturers} rate={rate} />
         </div>
-      )}
-      {pendingDelete && (
-        <DeleteManufacturerDialog
-          name={pendingDelete.name}
-          onConfirm={() => del.mutate(pendingDelete.id)}
-          onClose={() => setPendingDelete(null)}
-        />
       )}
     </section>
   );
