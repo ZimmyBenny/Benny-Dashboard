@@ -498,3 +498,48 @@ export async function getUspFileObjectUrl(productId: number, fId: number): Promi
   const r = await apiClient.get(`/amazon/products/${productId}/usp/files/${fId}`, { responseType: 'blob' });
   return URL.createObjectURL(r.data as Blob);
 }
+
+// ===== Amazon Hersteller =====
+export interface ManufacturerOffer {
+  id: number; manufacturer_id: number; sort_order: number;
+  menge_variante: string | null; preis: string | null; moq: string | null;
+  lieferzeit: string | null; datum: string | null; notiz: string | null;
+  created_at: number; updated_at: number;
+}
+export interface Manufacturer {
+  id: number; product_id: number; sort_order: number; name: string;
+  ansprechpartner: string | null; adresse: string | null; email: string | null;
+  webseite: string | null; notizen: string | null; created_at: number; updated_at: number;
+  offers: ManufacturerOffer[];
+}
+export interface ManufacturersPayload { manufacturers: Manufacturer[]; }
+export type ManufacturerPatch = Partial<Pick<Manufacturer, 'name' | 'ansprechpartner' | 'adresse' | 'email' | 'webseite' | 'notizen'>>;
+export type OfferPatch = Partial<Pick<ManufacturerOffer, 'menge_variante' | 'preis' | 'moq' | 'lieferzeit' | 'datum' | 'notiz'>>;
+
+export async function fetchManufacturers(productId: number): Promise<ManufacturersPayload> {
+  return (await apiClient.get(`/amazon/products/${productId}/manufacturers`)).data as ManufacturersPayload;
+}
+export async function createManufacturer(productId: number, name?: string): Promise<Manufacturer> {
+  return ((await apiClient.post(`/amazon/products/${productId}/manufacturers`, name !== undefined ? { name } : {})).data as { manufacturer: Manufacturer }).manufacturer;
+}
+export async function updateManufacturer(productId: number, mId: number, patch: ManufacturerPatch): Promise<Manufacturer> {
+  return ((await apiClient.patch(`/amazon/products/${productId}/manufacturers/${mId}`, patch)).data as { manufacturer: Manufacturer }).manufacturer;
+}
+export async function deleteManufacturer(productId: number, mId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/manufacturers/${mId}`);
+}
+export async function reorderManufacturers(productId: number, order: number[]): Promise<void> {
+  await apiClient.patch(`/amazon/products/${productId}/manufacturers/reorder`, { order });
+}
+export async function createOffer(productId: number, mId: number): Promise<ManufacturerOffer> {
+  return ((await apiClient.post(`/amazon/products/${productId}/manufacturers/${mId}/offers`, {})).data as { offer: ManufacturerOffer }).offer;
+}
+export async function updateOffer(productId: number, mId: number, oId: number, patch: OfferPatch): Promise<ManufacturerOffer> {
+  return ((await apiClient.patch(`/amazon/products/${productId}/manufacturers/${mId}/offers/${oId}`, patch)).data as { offer: ManufacturerOffer }).offer;
+}
+export async function deleteOffer(productId: number, mId: number, oId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/manufacturers/${mId}/offers/${oId}`);
+}
+export async function reorderOffers(productId: number, mId: number, order: number[]): Promise<void> {
+  await apiClient.patch(`/amazon/products/${productId}/manufacturers/${mId}/offers/reorder`, { order });
+}
