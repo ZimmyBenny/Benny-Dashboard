@@ -10,6 +10,7 @@ import { UspMatrix } from './UspMatrix';
 import { UspOverview } from './UspOverview';
 import { DeleteUspPointDialog } from './DeleteUspPointDialog';
 import { UspVersions } from './UspVersions';
+import { UspPersonal } from './UspPersonal';
 import { exportUspPdf } from '../../../lib/amazon/exportUspPdf';
 
 const ACCENT = '#60a5fa';
@@ -195,6 +196,7 @@ export function UspSection({ productId, productName }: Props) {
                 </button>
               </div>
               <UspVersions productId={productId} />
+              <UspPersonal productId={productId} data={data} />
             </>
           )}
           {pendingDelete && (
