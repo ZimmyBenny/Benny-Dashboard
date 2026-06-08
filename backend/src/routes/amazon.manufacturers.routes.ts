@@ -1,5 +1,33 @@
 import { Router, type Request, type Response } from 'express';
 import db from '../db/connection';
+import multer from 'multer';
+import path from 'path';
+import os from 'os';
+import fs from 'fs';
+import crypto from 'crypto';
+
+const OFFER_FILES_DIR = path.join(os.homedir(), '.local', 'share', 'benny-dashboard', 'amazon-manufacturer-offer-files');
+if (!fs.existsSync(OFFER_FILES_DIR)) fs.mkdirSync(OFFER_FILES_DIR, { recursive: true });
+const offerFileUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, OFFER_FILES_DIR),
+    filename: (_req, file, cb) => cb(null, `${crypto.randomUUID()}${path.extname(file.originalname) || ''}`),
+  }),
+  limits: { fileSize: 20 * 1024 * 1024 },
+});
+function deleteOfferFileFromDisk(filename: string | null | undefined) {
+  if (!filename) return;
+  const abs = path.resolve(OFFER_FILES_DIR, filename);
+  if (!abs.startsWith(path.resolve(OFFER_FILES_DIR) + path.sep)) return;
+  try { fs.unlinkSync(abs); } catch { /* schon weg */ }
+}
+interface OfferFileRow { id: number; offer_id: number; sort_order: number; file_path: string; original_name: string | null; mime: string | null; created_at: number; }
+function loadOfferFiles(offerId: number): OfferFileRow[] {
+  return db.prepare(`SELECT * FROM amazon_manufacturer_offer_files WHERE offer_id = ? ORDER BY sort_order, id`).all(offerId) as OfferFileRow[];
+}
+function loadOfferFile(offerId: number, fId: number): OfferFileRow | undefined {
+  return db.prepare(`SELECT * FROM amazon_manufacturer_offer_files WHERE id = ? AND offer_id = ?`).get(fId, offerId) as OfferFileRow | undefined;
+}
 
 const router = Router();
 const MAX_TEXT_LEN = 2000;
@@ -40,7 +68,7 @@ function loadOffer(mId: number, oId: number): OfferRow | undefined {
   return db.prepare(`SELECT * FROM amazon_manufacturer_offers WHERE id = ? AND manufacturer_id = ?`).get(oId, mId) as OfferRow | undefined;
 }
 function withOffers(m: ManufacturerRow) {
-  return { ...m, offers: loadOffers(m.id) };
+  return { ...m, offers: loadOffers(m.id).map(o => ({ ...o, files: loadOfferFiles(o.id) })) };
 }
 function normText(raw: unknown): { skip: true } | { skip: false; value: string | null } | { error: true } {
   if (raw === undefined) return { skip: true };
@@ -126,11 +154,16 @@ router.patch('/products/:id/manufacturers/:mId', (req: Request, res: Response) =
 router.delete('/products/:id/manufacturers/:mId', (req: Request, res: Response) => {
   const id = Number(req.params.id); const mId = Number(req.params.mId);
   if (!Number.isInteger(id) || !Number.isInteger(mId) || !ensureProduct(id) || !loadManufacturer(id, mId)) { res.status(404).json({ error: 'not found' }); return; }
+  let fileRows: OfferFileRow[] = [];
   db.transaction(() => {
+    const offerIds = (db.prepare(`SELECT id FROM amazon_manufacturer_offers WHERE manufacturer_id = ?`).all(mId) as Array<{ id: number }>).map(o => o.id);
+    fileRows = offerIds.flatMap(oid => loadOfferFiles(oid));
+    if (offerIds.length) db.prepare(`DELETE FROM amazon_manufacturer_offer_files WHERE offer_id IN (${offerIds.map(() => '?').join(',')})`).run(...offerIds);
     db.prepare(`DELETE FROM amazon_manufacturer_offers WHERE manufacturer_id = ?`).run(mId);
     try { db.prepare(`UPDATE amazon_usp_manufacturers SET manufacturer_id = NULL WHERE manufacturer_id = ?`).run(mId); } catch { /* Spalte evtl. noch nicht da (Phase A) */ }
     db.prepare(`DELETE FROM amazon_manufacturers WHERE id = ?`).run(mId);
   })();
+  fileRows.forEach(f => deleteOfferFileFromDisk(f.file_path));
   res.status(204).end();
 });
 
@@ -189,7 +222,49 @@ router.patch('/products/:id/manufacturers/:mId/offers/:oId', (req: Request, res:
 router.delete('/products/:id/manufacturers/:mId/offers/:oId', (req: Request, res: Response) => {
   const id = Number(req.params.id); const mId = Number(req.params.mId); const oId = Number(req.params.oId);
   if (![id, mId, oId].every(Number.isInteger) || !ensureProduct(id) || !loadManufacturer(id, mId) || !loadOffer(mId, oId)) { res.status(404).json({ error: 'not found' }); return; }
-  db.prepare(`DELETE FROM amazon_manufacturer_offers WHERE id = ?`).run(oId);
+  const ofiles = loadOfferFiles(oId);
+  db.transaction(() => {
+    db.prepare(`DELETE FROM amazon_manufacturer_offer_files WHERE offer_id = ?`).run(oId);
+    db.prepare(`DELETE FROM amazon_manufacturer_offers WHERE id = ?`).run(oId);
+  })();
+  ofiles.forEach(f => deleteOfferFileFromDisk(f.file_path));
+  res.status(204).end();
+});
+
+router.post('/products/:id/manufacturers/:mId/offers/:oId/files', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const mId = Number(req.params.mId); const oId = Number(req.params.oId);
+  if (![id, mId, oId].every(Number.isInteger) || !ensureProduct(id) || !loadManufacturer(id, mId) || !loadOffer(mId, oId)) { res.status(404).json({ error: 'not found' }); return; }
+  offerFileUpload.single('file')(req, res, (err: unknown) => {
+    if (err) { res.status(400).json({ error: err instanceof Error ? err.message : 'upload failed' }); return; }
+    const file = (req as Request & { file?: { filename: string; originalname: string; mimetype: string } }).file;
+    if (!file) { res.status(400).json({ error: 'no file' }); return; }
+    const maxOrder = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_manufacturer_offer_files WHERE offer_id = ?`).get(oId) as { m: number }).m;
+    const r = db.prepare(`INSERT INTO amazon_manufacturer_offer_files (offer_id, sort_order, file_path, original_name, mime) VALUES (?, ?, ?, ?, ?)`)
+      .run(oId, maxOrder + 1, file.filename, file.originalname.slice(0, 300), file.mimetype.slice(0, 200));
+    res.status(201).json({ file: db.prepare(`SELECT * FROM amazon_manufacturer_offer_files WHERE id = ?`).get(r.lastInsertRowid) as OfferFileRow });
+  });
+});
+
+router.get('/products/:id/manufacturers/:mId/offers/:oId/files/:fId', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const mId = Number(req.params.mId); const oId = Number(req.params.oId); const fId = Number(req.params.fId);
+  if (![id, mId, oId, fId].every(Number.isInteger) || !ensureProduct(id) || !loadManufacturer(id, mId) || !loadOffer(mId, oId)) { res.status(404).end(); return; }
+  const f = loadOfferFile(oId, fId);
+  if (!f) { res.status(404).end(); return; }
+  const abs = path.resolve(OFFER_FILES_DIR, f.file_path);
+  if (!abs.startsWith(path.resolve(OFFER_FILES_DIR) + path.sep) || !fs.existsSync(abs)) { res.status(404).end(); return; }
+  res.setHeader('Content-Type', f.mime || 'application/octet-stream');
+  const ascii = (f.original_name ?? 'datei').replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '');
+  res.setHeader('Content-Disposition', `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(f.original_name ?? 'datei')}`);
+  fs.createReadStream(abs).pipe(res);
+});
+
+router.delete('/products/:id/manufacturers/:mId/offers/:oId/files/:fId', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const mId = Number(req.params.mId); const oId = Number(req.params.oId); const fId = Number(req.params.fId);
+  if (![id, mId, oId, fId].every(Number.isInteger) || !ensureProduct(id) || !loadManufacturer(id, mId) || !loadOffer(mId, oId)) { res.status(404).json({ error: 'not found' }); return; }
+  const f = loadOfferFile(oId, fId);
+  if (!f) { res.status(404).json({ error: 'not found' }); return; }
+  db.prepare(`DELETE FROM amazon_manufacturer_offer_files WHERE id = ?`).run(fId);
+  deleteOfferFileFromDisk(f.file_path);
   res.status(204).end();
 });
 

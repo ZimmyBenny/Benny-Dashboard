@@ -145,4 +145,23 @@ describe('Amazon Hersteller — CRUD', () => {
     const clr = await request(app).patch(`/api/amazon/products/${pid}/manufacturers/settings`).send({ usd_eur_rate: '' });
     expect(clr.body.settings.usd_eur_rate).toBeNull();
   });
+
+  it('Angebots-Datei: Upload + GET-Liste + Loeschen; fremdes Angebot 404', async () => {
+    const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+    const pid = makeProduct(db);
+    const mId = (await request(app).post(`/api/amazon/products/${pid}/manufacturers`).send({ name: 'A' })).body.manufacturer.id;
+    const oId = (await request(app).post(`/api/amazon/products/${pid}/manufacturers/${mId}/offers`).send({})).body.offer.id;
+    const up = await request(app).post(`/api/amazon/products/${pid}/manufacturers/${mId}/offers/${oId}/files`).attach('file', PNG, { filename: 'angebot.png', contentType: 'image/png' });
+    expect(up.status).toBe(201);
+    const fId = up.body.file.id;
+    const list = await request(app).get(`/api/amazon/products/${pid}/manufacturers`);
+    expect(list.body.manufacturers[0].offers[0].files.map((f: { id: number }) => f.id)).toEqual([fId]);
+    const get = await request(app).get(`/api/amazon/products/${pid}/manufacturers/${mId}/offers/${oId}/files/${fId}`);
+    expect(get.status).toBe(200);
+    const del = await request(app).delete(`/api/amazon/products/${pid}/manufacturers/${mId}/offers/${oId}/files/${fId}`);
+    expect(del.status).toBe(204);
+    expect((await request(app).get(`/api/amazon/products/${pid}/manufacturers`)).body.manufacturers[0].offers[0].files).toEqual([]);
+    const mId2 = (await request(app).post(`/api/amazon/products/${pid}/manufacturers`).send({ name: 'B' })).body.manufacturer.id;
+    expect((await request(app).post(`/api/amazon/products/${pid}/manufacturers/${mId2}/offers/${oId}/files`).attach('file', PNG, { filename: 'x.png', contentType: 'image/png' })).status).toBe(404);
+  });
 });
