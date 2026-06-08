@@ -6,7 +6,7 @@ import {
   useCreateManufacturer,
   useReorderManufacturers,
   useUpdateManufacturerSettings,
-  parsePreis,
+  parseRate,
   eurPreis,
 } from '../../../hooks/amazon/useManufacturers';
 import { SectionHeader } from '../SectionHeader';
@@ -48,7 +48,7 @@ export function ManufacturersSection({ productId }: Props) {
 
   const { manufacturers } = data;
   const rateValue = rateInput ?? (data.settings.usd_eur_rate ?? '');
-  const rate = parsePreis(data.settings.usd_eur_rate);
+  const rate = parseRate(data.settings.usd_eur_rate);
 
   const ids = order ?? manufacturers.map(m => m.id);
   const byId = new Map(manufacturers.map(m => [m.id, m]));
