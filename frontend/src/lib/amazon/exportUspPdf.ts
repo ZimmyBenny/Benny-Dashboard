@@ -128,9 +128,10 @@ export async function exportUspPdf(
     paragraph(meta.hauptfokus, { size: 10.5, color: BODY, lh: 15, gap: 14 });
   }
 
-  // ── Punkte ──
-  for (let i = 0; i < points.length; i++) {
-    const p = points[i];
+  // ── Punkte (nur die, die ins PDF sollen) ──
+  const pdfPoints = points.filter(p => p.include_in_pdf !== 0);
+  for (let i = 0; i < pdfPoints.length; i++) {
+    const p = pdfPoints[i];
     const num = i + 1;
     heading(p.title ? `Punkt ${num} – ${p.title}` : `Punkt ${num}`);
     if (p.body) paragraph(p.body, { size: 10.5, color: BODY, lh: 15, gap: 6 });
