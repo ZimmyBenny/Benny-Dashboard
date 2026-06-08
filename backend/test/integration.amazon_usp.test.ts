@@ -241,3 +241,37 @@ describe('USP API — Fragen an Hersteller', () => {
     expect((db.prepare(`SELECT COUNT(*) AS c FROM amazon_usp_point_questions WHERE id=?`).get(q.body.question.id) as { c: number }).c).toBe(0);
   });
 });
+
+describe('USP API — Versionen', () => {
+  let db: Database.Database; let app: express.Express;
+  beforeEach(async () => { db = createTestDb(); app = await makeApp(db); });
+  const PDF = Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n', 'latin1');
+
+  it('POST speichert Version + GET listet + GET pdf liefert Datei', async () => {
+    const pid = makeProduct(db);
+    const up = await request(app).post(`/api/amazon/products/${pid}/usp/versions`)
+      .field('manufacturer_name', 'Test Hersteller')
+      .attach('file', PDF, { filename: 'v.pdf', contentType: 'application/pdf' });
+    expect(up.status).toBe(201);
+    expect(up.body.version).toMatchObject({ product_id: pid, manufacturer_name: 'Test Hersteller' });
+    const list = await request(app).get(`/api/amazon/products/${pid}/usp/versions`);
+    expect(list.body.versions).toHaveLength(1);
+    expect(list.body.versions[0]).toMatchObject({ manufacturer_name: 'Test Hersteller' });
+    const pdf = await request(app).get(`/api/amazon/products/${pid}/usp/versions/${up.body.version.id}/pdf`);
+    expect(pdf.status).toBe(200);
+    expect(pdf.headers['content-type']).toContain('application/pdf');
+  });
+
+  it('DELETE entfernt Version; Cross-Produkt -> 404; Cascade beim Produkt-Loeschen', async () => {
+    const pA = makeProduct(db, 'A'); const pB = makeProduct(db, 'B');
+    const up = await request(app).post(`/api/amazon/products/${pA}/usp/versions`)
+      .field('manufacturer_name', 'M').attach('file', PDF, { filename: 'v.pdf', contentType: 'application/pdf' });
+    const vId = up.body.version.id;
+    expect((await request(app).delete(`/api/amazon/products/${pB}/usp/versions/${vId}`)).status).toBe(404);
+    expect((await request(app).delete(`/api/amazon/products/${pA}/usp/versions/${vId}`)).status).toBe(204);
+    const up2 = await request(app).post(`/api/amazon/products/${pA}/usp/versions`)
+      .field('manufacturer_name', 'M').attach('file', PDF, { filename: 'v.pdf', contentType: 'application/pdf' });
+    db.prepare(`DELETE FROM amazon_products WHERE id=?`).run(pA);
+    expect((db.prepare(`SELECT COUNT(*) AS c FROM amazon_usp_versions WHERE id=?`).get(up2.body.version.id) as { c: number }).c).toBe(0);
+  });
+});
