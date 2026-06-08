@@ -111,4 +111,15 @@ describe('Steuer-Checkliste API', () => {
     const none = await request(app).post('/api/steuer/2025/export').send({ item_ids: [999999] });
     expect(none.status).toBe(400);
   });
+
+  it('Export: CSV/Text-Datei wird als Text eingebettet (auch bei generischem MIME via Endung)', async () => {
+    const catId = (await request(app).post('/api/steuer/2025/categories').send({ name: 'DJ' })).body.category.id;
+    const itemId = (await request(app).post(`/api/steuer/categories/${catId}/items`).send({ title: 'Ausgangsrechnungen' })).body.item.id;
+    const CSV = Buffer.from('Datum;Kunde;Betrag\n2025-01-01;Acme;100,00\n2025-02-01;Beta;200,00\n');
+    // generischer MIME-Typ — Erkennung muss ueber die .csv-Endung greifen
+    await request(app).post(`/api/steuer/items/${itemId}/files`).attach('file', CSV, { filename: 'rechnungen.csv', contentType: 'application/octet-stream' });
+    const r = await request(app).post('/api/steuer/2025/export').send({ item_ids: 'all' });
+    expect(r.status).toBe(200);
+    expect(r.headers['content-type']).toContain('application/pdf');
+  });
 });

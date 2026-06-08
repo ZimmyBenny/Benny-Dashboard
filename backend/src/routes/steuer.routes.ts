@@ -92,6 +92,36 @@ async function buildExportPdf(jahr: number, itemIds: number[] | 'all'): Promise<
     page.drawImage(embed, { x: (A4W - w) / 2, y: (A4H - h) / 2, width: w, height: h });
   }
 
+  // Text-/CSV-Dateien als lesbaren Text rendern (zeichenweiser Umbruch + Paginierung)
+  function drawTextDocument(text: string, heading: string) {
+    const size = 9, lh = size * 1.45, maxW = A4W - MARGIN * 2, MAX_CHARS = 200000;
+    let body = text, truncated = false;
+    if (body.length > MAX_CHARS) { body = body.slice(0, MAX_CHARS); truncated = true; }
+    const wrapped: string[] = [];
+    for (const src of body.split(/\r?\n/)) {
+      const safe = safeText(src);
+      if (safe.length === 0) { wrapped.push(''); continue; }
+      let cur = '';
+      for (const ch of safe) {
+        const test = cur + ch;
+        if (cur && font.widthOfTextAtSize(test, size) > maxW) { wrapped.push(cur); cur = ch; }
+        else cur = test;
+      }
+      wrapped.push(cur);
+    }
+    if (truncated) wrapped.push('... (gekuerzt)');
+    let page = out.addPage([A4W, A4H]);
+    page.drawText(safeText(heading), { x: MARGIN, y: A4H - MARGIN, size: 8, font, color: rgb(0.5, 0.5, 0.5) });
+    let y = A4H - MARGIN - 18;
+    for (const ln of wrapped) {
+      if (y < MARGIN) { page = out.addPage([A4W, A4H]); y = A4H - MARGIN; }
+      page.drawText(ln, { x: MARGIN, y: y - size, size, font, color: rgb(0, 0, 0) });
+      y -= lh;
+    }
+  }
+
+  const TEXT_EXT = ['.csv', '.txt', '.log', '.md', '.tsv'];
+
   for (const e of entries) {
     const hp = out.addPage([A4W, A4H]);
     hp.drawText(safeText(e.categoryName || 'Überbegriff'), { x: 50, y: A4H - 80, size: 12, font, color: rgb(0.4, 0.4, 0.4) });
@@ -111,6 +141,8 @@ async function buildExportPdf(jahr: number, itemIds: number[] | 'all'): Promise<
         } else if (mime === 'image/png') {
           const img = await out.embedPng(fs.readFileSync(abs));
           drawImagePage(img, img);
+        } else if (mime.startsWith('text/') || mime === 'application/csv' || TEXT_EXT.includes(path.extname(f.original_name ?? f.file_path).toLowerCase())) {
+          drawTextDocument(fs.readFileSync(abs, 'utf-8'), f.original_name ?? 'Datei');
         } else {
           const np = out.addPage([A4W, A4H]);
           np.drawText(safeText(`Datei "${f.original_name ?? 'Datei'}" — keine Vorschau einbettbar (separat senden).`), { x: 50, y: A4H - 80, size: 11, font, color: rgb(0.6, 0, 0) });
