@@ -219,11 +219,11 @@ In `frontend/src/components/amazon/usp/UspSection.tsx` den `UspPointList`-Aufruf
                 manufacturerId={activeMId}
                 feasibility={data.feasibility}
                 onRequestDelete={setPendingDelete}
-                imageFiles={data.files.filter(f => f.mime.startsWith('image/'))}
+                imageFiles={data.files.filter(f => ['image/jpeg', 'image/png', 'image/webp'].includes(f.mime))}
               />
 ```
 
-(`data.files` ist Teil des `UspPayload` und hier bereits verfügbar.)
+(`data.files` ist Teil des `UspPayload` und hier bereits verfügbar. Der Filter nutzt dieselben Typen wie die Backend-Whitelist `ALLOWED_MIME`, damit im Picker nur übernehmbare Bilder erscheinen.)
 
 - [ ] **Step 2: `UspPointList` — Prop annehmen und durchreichen**
 
