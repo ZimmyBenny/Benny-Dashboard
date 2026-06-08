@@ -112,11 +112,11 @@ describe('Steuer-Checkliste API', () => {
     expect(none.status).toBe(400);
   });
 
-  it('Export: CSV/Text-Datei wird als Text eingebettet (auch bei generischem MIME via Endung)', async () => {
+  it('Export: CSV wird als Tabelle eingebettet (quoted, BOM, ; -Trenner)', async () => {
     const catId = (await request(app).post('/api/steuer/2025/categories').send({ name: 'DJ' })).body.category.id;
     const itemId = (await request(app).post(`/api/steuer/categories/${catId}/items`).send({ title: 'Ausgangsrechnungen' })).body.item.id;
-    const CSV = Buffer.from('Datum;Kunde;Betrag\n2025-01-01;Acme;100,00\n2025-02-01;Beta;200,00\n');
-    // generischer MIME-Typ — Erkennung muss ueber die .csv-Endung greifen
+    const csv = '﻿"Rechnungs-Nr.";"Datum";"Brutto";"Empfänger";;\n"RE-1035";"28.12.2024";"200,00";"Monkey Eventarena, Regensburger Str. 55, 92637 Weiden";;\n"RE-1034";"07.12.2024";"200,00";"WS GmbH & Co. KG";;\n';
+    const CSV = Buffer.from(csv, 'utf-8');
     await request(app).post(`/api/steuer/items/${itemId}/files`).attach('file', CSV, { filename: 'rechnungen.csv', contentType: 'application/octet-stream' });
     const r = await request(app).post('/api/steuer/2025/export').send({ item_ids: 'all' });
     expect(r.status).toBe(200);
