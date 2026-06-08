@@ -30,9 +30,10 @@ export const navItems: NavItem[] = [
     { path: '/amazon/entwicklung/markenname',  label: 'Markenname',   icon: 'label' },
   ]},
   { path: '/finances', label: 'Finanzen', icon: 'account_balance_wallet', subItems: [
-    { path: '/finances',              label: 'Bewertungen',        icon: 'reviews' },
+    { path: '/finances',                   label: 'Bewertungen',      icon: 'reviews' },
+    { path: '/finances/steuer-checkliste', label: 'Steuer-Checkliste', icon: 'checklist' },
+    { path: '/haushalt',                   label: 'Haushalt',         icon: 'family_restroom' },
   ]},
-  { path: '/haushalt', label: 'Haushalt',        icon: 'family_restroom' },
   { path: '/contracts',       label: 'Verträge & Fristen', icon: 'description' },
   { path: '/belege', label: 'Belege', icon: 'receipt_long', subItems: [
     { path: '/belege',                label: 'Übersicht',         icon: 'dashboard' },
@@ -70,7 +71,8 @@ export const pageNames: Record<string, string> = {
   '/dj/trips':        'Fahrten',
   '/dj/accounting':   'Buchhaltung',
   '/dj/settings':     'DJ Einstellungen',
-  '/finances':        'Finanzen',
+  '/finances':                      'Finanzen',
+  '/finances/steuer-checkliste':   'Steuer-Checkliste',
   '/amazon':                          'Amazon',
   '/amazon/entwicklung':              'Entwicklung',
   '/amazon/entwicklung/checkliste':   'Checkliste',

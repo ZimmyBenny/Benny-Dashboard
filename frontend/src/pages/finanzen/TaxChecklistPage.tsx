@@ -1,0 +1,249 @@
+import { useRef, useState } from 'react';
+import { PageWrapper } from '../../components/layout/PageWrapper';
+import { type SteuerCategory } from '../../api/steuer.api';
+import {
+  useSteuerJahre,
+  useSteuer,
+  useCreateSteuerCategory,
+  useDeleteSteuerCategory,
+  useReorderSteuerCategories,
+  useCopySteuerYear,
+} from '../../hooks/finanzen/useSteuer';
+import { SteuerCategoryBlock } from '../../components/finanzen/SteuerCategoryBlock';
+
+const ACCENT = '#60a5fa';
+
+function DeleteCategoryDialog({ name, onConfirm, onClose }: { name: string; onConfirm: () => void; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.6)' }}
+      onClick={onClose}
+    >
+      <div
+        className="rounded-xl p-5 w-[90%] max-w-sm"
+        style={{ background: 'var(--color-surface-container-high)', border: '1px solid rgba(255,255,255,0.08)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="mb-4" style={{ color: 'var(--color-on-surface)' }}>
+          Überbegriff „{name || 'Überbegriff'}" wird dauerhaft gelöscht — inklusive aller Punkte und Dokumente.
+        </p>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-1.5 rounded-md text-sm"
+            style={{ background: 'var(--color-surface-container)', color: 'var(--color-on-surface)' }}
+          >
+            Abbrechen
+          </button>
+          <button
+            type="button"
+            onClick={() => { onConfirm(); onClose(); }}
+            className="px-3 py-1.5 rounded-md text-sm"
+            style={{ background: '#7f1d1d', color: '#fecaca' }}
+          >
+            Löschen
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function TaxChecklistPage() {
+  const currentYear = new Date().getFullYear();
+  const [jahr, setJahr] = useState(() => currentYear);
+  const [pendingDelete, setPendingDelete] = useState<SteuerCategory | null>(null);
+  const [catOrder, setCatOrder] = useState<number[] | null>(null);
+  const dragCatIndex = useRef<number | null>(null);
+
+  const { data: jahreData } = useSteuerJahre();
+  const { data, isLoading, isError, refetch } = useSteuer(jahr);
+  const createCat = useCreateSteuerCategory(jahr);
+  const deleteCat = useDeleteSteuerCategory(jahr);
+  const reorderCats = useReorderSteuerCategories(jahr);
+  const copySteuerYear = useCopySteuerYear(jahr);
+
+  // Jahr-Optionen: alle bekannten Jahre + aktuelles Jahr + selektiertes Jahr, absteigend
+  const jahreOptions = Array.from(new Set([...(jahreData ?? []), currentYear, jahr])).sort((a, b) => b - a);
+
+  // Vorjahr: größtes Jahr in jahreData das nicht gleich dem aktuellen ist
+  const vorjahr = jahreData && jahreData.length > 0
+    ? jahreData.filter(j => j !== jahr).sort((a, b) => b - a)[0] ?? null
+    : null;
+
+  // Drag-Reorder für Kategorien
+  const catIds = catOrder ?? (data?.categories.map(c => c.id) ?? []);
+  const catById = new Map(data?.categories.map(c => [c.id, c]) ?? []);
+  const orderedCats = catIds.map(id => catById.get(id)).filter(Boolean) as SteuerCategory[];
+
+  function catDown(idx: number, e: React.PointerEvent<HTMLDivElement>) {
+    dragCatIndex.current = idx;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    if (!catOrder && data) setCatOrder(data.categories.map(c => c.id));
+  }
+  function catEnter(idx: number) {
+    if (dragCatIndex.current === null || dragCatIndex.current === idx) return;
+    setCatOrder(prev => {
+      const arr = [...(prev ?? (data?.categories.map(c => c.id) ?? []))];
+      const [moved] = arr.splice(dragCatIndex.current as number, 1);
+      arr.splice(idx, 0, moved);
+      dragCatIndex.current = idx;
+      return arr;
+    });
+  }
+  function catUp() {
+    if (dragCatIndex.current !== null && catOrder) {
+      reorderCats.mutate(catOrder, { onSettled: () => setCatOrder(null) });
+    }
+    dragCatIndex.current = null;
+  }
+
+  function handleNewYear() {
+    const maxYear = jahreData && jahreData.length > 0 ? Math.max(...jahreData) : currentYear;
+    setJahr(Math.max(currentYear, maxYear) + 1);
+  }
+
+  return (
+    <PageWrapper>
+      {/* Header */}
+      <header className="flex items-center gap-4 mb-6">
+        <div
+          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ background: 'var(--color-surface-container)' }}
+        >
+          <span className="material-symbols-outlined" style={{ color: ACCENT }}>checklist</span>
+        </div>
+        <h1
+          className="flex-1 min-w-0 text-2xl font-bold"
+          style={{ fontFamily: 'var(--font-headline)', color: 'var(--color-on-surface)' }}
+        >
+          Steuer-Checkliste
+        </h1>
+      </header>
+
+      {/* Jahr-Wähler */}
+      <div className="flex items-center gap-2 flex-wrap mb-6">
+        <select
+          value={jahr}
+          onChange={(e) => { setJahr(Number(e.target.value)); setCatOrder(null); }}
+          className="px-3 py-1.5 rounded-md text-sm"
+          style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          {jahreOptions.map(y => (
+            <option key={y} value={y}>{y}</option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={handleNewYear}
+          className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5"
+          style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>+ Neues Jahr
+        </button>
+      </div>
+
+      {/* Lade- und Fehlerzustände */}
+      {isLoading && (
+        <div
+          className="rounded-xl p-5"
+          style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}
+        >
+          <p style={{ color: 'var(--color-on-surface-variant)' }}>Lade Steuer-Checkliste …</p>
+        </div>
+      )}
+
+      {isError && !isLoading && (
+        <div
+          className="rounded-xl p-5"
+          style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}
+        >
+          <p className="mb-2" style={{ color: 'var(--color-on-surface)' }}>Checkliste konnte nicht geladen werden.</p>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="px-3 py-1.5 rounded-md text-sm"
+            style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}
+          >
+            Erneut laden
+          </button>
+        </div>
+      )}
+
+      {!isLoading && !isError && data && (
+        <div className="flex flex-col gap-4">
+          {/* Leer-Zustand: Struktur übernehmen */}
+          {data.categories.length === 0 && vorjahr !== null && (
+            <div
+              className="rounded-xl p-4 flex items-center gap-3"
+              style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.08)' }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 20, color: 'var(--color-on-surface-variant)' }}>content_copy</span>
+              <span className="text-sm flex-1" style={{ color: 'var(--color-on-surface-variant)' }}>
+                Noch keine Überbegriffe für {jahr}.
+              </span>
+              <button
+                type="button"
+                onClick={() => copySteuerYear.mutate({ fromJahr: vorjahr, toJahr: jahr })}
+                disabled={copySteuerYear.isPending}
+                className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 flex-shrink-0"
+                style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)', opacity: copySteuerYear.isPending ? 0.6 : 1 }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>content_copy</span>
+                Struktur von {vorjahr} übernehmen
+              </button>
+            </div>
+          )}
+
+          {data.categories.length === 0 && vorjahr === null && (
+            <div
+              className="rounded-xl p-5"
+              style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}
+            >
+              <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
+                Noch keine Überbegriffe für {jahr}. Füge den ersten Überbegriff hinzu.
+              </p>
+            </div>
+          )}
+
+          {/* Kategorie-Liste mit Drag-Reorder */}
+          {orderedCats.map((cat, idx) => (
+            <SteuerCategoryBlock
+              key={cat.id}
+              jahr={jahr}
+              category={cat}
+              index={idx}
+              dragHandleProps={{
+                onPointerDown: (e) => catDown(idx, e),
+                onPointerEnter: () => catEnter(idx),
+                onPointerUp: catUp,
+              }}
+              onRequestDelete={(c) => setPendingDelete(c)}
+            />
+          ))}
+
+          {/* Überbegriff hinzufügen */}
+          <button
+            type="button"
+            onClick={() => createCat.mutate(undefined)}
+            className="self-start px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5"
+            style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>Überbegriff hinzufügen
+          </button>
+        </div>
+      )}
+
+      {/* Lösch-Bestätigungsdialog */}
+      {pendingDelete && (
+        <DeleteCategoryDialog
+          name={pendingDelete.name}
+          onConfirm={() => deleteCat.mutate(pendingDelete.id)}
+          onClose={() => setPendingDelete(null)}
+        />
+      )}
+    </PageWrapper>
+  );
+}
