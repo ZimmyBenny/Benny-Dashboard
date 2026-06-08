@@ -81,11 +81,38 @@ function LogoBlock({ productId, meta }: { productId: number; meta: UspMeta }) {
   );
 }
 
-export function UspMetaForm({ productId, meta }: { productId: number; meta: UspMeta }) {
+function MarkeField({ marke, finalMarke, onSave }: { marke: string | null; finalMarke: string | null; onSave: (v: string) => void }) {
+  const [v, setV] = useState(marke ?? '');
+  useEffect(() => { setV(marke ?? ''); }, [marke]);
+  const hasOverride = (marke ?? '').trim().length > 0;
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>Marke</span>
+      <input
+        value={v}
+        onChange={(e) => setV(e.target.value)}
+        onBlur={() => { if (v !== (marke ?? '')) onSave(v); }}
+        placeholder={finalMarke ? `${finalMarke} (aus Markenname)` : 'Marke'}
+        className="w-full px-2 py-1.5 rounded-md text-sm"
+        style={{ background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}
+      />
+      {finalMarke && !hasOverride && (
+        <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>Automatisch aus Markenname: {finalMarke}</span>
+      )}
+      {finalMarke && hasOverride && (
+        <button type="button" onClick={() => { setV(''); onSave(''); }} className="self-start text-xs flex items-center gap-1" style={{ color: 'var(--color-on-surface-variant)' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 14 }}>undo</span>auf Markenname zurücksetzen ({finalMarke})
+        </button>
+      )}
+    </label>
+  );
+}
+
+export function UspMetaForm({ productId, meta, finalMarke }: { productId: number; meta: UspMeta; finalMarke: string | null }) {
   const update = useUpdateUspMeta(productId);
   return (
     <div className="flex flex-col gap-3 mb-4">
-      <Field label="Marke" value={meta.marke ?? ''} onSave={(marke) => update.mutate({ marke })} />
+      <MarkeField marke={meta.marke} finalMarke={finalMarke} onSave={(marke) => update.mutate({ marke })} />
       <LogoBlock productId={productId} meta={meta} />
       <Field label="Hauptfokus" value={meta.hauptfokus ?? ''} onSave={(hauptfokus) => update.mutate({ hauptfokus })} textarea />
     </div>

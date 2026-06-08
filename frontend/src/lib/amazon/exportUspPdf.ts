@@ -59,6 +59,7 @@ export async function exportUspPdf(
   meta: UspMeta,
   points: UspPoint[],
   manufacturer: UspManufacturer,
+  finalMarke: string | null,
 ): Promise<{ blob: Blob; filename: string }> {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
@@ -132,7 +133,8 @@ export async function exportUspPdf(
   paragraph(productName, { size: 15, color: BLUE, style: 'bold', lh: 19, gap: 12 });
 
   // ── Meta: Marke, dann Logo darunter, dann der Rest ──
-  paragraph(`Marke: ${meta.marke ?? 'wird nachgereicht'}`, { size: 10, color: BODY, lh: 15, gap: 6 });
+  const markeText = (meta.marke && meta.marke.trim()) || finalMarke || 'wird nachgereicht';
+  paragraph(`Marke: ${markeText}`, { size: 10, color: BODY, lh: 15, gap: 6 });
 
   if (meta.logo_path) {
     try {

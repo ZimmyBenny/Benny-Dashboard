@@ -66,7 +66,7 @@ export function UspSection({ productId, productName }: Props) {
     const incMap = new Map<number, number>();
     for (const f of fresh.data.feasibility) if (f.manufacturer_id === m.id) incMap.set(f.point_id, f.include_in_pdf);
     const included = fresh.data.points.filter(p => (incMap.get(p.id) ?? 1) !== 0);
-    const { blob, filename } = await exportUspPdf(productId, productName, fresh.data.meta, included, m);
+    const { blob, filename } = await exportUspPdf(productId, productName, fresh.data.meta, included, m, fresh.data.final_marke);
     return { blob, filename, manufacturerName: m.name || 'Hersteller' };
   }
   async function handlePreview() {
@@ -122,7 +122,7 @@ export function UspSection({ productId, productName }: Props) {
           )}
           {data && (
             <>
-              <UspMetaForm productId={productId} meta={data.meta} />
+              <UspMetaForm productId={productId} meta={data.meta} finalMarke={data.final_marke} />
               {data.manufacturers.length > 0 && (
                 <div className="flex items-center gap-2 mb-2 text-sm">
                   <span style={{ color: 'var(--color-on-surface-variant)' }}>PDF-Auswahl für Hersteller:</span>
