@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { PageWrapper } from '../../components/layout/PageWrapper';
-import { type SteuerCategory, exportSteuerPdf } from '../../api/steuer.api';
+import { type SteuerCategory, exportSteuerPdf, exportSteuerZip } from '../../api/steuer.api';
 import {
   useSteuerJahre,
   useSteuer,
@@ -65,12 +65,12 @@ export function TaxChecklistPage() {
     setSelectedIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   }
 
-  async function doExport(ids: number[] | 'all') {
+  async function runExport(format: 'pdf' | 'zip', ids: number[] | 'all') {
     setExporting(true);
     try {
-      const blob = await exportSteuerPdf(jahr, ids);
+      const blob = format === 'pdf' ? await exportSteuerPdf(jahr, ids) : await exportSteuerZip(jahr, ids);
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = `Steuer-${jahr}.pdf`; a.click();
+      const a = document.createElement('a'); a.href = url; a.download = `Steuer-${jahr}.${format}`; a.click();
       setTimeout(() => URL.revokeObjectURL(url), 0);
     } finally { setExporting(false); }
   }
@@ -237,30 +237,59 @@ export function TaxChecklistPage() {
           {/* Export-Leiste */}
           {data.categories.length > 0 && (
             <div
-              className="flex items-center gap-2 flex-wrap rounded-xl px-4 py-3"
+              className="flex flex-col gap-3 rounded-xl px-4 py-3"
               style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.08)' }}
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#60a5fa' }}>picture_as_pdf</span>
-              <button
-                type="button"
-                onClick={() => doExport('all')}
-                disabled={exporting}
-                className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 flex-shrink-0"
-                style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)', opacity: exporting ? 0.6 : 1 }}
-              >
-                {exporting ? 'Erstelle PDF …' : 'Alle exportieren'}
-              </button>
-              <button
-                type="button"
-                onClick={() => doExport(Array.from(selectedIds))}
-                disabled={selectedIds.size === 0 || exporting}
-                className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 flex-shrink-0"
-                style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)', opacity: (selectedIds.size === 0 || exporting) ? 0.5 : 1 }}
-              >
-                {exporting ? 'Erstelle PDF …' : `Ausgewählte exportieren (${selectedIds.size})`}
-              </button>
-              <span className="text-xs flex-1" style={{ color: 'var(--color-on-surface-variant)' }}>
-                Nur Punkte mit Dokumenten landen im PDF.
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* PDF-Gruppe */}
+                <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#f87171' }}>picture_as_pdf</span>
+                <span className="text-xs font-medium mr-1" style={{ color: 'var(--color-on-surface-variant)' }}>PDF (zum Durchblättern)</span>
+                <button
+                  type="button"
+                  onClick={() => runExport('pdf', 'all')}
+                  disabled={exporting}
+                  className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 flex-shrink-0"
+                  style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)', opacity: exporting ? 0.6 : 1 }}
+                >
+                  {exporting ? 'Erstelle …' : 'Alle'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => runExport('pdf', Array.from(selectedIds))}
+                  disabled={selectedIds.size === 0 || exporting}
+                  className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 flex-shrink-0"
+                  style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)', opacity: (selectedIds.size === 0 || exporting) ? 0.5 : 1 }}
+                >
+                  {exporting ? 'Erstelle …' : `Ausgewählte (${selectedIds.size})`}
+                </button>
+
+                {/* Trennlinie */}
+                <span style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.1)', display: 'inline-block', margin: '0 4px' }} />
+
+                {/* ZIP-Gruppe */}
+                <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#34d399' }}>folder_zip</span>
+                <span className="text-xs font-medium mr-1" style={{ color: 'var(--color-on-surface-variant)' }}>ZIP (Originaldateien)</span>
+                <button
+                  type="button"
+                  onClick={() => runExport('zip', 'all')}
+                  disabled={exporting}
+                  className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 flex-shrink-0"
+                  style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)', opacity: exporting ? 0.6 : 1 }}
+                >
+                  {exporting ? 'Erstelle …' : 'Alle'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => runExport('zip', Array.from(selectedIds))}
+                  disabled={selectedIds.size === 0 || exporting}
+                  className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 flex-shrink-0"
+                  style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)', opacity: (selectedIds.size === 0 || exporting) ? 0.5 : 1 }}
+                >
+                  {exporting ? 'Erstelle …' : `Ausgewählte (${selectedIds.size})`}
+                </button>
+              </div>
+              <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
+                Nur Punkte mit Dokumenten landen im Export.
               </span>
             </div>
           )}

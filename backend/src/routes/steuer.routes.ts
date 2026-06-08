@@ -6,6 +6,7 @@ import os from 'os';
 import fs from 'fs';
 import crypto from 'crypto';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { ZipArchive } from 'archiver';
 
 const router = Router();
 const MAX_NAME = 300;
@@ -87,6 +88,12 @@ function parseCsv(text: string): string[][] {
   }
   if (field !== '' || row.length > 0) { row.push(field); rows.push(row); }
   return rows.filter(r => r.length > 0 && !(r.length === 1 && r[0] === ''));
+}
+
+function sanitizeName(s: string): string {
+  // nur echte unzulaessige Pfadzeichen + Steuerzeichen ersetzen; Leerzeichen/Bindestriche bleiben erhalten
+  const cleaned = (s ?? '').replace(/[/\\:*?"<>| -]/g, '_').replace(/\s+/g, ' ').trim();
+  return cleaned.length ? cleaned.slice(0, 120) : 'Unbenannt';
 }
 
 async function buildExportPdf(jahr: number, itemIds: number[] | 'all'): Promise<Buffer | null> {
@@ -312,6 +319,55 @@ router.post('/:jahr/export', async (req: Request, res: Response) => {
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="Steuer-${jahr}.pdf"`);
   res.send(pdf);
+});
+
+router.post('/:jahr/export-zip', async (req: Request, res: Response) => {
+  const jahr = Number(req.params.jahr);
+  if (!Number.isInteger(jahr)) { res.status(400).json({ error: 'invalid jahr' }); return; }
+  const raw = (req.body as { item_ids?: unknown })?.item_ids;
+  let itemIds: number[] | 'all';
+  if (raw === 'all') itemIds = 'all';
+  else if (Array.isArray(raw) && raw.every(x => Number.isInteger(x))) itemIds = raw as number[];
+  else { res.status(400).json({ error: 'invalid item_ids' }); return; }
+
+  const cats = db.prepare(`SELECT * FROM steuer_categories WHERE jahr = ? ORDER BY sort_order, id`).all(jahr) as CategoryRow[];
+  const wanted = itemIds === 'all' ? null : new Set(itemIds);
+  type Entry = { categoryName: string; itemTitle: string; files: FileRow[] };
+  const entries: Entry[] = [];
+  for (const c of cats) {
+    const items = db.prepare(`SELECT * FROM steuer_items WHERE category_id = ? ORDER BY sort_order, id`).all(c.id) as ItemRow[];
+    for (const it of items) {
+      if (wanted && !wanted.has(it.id)) continue;
+      const files = loadFiles(it.id);
+      if (files.length === 0) continue;
+      entries.push({ categoryName: c.name, itemTitle: it.title, files });
+    }
+  }
+  if (entries.length === 0) { res.status(400).json({ error: 'keine dokumente' }); return; }
+
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="Steuer-${jahr}.zip"`);
+  const archive = new ZipArchive({ zlib: { level: 9 } });
+  archive.on('error', () => { try { res.destroy(); } catch { /* ignore */ } });
+  archive.pipe(res);
+  const used = new Set<string>();
+  for (const e of entries) {
+    const folder = `${sanitizeName(e.categoryName || 'Ueberbegriff')}/${sanitizeName(e.itemTitle || 'Punkt')}`;
+    for (const f of e.files) {
+      const abs = path.resolve(FILES_DIR, f.file_path);
+      if (!abs.startsWith(path.resolve(FILES_DIR) + path.sep) || !fs.existsSync(abs)) continue;
+      const baseName = sanitizeName(f.original_name || `datei${path.extname(f.file_path) || ''}`);
+      let name = `${folder}/${baseName}`;
+      if (used.has(name)) {
+        const ext = path.extname(baseName); const stem = baseName.slice(0, baseName.length - ext.length);
+        let i = 2; while (used.has(`${folder}/${stem} (${i})${ext}`)) i++;
+        name = `${folder}/${stem} (${i})${ext}`;
+      }
+      used.add(name);
+      archive.file(abs, { name });
+    }
+  }
+  await archive.finalize();
 });
 
 router.patch('/categories/:id', (req: Request, res: Response) => {

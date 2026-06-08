@@ -122,4 +122,16 @@ describe('Steuer-Checkliste API', () => {
     expect(r.status).toBe(200);
     expect(r.headers['content-type']).toContain('application/pdf');
   });
+
+  it('ZIP-Export: liefert ZIP fuer Punkte mit Dokumenten; leere Auswahl -> 400', async () => {
+    const catId = (await request(app).post('/api/steuer/2025/categories').send({ name: 'DJ' })).body.category.id;
+    const itemId = (await request(app).post(`/api/steuer/categories/${catId}/items`).send({ title: 'Ausgangsrechnungen' })).body.item.id;
+    expect((await request(app).post('/api/steuer/2025/export-zip').send({ item_ids: 'all' })).status).toBe(400);
+    await request(app).post(`/api/steuer/items/${itemId}/files`).attach('file', PNG, { filename: 'beleg.png', contentType: 'image/png' });
+    const all = await request(app).post('/api/steuer/2025/export-zip').send({ item_ids: 'all' });
+    expect(all.status).toBe(200);
+    expect(all.headers['content-type']).toContain('application/zip');
+    const none = await request(app).post('/api/steuer/2025/export-zip').send({ item_ids: [999999] });
+    expect(none.status).toBe(400);
+  });
 });
