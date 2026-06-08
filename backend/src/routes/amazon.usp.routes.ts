@@ -44,10 +44,10 @@ const MAX_MNAME = 200, MAX_DATUM = 50, MAX_MNOTES = 2000, MAX_FNOTE = 1000, MAX_
 const VALID_STATUS = new Set(['offen', 'umsetzbar', 'teilweise', 'nicht']);
 
 interface MetaRow { product_id: number; marke: string | null; hauptfokus: string | null; logo_path: string | null; updated_at: number; }
-interface PointRow { id: number; product_id: number; sort_order: number; title: string; body: string | null; include_in_pdf: number; created_at: number; updated_at: number; }
+interface PointRow { id: number; product_id: number; sort_order: number; title: string; body: string | null; created_at: number; updated_at: number; }
 interface ImageRow { id: number; point_id: number; sort_order: number; file_path: string; created_at: number; }
 interface QuestionRow { id: number; point_id: number; sort_order: number; text: string; created_at: number; updated_at: number; }
-interface ManufacturerRow { id: number; product_id: number; sort_order: number; name: string; ansprechpartner: string | null; datum: string | null; notes: string | null; gesendet: number; created_at: number; updated_at: number; }
+interface ManufacturerRow { id: number; product_id: number; sort_order: number; name: string; ansprechpartner: string | null; datum: string | null; notes: string | null; created_at: number; updated_at: number; }
 interface FeasibilityRow { id: number; point_id: number; manufacturer_id: number; status: string; note: string | null; include_in_pdf: number; updated_at: number; }
 
 function normalizeText(raw: unknown, max: number): { ok: true; value: string | null } | { ok: false } {
@@ -175,10 +175,6 @@ router.patch('/products/:id/usp/points/:pointId', (req: Request, res: Response) 
     if (!v.ok) { res.status(400).json({ error: 'invalid body' }); return; }
     updates.push('body = ?'); params.push(v.value);
   }
-  if (body.include_in_pdf !== undefined) {
-    if (body.include_in_pdf !== 0 && body.include_in_pdf !== 1) { res.status(400).json({ error: 'invalid include_in_pdf' }); return; }
-    updates.push('include_in_pdf = ?'); params.push(body.include_in_pdf);
-  }
   if (updates.length > 0) {
     updates.push('updated_at = unixepoch()'); params.push(pointId);
     db.prepare(`UPDATE amazon_usp_points SET ${updates.join(', ')} WHERE id = ?`).run(...params);
@@ -301,10 +297,6 @@ router.patch('/products/:id/usp/manufacturers/:mId', (req: Request, res: Respons
     const v = normalizeText(body.notes, MAX_MNOTES);
     if (!v.ok) { res.status(400).json({ error: 'invalid notes' }); return; }
     updates.push('notes = ?'); params.push(v.value);
-  }
-  if (body.gesendet !== undefined) {
-    if (body.gesendet !== 0 && body.gesendet !== 1) { res.status(400).json({ error: 'invalid gesendet' }); return; }
-    updates.push('gesendet = ?'); params.push(body.gesendet);
   }
   if (updates.length > 0) {
     updates.push('updated_at = unixepoch()'); params.push(mId);
