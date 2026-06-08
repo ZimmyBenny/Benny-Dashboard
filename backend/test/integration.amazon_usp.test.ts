@@ -349,3 +349,18 @@ describe('USP API — Persoenlich: Dateien', () => {
     expect((db.prepare(`SELECT COUNT(*) AS c FROM amazon_usp_files WHERE id=?`).get(up.body.file.id) as { c: number }).c).toBe(0);
   });
 });
+
+describe('USP API — finale Marke aus Brand', () => {
+  let db: Database.Database; let app: express.Express;
+  beforeEach(async () => { db = createTestDb(); app = await makeApp(db); });
+
+  it('GET /usp liefert final_marke des markierten Kandidaten; sonst null', async () => {
+    const pid = makeProduct(db);
+    const r0 = await request(app).get(`/api/amazon/products/${pid}/usp`);
+    expect(r0.body.final_marke).toBeNull();
+    db.prepare(`INSERT INTO amazon_brand_name_candidates (product_id, name, is_final) VALUES (?, 'ZwergenZauber', 1)`).run(pid);
+    db.prepare(`INSERT INTO amazon_brand_name_candidates (product_id, name, is_final) VALUES (?, 'AndererName', 0)`).run(pid);
+    const r1 = await request(app).get(`/api/amazon/products/${pid}/usp`);
+    expect(r1.body.final_marke).toBe('ZwergenZauber');
+  });
+});
