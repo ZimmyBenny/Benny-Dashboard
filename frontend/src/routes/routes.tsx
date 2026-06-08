@@ -22,6 +22,7 @@ import { AmazonOverviewPage } from '../pages/amazon/AmazonOverviewPage';
 import { AmazonProductDetailPage } from '../pages/amazon/AmazonProductDetailPage';
 import { AmazonChecklistMasterPage } from '../pages/amazon/AmazonChecklistMasterPage';
 import { AmazonBrandPage } from '../pages/amazon/AmazonBrandPage';
+import { ManufacturerDetailPage } from '../pages/amazon/ManufacturerDetailPage';
 import { KiAgentsPage } from '../pages/KiAgentsPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { ZeiterfassungPage } from '../pages/ZeiterfassungPage';
@@ -74,6 +75,7 @@ export const router = createBrowserRouter([
           { path: '/amazon',                       element: <Navigate to="/amazon/entwicklung" replace /> },
           { path: '/amazon/entwicklung',           element: <AmazonOverviewPage /> },
           { path: '/amazon/entwicklung/products/:id', element: <AmazonProductDetailPage /> },
+          { path: '/amazon/entwicklung/products/:id/hersteller/:mId', element: <ManufacturerDetailPage /> },
           { path: '/amazon/entwicklung/checkliste', element: <AmazonChecklistMasterPage /> },
           { path: '/amazon/entwicklung/markenname', element: <AmazonBrandPage /> },
           { path: '/ki-agenten',     element: <KiAgentsPage /> },
