@@ -1,10 +1,45 @@
 import { useEffect, useRef, useState } from 'react';
-import { type UspPoint } from '../../../api/amazon.api';
-import { useUpdateUspPoint, useUploadUspPointImage } from '../../../hooks/amazon/useUsp';
+import { type UspPoint, type UspPointQuestion } from '../../../api/amazon.api';
+import {
+  useUpdateUspPoint, useUploadUspPointImage,
+  useCreateUspPointQuestion, useUpdateUspPointQuestion, useDeleteUspPointQuestion,
+} from '../../../hooks/amazon/useUsp';
 import { UspPointImages } from './UspPointImages';
 
 const ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_BYTES = 5 * 1024 * 1024;
+
+function QuestionItem({ productId, pointId, q }: { productId: number; pointId: number; q: UspPointQuestion }) {
+  const update = useUpdateUspPointQuestion(productId);
+  const del = useDeleteUspPointQuestion(productId);
+  const [text, setText] = useState(q.text);
+  useEffect(() => { setText(q.text); }, [q.text]);
+  return (
+    <div className="flex items-center gap-1">
+      <input value={text} onChange={(e) => setText(e.target.value)}
+        onBlur={() => { if (text !== q.text) update.mutate({ pointId, qId: q.id, text }); }}
+        placeholder="Frage an den Hersteller …" className="flex-1 px-2 py-1 rounded-md text-sm"
+        style={{ background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }} />
+      <button type="button" onClick={() => del.mutate({ pointId, qId: q.id })} className="p-1 rounded-md" style={{ color: '#fca5a5' }} aria-label="Frage löschen">
+        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
+      </button>
+    </div>
+  );
+}
+
+function QuestionsBlock({ productId, pointId, questions }: { productId: number; pointId: number; questions: UspPointQuestion[] }) {
+  const create = useCreateUspPointQuestion(productId);
+  return (
+    <div className="mt-3 flex flex-col gap-1.5">
+      <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-on-surface-variant)' }}>Fragen an Hersteller</span>
+      {questions.map(q => <QuestionItem key={q.id} productId={productId} pointId={pointId} q={q} />)}
+      <button type="button" onClick={() => create.mutate({ pointId })} className="self-start px-2.5 py-1 rounded-md text-xs flex items-center gap-1.5"
+        style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>add</span>Frage
+      </button>
+    </div>
+  );
+}
 
 interface Props {
   productId: number; index: number; point: UspPoint;
@@ -60,9 +95,10 @@ export function UspPointRow({ productId, index, point, onRequestDelete, hasManuf
           <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete</span>
         </button>
       </div>
+      <span className="text-xs uppercase tracking-wide block mb-1" style={{ color: 'var(--color-on-surface-variant)' }}>Anforderungen</span>
       <textarea value={body} onChange={(e) => setBody(e.target.value)}
         onBlur={() => { if (body !== (point.body ?? '')) update.mutate({ pointId: point.id, patch: { body } }); }}
-        placeholder="Beschreibung / Anforderungen …" rows={3} className="w-full px-2 py-1.5 rounded-md text-sm"
+        placeholder="Anforderungen an den Hersteller …" rows={3} className="w-full px-2 py-1.5 rounded-md text-sm"
         style={{ background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)', resize: 'vertical' }} />
       <UspPointImages productId={productId} pointId={point.id} images={point.images} />
       <div className="mt-2">
@@ -74,6 +110,7 @@ export function UspPointRow({ productId, index, point, onRequestDelete, hasManuf
           onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ''; }} />
         {error && <p className="text-xs mt-1" style={{ color: '#fca5a5' }}>{error}</p>}
       </div>
+      <QuestionsBlock productId={productId} pointId={point.id} questions={point.questions} />
     </div>
   );
 }

@@ -39,13 +39,14 @@ function loadImageForProduct(productId: number, pointId: number, imageId: number
   ).get(imageId, pointId, productId) as ImageRow | undefined;
 }
 
-const MAX_MARKE = 200, MAX_HAUPTFOKUS = 2000, MAX_TITLE = 200, MAX_BODY = 5000;
+const MAX_MARKE = 200, MAX_HAUPTFOKUS = 2000, MAX_TITLE = 200, MAX_BODY = 5000, MAX_QUESTION = 500;
 const MAX_MNAME = 200, MAX_DATUM = 50, MAX_MNOTES = 2000, MAX_FNOTE = 1000, MAX_ANSPRECH = 200;
 const VALID_STATUS = new Set(['offen', 'umsetzbar', 'teilweise', 'nicht']);
 
 interface MetaRow { product_id: number; marke: string | null; hauptfokus: string | null; logo_path: string | null; updated_at: number; }
 interface PointRow { id: number; product_id: number; sort_order: number; title: string; body: string | null; include_in_pdf: number; created_at: number; updated_at: number; }
 interface ImageRow { id: number; point_id: number; sort_order: number; file_path: string; created_at: number; }
+interface QuestionRow { id: number; point_id: number; sort_order: number; text: string; created_at: number; updated_at: number; }
 interface ManufacturerRow { id: number; product_id: number; sort_order: number; name: string; ansprechpartner: string | null; datum: string | null; notes: string | null; gesendet: number; created_at: number; updated_at: number; }
 interface FeasibilityRow { id: number; point_id: number; manufacturer_id: number; status: string; note: string | null; include_in_pdf: number; updated_at: number; }
 
@@ -73,9 +74,19 @@ function ensureDefaultManufacturer(productId: number): void {
 function loadImages(pointId: number): ImageRow[] {
   return db.prepare(`SELECT * FROM amazon_usp_point_images WHERE point_id = ? ORDER BY sort_order, id`).all(pointId) as ImageRow[];
 }
-function loadPoints(productId: number): Array<PointRow & { images: ImageRow[] }> {
+function loadQuestions(pointId: number): QuestionRow[] {
+  return db.prepare(`SELECT * FROM amazon_usp_point_questions WHERE point_id = ? ORDER BY sort_order, id`).all(pointId) as QuestionRow[];
+}
+function loadPoints(productId: number): Array<PointRow & { images: ImageRow[]; questions: QuestionRow[] }> {
   const pts = db.prepare(`SELECT * FROM amazon_usp_points WHERE product_id = ? ORDER BY sort_order, id`).all(productId) as PointRow[];
-  return pts.map(p => ({ ...p, images: loadImages(p.id) }));
+  return pts.map(p => ({ ...p, images: loadImages(p.id), questions: loadQuestions(p.id) }));
+}
+function loadQuestionForProduct(productId: number, pointId: number, qId: number): QuestionRow | undefined {
+  return db.prepare(
+    `SELECT q.* FROM amazon_usp_point_questions q
+     JOIN amazon_usp_points p ON p.id = q.point_id
+     WHERE q.id = ? AND q.point_id = ? AND p.product_id = ?`
+  ).get(qId, pointId, productId) as QuestionRow | undefined;
 }
 function loadManufacturers(productId: number): ManufacturerRow[] {
   return db.prepare(`SELECT * FROM amazon_usp_manufacturers WHERE product_id = ? ORDER BY sort_order, id`).all(productId) as ManufacturerRow[];
@@ -133,7 +144,7 @@ router.post('/products/:id/usp/points', (req: Request, res: Response) => {
   const maxOrder = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_usp_points WHERE product_id = ?`).get(id) as { m: number }).m;
   const r = db.prepare(`INSERT INTO amazon_usp_points (product_id, sort_order, title) VALUES (?, ?, ?)`).run(id, maxOrder + 1, title);
   const row = db.prepare(`SELECT * FROM amazon_usp_points WHERE id = ?`).get(r.lastInsertRowid) as PointRow;
-  res.status(201).json({ point: { ...row, images: [] } });
+  res.status(201).json({ point: { ...row, images: [], questions: [] } });
 });
 
 router.patch('/products/:id/usp/points/reorder', (req: Request, res: Response) => {
@@ -173,7 +184,7 @@ router.patch('/products/:id/usp/points/:pointId', (req: Request, res: Response) 
     db.prepare(`UPDATE amazon_usp_points SET ${updates.join(', ')} WHERE id = ?`).run(...params);
   }
   const row = db.prepare(`SELECT * FROM amazon_usp_points WHERE id = ?`).get(pointId) as PointRow;
-  res.json({ point: { ...row, images: loadImages(pointId) } });
+  res.json({ point: { ...row, images: loadImages(pointId), questions: loadQuestions(pointId) } });
 });
 
 router.delete('/products/:id/usp/points/:pointId', (req: Request, res: Response) => {
@@ -335,6 +346,42 @@ router.put('/products/:id/usp/feasibility', (req: Request, res: Response) => {
     db.prepare(`UPDATE amazon_usp_feasibility SET ${updates.join(', ')} WHERE point_id = ? AND manufacturer_id = ?`).run(...params);
   }
   res.json({ feasibility: db.prepare(`SELECT * FROM amazon_usp_feasibility WHERE point_id = ? AND manufacturer_id = ?`).get(pointId, mId) as FeasibilityRow });
+});
+
+// ── Fragen an den Hersteller (je Punkt) ──
+router.post('/products/:id/usp/points/:pointId/questions', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const pointId = Number(req.params.pointId);
+  if (!Number.isInteger(id) || !Number.isInteger(pointId)) { res.status(404).json({ error: 'not found' }); return; }
+  if (!ensureProduct(id) || !loadPointForProduct(id, pointId)) { res.status(404).json({ error: 'not found' }); return; }
+  const textRaw = (req.body as { text?: unknown })?.text;
+  let text = '';
+  if (textRaw !== undefined && textRaw !== null) {
+    if (typeof textRaw !== 'string' || textRaw.trim().length > MAX_QUESTION) { res.status(400).json({ error: 'invalid text' }); return; }
+    text = textRaw.trim();
+  }
+  const maxOrder = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_usp_point_questions WHERE point_id = ?`).get(pointId) as { m: number }).m;
+  const r = db.prepare(`INSERT INTO amazon_usp_point_questions (point_id, sort_order, text) VALUES (?, ?, ?)`).run(pointId, maxOrder + 1, text);
+  res.status(201).json({ question: db.prepare(`SELECT * FROM amazon_usp_point_questions WHERE id = ?`).get(r.lastInsertRowid) as QuestionRow });
+});
+
+router.patch('/products/:id/usp/points/:pointId/questions/:qId', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const pointId = Number(req.params.pointId); const qId = Number(req.params.qId);
+  if (![id, pointId, qId].every(Number.isInteger)) { res.status(404).json({ error: 'not found' }); return; }
+  if (!ensureProduct(id) || !loadQuestionForProduct(id, pointId, qId)) { res.status(404).json({ error: 'not found' }); return; }
+  const textRaw = (req.body as { text?: unknown })?.text;
+  if (textRaw !== undefined) {
+    if (typeof textRaw !== 'string' || textRaw.trim().length > MAX_QUESTION) { res.status(400).json({ error: 'invalid text' }); return; }
+    db.prepare(`UPDATE amazon_usp_point_questions SET text = ?, updated_at = unixepoch() WHERE id = ?`).run(textRaw.trim(), qId);
+  }
+  res.json({ question: db.prepare(`SELECT * FROM amazon_usp_point_questions WHERE id = ?`).get(qId) as QuestionRow });
+});
+
+router.delete('/products/:id/usp/points/:pointId/questions/:qId', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const pointId = Number(req.params.pointId); const qId = Number(req.params.qId);
+  if (![id, pointId, qId].every(Number.isInteger)) { res.status(404).json({ error: 'not found' }); return; }
+  if (!ensureProduct(id) || !loadQuestionForProduct(id, pointId, qId)) { res.status(404).json({ error: 'not found' }); return; }
+  db.prepare(`DELETE FROM amazon_usp_point_questions WHERE id = ?`).run(qId);
+  res.status(204).end();
 });
 
 // ── Logo (ein Bild je Produkt-USP) ──

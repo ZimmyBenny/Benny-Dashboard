@@ -366,7 +366,8 @@ export async function deleteProductItem(productId: number, itemId: number): Prom
 // ── USP (Phase 1) ─────────────────────────────────────────────────────────────
 export interface UspMeta { product_id: number; marke: string | null; hauptfokus: string | null; logo_path: string | null; updated_at: number; }
 export interface UspPointImage { id: number; point_id: number; sort_order: number; file_path: string; created_at: number; }
-export interface UspPoint { id: number; product_id: number; sort_order: number; title: string; body: string | null; include_in_pdf: number; created_at: number; updated_at: number; images: UspPointImage[]; }
+export interface UspPointQuestion { id: number; point_id: number; sort_order: number; text: string; created_at: number; updated_at: number; }
+export interface UspPoint { id: number; product_id: number; sort_order: number; title: string; body: string | null; include_in_pdf: number; created_at: number; updated_at: number; images: UspPointImage[]; questions: UspPointQuestion[]; }
 export interface UspManufacturer { id: number; product_id: number; sort_order: number; name: string; ansprechpartner: string | null; datum: string | null; notes: string | null; created_at: number; updated_at: number; }
 export type UspFeasibilityStatus = 'offen' | 'umsetzbar' | 'teilweise' | 'nicht';
 export interface UspFeasibility { id: number; point_id: number; manufacturer_id: number; status: UspFeasibilityStatus; note: string | null; include_in_pdf: number; updated_at: number; }
@@ -406,6 +407,15 @@ export async function deleteUspPointImage(productId: number, pointId: number, im
 export async function getUspImageObjectUrl(productId: number, imageId: number): Promise<string> {
   const r = await apiClient.get(`/amazon/products/${productId}/usp/images/${imageId}`, { responseType: 'blob' });
   return URL.createObjectURL(r.data as Blob);
+}
+export async function createUspPointQuestion(productId: number, pointId: number, text?: string): Promise<UspPointQuestion> {
+  return ((await apiClient.post(`/amazon/products/${productId}/usp/points/${pointId}/questions`, text !== undefined ? { text } : {})).data as { question: UspPointQuestion }).question;
+}
+export async function updateUspPointQuestion(productId: number, pointId: number, qId: number, text: string): Promise<UspPointQuestion> {
+  return ((await apiClient.patch(`/amazon/products/${productId}/usp/points/${pointId}/questions/${qId}`, { text })).data as { question: UspPointQuestion }).question;
+}
+export async function deleteUspPointQuestion(productId: number, pointId: number, qId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/usp/points/${pointId}/questions/${qId}`);
 }
 export async function uploadUspLogo(productId: number, file: File): Promise<UspMeta> {
   const fd = new FormData(); fd.append('file', file);

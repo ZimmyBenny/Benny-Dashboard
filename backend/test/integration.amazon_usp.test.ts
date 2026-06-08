@@ -202,3 +202,36 @@ describe('USP API — Hersteller + Feasibility', () => {
     expect(r.body.feasibility).toEqual([expect.objectContaining({ point_id: pt.body.point.id, manufacturer_id: m.body.manufacturer.id, status: 'nicht' })]);
   });
 });
+
+describe('USP API — Fragen an Hersteller', () => {
+  let db: Database.Database; let app: express.Express;
+  beforeEach(async () => { db = createTestDb(); app = await makeApp(db); });
+
+  it('POST/PATCH/DELETE Frage + erscheint am Punkt', async () => {
+    const pid = makeProduct(db);
+    await request(app).get(`/api/amazon/products/${pid}/usp`);
+    const pt = await request(app).post(`/api/amazon/products/${pid}/usp/points`).send({ title: 'P' });
+    const pointId = pt.body.point.id;
+    const q = await request(app).post(`/api/amazon/products/${pid}/usp/points/${pointId}/questions`).send({ text: 'Welche Drucktechnik?' });
+    expect(q.status).toBe(201);
+    expect(q.body.question).toMatchObject({ point_id: pointId, sort_order: 1, text: 'Welche Drucktechnik?' });
+    const list = await request(app).get(`/api/amazon/products/${pid}/usp`);
+    expect(list.body.points[0].questions.map((x: { text: string }) => x.text)).toEqual(['Welche Drucktechnik?']);
+    const upd = await request(app).patch(`/api/amazon/products/${pid}/usp/points/${pointId}/questions/${q.body.question.id}`).send({ text: 'Geändert' });
+    expect(upd.body.question.text).toBe('Geändert');
+    const del = await request(app).delete(`/api/amazon/products/${pid}/usp/points/${pointId}/questions/${q.body.question.id}`);
+    expect(del.status).toBe(204);
+    expect((db.prepare(`SELECT COUNT(*) AS c FROM amazon_usp_point_questions WHERE point_id=?`).get(pointId) as { c: number }).c).toBe(0);
+  });
+
+  it('Cascade: Punkt loeschen entfernt Fragen; Cross-Produkt -> 404', async () => {
+    const pA = makeProduct(db, 'A'); const pB = makeProduct(db, 'B');
+    await request(app).get(`/api/amazon/products/${pA}/usp`);
+    await request(app).get(`/api/amazon/products/${pB}/usp`);
+    const pt = await request(app).post(`/api/amazon/products/${pA}/usp/points`).send({});
+    const q = await request(app).post(`/api/amazon/products/${pA}/usp/points/${pt.body.point.id}/questions`).send({ text: 'X' });
+    expect((await request(app).delete(`/api/amazon/products/${pB}/usp/points/${pt.body.point.id}/questions/${q.body.question.id}`)).status).toBe(404);
+    await request(app).delete(`/api/amazon/products/${pA}/usp/points/${pt.body.point.id}`);
+    expect((db.prepare(`SELECT COUNT(*) AS c FROM amazon_usp_point_questions WHERE id=?`).get(q.body.question.id) as { c: number }).c).toBe(0);
+  });
+});

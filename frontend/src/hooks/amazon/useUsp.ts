@@ -4,6 +4,7 @@ import {
   uploadUspPointImage, deleteUspPointImage, reorderUspPointImages,
   createUspManufacturer, updateUspManufacturer, deleteUspManufacturer, reorderUspManufacturers,
   setUspFeasibility, uploadUspLogo, deleteUspLogo,
+  createUspPointQuestion, updateUspPointQuestion, deleteUspPointQuestion,
   type UspMetaPatch, type UspPointPatch, type UspManufacturerPatch, type UspFeasibilityStatus,
 } from '../../api/amazon.api';
 
@@ -19,6 +20,18 @@ function inval(productId: number, qc: ReturnType<typeof useQueryClient>) {
 export function useUpdateUspMeta(productId: number) {
   const qc = useQueryClient();
   return useMutation({ mutationFn: (patch: UspMetaPatch) => updateUspMeta(productId, patch), onSettled: inval(productId, qc) });
+}
+export function useCreateUspPointQuestion(productId: number) {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: ({ pointId, text }: { pointId: number; text?: string }) => createUspPointQuestion(productId, pointId, text), onSettled: inval(productId, qc) });
+}
+export function useUpdateUspPointQuestion(productId: number) {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: ({ pointId, qId, text }: { pointId: number; qId: number; text: string }) => updateUspPointQuestion(productId, pointId, qId, text), onSettled: inval(productId, qc) });
+}
+export function useDeleteUspPointQuestion(productId: number) {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: ({ pointId, qId }: { pointId: number; qId: number }) => deleteUspPointQuestion(productId, pointId, qId), onSettled: inval(productId, qc) });
 }
 export function useUploadUspLogo(productId: number) {
   const qc = useQueryClient();

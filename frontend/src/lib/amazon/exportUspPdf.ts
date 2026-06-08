@@ -6,6 +6,7 @@ const BG: [number, number, number] = [255, 255, 255];     // weisser Hintergrund
 const BLUE: [number, number, number] = [45, 70, 150];     // Titel & Ueberschriften (auf Weiss lesbar)
 const BODY: [number, number, number] = [38, 40, 48];       // dunkler Fliesstext
 const MUTED: [number, number, number] = [120, 122, 134];   // Kopf/Fuss/Hinweis
+const RED: [number, number, number] = [153, 27, 27];       // Fragen an Hersteller
 
 function slug(s: string, max = 40): string {
   return s.normalize('NFKD').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, max) || 'x';
@@ -148,7 +149,10 @@ export async function exportUspPdf(
     const p = points[i];
     const num = i + 1;
     heading(p.title ? `Punkt ${num} – ${p.title}` : `Punkt ${num}`);
-    if (p.body) paragraph(p.body, { size: 10.5, color: BODY, lh: 15, gap: 6 });
+    if (p.body) {
+      paragraph('Anforderungen', { size: 11, color: BODY, style: 'bold', lh: 15, gap: 2 });
+      paragraph(p.body, { size: 10.5, color: BODY, lh: 15, gap: 6 });
+    }
 
     for (const img of p.images) {
       try {
@@ -166,6 +170,24 @@ export async function exportUspPdf(
         /* Bild ueberspringen */
       }
     }
+
+    // ── Fragen an Hersteller + leere Antwort-Kaestchen ──
+    const questions = p.questions.filter(q => q.text.trim().length > 0);
+    if (questions.length > 0) {
+      paragraph('Fragen an Hersteller', { size: 11, color: RED, style: 'bold', lh: 15, gap: 2 });
+      questions.forEach((q, qi) => paragraph(`${qi + 1}. ${q.text}`, { size: 10.5, color: BODY, lh: 15, gap: 2 }));
+
+      y += 4;
+      paragraph('Anmerkung Hersteller', { size: 11, color: BLUE, style: 'bold', lh: 15, gap: 4 });
+      doc.setDrawColor(180, 182, 195);
+      for (let qi = 0; qi < questions.length; qi++) {
+        const boxH = 26;
+        newPageIfNeeded(boxH + 6);
+        doc.rect(marginX, y, contentW, boxH);
+        y += boxH + 6;
+      }
+    }
+
     y += 8;
   }
 
