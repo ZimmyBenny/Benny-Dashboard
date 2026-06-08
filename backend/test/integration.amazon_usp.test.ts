@@ -275,3 +275,77 @@ describe('USP API — Versionen', () => {
     expect((db.prepare(`SELECT COUNT(*) AS c FROM amazon_usp_versions WHERE id=?`).get(up2.body.version.id) as { c: number }).c).toBe(0);
   });
 });
+
+describe('USP API — Persoenlich: Meta-Felder + Kaufgruende', () => {
+  let db: Database.Database; let app: express.Express;
+  beforeEach(async () => { db = createTestDb(); app = await makeApp(db); });
+
+  it('Meta-PATCH setzt Beispiel-Felder (Trim, Leer->null)', async () => {
+    const pid = makeProduct(db);
+    await request(app).get(`/api/amazon/products/${pid}/usp`);
+    const r = await request(app).patch(`/api/amazon/products/${pid}/usp`).send({
+      bsp_amazon: '  A ', bsp_alibaba: 'B', bsp_pinterest: 'C', differenzierung: 'D',
+    });
+    expect(r.status).toBe(200);
+    expect(r.body.meta).toMatchObject({ bsp_amazon: 'A', bsp_alibaba: 'B', bsp_pinterest: 'C', differenzierung: 'D' });
+    const empty = await request(app).patch(`/api/amazon/products/${pid}/usp`).send({ bsp_amazon: '' });
+    expect(empty.body.meta.bsp_amazon).toBeNull();
+  });
+
+  it('Kaufgrund CRUD + Reorder + im Payload', async () => {
+    const pid = makeProduct(db);
+    await request(app).get(`/api/amazon/products/${pid}/usp`);
+    const a = await request(app).post(`/api/amazon/products/${pid}/usp/kaufgruende`).send({ text: 'A' });
+    expect(a.status).toBe(201);
+    expect(a.body.kaufgrund).toMatchObject({ text: 'A', sort_order: 1, product_id: pid });
+    const b = await request(app).post(`/api/amazon/products/${pid}/usp/kaufgruende`).send({ text: 'B' });
+    expect(b.body.kaufgrund.sort_order).toBe(2);
+    const patch = await request(app).patch(`/api/amazon/products/${pid}/usp/kaufgruende/${a.body.kaufgrund.id}`).send({ text: 'A2' });
+    expect(patch.body.kaufgrund.text).toBe('A2');
+    const ro = await request(app).patch(`/api/amazon/products/${pid}/usp/kaufgruende/reorder`).send({ order: [b.body.kaufgrund.id, a.body.kaufgrund.id] });
+    expect(ro.status).toBe(200);
+    const list = await request(app).get(`/api/amazon/products/${pid}/usp`);
+    expect(list.body.kaufgruende.map((k: { text: string }) => k.text)).toEqual(['B', 'A2']);
+    const del = await request(app).delete(`/api/amazon/products/${pid}/usp/kaufgruende/${a.body.kaufgrund.id}`);
+    expect(del.status).toBe(204);
+  });
+
+  it('Kaufgrund Cross-Produkt -> 404; Cascade beim Produkt-Loeschen', async () => {
+    const pA = makeProduct(db, 'A'); const pB = makeProduct(db, 'B');
+    await request(app).get(`/api/amazon/products/${pA}/usp`);
+    await request(app).get(`/api/amazon/products/${pB}/usp`);
+    const a = await request(app).post(`/api/amazon/products/${pA}/usp/kaufgruende`).send({ text: 'X' });
+    expect((await request(app).delete(`/api/amazon/products/${pB}/usp/kaufgruende/${a.body.kaufgrund.id}`)).status).toBe(404);
+    db.prepare(`DELETE FROM amazon_products WHERE id=?`).run(pA);
+    expect((db.prepare(`SELECT COUNT(*) AS c FROM amazon_usp_kaufgruende WHERE id=?`).get(a.body.kaufgrund.id) as { c: number }).c).toBe(0);
+  });
+});
+
+describe('USP API — Persoenlich: Dateien', () => {
+  let db: Database.Database; let app: express.Express;
+  beforeEach(async () => { db = createTestDb(); app = await makeApp(db); });
+  const BIN = Buffer.from('hello world pdf-ish', 'latin1');
+
+  it('Upload + im Payload + GET serve + DELETE', async () => {
+    const pid = makeProduct(db);
+    const up = await request(app).post(`/api/amazon/products/${pid}/usp/files`)
+      .attach('file', BIN, { filename: 'doku.pdf', contentType: 'application/pdf' });
+    expect(up.status).toBe(201);
+    expect(up.body.file).toMatchObject({ product_id: pid, original_name: 'doku.pdf', mime: 'application/pdf', sort_order: 1 });
+    const list = await request(app).get(`/api/amazon/products/${pid}/usp`);
+    expect(list.body.files).toHaveLength(1);
+    const get = await request(app).get(`/api/amazon/products/${pid}/usp/files/${up.body.file.id}`);
+    expect(get.status).toBe(200);
+    expect(get.headers['content-type']).toContain('application/pdf');
+    const del = await request(app).delete(`/api/amazon/products/${pid}/usp/files/${up.body.file.id}`);
+    expect(del.status).toBe(204);
+  });
+
+  it('Datei Cross-Produkt -> 404; Cascade beim Produkt-Loeschen', async () => {
+    const pA = makeProduct(db, 'A'); const pB = makeProduct(db, 'B');
+    const up = await request(app).post(`/api/amazon/products/${pA}/usp/files`).attach('file', BIN, { filename: 'a.bin', contentType: 'application/octet-stream' });
+    expect((await request(app).delete(`/api/amazon/products/${pB}/usp/files/${up.body.file.id}`)).status).toBe(404);
+    db.prepare(`DELETE FROM amazon_products WHERE id=?`).run(pA);
+    expect((db.prepare(`SELECT COUNT(*) AS c FROM amazon_usp_files WHERE id=?`).get(up.body.file.id) as { c: number }).c).toBe(0);
+  });
+});

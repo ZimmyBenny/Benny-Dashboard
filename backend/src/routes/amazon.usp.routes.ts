@@ -42,6 +42,26 @@ function deleteVersionFile(filename: string | null | undefined) {
   try { fs.unlinkSync(abs); } catch { /* schon weg */ }
 }
 interface VersionRow { id: number; product_id: number; manufacturer_name: string; file_path: string; created_at: number; }
+
+const FILES_DIR = path.join(os.homedir(), '.local', 'share', 'benny-dashboard', 'amazon-usp-files');
+if (!fs.existsSync(FILES_DIR)) fs.mkdirSync(FILES_DIR, { recursive: true });
+const fileUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, FILES_DIR),
+    filename: (_req, file, cb) => cb(null, `${crypto.randomUUID()}${path.extname(file.originalname) || ''}`),
+  }),
+  limits: { fileSize: 20 * 1024 * 1024 },
+});
+function deleteFilesFile(filename: string | null | undefined) {
+  if (!filename) return;
+  const abs = path.resolve(FILES_DIR, filename);
+  if (!abs.startsWith(path.resolve(FILES_DIR) + path.sep)) return;
+  try { fs.unlinkSync(abs); } catch { /* schon weg */ }
+}
+interface FileRow { id: number; product_id: number; sort_order: number; file_path: string; original_name: string; mime: string; created_at: number; }
+function loadFileForProduct(productId: number, fId: number): FileRow | undefined {
+  return db.prepare(`SELECT * FROM amazon_usp_files WHERE id = ? AND product_id = ?`).get(fId, productId) as FileRow | undefined;
+}
 function loadVersionForProduct(productId: number, vId: number): VersionRow | undefined {
   return db.prepare(`SELECT * FROM amazon_usp_versions WHERE id = ? AND product_id = ?`).get(vId, productId) as VersionRow | undefined;
 }
@@ -60,12 +80,12 @@ function loadImageForProduct(productId: number, pointId: number, imageId: number
   ).get(imageId, pointId, productId) as ImageRow | undefined;
 }
 
-const MAX_MARKE = 200, MAX_HAUPTFOKUS = 2000, MAX_TITLE = 200, MAX_BODY = 5000, MAX_QUESTION = 500;
+const MAX_MARKE = 200, MAX_HAUPTFOKUS = 2000, MAX_TITLE = 200, MAX_BODY = 5000, MAX_QUESTION = 500, MAX_BSP = 2000;
 const MAX_MNAME = 200, MAX_DATUM = 50, MAX_MNOTES = 2000, MAX_FNOTE = 1000, MAX_ANSPRECH = 200;
 const VALID_STATUS = new Set(['offen', 'umsetzbar', 'teilweise', 'nicht']);
 const VALID_META_STATUS = new Set(['offen', 'in_bearbeitung', 'erledigt']);
 
-interface MetaRow { product_id: number; marke: string | null; hauptfokus: string | null; logo_path: string | null; status: string; updated_at: number; }
+interface MetaRow { product_id: number; marke: string | null; hauptfokus: string | null; logo_path: string | null; status: string; bsp_amazon: string | null; bsp_alibaba: string | null; bsp_pinterest: string | null; differenzierung: string | null; updated_at: number; }
 interface PointRow { id: number; product_id: number; sort_order: number; title: string; body: string | null; created_at: number; updated_at: number; }
 interface ImageRow { id: number; point_id: number; sort_order: number; file_path: string; created_at: number; }
 interface QuestionRow { id: number; point_id: number; sort_order: number; text: string; created_at: number; updated_at: number; }
@@ -126,12 +146,22 @@ function loadPointForProduct(productId: number, pointId: number): PointRow | und
 function loadManufacturerForProduct(productId: number, mId: number): ManufacturerRow | undefined {
   return db.prepare(`SELECT * FROM amazon_usp_manufacturers WHERE id = ? AND product_id = ?`).get(mId, productId) as ManufacturerRow | undefined;
 }
+interface KaufgrundRow { id: number; product_id: number; sort_order: number; text: string; created_at: number; updated_at: number; }
+function loadKaufgruende(productId: number): KaufgrundRow[] {
+  return db.prepare(`SELECT * FROM amazon_usp_kaufgruende WHERE product_id = ? ORDER BY sort_order, id`).all(productId) as KaufgrundRow[];
+}
+function loadKaufgrundForProduct(productId: number, kId: number): KaufgrundRow | undefined {
+  return db.prepare(`SELECT * FROM amazon_usp_kaufgruende WHERE id = ? AND product_id = ?`).get(kId, productId) as KaufgrundRow | undefined;
+}
+function loadFiles(productId: number): FileRow[] {
+  return db.prepare(`SELECT * FROM amazon_usp_files WHERE product_id = ? ORDER BY sort_order, id`).all(productId) as FileRow[];
+}
 router.get('/products/:id/usp', (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'product not found' }); return; }
   const meta = getOrCreateMeta(id);
   ensureDefaultManufacturer(id);
-  res.json({ meta, points: loadPoints(id), manufacturers: loadManufacturers(id), feasibility: loadFeasibility(id) });
+  res.json({ meta, points: loadPoints(id), manufacturers: loadManufacturers(id), feasibility: loadFeasibility(id), kaufgruende: loadKaufgruende(id), files: loadFiles(id) });
 });
 
 router.patch('/products/:id/usp', (req: Request, res: Response) => {
@@ -140,7 +170,7 @@ router.patch('/products/:id/usp', (req: Request, res: Response) => {
   getOrCreateMeta(id);
   const body = (req.body as Record<string, unknown>) ?? {};
   const updates: string[] = []; const params: unknown[] = [];
-  for (const [col, max] of [['marke', MAX_MARKE], ['hauptfokus', MAX_HAUPTFOKUS]] as const) {
+  for (const [col, max] of [['marke', MAX_MARKE], ['hauptfokus', MAX_HAUPTFOKUS], ['bsp_amazon', MAX_BSP], ['bsp_alibaba', MAX_BSP], ['bsp_pinterest', MAX_BSP], ['differenzierung', MAX_BSP]] as const) {
     if (body[col] !== undefined) {
       const v = normalizeText(body[col], max);
       if (!v.ok) { res.status(400).json({ error: `invalid ${col}` }); return; }
@@ -481,6 +511,91 @@ router.delete('/products/:id/usp/versions/:vId', (req: Request, res: Response) =
   if (!v) { res.status(404).json({ error: 'not found' }); return; }
   db.prepare(`DELETE FROM amazon_usp_versions WHERE id = ?`).run(vId);
   deleteVersionFile(v.file_path);
+  res.status(204).end();
+});
+
+const MAX_KAUFGRUND = 500;
+router.post('/products/:id/usp/kaufgruende', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'product not found' }); return; }
+  const textRaw = (req.body as { text?: unknown })?.text;
+  let text = '';
+  if (textRaw !== undefined && textRaw !== null) {
+    if (typeof textRaw !== 'string' || textRaw.trim().length > MAX_KAUFGRUND) { res.status(400).json({ error: 'invalid text' }); return; }
+    text = textRaw.trim();
+  }
+  const maxOrder = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_usp_kaufgruende WHERE product_id = ?`).get(id) as { m: number }).m;
+  const r = db.prepare(`INSERT INTO amazon_usp_kaufgruende (product_id, sort_order, text) VALUES (?, ?, ?)`).run(id, maxOrder + 1, text);
+  res.status(201).json({ kaufgrund: db.prepare(`SELECT * FROM amazon_usp_kaufgruende WHERE id = ?`).get(r.lastInsertRowid) as KaufgrundRow });
+});
+
+router.patch('/products/:id/usp/kaufgruende/reorder', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'product not found' }); return; }
+  const order = (req.body as { order?: unknown })?.order;
+  if (!Array.isArray(order) || order.some(x => !Number.isInteger(x))) { res.status(400).json({ error: 'invalid order' }); return; }
+  const own = db.prepare(`SELECT id FROM amazon_usp_kaufgruende WHERE product_id = ?`).all(id) as Array<{ id: number }>;
+  const ownIds = new Set(own.map(o => o.id));
+  if (order.length !== ownIds.size || order.some((x: number) => !ownIds.has(x))) { res.status(400).json({ error: 'order mismatch' }); return; }
+  const upd = db.prepare(`UPDATE amazon_usp_kaufgruende SET sort_order = ?, updated_at = unixepoch() WHERE id = ?`);
+  db.transaction(() => { order.forEach((kid: number, idx: number) => upd.run(idx + 1, kid)); })();
+  res.json({ kaufgruende: loadKaufgruende(id) });
+});
+
+router.patch('/products/:id/usp/kaufgruende/:kId', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const kId = Number(req.params.kId);
+  if (!Number.isInteger(id) || !Number.isInteger(kId)) { res.status(404).json({ error: 'not found' }); return; }
+  if (!ensureProduct(id) || !loadKaufgrundForProduct(id, kId)) { res.status(404).json({ error: 'not found' }); return; }
+  const textRaw = (req.body as { text?: unknown })?.text;
+  if (textRaw !== undefined) {
+    if (typeof textRaw !== 'string' || textRaw.trim().length > MAX_KAUFGRUND) { res.status(400).json({ error: 'invalid text' }); return; }
+    db.prepare(`UPDATE amazon_usp_kaufgruende SET text = ?, updated_at = unixepoch() WHERE id = ?`).run(textRaw.trim(), kId);
+  }
+  res.json({ kaufgrund: db.prepare(`SELECT * FROM amazon_usp_kaufgruende WHERE id = ?`).get(kId) as KaufgrundRow });
+});
+
+router.delete('/products/:id/usp/kaufgruende/:kId', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const kId = Number(req.params.kId);
+  if (!Number.isInteger(id) || !Number.isInteger(kId)) { res.status(404).json({ error: 'not found' }); return; }
+  if (!ensureProduct(id) || !loadKaufgrundForProduct(id, kId)) { res.status(404).json({ error: 'not found' }); return; }
+  db.prepare(`DELETE FROM amazon_usp_kaufgruende WHERE id = ?`).run(kId);
+  res.status(204).end();
+});
+
+router.post('/products/:id/usp/files', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'product not found' }); return; }
+  fileUpload.single('file')(req, res, (err: unknown) => {
+    if (err) { res.status(400).json({ error: err instanceof Error ? err.message : 'upload failed' }); return; }
+    const file = (req as Request & { file?: { filename: string; originalname: string; mimetype: string } }).file;
+    if (!file) { res.status(400).json({ error: 'no file' }); return; }
+    const maxOrder = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_usp_files WHERE product_id = ?`).get(id) as { m: number }).m;
+    const r = db.prepare(`INSERT INTO amazon_usp_files (product_id, sort_order, file_path, original_name, mime) VALUES (?, ?, ?, ?, ?)`)
+      .run(id, maxOrder + 1, file.filename, file.originalname.slice(0, 300), file.mimetype.slice(0, 200));
+    res.status(201).json({ file: db.prepare(`SELECT * FROM amazon_usp_files WHERE id = ?`).get(r.lastInsertRowid) as FileRow });
+  });
+});
+
+router.get('/products/:id/usp/files/:fId', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const fId = Number(req.params.fId);
+  if (!Number.isInteger(id) || !Number.isInteger(fId) || !ensureProduct(id)) { res.status(404).end(); return; }
+  const f = loadFileForProduct(id, fId);
+  if (!f) { res.status(404).end(); return; }
+  const abs = path.resolve(FILES_DIR, f.file_path);
+  if (!abs.startsWith(path.resolve(FILES_DIR) + path.sep) || !fs.existsSync(abs)) { res.status(404).end(); return; }
+  res.setHeader('Content-Type', f.mime || 'application/octet-stream');
+  const asciiName = f.original_name.replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '');
+  res.setHeader('Content-Disposition', `inline; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(f.original_name)}`);
+  fs.createReadStream(abs).pipe(res);
+});
+
+router.delete('/products/:id/usp/files/:fId', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const fId = Number(req.params.fId);
+  if (!Number.isInteger(id) || !Number.isInteger(fId) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  const f = loadFileForProduct(id, fId);
+  if (!f) { res.status(404).json({ error: 'not found' }); return; }
+  db.prepare(`DELETE FROM amazon_usp_files WHERE id = ?`).run(fId);
+  deleteFilesFile(f.file_path);
   res.status(204).end();
 });
 

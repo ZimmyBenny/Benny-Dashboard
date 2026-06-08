@@ -28,7 +28,7 @@ export function UspPointList({ productId, points, manufacturerId, feasibility, o
       dragIndex.current = idx; return arr;
     });
   }
-  function up() { if (dragIndex.current !== null && order) reorder.mutate(order); dragIndex.current = null; }
+  function up() { if (dragIndex.current !== null && order) reorder.mutate(order, { onSettled: () => setOrder(null) }); dragIndex.current = null; }
   return (
     <div className="flex flex-col gap-4">
       {ordered.map((p, idx) => {
