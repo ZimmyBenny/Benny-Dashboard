@@ -42,8 +42,9 @@ function loadImageForProduct(productId: number, pointId: number, imageId: number
 const MAX_MARKE = 200, MAX_HAUPTFOKUS = 2000, MAX_TITLE = 200, MAX_BODY = 5000, MAX_QUESTION = 500;
 const MAX_MNAME = 200, MAX_DATUM = 50, MAX_MNOTES = 2000, MAX_FNOTE = 1000, MAX_ANSPRECH = 200;
 const VALID_STATUS = new Set(['offen', 'umsetzbar', 'teilweise', 'nicht']);
+const VALID_META_STATUS = new Set(['offen', 'in_bearbeitung', 'erledigt']);
 
-interface MetaRow { product_id: number; marke: string | null; hauptfokus: string | null; logo_path: string | null; updated_at: number; }
+interface MetaRow { product_id: number; marke: string | null; hauptfokus: string | null; logo_path: string | null; status: string; updated_at: number; }
 interface PointRow { id: number; product_id: number; sort_order: number; title: string; body: string | null; created_at: number; updated_at: number; }
 interface ImageRow { id: number; point_id: number; sort_order: number; file_path: string; created_at: number; }
 interface QuestionRow { id: number; point_id: number; sort_order: number; text: string; created_at: number; updated_at: number; }
@@ -124,6 +125,10 @@ router.patch('/products/:id/usp', (req: Request, res: Response) => {
       if (!v.ok) { res.status(400).json({ error: `invalid ${col}` }); return; }
       updates.push(`${col} = ?`); params.push(v.value);
     }
+  }
+  if (body.status !== undefined) {
+    if (typeof body.status !== 'string' || !VALID_META_STATUS.has(body.status)) { res.status(400).json({ error: 'invalid status' }); return; }
+    updates.push('status = ?'); params.push(body.status);
   }
   if (updates.length > 0) {
     updates.push('updated_at = unixepoch()'); params.push(id);

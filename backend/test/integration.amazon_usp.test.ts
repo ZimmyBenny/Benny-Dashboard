@@ -60,6 +60,12 @@ describe('USP API — Meta + Punkte', () => {
     expect(ok.body.meta).toMatchObject({ marke: 'Ruhekind', hauptfokus: 'Boxspring' });
     const bad = await request(app).patch(`/api/amazon/products/${pid}/usp`).send({ hauptfokus: 'x'.repeat(2001) });
     expect(bad.status).toBe(400);
+    // Status (Default 'offen'); gueltiger Wert setzbar, ungueltiger -> 400
+    expect(ok.body.meta.status).toBe('offen');
+    const st = await request(app).patch(`/api/amazon/products/${pid}/usp`).send({ status: 'in_bearbeitung' });
+    expect(st.body.meta.status).toBe('in_bearbeitung');
+    const stBad = await request(app).patch(`/api/amazon/products/${pid}/usp`).send({ status: 'kaputt' });
+    expect(stBad.status).toBe(400);
   });
 
   it('POST/PATCH/DELETE Punkt + Reorder', async () => {

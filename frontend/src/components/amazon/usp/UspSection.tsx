@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { type UspPoint } from '../../../api/amazon.api';
-import { useUsp, useCreateUspPoint, useDeleteUspPoint } from '../../../hooks/amazon/useUsp';
+import { type UspPoint, type SourcingStatus } from '../../../api/amazon.api';
+import { useUsp, useCreateUspPoint, useDeleteUspPoint, useUpdateUspMeta } from '../../../hooks/amazon/useUsp';
 import { SectionHeader } from '../SectionHeader';
+import { SectionStatusBadge } from '../SectionStatusBadge';
 import { UspMetaForm } from './UspMetaForm';
 import { UspPointList } from './UspPointList';
 import { UspManufacturers } from './UspManufacturers';
@@ -34,6 +35,7 @@ export function UspSection({ productId, productName }: Props) {
   const { data, isLoading, isError, refetch } = useUsp(productId);
   const createPoint = useCreateUspPoint(productId);
   const deletePoint = useDeleteUspPoint(productId);
+  const updateMeta = useUpdateUspMeta(productId);
   const [expanded, setExpanded] = useState(() => readExpanded(productId));
   const [pendingDelete, setPendingDelete] = useState<UspPoint | null>(null);
   const [selectedMId, setSelectedMId] = useState<number | null>(null);
@@ -78,6 +80,12 @@ export function UspSection({ productId, productName }: Props) {
         accent={ACCENT}
         expanded={expanded}
         onToggleExpand={toggle}
+        rightSlot={data ? (
+          <SectionStatusBadge
+            status={data.meta.status}
+            onChange={(s: SourcingStatus) => updateMeta.mutate({ status: s })}
+          />
+        ) : undefined}
       />
       {expanded && (
         <div className="p-4 pt-0">
