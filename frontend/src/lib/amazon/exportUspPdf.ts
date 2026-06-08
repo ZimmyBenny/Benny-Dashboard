@@ -1,6 +1,12 @@
 import jsPDF from 'jspdf';
 import { getUspImageObjectUrl, type UspMeta, type UspPoint, type UspManufacturer } from '../../api/amazon.api';
 
+// ── Electric-Noir-Farbpalette fuer das PDF ────────────────────────────────────
+const BG: [number, number, number] = [26, 27, 34];        // dunkler Hintergrund
+const BLUE: [number, number, number] = [139, 156, 219];   // Titel & Ueberschriften
+const BODY: [number, number, number] = [206, 209, 220];    // Fliesstext
+const MUTED: [number, number, number] = [150, 152, 168];   // Kopf/Fuss/Hinweis
+
 function slug(s: string, max = 40): string {
   return s.normalize('NFKD').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, max) || 'x';
 }
@@ -22,6 +28,13 @@ async function loadImage(url: string): Promise<{ dataUrl: string; w: number; h: 
   return { dataUrl, ...dims };
 }
 
+function isBullet(line: string): boolean {
+  return /^\s*[•\-*–]\s+/.test(line);
+}
+function stripBullet(line: string): string {
+  return line.replace(/^\s*[•\-*–]\s+/, '');
+}
+
 export async function exportUspPdf(
   productId: number,
   productName: string,
@@ -32,66 +45,94 @@ export async function exportUspPdf(
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
-  const mX = 40;
-  const contentW = pageW - mX * 2;
-  let y = 50;
+  const cx = pageW / 2;
+  const marginX = 56;
+  const contentW = pageW - marginX * 2;
+  const topY = 64;
+  const bottomY = pageH - 44;
+  const runningHeader = `${productName} Anforderungen`;
 
-  const ensure = (need: number) => {
-    if (y + need > pageH - 50) {
-      doc.addPage();
-      y = 50;
-    }
-  };
-
-  doc.setFontSize(20);
-  doc.text('PRODUKTANFRAGE', mX, y);
-  y += 22;
-
-  doc.setFontSize(13);
-  doc.setTextColor(60);
-  doc.text(productName, mX, y);
-  y += 20;
-
-  doc.setTextColor(0);
-  doc.setFontSize(10);
-  doc.text(`Marke: ${meta.marke ?? '-'}`, mX, y);
-  y += 14;
-  doc.text(`Hersteller: ${manufacturer.name || '-'}`, mX, y);
-  y += 14;
-  doc.text(`Datum: ${manufacturer.datum ?? '-'}`, mX, y);
-  y += 18;
-
-  if (meta.hauptfokus) {
-    doc.setFontSize(12);
-    doc.text('Hauptfokus', mX, y);
-    y += 14;
-    doc.setFontSize(10);
-    for (const l of doc.splitTextToSize(meta.hauptfokus, contentW)) {
-      ensure(14);
-      doc.text(l, mX, y);
-      y += 14;
-    }
-    y += 6;
+  function paintPage(): void {
+    doc.setFillColor(...BG);
+    doc.rect(0, 0, pageW, pageH, 'F');
+    // Kopfzeile
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(9);
+    doc.setTextColor(...MUTED);
+    doc.text(runningHeader, cx, 34, { align: 'center' });
   }
 
-  for (let i = 0; i < points.length; i++) {
-    const p = points[i];
-    ensure(20);
-    doc.setFontSize(13);
-    doc.setTextColor(30, 64, 130);
-    doc.text(`Punkt ${i + 1} - ${p.title || ''}`, mX, y);
-    y += 16;
+  let y = topY;
+  paintPage();
 
-    doc.setTextColor(0);
-    doc.setFontSize(10);
+  function footer(): void {
+    const total = doc.getNumberOfPages();
+    for (let i = 1; i <= total; i++) {
+      doc.setPage(i);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(...MUTED);
+      doc.text(`Benny Dashboard  ·  Seite ${i} / ${total}`, cx, pageH - 24, { align: 'center' });
+    }
+  }
 
-    if (p.body) {
-      for (const l of doc.splitTextToSize(p.body, contentW)) {
-        ensure(14);
-        doc.text(l, mX, y);
-        y += 14;
+  function newPageIfNeeded(need: number): void {
+    if (y + need > bottomY) {
+      doc.addPage();
+      paintPage();
+      y = topY;
+    }
+  }
+
+  // Block aus zentrierten, umgebrochenen Zeilen; Aufzaehlungszeilen bekommen einen Punkt.
+  function paragraph(text: string, opts: { size: number; color: [number, number, number]; style?: 'normal' | 'bold' | 'italic'; lh?: number; gap?: number }): void {
+    doc.setFont('helvetica', opts.style ?? 'normal');
+    doc.setFontSize(opts.size);
+    doc.setTextColor(...opts.color);
+    const lh = opts.lh ?? opts.size + 4;
+    for (const raw of text.split('\n')) {
+      const bullet = isBullet(raw);
+      const content = bullet ? `•  ${stripBullet(raw)}` : raw;
+      const wrapped = doc.splitTextToSize(content, contentW) as string[];
+      for (const line of wrapped) {
+        newPageIfNeeded(lh);
+        doc.text(line, cx, y, { align: 'center' });
+        y += lh;
       }
     }
+    if (opts.gap) y += opts.gap;
+  }
+
+  function heading(text: string): void {
+    newPageIfNeeded(26);
+    y += 6;
+    paragraph(text, { size: 14, color: BLUE, style: 'bold', lh: 18, gap: 4 });
+  }
+
+  // ── Titel ──
+  paragraph('PRODUKTANFRAGE', { size: 22, color: BLUE, style: 'bold', lh: 26, gap: 4 });
+  paragraph(productName, { size: 15, color: BLUE, style: 'bold', lh: 19, gap: 12 });
+
+  // ── Meta ──
+  const metaLines = [
+    `Marke: ${meta.marke ?? 'wird nachgereicht'}`,
+    `Hersteller: ${manufacturer.name || '—'}`,
+  ];
+  if (manufacturer.ansprechpartner) metaLines.push(`Ansprechpartner: ${manufacturer.ansprechpartner}`);
+  metaLines.push(`Datum: ${manufacturer.datum ?? '—'}`);
+  paragraph(metaLines.join('\n'), { size: 10, color: BODY, lh: 15, gap: 14 });
+
+  // ── Hauptfokus ──
+  if (meta.hauptfokus) {
+    heading('Hauptfokus');
+    paragraph(meta.hauptfokus, { size: 10.5, color: BODY, lh: 15, gap: 14 });
+  }
+
+  // ── Punkte ──
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i];
+    heading(p.title || `Punkt ${i + 1}`);
+    if (p.body) paragraph(p.body, { size: 10.5, color: BODY, lh: 15, gap: 6 });
 
     for (const img of p.images) {
       try {
@@ -99,20 +140,20 @@ export async function exportUspPdf(
         const { dataUrl, w, h } = await loadImage(url);
         URL.revokeObjectURL(url);
         if (!w || !h) continue;
-        const drawW = Math.min(contentW, 320);
+        const drawW = Math.min(contentW, 300);
         const drawH = (h / w) * drawW;
-        ensure(drawH + 8);
+        newPageIfNeeded(drawH + 10);
         const fmt = dataUrl.includes('image/png') ? 'PNG' : dataUrl.includes('image/webp') ? 'WEBP' : 'JPEG';
-        doc.addImage(dataUrl, fmt, mX, y, drawW, drawH);
-        y += drawH + 8;
+        doc.addImage(dataUrl, fmt, cx - drawW / 2, y, drawW, drawH);
+        y += drawH + 10;
       } catch {
-        /* Bild überspringen */
+        /* Bild ueberspringen */
       }
     }
-
     y += 8;
   }
 
+  footer();
   doc.save(
     `Produktanfrage_${slug(productName)}_${slug(manufacturer.name || 'Hersteller')}_${new Date().toLocaleDateString('en-CA')}.pdf`,
   );
