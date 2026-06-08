@@ -135,3 +135,70 @@ describe('USP API — Punkt-Bilder', () => {
     expect((db.prepare(`SELECT COUNT(*) AS c FROM amazon_usp_point_images WHERE id=?`).get(b.body.image.id) as { c: number }).c).toBe(0);
   });
 });
+
+describe('USP API — Hersteller + Feasibility', () => {
+  let db: Database.Database; let app: express.Express;
+  beforeEach(async () => { db = createTestDb(); app = await makeApp(db); });
+
+  it('Hersteller CRUD + Reorder', async () => {
+    const pid = makeProduct(db);
+    await request(app).get(`/api/amazon/products/${pid}/usp`);
+    const a = await request(app).post(`/api/amazon/products/${pid}/usp/manufacturers`).send({ name: 'Alpha' });
+    expect(a.status).toBe(201);
+    expect(a.body.manufacturer).toMatchObject({ name: 'Alpha' });
+    const p = await request(app).patch(`/api/amazon/products/${pid}/usp/manufacturers/${a.body.manufacturer.id}`).send({ name: 'Alpha2', datum: '2026-06-08', notes: 'X' });
+    expect(p.body.manufacturer).toMatchObject({ name: 'Alpha2', datum: '2026-06-08', notes: 'X' });
+    const all = await request(app).get(`/api/amazon/products/${pid}/usp`);
+    const ids = all.body.manufacturers.map((m: { id: number }) => m.id);
+    const ro = await request(app).patch(`/api/amazon/products/${pid}/usp/manufacturers/reorder`).send({ order: [...ids].reverse() });
+    expect(ro.status).toBe(200);
+    const del = await request(app).delete(`/api/amazon/products/${pid}/usp/manufacturers/${a.body.manufacturer.id}`);
+    expect(del.status).toBe(204);
+  });
+
+  it('Feasibility Upsert: zweimal selbe Kombi -> eine Zeile, Status aktualisiert', async () => {
+    const pid = makeProduct(db);
+    await request(app).get(`/api/amazon/products/${pid}/usp`);
+    const pt = await request(app).post(`/api/amazon/products/${pid}/usp/points`).send({ title: 'P' });
+    const m = await request(app).post(`/api/amazon/products/${pid}/usp/manufacturers`).send({ name: 'M' });
+    const f1 = await request(app).put(`/api/amazon/products/${pid}/usp/feasibility`).send({ point_id: pt.body.point.id, manufacturer_id: m.body.manufacturer.id, status: 'umsetzbar', note: 'ok' });
+    expect(f1.status).toBe(200);
+    expect(f1.body.feasibility).toMatchObject({ status: 'umsetzbar', note: 'ok' });
+    const f2 = await request(app).put(`/api/amazon/products/${pid}/usp/feasibility`).send({ point_id: pt.body.point.id, manufacturer_id: m.body.manufacturer.id, status: 'teilweise' });
+    expect(f2.body.feasibility.status).toBe('teilweise');
+    const c = (db.prepare(`SELECT COUNT(*) AS c FROM amazon_usp_feasibility WHERE point_id=? AND manufacturer_id=?`).get(pt.body.point.id, m.body.manufacturer.id) as { c: number }).c;
+    expect(c).toBe(1);
+  });
+
+  it('Feasibility: ungueltiger Status -> 400; fremder Punkt -> 404; note>1000 -> 400', async () => {
+    const pid = makeProduct(db); const other = makeProduct(db, 'O');
+    await request(app).get(`/api/amazon/products/${pid}/usp`);
+    await request(app).get(`/api/amazon/products/${other}/usp`);
+    const pt = await request(app).post(`/api/amazon/products/${pid}/usp/points`).send({});
+    const m = await request(app).post(`/api/amazon/products/${pid}/usp/manufacturers`).send({ name: 'M' });
+    const otherPt = await request(app).post(`/api/amazon/products/${other}/usp/points`).send({});
+    expect((await request(app).put(`/api/amazon/products/${pid}/usp/feasibility`).send({ point_id: pt.body.point.id, manufacturer_id: m.body.manufacturer.id, status: 'kaputt' })).status).toBe(400);
+    expect((await request(app).put(`/api/amazon/products/${pid}/usp/feasibility`).send({ point_id: otherPt.body.point.id, manufacturer_id: m.body.manufacturer.id, status: 'umsetzbar' })).status).toBe(404);
+    expect((await request(app).put(`/api/amazon/products/${pid}/usp/feasibility`).send({ point_id: pt.body.point.id, manufacturer_id: m.body.manufacturer.id, note: 'x'.repeat(1001) })).status).toBe(400);
+  });
+
+  it('Cascade: Hersteller loeschen entfernt seine Feasibility', async () => {
+    const pid = makeProduct(db);
+    await request(app).get(`/api/amazon/products/${pid}/usp`);
+    const pt = await request(app).post(`/api/amazon/products/${pid}/usp/points`).send({});
+    const m = await request(app).post(`/api/amazon/products/${pid}/usp/manufacturers`).send({ name: 'M' });
+    await request(app).put(`/api/amazon/products/${pid}/usp/feasibility`).send({ point_id: pt.body.point.id, manufacturer_id: m.body.manufacturer.id, status: 'umsetzbar' });
+    await request(app).delete(`/api/amazon/products/${pid}/usp/manufacturers/${m.body.manufacturer.id}`);
+    expect((db.prepare(`SELECT COUNT(*) AS c FROM amazon_usp_feasibility WHERE manufacturer_id=?`).get(m.body.manufacturer.id) as { c: number }).c).toBe(0);
+  });
+
+  it('GET liefert feasibility-Liste', async () => {
+    const pid = makeProduct(db);
+    await request(app).get(`/api/amazon/products/${pid}/usp`);
+    const pt = await request(app).post(`/api/amazon/products/${pid}/usp/points`).send({});
+    const m = await request(app).post(`/api/amazon/products/${pid}/usp/manufacturers`).send({ name: 'M' });
+    await request(app).put(`/api/amazon/products/${pid}/usp/feasibility`).send({ point_id: pt.body.point.id, manufacturer_id: m.body.manufacturer.id, status: 'nicht' });
+    const r = await request(app).get(`/api/amazon/products/${pid}/usp`);
+    expect(r.body.feasibility).toEqual([expect.objectContaining({ point_id: pt.body.point.id, manufacturer_id: m.body.manufacturer.id, status: 'nicht' })]);
+  });
+});

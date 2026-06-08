@@ -40,6 +40,8 @@ function loadImageForProduct(productId: number, pointId: number, imageId: number
 }
 
 const MAX_MARKE = 200, MAX_HAUPTFOKUS = 2000, MAX_TITLE = 200, MAX_BODY = 5000;
+const MAX_MNAME = 200, MAX_DATUM = 50, MAX_MNOTES = 2000, MAX_FNOTE = 1000;
+const VALID_STATUS = new Set(['offen', 'umsetzbar', 'teilweise', 'nicht']);
 
 interface MetaRow { product_id: number; marke: string | null; hauptfokus: string | null; updated_at: number; }
 interface PointRow { id: number; product_id: number; sort_order: number; title: string; body: string | null; created_at: number; updated_at: number; }
@@ -87,6 +89,9 @@ function loadFeasibility(productId: number): FeasibilityRow[] {
 }
 function loadPointForProduct(productId: number, pointId: number): PointRow | undefined {
   return db.prepare(`SELECT * FROM amazon_usp_points WHERE id = ? AND product_id = ?`).get(pointId, productId) as PointRow | undefined;
+}
+function loadManufacturerForProduct(productId: number, mId: number): ManufacturerRow | undefined {
+  return db.prepare(`SELECT * FROM amazon_usp_manufacturers WHERE id = ? AND product_id = ?`).get(mId, productId) as ManufacturerRow | undefined;
 }
 router.get('/products/:id/usp', (req: Request, res: Response) => {
   const id = Number(req.params.id);
@@ -228,6 +233,93 @@ router.get('/products/:id/usp/images/:imageId', (req: Request, res: Response) =>
   if (!abs.startsWith(path.resolve(UPLOAD_DIR) + path.sep) || !fs.existsSync(abs)) { res.status(404).end(); return; }
   res.setHeader('Content-Type', CONTENT_BY_EXT[path.extname(abs).toLowerCase()] ?? 'application/octet-stream');
   fs.createReadStream(abs).pipe(res);
+});
+
+router.post('/products/:id/usp/manufacturers', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'product not found' }); return; }
+  const nameRaw = (req.body as { name?: unknown })?.name;
+  let name = '';
+  if (nameRaw !== undefined && nameRaw !== null) {
+    if (typeof nameRaw !== 'string' || nameRaw.trim().length > MAX_MNAME) { res.status(400).json({ error: 'invalid name' }); return; }
+    name = nameRaw.trim();
+  }
+  const maxOrder = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_usp_manufacturers WHERE product_id = ?`).get(id) as { m: number }).m;
+  const r = db.prepare(`INSERT INTO amazon_usp_manufacturers (product_id, sort_order, name) VALUES (?, ?, ?)`).run(id, maxOrder + 1, name);
+  res.status(201).json({ manufacturer: db.prepare(`SELECT * FROM amazon_usp_manufacturers WHERE id = ?`).get(r.lastInsertRowid) as ManufacturerRow });
+});
+
+router.patch('/products/:id/usp/manufacturers/reorder', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'product not found' }); return; }
+  const order = (req.body as { order?: unknown })?.order;
+  if (!Array.isArray(order) || order.some(x => !Number.isInteger(x))) { res.status(400).json({ error: 'invalid order' }); return; }
+  const own = db.prepare(`SELECT id FROM amazon_usp_manufacturers WHERE product_id = ?`).all(id) as Array<{ id: number }>;
+  const ownIds = new Set(own.map(o => o.id));
+  if (order.length !== ownIds.size || order.some((x: number) => !ownIds.has(x))) { res.status(400).json({ error: 'order mismatch' }); return; }
+  const upd = db.prepare(`UPDATE amazon_usp_manufacturers SET sort_order = ?, updated_at = unixepoch() WHERE id = ?`);
+  db.transaction(() => { order.forEach((mid: number, idx: number) => upd.run(idx + 1, mid)); })();
+  res.json({ manufacturers: loadManufacturers(id) });
+});
+
+router.patch('/products/:id/usp/manufacturers/:mId', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const mId = Number(req.params.mId);
+  if (!Number.isInteger(id) || !Number.isInteger(mId)) { res.status(404).json({ error: 'not found' }); return; }
+  if (!ensureProduct(id) || !loadManufacturerForProduct(id, mId)) { res.status(404).json({ error: 'not found' }); return; }
+  const body = (req.body as Record<string, unknown>) ?? {};
+  const updates: string[] = []; const params: unknown[] = [];
+  if (body.name !== undefined) {
+    if (typeof body.name !== 'string' || body.name.trim().length > MAX_MNAME) { res.status(400).json({ error: 'invalid name' }); return; }
+    updates.push('name = ?'); params.push(body.name.trim());
+  }
+  if (body.datum !== undefined) {
+    const v = normalizeText(body.datum, MAX_DATUM);
+    if (!v.ok) { res.status(400).json({ error: 'invalid datum' }); return; }
+    updates.push('datum = ?'); params.push(v.value);
+  }
+  if (body.notes !== undefined) {
+    const v = normalizeText(body.notes, MAX_MNOTES);
+    if (!v.ok) { res.status(400).json({ error: 'invalid notes' }); return; }
+    updates.push('notes = ?'); params.push(v.value);
+  }
+  if (updates.length > 0) {
+    updates.push('updated_at = unixepoch()'); params.push(mId);
+    db.prepare(`UPDATE amazon_usp_manufacturers SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+  }
+  res.json({ manufacturer: db.prepare(`SELECT * FROM amazon_usp_manufacturers WHERE id = ?`).get(mId) as ManufacturerRow });
+});
+
+router.delete('/products/:id/usp/manufacturers/:mId', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const mId = Number(req.params.mId);
+  if (!Number.isInteger(id) || !Number.isInteger(mId)) { res.status(404).json({ error: 'not found' }); return; }
+  if (!ensureProduct(id) || !loadManufacturerForProduct(id, mId)) { res.status(404).json({ error: 'not found' }); return; }
+  db.prepare(`DELETE FROM amazon_usp_manufacturers WHERE id = ?`).run(mId);
+  res.status(204).end();
+});
+
+router.put('/products/:id/usp/feasibility', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'product not found' }); return; }
+  const body = (req.body as Record<string, unknown>) ?? {};
+  const pointId = Number(body.point_id); const mId = Number(body.manufacturer_id);
+  if (!Number.isInteger(pointId) || !Number.isInteger(mId)) { res.status(400).json({ error: 'invalid ids' }); return; }
+  if (!loadPointForProduct(id, pointId) || !loadManufacturerForProduct(id, mId)) { res.status(404).json({ error: 'not found' }); return; }
+  if (body.status !== undefined && (typeof body.status !== 'string' || !VALID_STATUS.has(body.status))) { res.status(400).json({ error: 'invalid status' }); return; }
+  let note: string | null | undefined;
+  if (body.note !== undefined) {
+    const v = normalizeText(body.note, MAX_FNOTE);
+    if (!v.ok) { res.status(400).json({ error: 'invalid note' }); return; }
+    note = v.value;
+  }
+  db.prepare(`INSERT OR IGNORE INTO amazon_usp_feasibility (point_id, manufacturer_id) VALUES (?, ?)`).run(pointId, mId);
+  const updates: string[] = []; const params: unknown[] = [];
+  if (body.status !== undefined) { updates.push('status = ?'); params.push(body.status); }
+  if (note !== undefined) { updates.push('note = ?'); params.push(note); }
+  if (updates.length > 0) {
+    updates.push('updated_at = unixepoch()'); params.push(pointId, mId);
+    db.prepare(`UPDATE amazon_usp_feasibility SET ${updates.join(', ')} WHERE point_id = ? AND manufacturer_id = ?`).run(...params);
+  }
+  res.json({ feasibility: db.prepare(`SELECT * FROM amazon_usp_feasibility WHERE point_id = ? AND manufacturer_id = ?`).get(pointId, mId) as FeasibilityRow });
 });
 
 export default router;
