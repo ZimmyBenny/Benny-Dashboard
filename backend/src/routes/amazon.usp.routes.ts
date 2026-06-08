@@ -1,7 +1,43 @@
 import { Router, type Request, type Response } from 'express';
 import db from '../db/connection';
+import multer from 'multer';
+import path from 'path';
+import os from 'os';
+import fs from 'fs';
+import crypto from 'crypto';
 
 const router = Router();
+
+const UPLOAD_DIR = path.join(os.homedir(), '.local', 'share', 'benny-dashboard', 'amazon-usp');
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const EXT_BY_MIME: Record<string, string> = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' };
+const CONTENT_BY_EXT: Record<string, string> = { '.jpg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
+    filename: (_req, file, cb) => {
+      const ext = EXT_BY_MIME[file.mimetype];
+      if (!ext) return cb(new Error('mime not allowed'), '');
+      cb(null, `${crypto.randomUUID()}${ext}`);
+    },
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => { if (!ALLOWED_MIME.has(file.mimetype)) return cb(new Error('mime not allowed')); cb(null, true); },
+});
+function deleteUspImageFile(filename: string | null | undefined) {
+  if (!filename) return;
+  const abs = path.resolve(UPLOAD_DIR, filename);
+  if (!abs.startsWith(path.resolve(UPLOAD_DIR) + path.sep)) return;
+  try { fs.unlinkSync(abs); } catch { /* schon weg */ }
+}
+function loadImageForProduct(productId: number, pointId: number, imageId: number): ImageRow | undefined {
+  return db.prepare(
+    `SELECT i.* FROM amazon_usp_point_images i
+     JOIN amazon_usp_points p ON p.id = i.point_id
+     WHERE i.id = ? AND i.point_id = ? AND p.product_id = ?`
+  ).get(imageId, pointId, productId) as ImageRow | undefined;
+}
 
 const MAX_MARKE = 200, MAX_HAUPTFOKUS = 2000, MAX_TITLE = 200, MAX_BODY = 5000;
 
@@ -135,8 +171,63 @@ router.delete('/products/:id/usp/points/:pointId', (req: Request, res: Response)
   const id = Number(req.params.id); const pointId = Number(req.params.pointId);
   if (!Number.isInteger(id) || !Number.isInteger(pointId)) { res.status(404).json({ error: 'not found' }); return; }
   if (!ensureProduct(id) || !loadPointForProduct(id, pointId)) { res.status(404).json({ error: 'not found' }); return; }
+  const imgs = loadImages(pointId);
   db.prepare(`DELETE FROM amazon_usp_points WHERE id = ?`).run(pointId);
+  for (const img of imgs) deleteUspImageFile(img.file_path);
   res.status(204).end();
+});
+
+router.post('/products/:id/usp/points/:pointId/images', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const pointId = Number(req.params.pointId);
+  if (!Number.isInteger(id) || !Number.isInteger(pointId)) { res.status(404).json({ error: 'not found' }); return; }
+  if (!ensureProduct(id) || !loadPointForProduct(id, pointId)) { res.status(404).json({ error: 'not found' }); return; }
+  upload.single('file')(req, res, (err: unknown) => {
+    if (err) { res.status(400).json({ error: err instanceof Error ? err.message : 'upload failed' }); return; }
+    const file = (req as Request & { file?: { filename: string } }).file;
+    if (!file) { res.status(400).json({ error: 'no file' }); return; }
+    const maxOrder = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_usp_point_images WHERE point_id = ?`).get(pointId) as { m: number }).m;
+    const r = db.prepare(`INSERT INTO amazon_usp_point_images (point_id, sort_order, file_path) VALUES (?, ?, ?)`).run(pointId, maxOrder + 1, file.filename);
+    res.status(201).json({ image: db.prepare(`SELECT * FROM amazon_usp_point_images WHERE id = ?`).get(r.lastInsertRowid) as ImageRow });
+  });
+});
+
+router.patch('/products/:id/usp/points/:pointId/images/reorder', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const pointId = Number(req.params.pointId);
+  if (!Number.isInteger(id) || !Number.isInteger(pointId)) { res.status(404).json({ error: 'not found' }); return; }
+  if (!ensureProduct(id) || !loadPointForProduct(id, pointId)) { res.status(404).json({ error: 'not found' }); return; }
+  const order = (req.body as { order?: unknown })?.order;
+  if (!Array.isArray(order) || order.some(x => !Number.isInteger(x))) { res.status(400).json({ error: 'invalid order' }); return; }
+  const own = db.prepare(`SELECT id FROM amazon_usp_point_images WHERE point_id = ?`).all(pointId) as Array<{ id: number }>;
+  const ownIds = new Set(own.map(o => o.id));
+  if (order.length !== ownIds.size || order.some((x: number) => !ownIds.has(x))) { res.status(400).json({ error: 'order mismatch' }); return; }
+  const upd = db.prepare(`UPDATE amazon_usp_point_images SET sort_order = ? WHERE id = ?`);
+  db.transaction(() => { order.forEach((iid: number, idx: number) => upd.run(idx + 1, iid)); })();
+  res.json({ images: loadImages(pointId) });
+});
+
+router.delete('/products/:id/usp/points/:pointId/images/:imageId', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const pointId = Number(req.params.pointId); const imageId = Number(req.params.imageId);
+  if (![id, pointId, imageId].every(Number.isInteger) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  const img = loadImageForProduct(id, pointId, imageId);
+  if (!img) { res.status(404).json({ error: 'not found' }); return; }
+  db.prepare(`DELETE FROM amazon_usp_point_images WHERE id = ?`).run(imageId);
+  deleteUspImageFile(img.file_path);
+  res.status(204).end();
+});
+
+router.get('/products/:id/usp/images/:imageId', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const imageId = Number(req.params.imageId);
+  if (!Number.isInteger(id) || !Number.isInteger(imageId) || !ensureProduct(id)) { res.status(404).end(); return; }
+  const img = db.prepare(
+    `SELECT i.* FROM amazon_usp_point_images i
+     JOIN amazon_usp_points p ON p.id = i.point_id
+     WHERE i.id = ? AND p.product_id = ?`
+  ).get(imageId, id) as ImageRow | undefined;
+  if (!img) { res.status(404).end(); return; }
+  const abs = path.resolve(UPLOAD_DIR, img.file_path);
+  if (!abs.startsWith(path.resolve(UPLOAD_DIR) + path.sep) || !fs.existsSync(abs)) { res.status(404).end(); return; }
+  res.setHeader('Content-Type', CONTENT_BY_EXT[path.extname(abs).toLowerCase()] ?? 'application/octet-stream');
+  fs.createReadStream(abs).pipe(res);
 });
 
 export default router;

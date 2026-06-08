@@ -101,3 +101,37 @@ describe('USP API — Meta + Punkte', () => {
     expect((db.prepare(`SELECT COUNT(*) AS c FROM amazon_usp_points WHERE product_id=?`).get(pid) as { c: number }).c).toBe(0);
   });
 });
+
+describe('USP API — Punkt-Bilder', () => {
+  let db: Database.Database; let app: express.Express;
+  beforeEach(async () => { db = createTestDb(); app = await makeApp(db); });
+  const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+  async function makePoint(pid: number): Promise<number> {
+    const a = await request(app).post(`/api/amazon/products/${pid}/usp/points`).send({});
+    return a.body.point.id;
+  }
+  it('Upload + GET Datei', async () => {
+    const pid = makeProduct(db); await request(app).get(`/api/amazon/products/${pid}/usp`);
+    const point = await makePoint(pid);
+    const up = await request(app).post(`/api/amazon/products/${pid}/usp/points/${point}/images`).attach('file', PNG, { filename: 'a.png', contentType: 'image/png' });
+    expect(up.status).toBe(201);
+    expect(up.body.image).toMatchObject({ point_id: point, sort_order: 1 });
+    const get = await request(app).get(`/api/amazon/products/${pid}/usp/images/${up.body.image.id}`);
+    expect(get.status).toBe(200);
+    expect(get.headers['content-type']).toContain('image/png');
+  });
+  it('Reorder + Delete + Cascade', async () => {
+    const pid = makeProduct(db); await request(app).get(`/api/amazon/products/${pid}/usp`);
+    const point = await makePoint(pid);
+    const a = await request(app).post(`/api/amazon/products/${pid}/usp/points/${point}/images`).attach('file', PNG, { filename: 'a.png', contentType: 'image/png' });
+    const b = await request(app).post(`/api/amazon/products/${pid}/usp/points/${point}/images`).attach('file', PNG, { filename: 'b.png', contentType: 'image/png' });
+    const ro = await request(app).patch(`/api/amazon/products/${pid}/usp/points/${point}/images/reorder`).send({ order: [b.body.image.id, a.body.image.id] });
+    expect(ro.status).toBe(200);
+    const list = await request(app).get(`/api/amazon/products/${pid}/usp`);
+    expect(list.body.points[0].images.map((i: { id: number }) => i.id)).toEqual([b.body.image.id, a.body.image.id]);
+    const del = await request(app).delete(`/api/amazon/products/${pid}/usp/points/${point}/images/${a.body.image.id}`);
+    expect(del.status).toBe(204);
+    await request(app).delete(`/api/amazon/products/${pid}/usp/points/${point}`);
+    expect((db.prepare(`SELECT COUNT(*) AS c FROM amazon_usp_point_images WHERE id=?`).get(b.body.image.id) as { c: number }).c).toBe(0);
+  });
+});
