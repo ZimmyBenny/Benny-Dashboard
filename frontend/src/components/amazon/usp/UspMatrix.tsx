@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { type UspPoint, type UspManufacturer, type UspFeasibility, type UspFeasibilityStatus } from '../../../api/amazon.api';
 import { useSetUspFeasibility } from '../../../hooks/amazon/useUsp';
 
@@ -13,9 +13,14 @@ function key(pointId: number, mId: number) { return `${pointId}:${mId}`; }
 function Cell({ productId, pointId, mId, current, note }: { productId: number; pointId: number; mId: number; current: UspFeasibilityStatus; note: string }) {
   const set = useSetUspFeasibility(productId);
   const [n, setN] = useState(note);
+  const taRef = useRef<HTMLTextAreaElement | null>(null);
   useEffect(() => { setN(note); }, [note]);
+  useEffect(() => {
+    const ta = taRef.current;
+    if (ta) { ta.style.height = 'auto'; ta.style.height = `${ta.scrollHeight}px`; }
+  }, [n]);
   return (
-    <div className="flex flex-col gap-1 p-1" style={{ minWidth: 120 }}>
+    <div className="flex flex-col gap-1 p-1" style={{ minWidth: 150 }}>
       <div className="flex gap-1">
         {STATUSES.map(s => {
           const active = current === s.value;
@@ -29,10 +34,10 @@ function Cell({ productId, pointId, mId, current, note }: { productId: number; p
           );
         })}
       </div>
-      <input value={n} onChange={(e) => setN(e.target.value)}
+      <textarea ref={taRef} value={n} rows={1} onChange={(e) => setN(e.target.value)}
         onBlur={() => { if (n !== note) set.mutate({ point_id: pointId, manufacturer_id: mId, note: n }); }}
         placeholder="Notiz" className="px-1.5 py-0.5 rounded text-xs"
-        style={{ background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface-variant)', border: '1px solid rgba(255,255,255,0.06)' }} />
+        style={{ background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface-variant)', border: '1px solid rgba(255,255,255,0.06)', resize: 'none', overflow: 'hidden', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }} />
     </div>
   );
 }
