@@ -70,6 +70,21 @@ function loadOffer(mId: number, oId: number): OfferRow | undefined {
 function withOffers(m: ManufacturerRow) {
   return { ...m, offers: loadOffers(m.id).map(o => ({ ...o, files: loadOfferFiles(o.id) })) };
 }
+function loadMachbarkeit(productId: number, masterId: number): { umsetzbar: number; teilweise: number; nicht: number; offen: number; total: number } | null {
+  const uspMan = db.prepare(`SELECT id FROM amazon_usp_manufacturers WHERE manufacturer_id = ? ORDER BY id LIMIT 1`).get(masterId) as { id: number } | undefined;
+  if (!uspMan) return null;
+  const total = (db.prepare(`SELECT COUNT(*) AS c FROM amazon_usp_points WHERE product_id = ?`).get(productId) as { c: number }).c;
+  if (total === 0) return null;
+  const countByStatus = (status: string) => (db.prepare(
+    `SELECT COUNT(*) AS c FROM amazon_usp_feasibility f JOIN amazon_usp_points p ON p.id = f.point_id
+     WHERE p.product_id = ? AND f.manufacturer_id = ? AND f.status = ?`
+  ).get(productId, uspMan.id, status) as { c: number }).c;
+  const umsetzbar = countByStatus('umsetzbar');
+  const teilweise = countByStatus('teilweise');
+  const nicht = countByStatus('nicht');
+  const offen = total - umsetzbar - teilweise - nicht;
+  return { umsetzbar, teilweise, nicht, offen, total };
+}
 function normText(raw: unknown): { skip: true } | { skip: false; value: string | null } | { error: true } {
   if (raw === undefined) return { skip: true };
   if (raw === null) return { skip: false, value: null };
@@ -84,7 +99,7 @@ router.get('/products/:id/manufacturers', (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'product not found' }); return; }
   const rows = db.prepare(`SELECT * FROM amazon_manufacturers WHERE product_id = ? ORDER BY sort_order, id`).all(id) as ManufacturerRow[];
-  res.json({ manufacturers: rows.map(withOffers), settings: getOrCreateSettings(id) });
+  res.json({ manufacturers: rows.map(m => ({ ...withOffers(m), machbarkeit: loadMachbarkeit(id, m.id) })), settings: getOrCreateSettings(id) });
 });
 
 router.post('/products/:id/manufacturers', (req: Request, res: Response) => {

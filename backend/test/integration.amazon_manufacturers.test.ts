@@ -17,6 +17,8 @@ async function makeApp(db: Database.Database) {
   const app = express();
   app.use(express.json());
   app.use('/api/amazon', routes);
+  const uspRoutes = (await import('../src/routes/amazon.usp.routes')).default;
+  app.use('/api/amazon', uspRoutes);
   return app;
 }
 
@@ -163,5 +165,23 @@ describe('Amazon Hersteller — CRUD', () => {
     expect((await request(app).get(`/api/amazon/products/${pid}/manufacturers`)).body.manufacturers[0].offers[0].files).toEqual([]);
     const mId2 = (await request(app).post(`/api/amazon/products/${pid}/manufacturers`).send({ name: 'B' })).body.manufacturer.id;
     expect((await request(app).post(`/api/amazon/products/${pid}/manufacturers/${mId2}/offers/${oId}/files`).attach('file', PNG, { filename: 'x.png', contentType: 'image/png' })).status).toBe(404);
+  });
+
+  it('machbarkeit aus USP fuer uebernommenen Hersteller; sonst null', async () => {
+    const pid = makeProduct(db);
+    await request(app).get(`/api/amazon/products/${pid}/usp`);
+    const p1 = (await request(app).post(`/api/amazon/products/${pid}/usp/points`).send({ title: 'P1' })).body.point.id;
+    const p2 = (await request(app).post(`/api/amazon/products/${pid}/usp/points`).send({ title: 'P2' })).body.point.id;
+    const uspMan = (await request(app).post(`/api/amazon/products/${pid}/usp/manufacturers`).send({ name: 'Acme' })).body.manufacturer.id;
+    await request(app).put(`/api/amazon/products/${pid}/usp/feasibility`).send({ point_id: p1, manufacturer_id: uspMan, status: 'umsetzbar' });
+    await request(app).put(`/api/amazon/products/${pid}/usp/feasibility`).send({ point_id: p2, manufacturer_id: uspMan, status: 'teilweise' });
+    await request(app).post(`/api/amazon/products/${pid}/usp/manufacturers/${uspMan}/uebernehmen`).send({});
+    const list = await request(app).get(`/api/amazon/products/${pid}/manufacturers`);
+    const m = (list.body.manufacturers as Array<{ name: string; machbarkeit: { umsetzbar: number; teilweise: number; nicht: number; offen: number; total: number } | null }>).find(x => x.name === 'Acme');
+    expect(m!.machbarkeit).toMatchObject({ umsetzbar: 1, teilweise: 1, nicht: 0, offen: 0, total: 2 });
+    await request(app).post(`/api/amazon/products/${pid}/manufacturers`).send({ name: 'Direkt' });
+    const list2 = await request(app).get(`/api/amazon/products/${pid}/manufacturers`);
+    const direkt = (list2.body.manufacturers as Array<{ name: string; machbarkeit: unknown }>).find(x => x.name === 'Direkt');
+    expect(direkt!.machbarkeit).toBeNull();
   });
 });
