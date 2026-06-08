@@ -63,6 +63,32 @@ function safeText(s: string): string {
   }).join('');
 }
 
+// Einfacher CSV-Parser: erkennt Trenner (Tab/Semikolon/Komma) aus der ersten Zeile, behandelt "..."-Quoting (mit "" als Escape) und BOM.
+function parseCsv(text: string): string[][] {
+  const s = text.replace(/^﻿/, '');
+  const firstLine = s.split(/\r?\n/, 1)[0] ?? '';
+  const cand: Array<[string, number]> = [['\t', firstLine.split('\t').length], [';', firstLine.split(';').length], [',', firstLine.split(',').length]];
+  cand.sort((a, b) => b[1] - a[1]);
+  const delim = cand[0][1] > 1 ? cand[0][0] : ';';
+  const rows: string[][] = [];
+  let row: string[] = [], field = '', inQuotes = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (inQuotes) {
+      if (ch === '"') { if (s[i + 1] === '"') { field += '"'; i++; } else inQuotes = false; }
+      else field += ch;
+    } else {
+      if (ch === '"') inQuotes = true;
+      else if (ch === delim) { row.push(field); field = ''; }
+      else if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+      else if (ch === '\r') { /* skip */ }
+      else field += ch;
+    }
+  }
+  if (field !== '' || row.length > 0) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.length > 0 && !(r.length === 1 && r[0] === ''));
+}
+
 async function buildExportPdf(jahr: number, itemIds: number[] | 'all'): Promise<Buffer | null> {
   const cats = db.prepare(`SELECT * FROM steuer_categories WHERE jahr = ? ORDER BY sort_order, id`).all(jahr) as CategoryRow[];
   const wanted = itemIds === 'all' ? null : new Set(itemIds);
@@ -120,7 +146,70 @@ async function buildExportPdf(jahr: number, itemIds: number[] | 'all'): Promise<
     }
   }
 
-  const TEXT_EXT = ['.csv', '.txt', '.log', '.md', '.tsv'];
+  const TEXT_EXT = ['.txt', '.log', '.md'];
+
+  // CSV als lesbare Tabelle im Querformat rendern
+  function drawCsvTable(content: string, heading: string) {
+    const all = parseCsv(content);
+    if (all.length === 0) { drawTextDocument(content, heading); return; }
+    const MAX_ROWS = 2000;
+    const truncated = all.length - 1 > MAX_ROWS;
+    const header = all[0];
+    const dataRows = all.slice(1, 1 + MAX_ROWS);
+    const colCount = Math.max(header.length, ...dataRows.map(r => r.length));
+    const norm = (r: string[]) => { const a = r.slice(); while (a.length < colCount) a.push(''); return a; };
+    const H = norm(header);
+    const D = dataRows.map(norm);
+    const cols: number[] = [];
+    for (let c = 0; c < colCount; c++) if ((H[c] ?? '').trim() !== '' || D.some(r => (r[c] ?? '').trim() !== '')) cols.push(c);
+    if (cols.length === 0) for (let c = 0; c < colCount; c++) cols.push(c);
+
+    const PW = 841.89, PH = 595.28, M = 28, size = 7, lh = size * 1.25;
+    const avail = PW - M * 2;
+    const maxChars = cols.map(c => { let m = (H[c] ?? '').length; for (const r of D) m = Math.max(m, (r[c] ?? '').length); return Math.min(45, Math.max(4, m)); });
+    const totalChars = maxChars.reduce((a, b) => a + b, 0) || 1;
+    let w = maxChars.map(mc => Math.max(30, (mc / totalChars) * avail));
+    const sumW = w.reduce((a, b) => a + b, 0);
+    if (sumW > avail) { const sc = avail / sumW; w = w.map(x => x * sc); }
+    const tableW = w.reduce((a, b) => a + b, 0);
+
+    let page = out.addPage([PW, PH]);
+    let y = 0;
+    function wrapCell(text: string, width: number, f: typeof font): string[] {
+      const res: string[] = [];
+      for (const src of safeText(text).split('\n')) {
+        let cur = '';
+        for (const ch of src) { const t = cur + ch; if (cur && f.widthOfTextAtSize(t, size) > width - 4) { res.push(cur); cur = ch; } else cur = t; }
+        res.push(cur);
+      }
+      return res.length ? res : [''];
+    }
+    function drawInternal(cells: string[], isHeader: boolean) {
+      const f = isHeader ? fontBold : font;
+      const wrapped = cols.map((c, ci) => wrapCell(cells[c] ?? '', w[ci], f));
+      const lines = Math.max(1, ...wrapped.map(a => a.length));
+      const rowH = lines * lh + 4;
+      let x = M;
+      wrapped.forEach((arr, ci) => { arr.forEach((ln, li) => page.drawText(ln, { x: x + 2, y: y - size - li * lh, size, font: f, color: rgb(0, 0, 0) })); x += w[ci]; });
+      page.drawLine({ start: { x: M, y: y - rowH + 2 }, end: { x: M + tableW, y: y - rowH + 2 }, thickness: 0.3, color: rgb(0.82, 0.82, 0.82) });
+      y -= rowH;
+    }
+    function newPage() { page = out.addPage([PW, PH]); page.drawText(safeText(heading), { x: M, y: PH - 18, size: 8, font, color: rgb(0.5, 0.5, 0.5) }); y = PH - 34; drawInternal(H, true); }
+    function drawRow(cells: string[], isHeader: boolean) {
+      const f = isHeader ? fontBold : font;
+      const wrapped = cols.map((c, ci) => wrapCell(cells[c] ?? '', w[ci], f));
+      const lines = Math.max(1, ...wrapped.map(a => a.length));
+      const rowH = lines * lh + 4;
+      if (y - rowH < M) newPage();
+      drawInternal(cells, isHeader);
+    }
+
+    page.drawText(safeText(heading), { x: M, y: PH - 18, size: 8, font, color: rgb(0.5, 0.5, 0.5) });
+    y = PH - 34;
+    drawInternal(H, true);
+    for (const r of D) drawRow(r, false);
+    if (truncated) { if (y - 20 < M) newPage(); page.drawText('... (gekuerzt)', { x: M, y: y - size, size, font, color: rgb(0.6, 0, 0) }); }
+  }
 
   for (const e of entries) {
     const hp = out.addPage([A4W, A4H]);
@@ -141,7 +230,9 @@ async function buildExportPdf(jahr: number, itemIds: number[] | 'all'): Promise<
         } else if (mime === 'image/png') {
           const img = await out.embedPng(fs.readFileSync(abs));
           drawImagePage(img, img);
-        } else if (mime.startsWith('text/') || mime === 'application/csv' || TEXT_EXT.includes(path.extname(f.original_name ?? f.file_path).toLowerCase())) {
+        } else if (mime === 'text/csv' || mime === 'application/csv' || ['.csv', '.tsv'].includes(path.extname(f.original_name ?? f.file_path).toLowerCase())) {
+          drawCsvTable(fs.readFileSync(abs, 'utf-8'), f.original_name ?? 'Datei');
+        } else if (mime.startsWith('text/') || TEXT_EXT.includes(path.extname(f.original_name ?? f.file_path).toLowerCase())) {
           drawTextDocument(fs.readFileSync(abs, 'utf-8'), f.original_name ?? 'Datei');
         } else {
           const np = out.addPage([A4W, A4H]);
