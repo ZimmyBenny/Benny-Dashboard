@@ -139,6 +139,7 @@ export function UspSection({ productId, productName }: Props) {
                 manufacturerId={activeMId}
                 feasibility={data.feasibility}
                 onRequestDelete={setPendingDelete}
+                imageFiles={data.files.filter(f => ['image/jpeg', 'image/png', 'image/webp'].includes(f.mime))}
               />
               <div className="mt-2 mb-4">
                 <button

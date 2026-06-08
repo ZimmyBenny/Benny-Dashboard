@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { type UspPoint, type UspPointQuestion } from '../../../api/amazon.api';
+import { type UspPoint, type UspPointQuestion, type UspFile, getUspFileObjectUrl } from '../../../api/amazon.api';
 import {
-  useUpdateUspPoint, useUploadUspPointImage,
+  useUpdateUspPoint, useUploadUspPointImage, useAddUspPointImageFromFile,
   useCreateUspPointQuestion, useUpdateUspPointQuestion, useDeleteUspPointQuestion,
 } from '../../../hooks/amazon/useUsp';
 import { UspPointImages } from './UspPointImages';
@@ -41,6 +41,21 @@ function QuestionsBlock({ productId, pointId, questions }: { productId: number; 
   );
 }
 
+function PickerThumb({ productId, file, onPick }: { productId: number; file: UspFile; onPick: () => void }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    let revoked = false; let url: string | null = null;
+    getUspFileObjectUrl(productId, file.id).then(u => { if (revoked) { URL.revokeObjectURL(u); return; } url = u; setSrc(u); }).catch(() => setSrc(null));
+    return () => { revoked = true; if (url) URL.revokeObjectURL(url); };
+  }, [productId, file.id]);
+  return (
+    <button type="button" onClick={onPick} title={file.original_name}
+      className="rounded-md overflow-hidden flex-shrink-0" style={{ width: 64, height: 64, background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.08)' }}>
+      {src ? <img src={src} alt="" className="w-full h-full object-cover" /> : null}
+    </button>
+  );
+}
+
 interface Props {
   productId: number; index: number; point: UspPoint;
   onRequestDelete: (p: UspPoint) => void;
@@ -48,10 +63,13 @@ interface Props {
   includeInPdf: boolean;
   onToggleInclude: () => void;
   dragHandleProps: React.HTMLAttributes<HTMLDivElement>;
+  imageFiles: UspFile[];
 }
-export function UspPointRow({ productId, index, point, onRequestDelete, hasManufacturer, includeInPdf, onToggleInclude, dragHandleProps }: Props) {
+export function UspPointRow({ productId, index, point, onRequestDelete, hasManufacturer, includeInPdf, onToggleInclude, dragHandleProps, imageFiles }: Props) {
   const update = useUpdateUspPoint(productId);
   const uploadImg = useUploadUspPointImage(productId);
+  const addFromFile = useAddUspPointImageFromFile(productId);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [title, setTitle] = useState(point.title);
   const [body, setBody] = useState(point.body ?? '');
   const [error, setError] = useState<string | null>(null);
@@ -102,13 +120,31 @@ export function UspPointRow({ productId, index, point, onRequestDelete, hasManuf
         style={{ background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)', resize: 'vertical' }} />
       <UspPointImages productId={productId} pointId={point.id} images={point.images} />
       <div className="mt-2">
-        <button type="button" onClick={() => fileInput.current?.click()} className="px-2.5 py-1 rounded-md text-xs flex items-center gap-1.5"
-          style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}>
-          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add_photo_alternate</span>Bild hinzufügen
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button type="button" onClick={() => fileInput.current?.click()} className="px-2.5 py-1 rounded-md text-xs flex items-center gap-1.5"
+            style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add_photo_alternate</span>Bild hinzufügen
+          </button>
+          <button type="button" onClick={() => setPickerOpen(o => !o)} className="px-2.5 py-1 rounded-md text-xs flex items-center gap-1.5"
+            style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>collections</span>Aus Dateien wählen
+          </button>
+        </div>
         <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
           onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ''; }} />
         {error && <p className="text-xs mt-1" style={{ color: '#fca5a5' }}>{error}</p>}
+        {pickerOpen && (
+          <div className="mt-2 rounded-md p-2" style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            {imageFiles.length === 0
+              ? <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>Noch keine Bilder im Dateien-Bereich.</p>
+              : <div className="flex flex-wrap gap-2">
+                  {imageFiles.map(f => (
+                    <PickerThumb key={f.id} productId={productId} file={f}
+                      onPick={() => { setError(null); addFromFile.mutate({ pointId: point.id, fileId: f.id }, { onSuccess: () => setPickerOpen(false), onError: () => setError('Bild konnte nicht übernommen werden.') }); }} />
+                  ))}
+                </div>}
+          </div>
+        )}
       </div>
       <QuestionsBlock productId={productId} pointId={point.id} questions={point.questions} />
     </div>
