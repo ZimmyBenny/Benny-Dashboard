@@ -7,10 +7,10 @@ interface Props {
 }
 
 export function ManufacturerComparison({ manufacturers, rate }: Props) {
-  const rows: { herstellerName: string; offer: (typeof manufacturers)[0]['offers'][0] }[] = [];
+  const rows: { herstellerName: string; offer: (typeof manufacturers)[0]['offers'][0]; machbarkeit: Manufacturer['machbarkeit'] }[] = [];
   for (const m of manufacturers) {
     for (const o of m.offers) {
-      rows.push({ herstellerName: m.name, offer: o });
+      rows.push({ herstellerName: m.name, offer: o, machbarkeit: m.machbarkeit });
     }
   }
 
@@ -50,10 +50,11 @@ export function ManufacturerComparison({ manufacturers, rate }: Props) {
               <th className="px-3 py-2 text-left text-xs font-medium" style={{ color: 'var(--color-on-surface-variant)' }}>MOQ</th>
               <th className="px-3 py-2 text-left text-xs font-medium" style={{ color: 'var(--color-on-surface-variant)' }}>Lieferzeit</th>
               <th className="px-3 py-2 text-left text-xs font-medium" style={{ color: 'var(--color-on-surface-variant)' }}>Datum</th>
+              <th className="px-3 py-2 text-left text-xs font-medium" style={{ color: 'var(--color-on-surface-variant)' }}>Machbarkeit</th>
             </tr>
           </thead>
           <tbody>
-            {sorted.map(({ herstellerName, offer }) => {
+            {sorted.map(({ herstellerName, offer, machbarkeit }) => {
               const isCheapest = cheapestId !== null && offer.id === cheapestId;
               return (
                 <tr
@@ -71,6 +72,11 @@ export function ManufacturerComparison({ manufacturers, rate }: Props) {
                   <td className="px-3 py-2 text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{offer.moq || '—'}</td>
                   <td className="px-3 py-2 text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{offer.lieferzeit || '—'}</td>
                   <td className="px-3 py-2 text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{offer.datum || '—'}</td>
+                  <td className="px-3 py-2 text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
+                    {machbarkeit
+                      ? `${machbarkeit.umsetzbar} umsetzbar · ${machbarkeit.teilweise} teilweise · ${machbarkeit.nicht} nicht · ${machbarkeit.offen} offen`
+                      : '—'}
+                  </td>
                 </tr>
               );
             })}

@@ -517,6 +517,7 @@ export interface Manufacturer {
   ansprechpartner: string | null; adresse: string | null; email: string | null;
   webseite: string | null; notizen: string | null; created_at: number; updated_at: number;
   offers: ManufacturerOffer[];
+  machbarkeit: { umsetzbar: number; teilweise: number; nicht: number; offen: number; total: number } | null;
 }
 export interface ManufacturersPayload { manufacturers: Manufacturer[]; settings: { usd_eur_rate: string | null }; }
 export type ManufacturerPatch = Partial<Pick<Manufacturer, 'name' | 'ansprechpartner' | 'adresse' | 'email' | 'webseite' | 'notizen'>>;
