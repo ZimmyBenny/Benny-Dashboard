@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { type UspPoint } from '../../../api/amazon.api';
-import { useUsp, useCreateUspPoint, useDeleteUspPoint } from '../../../hooks/amazon/useUsp';
+import { useUsp, useCreateUspPoint, useDeleteUspPoint, useUpdateUspManufacturer } from '../../../hooks/amazon/useUsp';
 import { SectionHeader } from '../SectionHeader';
 import { UspMetaForm } from './UspMetaForm';
 import { UspPointList } from './UspPointList';
@@ -34,6 +34,7 @@ export function UspSection({ productId, productName }: Props) {
   const { data, isLoading, isError, refetch } = useUsp(productId);
   const createPoint = useCreateUspPoint(productId);
   const deletePoint = useDeleteUspPoint(productId);
+  const updateManufacturer = useUpdateUspManufacturer(productId);
   const [expanded, setExpanded] = useState(() => readExpanded(productId));
   const [pendingDelete, setPendingDelete] = useState<UspPoint | null>(null);
   const [exportMId, setExportMId] = useState<number | null>(null);
@@ -60,6 +61,8 @@ export function UspSection({ productId, productName }: Props) {
     const m = fresh.data.manufacturers.find(x => x.id === exportMId) ?? fresh.data.manufacturers[0];
     if (!m) return;
     await exportUspPdf(productId, productName, fresh.data.meta, fresh.data.points, m);
+    // Hersteller als 'gesendet' markieren (Anfrage wurde exportiert/verschickt)
+    if (!m.gesendet) updateManufacturer.mutate({ mId: m.id, patch: { gesendet: 1 } });
   }
 
   return (

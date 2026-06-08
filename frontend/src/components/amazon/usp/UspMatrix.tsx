@@ -57,11 +57,14 @@ export function UspMatrix({ productId, points, manufacturers, feasibility }: {
             <tr>
               <th className="text-left px-2 py-1 text-xs" style={{ color: 'var(--color-on-surface-variant)', position: 'sticky', left: 0, background: 'var(--color-surface-container-low)' }}>Punkt</th>
               {manufacturers.map(m => (
-                <th key={m.id} className="px-2 py-1 text-xs" style={{ color: 'var(--color-on-surface)' }}>
+                <th key={m.id} className="px-3 py-1 text-xs" style={{ color: 'var(--color-on-surface)', borderLeft: '2px solid rgba(255,255,255,0.14)' }}>
                   <div>{m.name || 'Hersteller'}</div>
                   {m.ansprechpartner && (
                     <div style={{ color: 'var(--color-on-surface-variant)', fontWeight: 400 }}>{m.ansprechpartner}</div>
                   )}
+                  <div style={{ marginTop: 2, fontSize: 10, fontWeight: 600, color: m.gesendet ? '#34d399' : 'var(--color-on-surface-variant)' }}>
+                    {m.gesendet ? '✓ Gesendet' : 'Nicht gesendet'}
+                  </div>
                 </th>
               ))}
             </tr>
@@ -75,7 +78,7 @@ export function UspMatrix({ productId, points, manufacturers, feasibility }: {
                 {manufacturers.map(m => {
                   const f = map.get(key(p.id, m.id));
                   return (
-                    <td key={m.id} style={{ verticalAlign: 'top' }}>
+                    <td key={m.id} style={{ verticalAlign: 'top', borderLeft: '2px solid rgba(255,255,255,0.14)' }}>
                       <Cell productId={productId} pointId={p.id} mId={m.id} current={f?.status ?? 'offen'} note={f?.note ?? ''} />
                     </td>
                   );

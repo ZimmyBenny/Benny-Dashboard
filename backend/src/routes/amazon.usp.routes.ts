@@ -46,7 +46,7 @@ const VALID_STATUS = new Set(['offen', 'umsetzbar', 'teilweise', 'nicht']);
 interface MetaRow { product_id: number; marke: string | null; hauptfokus: string | null; updated_at: number; }
 interface PointRow { id: number; product_id: number; sort_order: number; title: string; body: string | null; include_in_pdf: number; created_at: number; updated_at: number; }
 interface ImageRow { id: number; point_id: number; sort_order: number; file_path: string; created_at: number; }
-interface ManufacturerRow { id: number; product_id: number; sort_order: number; name: string; ansprechpartner: string | null; datum: string | null; notes: string | null; created_at: number; updated_at: number; }
+interface ManufacturerRow { id: number; product_id: number; sort_order: number; name: string; ansprechpartner: string | null; datum: string | null; notes: string | null; gesendet: number; created_at: number; updated_at: number; }
 interface FeasibilityRow { id: number; point_id: number; manufacturer_id: number; status: string; note: string | null; updated_at: number; }
 
 function normalizeText(raw: unknown, max: number): { ok: true; value: string | null } | { ok: false } {
@@ -290,6 +290,10 @@ router.patch('/products/:id/usp/manufacturers/:mId', (req: Request, res: Respons
     const v = normalizeText(body.notes, MAX_MNOTES);
     if (!v.ok) { res.status(400).json({ error: 'invalid notes' }); return; }
     updates.push('notes = ?'); params.push(v.value);
+  }
+  if (body.gesendet !== undefined) {
+    if (body.gesendet !== 0 && body.gesendet !== 1) { res.status(400).json({ error: 'invalid gesendet' }); return; }
+    updates.push('gesendet = ?'); params.push(body.gesendet);
   }
   if (updates.length > 0) {
     updates.push('updated_at = unixepoch()'); params.push(mId);

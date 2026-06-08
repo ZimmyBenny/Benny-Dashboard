@@ -146,8 +146,8 @@ describe('USP API — Hersteller + Feasibility', () => {
     const a = await request(app).post(`/api/amazon/products/${pid}/usp/manufacturers`).send({ name: 'Alpha' });
     expect(a.status).toBe(201);
     expect(a.body.manufacturer).toMatchObject({ name: 'Alpha' });
-    const p = await request(app).patch(`/api/amazon/products/${pid}/usp/manufacturers/${a.body.manufacturer.id}`).send({ name: 'Alpha2', ansprechpartner: 'Herr Li', datum: '2026-06-08', notes: 'X' });
-    expect(p.body.manufacturer).toMatchObject({ name: 'Alpha2', ansprechpartner: 'Herr Li', datum: '2026-06-08', notes: 'X' });
+    const p = await request(app).patch(`/api/amazon/products/${pid}/usp/manufacturers/${a.body.manufacturer.id}`).send({ name: 'Alpha2', ansprechpartner: 'Herr Li', datum: '2026-06-08', notes: 'X', gesendet: 1 });
+    expect(p.body.manufacturer).toMatchObject({ name: 'Alpha2', ansprechpartner: 'Herr Li', datum: '2026-06-08', notes: 'X', gesendet: 1 });
     const all = await request(app).get(`/api/amazon/products/${pid}/usp`);
     const ids = all.body.manufacturers.map((m: { id: number }) => m.id);
     const ro = await request(app).patch(`/api/amazon/products/${pid}/usp/manufacturers/reorder`).send({ order: [...ids].reverse() });
