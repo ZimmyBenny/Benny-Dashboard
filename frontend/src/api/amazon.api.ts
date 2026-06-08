@@ -370,7 +370,7 @@ export interface UspMeta { product_id: number; marke: string | null; hauptfokus:
 export interface UspPointImage { id: number; point_id: number; sort_order: number; file_path: string; created_at: number; }
 export interface UspPointQuestion { id: number; point_id: number; sort_order: number; text: string; created_at: number; updated_at: number; }
 export interface UspPoint { id: number; product_id: number; sort_order: number; title: string; body: string | null; created_at: number; updated_at: number; images: UspPointImage[]; questions: UspPointQuestion[]; }
-export interface UspManufacturer { id: number; product_id: number; sort_order: number; name: string; ansprechpartner: string | null; datum: string | null; notes: string | null; created_at: number; updated_at: number; }
+export interface UspManufacturer { id: number; product_id: number; sort_order: number; name: string; ansprechpartner: string | null; datum: string | null; notes: string | null; manufacturer_id: number | null; created_at: number; updated_at: number; }
 export type UspFeasibilityStatus = 'offen' | 'umsetzbar' | 'teilweise' | 'nicht';
 export interface UspFeasibility { id: number; point_id: number; manufacturer_id: number; status: UspFeasibilityStatus; note: string | null; include_in_pdf: number; updated_at: number; }
 export interface UspPayload { meta: UspMeta; points: UspPoint[]; manufacturers: UspManufacturer[]; feasibility: UspFeasibility[]; kaufgruende: UspKaufgrund[]; files: UspFile[]; final_marke: string | null; }
@@ -445,6 +445,9 @@ export async function deleteUspManufacturer(productId: number, mId: number): Pro
 export async function reorderUspManufacturers(productId: number, order: number[]): Promise<void> {
   await apiClient.patch(`/amazon/products/${productId}/usp/manufacturers/reorder`, { order });
 }
+export async function uebernehmeUspManufacturer(productId: number, mId: number): Promise<{ manufacturer_id: number }> {
+  return (await apiClient.post(`/amazon/products/${productId}/usp/manufacturers/${mId}/uebernehmen`, {})).data as { manufacturer_id: number };
+}
 export async function setUspFeasibility(
   productId: number,
   input: { point_id: number; manufacturer_id: number; status?: UspFeasibilityStatus; note?: string | null; include_in_pdf?: number },
@@ -497,4 +500,49 @@ export async function deleteUspFile(productId: number, fId: number): Promise<voi
 export async function getUspFileObjectUrl(productId: number, fId: number): Promise<string> {
   const r = await apiClient.get(`/amazon/products/${productId}/usp/files/${fId}`, { responseType: 'blob' });
   return URL.createObjectURL(r.data as Blob);
+}
+
+// ===== Amazon Hersteller =====
+export interface ManufacturerOffer {
+  id: number; manufacturer_id: number; sort_order: number;
+  menge_variante: string | null; preis: string | null; moq: string | null;
+  lieferzeit: string | null; datum: string | null; notiz: string | null;
+  created_at: number; updated_at: number;
+}
+export interface Manufacturer {
+  id: number; product_id: number; sort_order: number; name: string;
+  ansprechpartner: string | null; adresse: string | null; email: string | null;
+  webseite: string | null; notizen: string | null; created_at: number; updated_at: number;
+  offers: ManufacturerOffer[];
+}
+export interface ManufacturersPayload { manufacturers: Manufacturer[]; }
+export type ManufacturerPatch = Partial<Pick<Manufacturer, 'name' | 'ansprechpartner' | 'adresse' | 'email' | 'webseite' | 'notizen'>>;
+export type OfferPatch = Partial<Pick<ManufacturerOffer, 'menge_variante' | 'preis' | 'moq' | 'lieferzeit' | 'datum' | 'notiz'>>;
+
+export async function fetchManufacturers(productId: number): Promise<ManufacturersPayload> {
+  return (await apiClient.get(`/amazon/products/${productId}/manufacturers`)).data as ManufacturersPayload;
+}
+export async function createManufacturer(productId: number, name?: string): Promise<Manufacturer> {
+  return ((await apiClient.post(`/amazon/products/${productId}/manufacturers`, name !== undefined ? { name } : {})).data as { manufacturer: Manufacturer }).manufacturer;
+}
+export async function updateManufacturer(productId: number, mId: number, patch: ManufacturerPatch): Promise<Manufacturer> {
+  return ((await apiClient.patch(`/amazon/products/${productId}/manufacturers/${mId}`, patch)).data as { manufacturer: Manufacturer }).manufacturer;
+}
+export async function deleteManufacturer(productId: number, mId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/manufacturers/${mId}`);
+}
+export async function reorderManufacturers(productId: number, order: number[]): Promise<void> {
+  await apiClient.patch(`/amazon/products/${productId}/manufacturers/reorder`, { order });
+}
+export async function createOffer(productId: number, mId: number): Promise<ManufacturerOffer> {
+  return ((await apiClient.post(`/amazon/products/${productId}/manufacturers/${mId}/offers`, {})).data as { offer: ManufacturerOffer }).offer;
+}
+export async function updateOffer(productId: number, mId: number, oId: number, patch: OfferPatch): Promise<ManufacturerOffer> {
+  return ((await apiClient.patch(`/amazon/products/${productId}/manufacturers/${mId}/offers/${oId}`, patch)).data as { offer: ManufacturerOffer }).offer;
+}
+export async function deleteOffer(productId: number, mId: number, oId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/manufacturers/${mId}/offers/${oId}`);
+}
+export async function reorderOffers(productId: number, mId: number, order: number[]): Promise<void> {
+  await apiClient.patch(`/amazon/products/${productId}/manufacturers/${mId}/offers/reorder`, { order });
 }

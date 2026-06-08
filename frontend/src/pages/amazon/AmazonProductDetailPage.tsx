@@ -18,6 +18,7 @@ import { AutosaveIndicator } from '../../components/amazon/AutosaveIndicator';
 import { DraggableSectionList } from '../../components/amazon/DraggableSectionList';
 import { useDetailSectionOrder, type DetailSectionId } from '../../hooks/amazon/useDetailSectionOrder';
 import { UspSection } from '../../components/amazon/usp/UspSection';
+import { ManufacturersSection } from '../../components/amazon/manufacturers/ManufacturersSection';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -253,6 +254,7 @@ export function AmazonProductDetailPage() {
             render: () => {
               if (id === 'sourcing') return <SourcingSection productId={product.id} />;
               if (id === 'usp') return <UspSection productId={product.id} productName={product.name} />;
+              if (id === 'manufacturers') return <ManufacturersSection productId={product.id} />;
               return <ChecklistSection productId={product.id} />;
             },
           }))}

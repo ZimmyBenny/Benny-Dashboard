@@ -619,4 +619,32 @@ router.delete('/products/:id/usp/files/:fId', (req: Request, res: Response) => {
   res.status(204).end();
 });
 
+// ── In Hersteller übernehmen ──
+router.post('/products/:id/usp/manufacturers/:mId/uebernehmen', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const mId = Number(req.params.mId);
+  if (!Number.isInteger(id) || !Number.isInteger(mId) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  const uspMan = db.prepare(`SELECT * FROM amazon_usp_manufacturers WHERE id = ? AND product_id = ?`).get(mId, id) as { id: number; name: string; ansprechpartner: string | null; manufacturer_id: number | null } | undefined;
+  if (!uspMan) { res.status(404).json({ error: 'not found' }); return; }
+  if (uspMan.manufacturer_id != null) { res.status(409).json({ error: 'bereits übernommen' }); return; }
+  const name = (uspMan.name ?? '').trim();
+  if (name.length === 0) { res.status(400).json({ error: 'kein name' }); return; }
+  const ansprech = (uspMan.ansprechpartner ?? '').trim();
+
+  const newManId = db.transaction(() => {
+    const maxM = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_manufacturers WHERE product_id = ?`).get(id) as { m: number }).m;
+    const ins = db.prepare(`INSERT INTO amazon_manufacturers (product_id, sort_order, name, ansprechpartner) VALUES (?, ?, ?, ?)`).run(id, maxM + 1, name, ansprech || null);
+    const mid = Number(ins.lastInsertRowid);
+    db.prepare(`UPDATE amazon_usp_manufacturers SET manufacturer_id = ?, updated_at = unixepoch() WHERE id = ?`).run(mid, mId);
+    const hasSourcing = db.prepare(`SELECT 1 FROM amazon_sourcing WHERE product_id = ?`).get(id);
+    if (!hasSourcing) db.prepare(`INSERT INTO amazon_sourcing (product_id) VALUES (?)`).run(id);
+    const maxS = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_sourcing_samples WHERE product_id = ?`).get(id) as { m: number }).m;
+    const notizen = ansprech ? `Ansprechpartner: ${ansprech}` : null;
+    db.prepare(`INSERT INTO amazon_sourcing_samples (product_id, sort_order, hersteller, notizen) VALUES (?, ?, ?, ?)`).run(id, maxS + 1, name, notizen);
+    return mid;
+  })();
+
+  const manufacturer = db.prepare(`SELECT * FROM amazon_manufacturers WHERE id = ?`).get(newManId);
+  res.status(201).json({ manufacturer, usp_manufacturer_id: mId, manufacturer_id: newManId });
+});
+
 export default router;
