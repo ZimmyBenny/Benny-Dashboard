@@ -446,3 +446,23 @@ export async function setUspFeasibility(
 ): Promise<UspFeasibility> {
   return ((await apiClient.put(`/amazon/products/${productId}/usp/feasibility`, input)).data as { feasibility: UspFeasibility }).feasibility;
 }
+
+// ── USP Versions (Phase 2) ────────────────────────────────────────────────────
+export interface UspVersion { id: number; product_id: number; manufacturer_name: string; created_at: number; }
+
+export async function fetchUspVersions(productId: number): Promise<UspVersion[]> {
+  return ((await apiClient.get(`/amazon/products/${productId}/usp/versions`)).data as { versions: UspVersion[] }).versions;
+}
+export async function saveUspVersion(productId: number, manufacturerName: string, blob: Blob): Promise<UspVersion> {
+  const fd = new FormData();
+  fd.append('manufacturer_name', manufacturerName);
+  fd.append('file', blob, 'version.pdf');
+  return ((await apiClient.post(`/amazon/products/${productId}/usp/versions`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })).data as { version: UspVersion }).version;
+}
+export async function getUspVersionPdfObjectUrl(productId: number, vId: number): Promise<string> {
+  const r = await apiClient.get(`/amazon/products/${productId}/usp/versions/${vId}/pdf`, { responseType: 'blob' });
+  return URL.createObjectURL(r.data as Blob);
+}
+export async function deleteUspVersion(productId: number, vId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/usp/versions/${vId}`);
+}
