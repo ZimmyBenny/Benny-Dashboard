@@ -72,7 +72,7 @@ export async function exportUspPdf(
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.setTextColor(...MUTED);
-      doc.text(`Benny Dashboard  ·  Seite ${i} / ${total}`, cx, pageH - 24, { align: 'center' });
+      doc.text(`Seite ${i} / ${total}`, cx, pageH - 24, { align: 'center' });
     }
   }
 
