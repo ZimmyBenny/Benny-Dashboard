@@ -33,6 +33,7 @@ interface CandidateRow {
   is_no: number;
   is_favorite: number;
   is_archived: number;
+  is_final: number;
   remarks: string | null;
   trademark_status: ResearchStatus | null;
   domain_com_status: ResearchStatus | null;
@@ -190,7 +191,7 @@ router.patch('/products/:id/brand/names/:nameId', (req: Request, res: Response) 
     params.push(v.value);
   }
 
-  for (const col of ['is_interesting', 'is_maybe', 'is_yes', 'is_no', 'is_favorite', 'is_archived'] as const) {
+  for (const col of ['is_interesting', 'is_maybe', 'is_yes', 'is_no', 'is_favorite', 'is_archived', 'is_final'] as const) {
     if (body[col] !== undefined) {
       if (body[col] !== 0 && body[col] !== 1) {
         res.status(400).json({ error: `invalid ${col}` });
@@ -258,6 +259,10 @@ router.patch('/products/:id/brand/names/:nameId', (req: Request, res: Response) 
     updates.push('updated_at = unixepoch()');
     params.push(cid);
     db.prepare(`UPDATE amazon_brand_name_candidates SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+  }
+
+  if (body.is_final === 1) {
+    db.prepare(`UPDATE amazon_brand_name_candidates SET is_final = 0, updated_at = unixepoch() WHERE product_id = ? AND id != ?`).run(id, cid);
   }
 
   const row = db.prepare(`SELECT * FROM amazon_brand_name_candidates WHERE id = ?`).get(cid) as CandidateRow;

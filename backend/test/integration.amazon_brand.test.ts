@@ -218,3 +218,26 @@ describe('Brand API — Candidates', () => {
     expect(r.body.names.map((n: { name: string }) => n.name)).toEqual(['A', 'B', 'C']);
   });
 });
+
+describe('Brand API — finale Marke (is_final, exklusiv)', () => {
+  let db: Database.Database; let app: express.Express;
+  beforeEach(async () => { db = createTestDb(); app = await makeApp(db); });
+
+  it('is_final exklusiv pro Produkt; ungueltig -> 400', async () => {
+    const pid = makeProduct(db);
+    await request(app).get(`/api/amazon/products/${pid}/brand`);
+    const a = await request(app).post(`/api/amazon/products/${pid}/brand/names`).send({ name: 'Alpha' });
+    const b = await request(app).post(`/api/amazon/products/${pid}/brand/names`).send({ name: 'Beta' });
+    const aId = a.body.name.id; const bId = b.body.name.id;
+    const r1 = await request(app).patch(`/api/amazon/products/${pid}/brand/names/${aId}`).send({ is_final: 1 });
+    expect(r1.status).toBe(200);
+    expect(r1.body.name.is_final).toBe(1);
+    await request(app).patch(`/api/amazon/products/${pid}/brand/names/${bId}`).send({ is_final: 1 });
+    const list = await request(app).get(`/api/amazon/products/${pid}/brand`);
+    const byId = new Map(list.body.names.map((n: { id: number; is_final: number }) => [n.id, n.is_final]));
+    expect(byId.get(aId)).toBe(0);
+    expect(byId.get(bId)).toBe(1);
+    const bad = await request(app).patch(`/api/amazon/products/${pid}/brand/names/${aId}`).send({ is_final: 2 });
+    expect(bad.status).toBe(400);
+  });
+});
