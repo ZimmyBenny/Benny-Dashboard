@@ -30,7 +30,7 @@ export function UspPointList({ productId, points, manufacturerId, feasibility, o
   }
   function up() { if (dragIndex.current !== null && order) reorder.mutate(order); dragIndex.current = null; }
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-4">
       {ordered.map((p, idx) => {
         const included = manufacturerId == null ? true : (includeMap.get(p.id) ?? 1) !== 0;
         return (
