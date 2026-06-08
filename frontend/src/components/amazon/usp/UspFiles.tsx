@@ -17,6 +17,7 @@ function FileCard({ productId, file, onRequestDelete }: { productId: number; fil
   async function download() {
     const url = await getUspFileObjectUrl(productId, file.id);
     const a = document.createElement('a'); a.href = url; a.download = file.original_name || 'datei'; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   }
   return (
     <div className="rounded-lg p-2 flex flex-col gap-1.5" style={{ width: 140, background: 'var(--color-surface-container)', border: '1px solid rgba(255,255,255,0.06)' }}>

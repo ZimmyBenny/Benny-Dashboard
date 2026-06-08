@@ -19,7 +19,7 @@ export function UspKaufgruende({ productId, kaufgruende }: { productId: number; 
     if (dragIndex.current === null || dragIndex.current === idx) return;
     setOrder(prev => { const arr = [...(prev ?? kaufgruende.map(k => k.id))]; const [m] = arr.splice(dragIndex.current as number, 1); arr.splice(idx, 0, m); dragIndex.current = idx; return arr; });
   }
-  function up() { if (dragIndex.current !== null && order) reorder.mutate(order); dragIndex.current = null; }
+  function up() { if (dragIndex.current !== null && order) reorder.mutate(order, { onSettled: () => setOrder(null) }); dragIndex.current = null; }
   return (
     <div className="flex flex-col gap-2">
       <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-on-surface-variant)' }}>Finale Kaufgründe</span>

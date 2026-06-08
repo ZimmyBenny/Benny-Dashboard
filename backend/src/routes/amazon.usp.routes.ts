@@ -584,7 +584,8 @@ router.get('/products/:id/usp/files/:fId', (req: Request, res: Response) => {
   const abs = path.resolve(FILES_DIR, f.file_path);
   if (!abs.startsWith(path.resolve(FILES_DIR) + path.sep) || !fs.existsSync(abs)) { res.status(404).end(); return; }
   res.setHeader('Content-Type', f.mime || 'application/octet-stream');
-  res.setHeader('Content-Disposition', `inline; filename="${f.original_name.replace(/"/g, '')}"`);
+  const asciiName = f.original_name.replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '');
+  res.setHeader('Content-Disposition', `inline; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(f.original_name)}`);
   fs.createReadStream(abs).pipe(res);
 });
 
