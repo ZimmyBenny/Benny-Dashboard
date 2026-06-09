@@ -64,32 +64,6 @@ function safeText(s: string): string {
   }).join('');
 }
 
-// Einfacher CSV-Parser: erkennt Trenner (Tab/Semikolon/Komma) aus der ersten Zeile, behandelt "..."-Quoting (mit "" als Escape) und BOM.
-function parseCsv(text: string): string[][] {
-  const s = text.replace(/^﻿/, '');
-  const firstLine = s.split(/\r?\n/, 1)[0] ?? '';
-  const cand: Array<[string, number]> = [['\t', firstLine.split('\t').length], [';', firstLine.split(';').length], [',', firstLine.split(',').length]];
-  cand.sort((a, b) => b[1] - a[1]);
-  const delim = cand[0][1] > 1 ? cand[0][0] : ';';
-  const rows: string[][] = [];
-  let row: string[] = [], field = '', inQuotes = false;
-  for (let i = 0; i < s.length; i++) {
-    const ch = s[i];
-    if (inQuotes) {
-      if (ch === '"') { if (s[i + 1] === '"') { field += '"'; i++; } else inQuotes = false; }
-      else field += ch;
-    } else {
-      if (ch === '"') inQuotes = true;
-      else if (ch === delim) { row.push(field); field = ''; }
-      else if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
-      else if (ch === '\r') { /* skip */ }
-      else field += ch;
-    }
-  }
-  if (field !== '' || row.length > 0) { row.push(field); rows.push(row); }
-  return rows.filter(r => r.length > 0 && !(r.length === 1 && r[0] === ''));
-}
-
 function sanitizeName(s: string): string {
   // nur echte unzulaessige Pfadzeichen + Steuerzeichen ersetzen; Leerzeichen/Bindestriche bleiben erhalten
   const cleaned = (s ?? '').replace(/[/\\:*?"<>| -]/g, '_').replace(/\s+/g, ' ').trim();
@@ -99,155 +73,57 @@ function sanitizeName(s: string): string {
 async function buildExportPdf(jahr: number, itemIds: number[] | 'all'): Promise<Buffer | null> {
   const cats = db.prepare(`SELECT * FROM steuer_categories WHERE jahr = ? ORDER BY sort_order, id`).all(jahr) as CategoryRow[];
   const wanted = itemIds === 'all' ? null : new Set(itemIds);
-  type Entry = { categoryName: string; item: ItemRow; files: FileRow[] };
+  type EntryItem = { title: string; files: string[] };
+  type Entry = { categoryName: string; items: EntryItem[] };
   const entries: Entry[] = [];
   for (const c of cats) {
     const items = db.prepare(`SELECT * FROM steuer_items WHERE category_id = ? ORDER BY sort_order, id`).all(c.id) as ItemRow[];
+    const eItems: EntryItem[] = [];
     for (const it of items) {
       if (wanted && !wanted.has(it.id)) continue;
       const files = loadFiles(it.id);
       if (files.length === 0) continue;
-      entries.push({ categoryName: c.name, item: it, files });
+      eItems.push({ title: it.title, files: files.map(f => f.original_name || 'Datei') });
     }
+    if (eItems.length) entries.push({ categoryName: c.name, items: eItems });
   }
   if (entries.length === 0) return null;
 
-  const A4W = 595.28, A4H = 841.89, MARGIN = 40;
+  const A4W = 595.28, A4H = 841.89, M = 50;
   const out = await PDFDocument.create();
   const font = await out.embedFont(StandardFonts.Helvetica);
   const fontBold = await out.embedFont(StandardFonts.HelveticaBold);
 
-  function drawImagePage(img: { width: number; height: number }, embed: import('pdf-lib').PDFImage) {
-    const maxW = A4W - MARGIN * 2, maxH = A4H - MARGIN * 2;
-    const scale = Math.min(maxW / img.width, maxH / img.height, 1);
-    const w = img.width * scale, h = img.height * scale;
-    const page = out.addPage([A4W, A4H]);
-    page.drawImage(embed, { x: (A4W - w) / 2, y: (A4H - h) / 2, width: w, height: h });
+  let page = out.addPage([A4W, A4H]);
+  let y = A4H - M;
+  function ensure(space: number) { if (y - space < M) { page = out.addPage([A4W, A4H]); y = A4H - M; } }
+  function line(text: string, opts: { size: number; bold?: boolean; x?: number; gapBefore?: number; gapAfter?: number; color?: ReturnType<typeof rgb> }) {
+    const x = opts.x ?? M;
+    if (opts.gapBefore) y -= opts.gapBefore;
+    const f = opts.bold ? fontBold : font;
+    const maxW = A4W - M - x;
+    const safe = safeText(text);
+    const parts: string[] = [];
+    let cur = '';
+    for (const ch of safe) { const t = cur + ch; if (cur && f.widthOfTextAtSize(t, opts.size) > maxW) { parts.push(cur); cur = ch; } else cur = t; }
+    parts.push(cur);
+    for (let i = 0; i < parts.length; i++) {
+      ensure(opts.size + 4);
+      page.drawText(parts[i], { x: i === 0 ? x : x + 8, y: y - opts.size, size: opts.size, font: f, color: opts.color ?? rgb(0, 0, 0) });
+      y -= opts.size * 1.35;
+    }
+    if (opts.gapAfter) y -= opts.gapAfter;
   }
 
-  // Text-/CSV-Dateien als lesbaren Text rendern (zeichenweiser Umbruch + Paginierung)
-  function drawTextDocument(text: string, heading: string) {
-    const size = 9, lh = size * 1.45, maxW = A4W - MARGIN * 2, MAX_CHARS = 200000;
-    let body = text, truncated = false;
-    if (body.length > MAX_CHARS) { body = body.slice(0, MAX_CHARS); truncated = true; }
-    const wrapped: string[] = [];
-    for (const src of body.split(/\r?\n/)) {
-      const safe = safeText(src);
-      if (safe.length === 0) { wrapped.push(''); continue; }
-      let cur = '';
-      for (const ch of safe) {
-        const test = cur + ch;
-        if (cur && font.widthOfTextAtSize(test, size) > maxW) { wrapped.push(cur); cur = ch; }
-        else cur = test;
-      }
-      wrapped.push(cur);
-    }
-    if (truncated) wrapped.push('... (gekuerzt)');
-    let page = out.addPage([A4W, A4H]);
-    page.drawText(safeText(heading), { x: MARGIN, y: A4H - MARGIN, size: 8, font, color: rgb(0.5, 0.5, 0.5) });
-    let y = A4H - MARGIN - 18;
-    for (const ln of wrapped) {
-      if (y < MARGIN) { page = out.addPage([A4W, A4H]); y = A4H - MARGIN; }
-      page.drawText(ln, { x: MARGIN, y: y - size, size, font, color: rgb(0, 0, 0) });
-      y -= lh;
-    }
-  }
-
-  const TEXT_EXT = ['.txt', '.log', '.md'];
-
-  // CSV als lesbare Tabelle im Querformat rendern
-  function drawCsvTable(content: string, heading: string) {
-    const all = parseCsv(content);
-    if (all.length === 0) { drawTextDocument(content, heading); return; }
-    const MAX_ROWS = 2000;
-    const truncated = all.length - 1 > MAX_ROWS;
-    const header = all[0];
-    const dataRows = all.slice(1, 1 + MAX_ROWS);
-    const colCount = Math.max(header.length, ...dataRows.map(r => r.length));
-    const norm = (r: string[]) => { const a = r.slice(); while (a.length < colCount) a.push(''); return a; };
-    const H = norm(header);
-    const D = dataRows.map(norm);
-    const cols: number[] = [];
-    for (let c = 0; c < colCount; c++) if ((H[c] ?? '').trim() !== '' || D.some(r => (r[c] ?? '').trim() !== '')) cols.push(c);
-    if (cols.length === 0) for (let c = 0; c < colCount; c++) cols.push(c);
-
-    const PW = 841.89, PH = 595.28, M = 28, size = 7, lh = size * 1.25;
-    const avail = PW - M * 2;
-    const maxChars = cols.map(c => { let m = (H[c] ?? '').length; for (const r of D) m = Math.max(m, (r[c] ?? '').length); return Math.min(45, Math.max(4, m)); });
-    const totalChars = maxChars.reduce((a, b) => a + b, 0) || 1;
-    let w = maxChars.map(mc => Math.max(30, (mc / totalChars) * avail));
-    const sumW = w.reduce((a, b) => a + b, 0);
-    if (sumW > avail) { const sc = avail / sumW; w = w.map(x => x * sc); }
-    const tableW = w.reduce((a, b) => a + b, 0);
-
-    let page = out.addPage([PW, PH]);
-    let y = 0;
-    function wrapCell(text: string, width: number, f: typeof font): string[] {
-      const res: string[] = [];
-      for (const src of safeText(text).split('\n')) {
-        let cur = '';
-        for (const ch of src) { const t = cur + ch; if (cur && f.widthOfTextAtSize(t, size) > width - 4) { res.push(cur); cur = ch; } else cur = t; }
-        res.push(cur);
-      }
-      return res.length ? res : [''];
-    }
-    function drawInternal(cells: string[], isHeader: boolean) {
-      const f = isHeader ? fontBold : font;
-      const wrapped = cols.map((c, ci) => wrapCell(cells[c] ?? '', w[ci], f));
-      const lines = Math.max(1, ...wrapped.map(a => a.length));
-      const rowH = lines * lh + 4;
-      let x = M;
-      wrapped.forEach((arr, ci) => { arr.forEach((ln, li) => page.drawText(ln, { x: x + 2, y: y - size - li * lh, size, font: f, color: rgb(0, 0, 0) })); x += w[ci]; });
-      page.drawLine({ start: { x: M, y: y - rowH + 2 }, end: { x: M + tableW, y: y - rowH + 2 }, thickness: 0.3, color: rgb(0.82, 0.82, 0.82) });
-      y -= rowH;
-    }
-    function newPage() { page = out.addPage([PW, PH]); page.drawText(safeText(heading), { x: M, y: PH - 18, size: 8, font, color: rgb(0.5, 0.5, 0.5) }); y = PH - 34; drawInternal(H, true); }
-    function drawRow(cells: string[], isHeader: boolean) {
-      const f = isHeader ? fontBold : font;
-      const wrapped = cols.map((c, ci) => wrapCell(cells[c] ?? '', w[ci], f));
-      const lines = Math.max(1, ...wrapped.map(a => a.length));
-      const rowH = lines * lh + 4;
-      if (y - rowH < M) newPage();
-      drawInternal(cells, isHeader);
-    }
-
-    page.drawText(safeText(heading), { x: M, y: PH - 18, size: 8, font, color: rgb(0.5, 0.5, 0.5) });
-    y = PH - 34;
-    drawInternal(H, true);
-    for (const r of D) drawRow(r, false);
-    if (truncated) { if (y - 20 < M) newPage(); page.drawText('... (gekuerzt)', { x: M, y: y - size, size, font, color: rgb(0.6, 0, 0) }); }
-  }
+  line(`Steuer-Checkliste ${jahr}`, { size: 20, bold: true });
+  line('Uebersicht der mitgesendeten Dateien (Inhalt im ZIP-Archiv)', { size: 10, color: rgb(0.4, 0.4, 0.4), gapAfter: 8 });
 
   for (const e of entries) {
-    const hp = out.addPage([A4W, A4H]);
-    hp.drawText(safeText(e.categoryName || 'Überbegriff'), { x: 50, y: A4H - 80, size: 12, font, color: rgb(0.4, 0.4, 0.4) });
-    hp.drawText(safeText(e.item.title || 'Punkt'), { x: 50, y: A4H - 110, size: 22, font: fontBold, color: rgb(0, 0, 0) });
-    for (const f of e.files) {
-      const abs = path.resolve(FILES_DIR, f.file_path);
-      if (!abs.startsWith(path.resolve(FILES_DIR) + path.sep) || !fs.existsSync(abs)) continue;
-      const mime = (f.mime ?? '').toLowerCase();
-      try {
-        if (mime === 'application/pdf') {
-          const src = await PDFDocument.load(fs.readFileSync(abs));
-          const pages = await out.copyPages(src, src.getPageIndices());
-          pages.forEach(p => out.addPage(p));
-        } else if (mime === 'image/jpeg' || mime === 'image/jpg') {
-          const img = await out.embedJpg(fs.readFileSync(abs));
-          drawImagePage(img, img);
-        } else if (mime === 'image/png') {
-          const img = await out.embedPng(fs.readFileSync(abs));
-          drawImagePage(img, img);
-        } else if (mime === 'text/csv' || mime === 'application/csv' || ['.csv', '.tsv'].includes(path.extname(f.original_name ?? f.file_path).toLowerCase())) {
-          drawCsvTable(fs.readFileSync(abs, 'utf-8'), f.original_name ?? 'Datei');
-        } else if (mime.startsWith('text/') || TEXT_EXT.includes(path.extname(f.original_name ?? f.file_path).toLowerCase())) {
-          drawTextDocument(fs.readFileSync(abs, 'utf-8'), f.original_name ?? 'Datei');
-        } else {
-          const np = out.addPage([A4W, A4H]);
-          np.drawText(safeText(`Datei "${f.original_name ?? 'Datei'}" — keine Vorschau einbettbar (separat senden).`), { x: 50, y: A4H - 80, size: 11, font, color: rgb(0.6, 0, 0) });
-        }
-      } catch {
-        const np = out.addPage([A4W, A4H]);
-        np.drawText(safeText(`Datei "${f.original_name ?? 'Datei'}" konnte nicht eingebettet werden.`), { x: 50, y: A4H - 80, size: 11, font, color: rgb(0.6, 0, 0) });
+    line(e.categoryName || 'Ueberbegriff', { size: 14, bold: true, gapBefore: 10, gapAfter: 2, color: rgb(0.1, 0.1, 0.1) });
+    for (const it of e.items) {
+      line(it.title || 'Punkt', { size: 11, bold: true, x: M + 12, gapBefore: 4 });
+      for (const fn of it.files) {
+        line(`- ${fn}`, { size: 10, x: M + 28, color: rgb(0.2, 0.2, 0.2) });
       }
     }
   }
