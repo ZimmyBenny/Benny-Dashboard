@@ -116,10 +116,10 @@ async function buildExportPdf(jahr: number, itemIds: number[] | 'all'): Promise<
   }
 
   line(`Steuer-Checkliste ${jahr}`, { size: 20, bold: true });
-  line('Uebersicht der mitgesendeten Dateien (Inhalt im ZIP-Archiv)', { size: 10, color: rgb(0.4, 0.4, 0.4), gapAfter: 8 });
+  line('Übersicht der mitgesendeten Dateien (Inhalt im ZIP-Archiv)', { size: 10, color: rgb(0.4, 0.4, 0.4), gapAfter: 8 });
 
   for (const e of entries) {
-    line(e.categoryName || 'Ueberbegriff', { size: 14, bold: true, gapBefore: 10, gapAfter: 2, color: rgb(0.1, 0.1, 0.1) });
+    line(e.categoryName || 'Überbegriff', { size: 14, bold: true, gapBefore: 10, gapAfter: 2, color: rgb(0.1, 0.1, 0.1) });
     for (const it of e.items) {
       line(it.title || 'Punkt', { size: 11, bold: true, x: M + 12, gapBefore: 4 });
       for (const fn of it.files) {
@@ -228,7 +228,7 @@ router.post('/:jahr/export-zip', async (req: Request, res: Response) => {
   archive.pipe(res);
   const used = new Set<string>();
   for (const e of entries) {
-    const folder = `${sanitizeName(e.categoryName || 'Ueberbegriff')}/${sanitizeName(e.itemTitle || 'Punkt')}`;
+    const folder = `${sanitizeName(e.categoryName || 'Überbegriff')}/${sanitizeName(e.itemTitle || 'Punkt')}`;
     for (const f of e.files) {
       const abs = path.resolve(FILES_DIR, f.file_path);
       if (!abs.startsWith(path.resolve(FILES_DIR) + path.sep) || !fs.existsSync(abs)) continue;
