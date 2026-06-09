@@ -112,7 +112,7 @@ describe('Steuer-Checkliste API', () => {
     expect(none.status).toBe(400);
   });
 
-  it('Export: CSV wird als Tabelle eingebettet (quoted, BOM, ; -Trenner)', async () => {
+  it('Export-PDF: Punkt mit CSV erzeugt Uebersichts-PDF (kein Crash)', async () => {
     const catId = (await request(app).post('/api/steuer/2025/categories').send({ name: 'DJ' })).body.category.id;
     const itemId = (await request(app).post(`/api/steuer/categories/${catId}/items`).send({ title: 'Ausgangsrechnungen' })).body.item.id;
     const csv = '﻿"Rechnungs-Nr.";"Datum";"Brutto";"Empfänger";;\n"RE-1035";"28.12.2024";"200,00";"Monkey Eventarena, Regensburger Str. 55, 92637 Weiden";;\n"RE-1034";"07.12.2024";"200,00";"WS GmbH & Co. KG";;\n';
