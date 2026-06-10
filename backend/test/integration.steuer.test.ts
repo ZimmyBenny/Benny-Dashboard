@@ -93,23 +93,22 @@ describe('Steuer-Checkliste API', () => {
     expect((await request(app).post('/api/steuer/copy-year').send({ from_jahr: 2025, to_jahr: 2026 })).status).toBe(400);
   });
 
-  it('Export: liefert PDF fuer Punkte mit Dokumenten; leere Auswahl -> 400', async () => {
-    const catId = (await request(app).post('/api/steuer/2025/categories').send({ name: 'Privat' })).body.category.id;
-    const itemId = (await request(app).post(`/api/steuer/categories/${catId}/items`).send({ title: 'Beleg' })).body.item.id;
-    // ohne Dokumente: 400
-    const empty = await request(app).post('/api/steuer/2025/export').send({ item_ids: 'all' });
-    expect(empty.status).toBe(400);
-    // mit Dokument: 200 + PDF
+  it('Export-PDF: enthaelt alle Punkte (auch ohne Datei); kein Punkt -> 400', async () => {
+    // leeres Jahr -> 400 (nichts zu zeigen)
+    expect((await request(app).post('/api/steuer/2099/export').send({ item_ids: 'all' })).status).toBe(400);
+    const catId = (await request(app).post('/api/steuer/2025/categories').send({ name: 'DJ' })).body.category.id;
+    const itemId = (await request(app).post(`/api/steuer/categories/${catId}/items`).send({ title: 'Fahrten' })).body.item.id;
+    // Punkt OHNE Datei ist jetzt enthalten -> 200
+    const noFiles = await request(app).post('/api/steuer/2025/export').send({ item_ids: 'all' });
+    expect(noFiles.status).toBe(200);
+    expect(noFiles.headers['content-type']).toContain('application/pdf');
+    // mit Datei -> 200
     await request(app).post(`/api/steuer/items/${itemId}/files`).attach('file', PNG, { filename: 'beleg.png', contentType: 'image/png' });
-    const all = await request(app).post('/api/steuer/2025/export').send({ item_ids: 'all' });
-    expect(all.status).toBe(200);
-    expect(all.headers['content-type']).toContain('application/pdf');
-    const sel = await request(app).post('/api/steuer/2025/export').send({ item_ids: [itemId] });
-    expect(sel.status).toBe(200);
-    expect(sel.headers['content-type']).toContain('application/pdf');
-    // Auswahl ohne Treffer (fremde id) -> 400
-    const none = await request(app).post('/api/steuer/2025/export').send({ item_ids: [999999] });
-    expect(none.status).toBe(400);
+    expect((await request(app).post('/api/steuer/2025/export').send({ item_ids: 'all' })).status).toBe(200);
+    // selektierter Punkt -> 200
+    expect((await request(app).post('/api/steuer/2025/export').send({ item_ids: [itemId] })).status).toBe(200);
+    // nicht existierende id -> 400 (keine Treffer)
+    expect((await request(app).post('/api/steuer/2025/export').send({ item_ids: [999999] })).status).toBe(400);
   });
 
   it('Export-PDF: Punkt mit CSV erzeugt Uebersichts-PDF (kein Crash)', async () => {

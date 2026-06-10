@@ -289,7 +289,7 @@ export function TaxChecklistPage() {
                 </button>
               </div>
               <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
-                Nur Punkte mit Dokumenten landen im Export.
+                Das PDF listet alle Punkte; das ZIP enthält nur die hochgeladenen Dateien.
               </span>
             </div>
           )}
