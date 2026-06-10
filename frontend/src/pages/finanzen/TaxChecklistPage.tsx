@@ -241,42 +241,34 @@ export function TaxChecklistPage() {
               style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.08)' }}
             >
               <div className="flex items-center gap-2 flex-wrap">
-                {/* PDF-Gruppe */}
-                <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#f87171' }}>picture_as_pdf</span>
-                <span className="text-xs font-medium mr-1" style={{ color: 'var(--color-on-surface-variant)' }}>PDF (zum Durchblättern)</span>
+                <span className="text-sm font-medium mr-1" style={{ color: 'var(--color-on-surface)' }}>Export</span>
                 <button
                   type="button"
-                  onClick={() => runExport('pdf', 'all')}
-                  disabled={exporting}
-                  className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 flex-shrink-0"
-                  style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)', opacity: exporting ? 0.6 : 1 }}
+                  onClick={() => setSelectedIds(new Set(data.categories.flatMap(c => c.items.map(i => i.id))))}
+                  className="px-3 py-1.5 rounded-md text-sm flex-shrink-0"
+                  style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}
                 >
-                  {exporting ? 'Erstelle …' : 'Alle'}
+                  Alle anhaken
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedIds(new Set())}
+                  disabled={selectedIds.size === 0}
+                  className="px-3 py-1.5 rounded-md text-sm flex-shrink-0"
+                  style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)', opacity: selectedIds.size === 0 ? 0.5 : 1 }}
+                >
+                  Auswahl aufheben
+                </button>
+                <span style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.1)', display: 'inline-block', margin: '0 4px' }} />
                 <button
                   type="button"
                   onClick={() => runExport('pdf', Array.from(selectedIds))}
                   disabled={selectedIds.size === 0 || exporting}
                   className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 flex-shrink-0"
-                  style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)', opacity: (selectedIds.size === 0 || exporting) ? 0.5 : 1 }}
+                  style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)', opacity: (selectedIds.size === 0 || exporting) ? 0.5 : 1 }}
                 >
-                  {exporting ? 'Erstelle …' : `Ausgewählte (${selectedIds.size})`}
-                </button>
-
-                {/* Trennlinie */}
-                <span style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.1)', display: 'inline-block', margin: '0 4px' }} />
-
-                {/* ZIP-Gruppe */}
-                <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#34d399' }}>folder_zip</span>
-                <span className="text-xs font-medium mr-1" style={{ color: 'var(--color-on-surface-variant)' }}>ZIP (Originaldateien)</span>
-                <button
-                  type="button"
-                  onClick={() => runExport('zip', 'all')}
-                  disabled={exporting}
-                  className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 flex-shrink-0"
-                  style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)', opacity: exporting ? 0.6 : 1 }}
-                >
-                  {exporting ? 'Erstelle …' : 'Alle'}
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>picture_as_pdf</span>
+                  {exporting ? 'Erstelle …' : `PDF erstellen (${selectedIds.size})`}
                 </button>
                 <button
                   type="button"
@@ -285,11 +277,12 @@ export function TaxChecklistPage() {
                   className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 flex-shrink-0"
                   style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)', opacity: (selectedIds.size === 0 || exporting) ? 0.5 : 1 }}
                 >
-                  {exporting ? 'Erstelle …' : `Ausgewählte (${selectedIds.size})`}
+                  <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#34d399' }}>folder_zip</span>
+                  {exporting ? 'Erstelle …' : `ZIP erstellen (${selectedIds.size})`}
                 </button>
               </div>
               <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
-                Das PDF listet alle Punkte; das ZIP enthält nur die hochgeladenen Dateien.
+                Hake rechts die Punkte an (Kästchen neben dem Löschen-Symbol). Das PDF listet die ausgewählten Punkte, das ZIP enthält deren Dateien.
               </span>
             </div>
           )}
