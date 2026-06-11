@@ -28,15 +28,20 @@ export function SteuerItemRow({ jahr, item, selected, onToggleSelect }: Props) {
   const [note, setNote] = useState(item.note ?? '');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
 
   useEffect(() => { setTitle(item.title); }, [item.title]);
   useEffect(() => { setNote(item.note ?? ''); }, [item.note]);
 
-  function handleFilePick(f: File | undefined | null) {
-    if (!f) return;
-    if (f.size > MAX_BYTES) { setFileError('Datei ist größer als 20 MB.'); return; }
-    setFileError(null);
-    upload.mutate({ itemId: item.id, file: f });
+  function handleFiles(files: FileList | null | undefined) {
+    const arr = Array.from(files ?? []);
+    if (arr.length === 0) return;
+    let anyTooBig = false;
+    for (const f of arr) {
+      if (f.size > MAX_BYTES) { anyTooBig = true; continue; }
+      upload.mutate({ itemId: item.id, file: f });
+    }
+    setFileError(anyTooBig ? 'Mindestens eine Datei ist größer als 20 MB und wurde übersprungen.' : null);
   }
 
   const inputStyle = {
@@ -48,7 +53,10 @@ export function SteuerItemRow({ jahr, item, selected, onToggleSelect }: Props) {
   return (
     <div
       className="flex flex-col gap-1.5 py-2 px-2 rounded-md"
-      style={{ background: 'var(--color-surface-container)', border: '1px solid rgba(255,255,255,0.06)' }}
+      onDragOver={(e) => { e.preventDefault(); if (!dragActive) setDragActive(true); }}
+      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragActive(false); }}
+      onDrop={(e) => { e.preventDefault(); setDragActive(false); handleFiles(e.dataTransfer.files); }}
+      style={{ background: dragActive ? 'rgba(96,165,250,0.12)' : 'var(--color-surface-container)', border: dragActive ? '1px dashed var(--color-primary)' : '1px solid rgba(255,255,255,0.06)' }}
     >
       {/* Hauptzeile: Checkbox + Titel + Löschen */}
       <div className="flex items-center gap-2">
@@ -142,13 +150,15 @@ export function SteuerItemRow({ jahr, item, selected, onToggleSelect }: Props) {
           >
             <span className="material-symbols-outlined" style={{ fontSize: 14 }}>upload_file</span>Datei hochladen
           </button>
+          <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>oder Datei(en) hierher ziehen</span>
           {fileError && <span className="text-xs" style={{ color: '#fca5a5' }}>{fileError}</span>}
         </div>
         <input
           ref={fileInput}
           type="file"
+          multiple
           className="hidden"
-          onChange={(e) => { handleFilePick(e.target.files?.[0]); e.target.value = ''; }}
+          onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }}
         />
       </div>
     </div>
