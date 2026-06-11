@@ -57,6 +57,7 @@ export function TaxChecklistPage() {
   const [pendingDelete, setPendingDelete] = useState<SteuerCategory | null>(null);
   const [catOrder, setCatOrder] = useState<number[] | null>(null);
   const [newYearInput, setNewYearInput] = useState('');
+  const [copyFromYear, setCopyFromYear] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [exporting, setExporting] = useState(false);
   const dragCatIndex = useRef<number | null>(null);
@@ -85,10 +86,10 @@ export function TaxChecklistPage() {
   // Jahr-Optionen: alle bekannten Jahre + aktuelles Jahr + selektiertes Jahr, absteigend
   const jahreOptions = Array.from(new Set([...(jahreData ?? []), currentYear, jahr])).sort((a, b) => b - a);
 
-  // Vorjahr: größtes Jahr in jahreData das nicht gleich dem aktuellen ist
-  const vorjahr = jahreData && jahreData.length > 0
-    ? jahreData.filter(j => j !== jahr).sort((a, b) => b - a)[0] ?? null
-    : null;
+  // Quell-Jahre für „Struktur übernehmen": alle bekannten Jahre außer dem aktuellen, absteigend
+  const quellJahre = (jahreData ?? []).filter(j => j !== jahr).sort((a, b) => b - a);
+  const vorjahr = quellJahre[0] ?? null;
+  const effektivQuelle = (copyFromYear !== null && quellJahre.includes(copyFromYear)) ? copyFromYear : vorjahr;
 
   // Drag-Reorder für Kategorien
   const catIds = catOrder ?? (data?.categories.map(c => c.id) ?? []);
@@ -210,15 +211,24 @@ export function TaxChecklistPage() {
               <span className="text-sm flex-1" style={{ color: 'var(--color-on-surface-variant)' }}>
                 Noch keine Überbegriffe für {jahr}.
               </span>
+              <span className="text-sm flex-shrink-0" style={{ color: 'var(--color-on-surface-variant)' }}>Vorlage:</span>
+              <select
+                value={effektivQuelle ?? ''}
+                onChange={(e) => setCopyFromYear(Number(e.target.value))}
+                className="px-2 py-1.5 rounded-md text-sm flex-shrink-0"
+                style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}
+              >
+                {quellJahre.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
               <button
                 type="button"
-                onClick={() => copySteuerYear.mutate({ fromJahr: vorjahr, toJahr: jahr })}
-                disabled={copySteuerYear.isPending}
+                onClick={() => { if (effektivQuelle !== null) copySteuerYear.mutate({ fromJahr: effektivQuelle, toJahr: jahr }); }}
+                disabled={copySteuerYear.isPending || effektivQuelle === null}
                 className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 flex-shrink-0"
-                style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)', opacity: copySteuerYear.isPending ? 0.6 : 1 }}
+                style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)', opacity: (copySteuerYear.isPending || effektivQuelle === null) ? 0.6 : 1 }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: 16 }}>content_copy</span>
-                Struktur von {vorjahr} übernehmen
+                Struktur übernehmen
               </button>
             </div>
           )}
