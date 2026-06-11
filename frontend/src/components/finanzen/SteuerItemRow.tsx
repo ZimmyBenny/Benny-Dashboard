@@ -29,6 +29,7 @@ export function SteuerItemRow({ jahr, item, selected, onToggleSelect, dragHandle
   const [title, setTitle] = useState(item.title);
   const [note, setNote] = useState(item.note ?? '');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmFileId, setConfirmFileId] = useState<number | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
 
@@ -118,7 +119,14 @@ export function SteuerItemRow({ jahr, item, selected, onToggleSelect, dragHandle
               <button type="button" onClick={() => viewFile(f)} className="text-xs truncate flex-1 min-w-0 text-left" style={{ color: 'var(--color-on-surface)' }} title={f.original_name ?? undefined}>{f.original_name || 'Datei'}</button>
               <button type="button" onClick={() => viewFile(f)} className="p-0.5 flex-shrink-0" style={{ color: 'var(--color-on-surface-variant)' }} aria-label="Ansehen" title="Ansehen"><span className="material-symbols-outlined" style={{ fontSize: 14 }}>visibility</span></button>
               <button type="button" onClick={() => downloadFile(f)} className="p-0.5 flex-shrink-0" style={{ color: 'var(--color-on-surface-variant)' }} aria-label="Herunterladen" title="Herunterladen"><span className="material-symbols-outlined" style={{ fontSize: 14 }}>download</span></button>
-              <button type="button" onClick={() => delFile.mutate({ itemId: item.id, fId: f.id })} className="p-0.5 flex-shrink-0" style={{ color: '#fca5a5' }} aria-label="Datei löschen" title="Datei löschen"><span className="material-symbols-outlined" style={{ fontSize: 14 }}>delete</span></button>
+              {confirmFileId === f.id ? (
+                <span className="flex items-center gap-1 flex-shrink-0">
+                  <button type="button" onClick={() => { delFile.mutate({ itemId: item.id, fId: f.id }); setConfirmFileId(null); }} className="px-1.5 py-0.5 rounded text-[11px]" style={{ background: '#7f1d1d', color: '#fecaca' }}>Ja</button>
+                  <button type="button" onClick={() => setConfirmFileId(null)} className="px-1.5 py-0.5 rounded text-[11px]" style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}>Nein</button>
+                </span>
+              ) : (
+                <button type="button" onClick={() => setConfirmFileId(f.id)} className="p-0.5 flex-shrink-0" style={{ color: '#fca5a5' }} aria-label="Datei löschen" title="Datei löschen"><span className="material-symbols-outlined" style={{ fontSize: 14 }}>delete</span></button>
+              )}
             </div>
           ))}
           {item.files.length === 0 && <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>—</span>}
