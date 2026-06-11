@@ -59,6 +59,7 @@ export function SteuerCategoryBlock({ jahr, category, index, dragHandleProps, on
     color: 'var(--color-on-surface)',
     border: '1px solid rgba(255,255,255,0.08)',
   };
+  const thClass = 'text-left text-[11px] uppercase tracking-wide font-medium pb-2';
 
   return (
     <div
@@ -94,26 +95,33 @@ export function SteuerCategoryBlock({ jahr, category, index, dragHandleProps, on
         </button>
       </div>
 
-      {/* Punkte */}
-      <div className="flex flex-col gap-2">
-        {orderedItems.map((item, idx) => (
-          <div key={item.id} className="flex items-start gap-2">
-            {/* Item drag handle */}
-            <div
-              onPointerDown={(e) => itemDown(idx, e)}
-              onPointerEnter={() => itemEnter(idx)}
-              onPointerUp={itemUp}
-              className="flex items-center justify-center rounded-md cursor-grab select-none flex-shrink-0 mt-2"
-              style={{ width: 22, height: 22, background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)' }}
-              title="Zum Sortieren ziehen"
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: 12 }}>drag_indicator</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <SteuerItemRow jahr={jahr} item={item} selected={selectedIds.has(item.id)} onToggleSelect={() => onToggleSelect(item.id)} />
-            </div>
-          </div>
-        ))}
+      {/* Punkte-Tabelle */}
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+              <th className={thClass + ' pr-3'} style={{ color: 'var(--color-on-surface-variant)', width: '34%' }}>Position</th>
+              <th className={thClass + ' px-3'} style={{ color: 'var(--color-on-surface-variant)', width: '24%' }}>Notiz</th>
+              <th className={thClass + ' px-3'} style={{ color: 'var(--color-on-surface-variant)' }}>Datei(en)</th>
+              <th className={thClass + ' pl-3 text-right'} style={{ color: 'var(--color-on-surface-variant)' }}>Aktionen</th>
+            </tr>
+          </thead>
+          <tbody>
+            {orderedItems.map((item, idx) => (
+              <SteuerItemRow
+                key={item.id}
+                jahr={jahr}
+                item={item}
+                selected={selectedIds.has(item.id)}
+                onToggleSelect={() => onToggleSelect(item.id)}
+                dragHandleProps={{ onPointerDown: (e) => itemDown(idx, e), onPointerEnter: () => itemEnter(idx), onPointerUp: itemUp }}
+              />
+            ))}
+            {orderedItems.length === 0 && (
+              <tr><td colSpan={4} className="py-3 text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>Noch keine Punkte.</td></tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
       <button
@@ -122,7 +130,7 @@ export function SteuerCategoryBlock({ jahr, category, index, dragHandleProps, on
         className="self-start px-2.5 py-1 rounded-md text-xs flex items-center gap-1.5"
         style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}
       >
-        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>add</span>Punkt hinzufügen
+        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>add</span>Neuen Punkt hinzufügen
       </button>
     </div>
   );
