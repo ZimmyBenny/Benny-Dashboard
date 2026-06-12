@@ -133,4 +133,12 @@ describe('Steuer-Checkliste API', () => {
     const none = await request(app).post('/api/steuer/2025/export-zip').send({ item_ids: [999999] });
     expect(none.status).toBe(400);
   });
+
+  it('Datei-Upload: Umlaute im Dateinamen bleiben korrekt (UTF-8)', async () => {
+    const catId = (await request(app).post('/api/steuer/2025/categories').send({ name: 'DJ' })).body.category.id;
+    const itemId = (await request(app).post(`/api/steuer/categories/${catId}/items`).send({ title: 'X' })).body.item.id;
+    await request(app).post(`/api/steuer/items/${itemId}/files`).attach('file', PNG, { filename: 'Nürnberg_Erträge_Schwäbisch_für.png', contentType: 'image/png' });
+    const list = await request(app).get('/api/steuer/2025');
+    expect(list.body.categories[0].items[0].files[0].original_name).toBe('Nürnberg_Erträge_Schwäbisch_für.png');
+  });
 });
