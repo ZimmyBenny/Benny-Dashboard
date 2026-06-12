@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { exec } from 'child_process';
-import { copyFile, mkdir, readdir, unlink } from 'fs/promises';
+import { mkdir, readdir, unlink } from 'fs/promises';
 import { promisify } from 'util';
 import path from 'path';
 import os from 'os';
@@ -12,9 +12,8 @@ const router = Router();
 // Projekt-Root: backend/src/routes → ../../.. → project root
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 
-const DB_PATH = path.join(os.homedir(), '.local/share/benny-dashboard/dashboard.db');
-const UPLOADS_PATH = path.join(os.homedir(), '.local/share/benny-dashboard/uploads');
-const VERTRAEGE_PATH = path.join(os.homedir(), '.local/share/benny-dashboard/vertraege');
+// Komplettes Datenverzeichnis (alle DB- und Upload-Ordner)
+const DATA_DIR = path.join(os.homedir(), '.local/share/benny-dashboard');
 
 const ICLOUD_BACKUP_DIR = path.join(
   os.homedir(),
@@ -22,16 +21,18 @@ const ICLOUD_BACKUP_DIR = path.join(
   'B E N N Y 👨🏽‍💻/09 - Benny Dashboard/Backups',
 );
 
+// Wie viele Datenbank-Snapshots in iCloud behalten werden
+const KEEP_DB_BACKUPS = 30;
+
 router.post('/', async (_req, res) => {
-  const result: { git: string | null; db: string | null; uploads: string | null; vertraege: string | null; errors: string[] } = {
+  const result: { git: string | null; db: string | null; files: string | null; errors: string[] } = {
     git: null,
     db: null,
-    uploads: null,
-    vertraege: null,
+    files: null,
     errors: [],
   };
 
-  // ── 1. Git push ────────────────────────────────────────────────────────────
+  // ── 1. Git push (Code → GitHub) ──────────────────────────────────────────────
   try {
     const { stdout, stderr } = await execAsync('git push origin main', { cwd: PROJECT_ROOT });
     const out = (stdout + stderr).trim();
@@ -46,108 +47,37 @@ router.post('/', async (_req, res) => {
     }
   }
 
-  // ── 2. DB → iCloud ─────────────────────────────────────────────────────────
+  await mkdir(ICLOUD_BACKUP_DIR, { recursive: true }).catch(() => {});
+
+  // ── 2. Datenbank WAL-sicher (better-sqlite3 Online-Backup) → iCloud ──────────
   try {
-    await mkdir(ICLOUD_BACKUP_DIR, { recursive: true });
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const dest = path.join(ICLOUD_BACKUP_DIR, `dashboard-${timestamp}.db`);
-    await copyFile(DB_PATH, dest);
+    await db.backup(dest);
     result.db = `Backups/dashboard-${timestamp}.db`;
+
+    // Aufräumen: nur die letzten KEEP_DB_BACKUPS Snapshots behalten
+    const dbFiles = (await readdir(ICLOUD_BACKUP_DIR)).filter((f) => /^dashboard-.*\.db$/.test(f)).sort();
+    for (const old of dbFiles.slice(0, Math.max(0, dbFiles.length - KEEP_DB_BACKUPS))) {
+      await unlink(path.join(ICLOUD_BACKUP_DIR, old)).catch(() => {});
+    }
   } catch (err: unknown) {
     result.errors.push(`DB: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  // ── 3. Uploads → iCloud (kopieren; Cleanup nach 7 Tagen Abwesenheit aus DB) ────
+  // ── 3. ALLE Datei-Ordner → iCloud (komplettes Datenverzeichnis) ──────────────
+  // Zukunftssicher: das GANZE Datenverzeichnis wird gespiegelt (ausser den alten
+  // DB-Backups und den DB-Hilfsdateien). Jeder neue Upload-Ordner eines künftigen
+  // Moduls landet damit automatisch im Backup — ohne hier je etwas zu ändern.
   try {
-    const uploadsBackupDir = path.join(ICLOUD_BACKUP_DIR, 'uploads');
-    await mkdir(uploadsBackupDir, { recursive: true });
-
-    // Aktuelle Anhänge aus DB mit Originalnamen holen
-    type AttRow = { id: number; file_name: string; storage_path: string };
-    const attachments = db.prepare('SELECT id, file_name, storage_path FROM workbook_attachments').all() as AttRow[];
-    const validNames = new Set(attachments.map((a) => a.file_name));
-
-    // Immer: neue/geänderte Dateien ins Backup kopieren
-    await Promise.all(
-      attachments.map(async (att) => {
-        const src = path.join(UPLOADS_PATH, att.storage_path);
-        const dest = path.join(uploadsBackupDir, att.file_name);
-        try { await copyFile(src, dest); } catch { /* Datei fehlt lokal — überspringen */ }
-      })
+    const filesDest = path.join(ICLOUD_BACKUP_DIR, 'files');
+    await mkdir(filesDest, { recursive: true });
+    await execAsync(
+      `rsync -a --exclude='backups' --exclude='.DS_Store' --exclude='dashboard.db' --exclude='dashboard.db-wal' --exclude='dashboard.db-shm' "${DATA_DIR}/" "${filesDest}/"`,
     );
-
-    // Backup-Dateien die nicht in DB sind: Abwesenheit tracken
-    const backupFiles = await readdir(uploadsBackupDir).catch(() => [] as string[]);
-    const now = new Date();
-    const GRACE_DAYS = 7;
-
-    for (const f of backupFiles) {
-      if (validNames.has(f)) {
-        // Wieder in DB vorhanden → aus Pending-Liste entfernen
-        db.prepare('DELETE FROM backup_pending_cleanup WHERE file_name = ?').run(f);
-      } else {
-        // Nicht in DB → Eintrag anlegen falls noch nicht vorhanden
-        db.prepare('INSERT OR IGNORE INTO backup_pending_cleanup (file_name, first_absent_at) VALUES (?, ?)').run(f, now.toISOString());
-      }
-    }
-
-    // Dateien löschen die seit mehr als 7 Tagen nicht mehr in der DB sind
-    type PendingRow = { file_name: string; first_absent_at: string };
-    const pending = db.prepare('SELECT file_name, first_absent_at FROM backup_pending_cleanup').all() as PendingRow[];
-    for (const p of pending) {
-      const absentSince = new Date(p.first_absent_at);
-      const daysSince = (now.getTime() - absentSince.getTime()) / (1000 * 60 * 60 * 24);
-      if (daysSince >= GRACE_DAYS) {
-        await unlink(path.join(uploadsBackupDir, p.file_name)).catch(() => {});
-        db.prepare('DELETE FROM backup_pending_cleanup WHERE file_name = ?').run(p.file_name);
-      }
-    }
-
-    result.uploads = attachments.length > 0
-      ? `Backups/uploads (${attachments.length} Datei${attachments.length === 1 ? '' : 'en'})`
-      : 'Keine Anhänge vorhanden';
+    result.files = 'Backups/files (alle Upload-Ordner, komplett)';
   } catch (err: unknown) {
-    result.errors.push(`Uploads: ${err instanceof Error ? err.message : String(err)}`);
-  }
-
-  // ── 4. Vertrags-Anhänge → iCloud (nach Kategorie sortiert) ───────────────
-  try {
-    const vertraegeBackupDir = path.join(ICLOUD_BACKUP_DIR, 'vertraege');
-    await mkdir(vertraegeBackupDir, { recursive: true });
-
-    function safeFolder(s: string): string {
-      return (s ?? 'Sonstiges').replace(/[/\\:*?"<>|]/g, '_').trim() || 'Sonstiges';
-    }
-    function toSlug(s: string): string {
-      return s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').slice(0, 30);
-    }
-
-    type VAttRow = {
-      id: number; file_name: string; storage_path: string;
-      area: string; contract_id: number; contract_title: string;
-    };
-    const vAttachments = db.prepare(`
-      SELECT a.id, a.file_name, a.storage_path,
-             c.area, c.id AS contract_id, c.title AS contract_title
-      FROM contracts_and_deadlines_attachments a
-      JOIN contracts_and_deadlines c ON c.id = a.item_id
-    `).all() as VAttRow[];
-
-    for (const att of vAttachments) {
-      const areaFolder  = safeFolder(att.area);
-      const contractDir = `${att.contract_id}_${toSlug(att.contract_title)}`;
-      const destDir = path.join(vertraegeBackupDir, areaFolder, contractDir);
-      await mkdir(destDir, { recursive: true });
-      const src  = path.join(VERTRAEGE_PATH, att.storage_path);
-      const dest = path.join(destDir, att.file_name);
-      try { await copyFile(src, dest); } catch { /* Datei fehlt lokal — überspringen */ }
-    }
-
-    result.vertraege = vAttachments.length > 0
-      ? `Backups/vertraege (${vAttachments.length} Datei${vAttachments.length === 1 ? '' : 'en'}, nach Kategorie sortiert)`
-      : 'Keine Vertrags-Anhänge vorhanden';
-  } catch (err: unknown) {
-    result.errors.push(`Vertraege: ${err instanceof Error ? err.message : String(err)}`);
+    result.errors.push(`Dateien: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   const status = result.errors.length === 0 ? 200 : 207;
