@@ -73,7 +73,7 @@ function sanitizeName(s: string): string {
 async function buildExportPdf(jahr: number, itemIds: number[] | 'all'): Promise<Buffer | null> {
   const cats = db.prepare(`SELECT * FROM steuer_categories WHERE jahr = ? ORDER BY sort_order, id`).all(jahr) as CategoryRow[];
   const wanted = itemIds === 'all' ? null : new Set(itemIds);
-  type EntryItem = { title: string; files: string[] };
+  type EntryItem = { title: string; note: string | null; files: string[] };
   type Entry = { categoryName: string; items: EntryItem[] };
   const entries: Entry[] = [];
   for (const c of cats) {
@@ -81,7 +81,7 @@ async function buildExportPdf(jahr: number, itemIds: number[] | 'all'): Promise<
     const eItems: EntryItem[] = [];
     for (const it of items) {
       if (wanted && !wanted.has(it.id)) continue;
-      eItems.push({ title: it.title, files: loadFiles(it.id).map(f => f.original_name || 'Datei') });
+      eItems.push({ title: it.title, note: it.note, files: loadFiles(it.id).map(f => f.original_name || 'Datei') });
     }
     if (eItems.length) entries.push({ categoryName: c.name, items: eItems });
   }
@@ -113,13 +113,15 @@ async function buildExportPdf(jahr: number, itemIds: number[] | 'all'): Promise<
     if (opts.gapAfter) y -= opts.gapAfter;
   }
 
-  line(`Steuer-Checkliste ${jahr}`, { size: 20, bold: true });
-  line('Übersicht der Checkliste — die Dateien sind im ZIP-Archiv enthalten', { size: 10, color: rgb(0.4, 0.4, 0.4), gapAfter: 8 });
+  line(`Steuer-Checkliste ${jahr}`, { size: 20, bold: true, gapAfter: 6 });
 
   for (const e of entries) {
     line(e.categoryName || 'Überbegriff', { size: 14, bold: true, gapBefore: 10, gapAfter: 2, color: rgb(0.1, 0.1, 0.1) });
     for (const it of e.items) {
       line(it.title || 'Punkt', { size: 11, bold: true, x: M + 12, gapBefore: 4 });
+      if (it.note && it.note.trim()) {
+        line(`Notiz: ${it.note.trim()}`, { size: 10, x: M + 28, color: rgb(0.45, 0.45, 0.45) });
+      }
       if (it.files.length === 0) {
         line('(keine Datei)', { size: 10, x: M + 28, color: rgb(0.55, 0.55, 0.55) });
       } else {
