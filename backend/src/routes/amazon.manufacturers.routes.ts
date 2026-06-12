@@ -276,7 +276,7 @@ router.post('/products/:id/manufacturers/:mId/offers/:oId/files', (req: Request,
     if (!file) { res.status(400).json({ error: 'no file' }); return; }
     const maxOrder = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_manufacturer_offer_files WHERE offer_id = ?`).get(oId) as { m: number }).m;
     const r = db.prepare(`INSERT INTO amazon_manufacturer_offer_files (offer_id, sort_order, file_path, original_name, mime) VALUES (?, ?, ?, ?, ?)`)
-      .run(oId, maxOrder + 1, file.filename, file.originalname.slice(0, 300), file.mimetype.slice(0, 200));
+      .run(oId, maxOrder + 1, file.filename, Buffer.from(file.originalname, 'latin1').toString('utf8').slice(0, 300), file.mimetype.slice(0, 200));
     res.status(201).json({ file: db.prepare(`SELECT * FROM amazon_manufacturer_offer_files WHERE id = ?`).get(r.lastInsertRowid) as OfferFileRow });
   });
 });
