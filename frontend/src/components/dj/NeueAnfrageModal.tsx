@@ -1021,12 +1021,8 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
             <div>
               <label style={labelStyle}>Eventdatum *</label>
               <input
-                type={eventDate ? 'date' : 'text'}
+                type="date"
                 value={eventDate}
-                placeholder="Datum wählen…"
-                autoComplete="off"
-                onFocus={e => { e.currentTarget.type = 'date'; }}
-                onBlur={e => { if (!e.currentTarget.value) e.currentTarget.type = 'text'; }}
                 onChange={e => {
                   const newDate = e.target.value;
                   setEventDate(newDate);
