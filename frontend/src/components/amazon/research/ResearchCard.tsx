@@ -34,6 +34,9 @@ export function ResearchCard({ productId, card, dragHandleProps }: {
         if (f && f.size <= MAX_BYTES) {
           upload.mutate({ cardId: card.id, file: f });
           e.preventDefault();
+          // verhindert, dass der globale Hauptbild-Paste-Listener der Detailseite dasselbe Bild abgreift
+          e.stopPropagation();
+          e.nativeEvent.stopImmediatePropagation();
         }
         break;
       }
@@ -41,7 +44,7 @@ export function ResearchCard({ productId, card, dragHandleProps }: {
   }
 
   return (
-    <div className="rounded-lg p-3" onPaste={onPasteCard}
+    <div className="rounded-lg p-3" onPaste={onPasteCard} data-card-paste
       style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}>
       <div className="flex items-start gap-2">
         <div {...dragHandleProps} className="cursor-grab pt-1" title="Karte verschieben" style={{ color: 'var(--color-on-surface-variant)' }}>

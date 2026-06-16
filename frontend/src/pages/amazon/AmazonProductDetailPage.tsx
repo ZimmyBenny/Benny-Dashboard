@@ -100,6 +100,9 @@ export function AmazonProductDetailPage() {
   // Paste-Support (Cmd+V)
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
+      // Hauptbild nur setzen, wenn nicht in ein Eingabefeld / eine Karte eingefügt wird
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest('input, textarea, [contenteditable="true"], [data-card-paste]')) return;
       const items = e.clipboardData?.items;
       if (!items) return;
       for (const item of items) {
