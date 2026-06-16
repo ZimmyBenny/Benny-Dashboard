@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { type ResearchCard as Card } from '../../../api/amazon.api';
 import { useUpdateCard, useDeleteCard } from '../../../hooks/amazon/useResearch';
 import { ResearchCardLinks } from './ResearchCardLinks';
-import { ResearchCardImages } from './ResearchCardImages';
+import { ResearchCardAttachments } from './ResearchCardAttachments';
 
 const INPUT_STYLE: React.CSSProperties = {
   background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)',
@@ -42,7 +42,7 @@ export function ResearchCard({ productId, card, dragHandleProps }: {
             placeholder={'Notiz, Bulletpoints, Keywords …\n• …'} rows={3}
             className="w-full px-2 py-1 rounded text-sm resize-y" style={INPUT_STYLE} />
           <ResearchCardLinks productId={productId} cardId={card.id} links={card.links} />
-          <ResearchCardImages productId={productId} cardId={card.id} images={card.images} />
+          <ResearchCardAttachments productId={productId} cardId={card.id} attachments={card.images} />
         </div>
         <button type="button" onClick={() => { if (confirm('Diese Karte wirklich löschen?')) del.mutate(card.id); }}
           aria-label="Karte löschen" className="p-1 rounded hover:bg-white/5" style={{ color: '#fca5a5' }}>
