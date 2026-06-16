@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useResearchTopics, useCreateTopic } from '../../../hooks/amazon/useResearch';
+import { useSectionExpanded } from '../../../hooks/amazon/useSectionExpanded';
 import { ResearchTopicBlock } from './ResearchTopicBlock';
 import { SectionHeader } from '../SectionHeader';
 
@@ -8,7 +9,7 @@ const ACCENT = '#38bdf8'; // sky — eigene Akzentfarbe für Recherche
 export function ResearchSection({ productId }: { productId: number }) {
   const { data: topics, isLoading, isError, refetch } = useResearchTopics(productId);
   const createTopic = useCreateTopic(productId);
-  const [expanded, setExpanded] = useState(false);
+  const { expanded, toggle } = useSectionExpanded(productId, 'research', false);
   const [newTitle, setNewTitle] = useState('');
 
   function addTopic() {
@@ -24,7 +25,7 @@ export function ResearchSection({ productId }: { productId: number }) {
         title="Recherche & Wissen"
         accent={ACCENT}
         expanded={expanded}
-        onToggleExpand={() => setExpanded(v => !v)}
+        onToggleExpand={toggle}
         rightSlot={
           <span className="text-xs tabular-nums px-2 py-0.5 rounded-full"
             style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)' }}>
