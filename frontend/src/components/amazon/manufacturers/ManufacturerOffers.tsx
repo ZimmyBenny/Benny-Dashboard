@@ -117,6 +117,10 @@ function OfferRow({ productId, mId, offer }: OfferRowProps) {
     setFileError(null);
     uploadFile.mutate({ mId, oId: offer.id, file: f });
   }
+  function handleFilesPick(fs: FileList | null | undefined) {
+    if (!fs) return;
+    Array.from(fs).forEach(handleFilePick);
+  }
 
   return (
     <div className="flex flex-col gap-1.5 py-2 px-2 rounded-md"
@@ -252,8 +256,9 @@ function OfferRow({ productId, mId, offer }: OfferRowProps) {
         <input
           ref={fileInput}
           type="file"
+          multiple
           className="hidden"
-          onChange={(e) => { handleFilePick(e.target.files?.[0]); e.target.value = ''; }}
+          onChange={(e) => { handleFilesPick(e.target.files); e.target.value = ''; }}
         />
       </div>
     </div>

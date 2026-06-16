@@ -60,16 +60,18 @@ function SampleBlock({ productId, mId, sample }: { productId: number; mId: numbe
     setErr(null);
     upload.mutate({ mId, sId: sample.id, file: f });
   }
+  function pickMany(files: FileList | null | undefined) {
+    if (!files) return;
+    Array.from(files).forEach(pick);
+  }
   function onPaste(e: React.ClipboardEvent) {
     const items = e.clipboardData?.items; if (!items) return;
+    let handled = false;
     for (const it of items) if (it.kind === 'file') {
       const f = it.getAsFile();
-      if (f && ALLOWED.includes(f.type) && f.size <= MAX_BYTES) {
-        upload.mutate({ mId, sId: sample.id, file: f });
-        e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation();
-      }
-      break;
+      if (f && ALLOWED.includes(f.type) && f.size <= MAX_BYTES) { upload.mutate({ mId, sId: sample.id, file: f }); handled = true; }
     }
+    if (handled) { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }
   }
 
   return (
@@ -105,15 +107,15 @@ function SampleBlock({ productId, mId, sample }: { productId: number; mId: numbe
       <div className="flex flex-wrap gap-2 items-center mt-2">
         {sample.photos.map(p => <PhotoThumb key={p.id} productId={productId} mId={mId} sId={sample.id} photo={p} onDelete={() => delPhoto.mutate({ mId, sId: sample.id, photoId: p.id })} />)}
         <button type="button" onClick={() => fileInput.current?.click()}
-          onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); pick(e.dataTransfer.files?.[0]); }}
+          onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); pickMany(e.dataTransfer.files); }}
           className="flex items-center justify-center rounded-md"
           style={{ width: 88, height: 88, border: '1px dashed rgba(255,255,255,0.2)', color: 'var(--color-on-surface-variant)' }}
-          aria-label="Foto hinzufügen" title="Klick, Drag&Drop oder Cmd+V — AirDrop-Datei reinziehen">
+          aria-label="Fotos hinzufügen" title="Klick (Mehrfachauswahl), Drag&Drop oder Cmd+V — AirDrop-Datei reinziehen">
           <span className="material-symbols-outlined">add_photo_alternate</span>
         </button>
       </div>
-      <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
-        onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ''; }} />
+      <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden"
+        onChange={(e) => { pickMany(e.target.files); e.target.value = ''; }} />
       {err && <p className="text-xs mt-1" style={{ color: '#fca5a5' }}>{err}</p>}
 
       <div className="flex flex-col gap-2 mt-2">

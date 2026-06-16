@@ -61,9 +61,13 @@ export function UspFiles({ productId, files }: { productId: number; files: UspFi
     if (f.size > MAX_BYTES) { setError('Datei ist größer als 20 MB.'); return; }
     setError(null); upload.mutate(f);
   }
+  function pickMany(fs: FileList | null | undefined) {
+    if (!fs) return;
+    Array.from(fs).forEach(pick);
+  }
   return (
     <div className="flex flex-col gap-2"
-      onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); pick(e.dataTransfer.files?.[0]); }}>
+      onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); pickMany(e.dataTransfer.files); }}>
       <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-on-surface-variant)' }}>Dateien & Bild-Ideen</span>
       {files.length > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -74,7 +78,7 @@ export function UspFiles({ productId, files }: { productId: number; files: UspFi
         style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}>
         <span className="material-symbols-outlined" style={{ fontSize: 16 }}>upload_file</span>Datei hochladen
       </button>
-      <input ref={fileInput} type="file" className="hidden" onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ''; }} />
+      <input ref={fileInput} type="file" multiple className="hidden" onChange={(e) => { pickMany(e.target.files); e.target.value = ''; }} />
       {error && <p className="text-xs" style={{ color: '#fca5a5' }}>{error}</p>}
       {pendingDelete && (
         <DeleteUspFileDialog name={pendingDelete.original_name} onConfirm={() => del.mutate(pendingDelete.id)} onClose={() => setPendingDelete(null)} />
