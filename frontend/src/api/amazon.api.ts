@@ -517,6 +517,7 @@ export interface Manufacturer {
   ansprechpartner: string | null; adresse: string | null; email: string | null;
   webseite: string | null; notizen: string | null; created_at: number; updated_at: number;
   offers: ManufacturerOffer[];
+  samples: ManufacturerSample[];
   machbarkeit: { umsetzbar: number; teilweise: number; nicht: number; offen: number; total: number } | null;
 }
 export interface ManufacturersPayload { manufacturers: Manufacturer[]; settings: { usd_eur_rate: string | null; rate_date: string | null }; }
@@ -567,6 +568,41 @@ export async function getOfferFileObjectUrl(productId: number, mId: number, oId:
 }
 export async function deleteOfferFile(productId: number, mId: number, oId: number, fId: number): Promise<void> {
   await apiClient.delete(`/amazon/products/${productId}/manufacturers/${mId}/offers/${oId}/files/${fId}`);
+}
+
+// ── Samples pro Hersteller ──
+export interface SamplePhoto { id: number; sample_id: number; sort_order: number; file_path: string; original_name: string | null; mime: string | null; created_at: number; }
+export interface ManufacturerSample {
+  id: number; manufacturer_id: number; sort_order: number;
+  bezeichnung: string; received_date: string | null; rating: number;
+  status: 'angefragt' | 'bestellt' | 'erhalten' | 'abgelehnt'; is_favorite: number;
+  notizen: string | null; maengel: string | null; kosten: string | null; currency: 'USD' | 'EUR';
+  created_at: number; updated_at: number; photos: SamplePhoto[];
+}
+export type SamplePatch = Partial<Pick<ManufacturerSample, 'bezeichnung' | 'received_date' | 'rating' | 'status' | 'is_favorite' | 'notizen' | 'maengel' | 'kosten' | 'currency'>>;
+
+export async function createSampleM(productId: number, mId: number): Promise<ManufacturerSample> {
+  return ((await apiClient.post(`/amazon/products/${productId}/manufacturers/${mId}/samples`, {})).data as { sample: ManufacturerSample }).sample;
+}
+export async function updateSampleM(productId: number, mId: number, sId: number, patch: SamplePatch): Promise<ManufacturerSample> {
+  return ((await apiClient.patch(`/amazon/products/${productId}/manufacturers/${mId}/samples/${sId}`, patch)).data as { sample: ManufacturerSample }).sample;
+}
+export async function deleteSampleM(productId: number, mId: number, sId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/manufacturers/${mId}/samples/${sId}`);
+}
+export async function reorderSamplesM(productId: number, mId: number, order: number[]): Promise<void> {
+  await apiClient.patch(`/amazon/products/${productId}/manufacturers/${mId}/samples/reorder`, { order });
+}
+export async function uploadSamplePhoto(productId: number, mId: number, sId: number, file: File): Promise<SamplePhoto> {
+  const fd = new FormData(); fd.append('file', file);
+  return ((await apiClient.post(`/amazon/products/${productId}/manufacturers/${mId}/samples/${sId}/photos`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })).data as { photo: SamplePhoto }).photo;
+}
+export async function getSamplePhotoObjectUrl(productId: number, mId: number, sId: number, photoId: number): Promise<string> {
+  const r = await apiClient.get(`/amazon/products/${productId}/manufacturers/${mId}/samples/${sId}/photos/${photoId}`, { responseType: 'blob' });
+  return URL.createObjectURL(r.data as Blob);
+}
+export async function deleteSamplePhoto(productId: number, mId: number, sId: number, photoId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/manufacturers/${mId}/samples/${sId}/photos/${photoId}`);
 }
 
 // ── Recherche & Wissen ──

@@ -4,6 +4,8 @@ import {
   fetchManufacturers, createManufacturer, updateManufacturer, deleteManufacturer, reorderManufacturers,
   createOffer, updateOffer, deleteOffer, reorderOffers, updateManufacturerSettings,
   uploadOfferFile, deleteOfferFile,
+  type SamplePatch,
+  createSampleM, updateSampleM, deleteSampleM, reorderSamplesM, uploadSamplePhoto, deleteSamplePhoto,
 } from '../../api/amazon.api';
 
 export const manufacturersKey = (productId: number) =>
@@ -65,6 +67,32 @@ export function useUploadOfferFile(productId: number) {
 export function useDeleteOfferFile(productId: number) {
   const inval = useInval(productId);
   return useMutation({ mutationFn: ({ mId, oId, fId }: { mId: number; oId: number; fId: number }) => deleteOfferFile(productId, mId, oId, fId), onSettled: inval });
+}
+
+// ── Sample-Hooks (pro Hersteller) ──
+export function useCreateSampleM(productId: number) {
+  const inval = useInval(productId);
+  return useMutation({ mutationFn: (mId: number) => createSampleM(productId, mId), onSettled: inval });
+}
+export function useUpdateSampleM(productId: number) {
+  const inval = useInval(productId);
+  return useMutation({ mutationFn: ({ mId, sId, patch }: { mId: number; sId: number; patch: SamplePatch }) => updateSampleM(productId, mId, sId, patch), onSettled: inval });
+}
+export function useDeleteSampleM(productId: number) {
+  const inval = useInval(productId);
+  return useMutation({ mutationFn: ({ mId, sId }: { mId: number; sId: number }) => deleteSampleM(productId, mId, sId), onSettled: inval });
+}
+export function useReorderSamplesM(productId: number) {
+  const inval = useInval(productId);
+  return useMutation({ mutationFn: ({ mId, order }: { mId: number; order: number[] }) => reorderSamplesM(productId, mId, order), onSettled: inval });
+}
+export function useUploadSamplePhoto(productId: number) {
+  const inval = useInval(productId);
+  return useMutation({ mutationFn: ({ mId, sId, file }: { mId: number; sId: number; file: File }) => uploadSamplePhoto(productId, mId, sId, file), onSettled: inval });
+}
+export function useDeleteSamplePhoto(productId: number) {
+  const inval = useInval(productId);
+  return useMutation({ mutationFn: ({ mId, sId, photoId }: { mId: number; sId: number; photoId: number }) => deleteSamplePhoto(productId, mId, sId, photoId), onSettled: inval });
 }
 
 // Preis bestmöglich in Zahl wandeln (für „günstigstes" hervorheben). Nicht parsebar -> null.
