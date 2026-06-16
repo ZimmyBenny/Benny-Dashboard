@@ -135,12 +135,13 @@ function SampleBlock({ productId, mId, sample }: { productId: number; mId: numbe
   );
 }
 
-export function ManufacturerSamples({ productId, mId, samples }: { productId: number; mId: number; samples: ManufacturerSample[] }) {
+export function ManufacturerSamples({ productId, mId, samples }: { productId: number; mId: number; samples?: ManufacturerSample[] }) {
   const create = useCreateSampleM(productId);
+  const list = samples ?? [];
   return (
     <div className="flex flex-col gap-2">
       <p className="text-xs font-semibold tracking-wider" style={{ color: 'var(--color-on-surface-variant)' }}>SAMPLES</p>
-      {samples.map(s => <SampleBlock key={s.id} productId={productId} mId={mId} sample={s} />)}
+      {list.map(s => <SampleBlock key={s.id} productId={productId} mId={mId} sample={s} />)}
       <button type="button" onClick={() => create.mutate(mId)}
         className="self-start px-2 py-1 rounded-md text-xs flex items-center gap-1"
         style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}>
