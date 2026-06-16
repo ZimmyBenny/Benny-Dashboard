@@ -568,3 +568,63 @@ export async function getOfferFileObjectUrl(productId: number, mId: number, oId:
 export async function deleteOfferFile(productId: number, mId: number, oId: number, fId: number): Promise<void> {
   await apiClient.delete(`/amazon/products/${productId}/manufacturers/${mId}/offers/${oId}/files/${fId}`);
 }
+
+// ── Recherche & Wissen ──
+export interface ResearchLink { id: number; card_id: number; sort_order: number; url: string; label: string | null; }
+export interface ResearchImage { id: number; card_id: number; sort_order: number; file_path: string; original_name: string | null; mime: string | null; }
+export interface ResearchCard { id: number; topic_id: number; sort_order: number; title: string | null; body: string; links: ResearchLink[]; images: ResearchImage[]; }
+export interface ResearchTopic { id: number; product_id: number; sort_order: number; title: string; is_expanded: number; cards: ResearchCard[]; }
+
+export async function fetchResearchTopics(productId: number): Promise<ResearchTopic[]> {
+  const r = await apiClient.get<{ topics: ResearchTopic[] }>(`/amazon/products/${productId}/research/topics`);
+  return r.data.topics;
+}
+export async function createResearchTopic(productId: number, title: string): Promise<ResearchTopic> {
+  const r = await apiClient.post<{ topic: ResearchTopic }>(`/amazon/products/${productId}/research/topics`, { title });
+  return r.data.topic;
+}
+export async function updateResearchTopic(productId: number, topicId: number, patch: Partial<{ title: string; is_expanded: 0 | 1 }>): Promise<ResearchTopic> {
+  const r = await apiClient.patch<{ topic: ResearchTopic }>(`/amazon/products/${productId}/research/topics/${topicId}`, patch);
+  return r.data.topic;
+}
+export async function deleteResearchTopic(productId: number, topicId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/research/topics/${topicId}`);
+}
+export async function reorderResearchTopics(productId: number, order: number[]): Promise<void> {
+  await apiClient.post(`/amazon/products/${productId}/research/topics/reorder`, { order });
+}
+
+export async function createResearchCard(productId: number, topicId: number): Promise<ResearchCard> {
+  const r = await apiClient.post<{ card: ResearchCard }>(`/amazon/products/${productId}/research/topics/${topicId}/cards`, {});
+  return r.data.card;
+}
+export async function updateResearchCard(productId: number, cardId: number, patch: Partial<{ title: string | null; body: string }>): Promise<ResearchCard> {
+  const r = await apiClient.patch<{ card: ResearchCard }>(`/amazon/products/${productId}/research/cards/${cardId}`, patch);
+  return r.data.card;
+}
+export async function deleteResearchCard(productId: number, cardId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/research/cards/${cardId}`);
+}
+export async function reorderResearchCards(productId: number, topicId: number, order: number[]): Promise<void> {
+  await apiClient.post(`/amazon/products/${productId}/research/topics/${topicId}/cards/reorder`, { order });
+}
+
+export async function createResearchLink(productId: number, cardId: number, url: string, label: string | null): Promise<ResearchLink> {
+  const r = await apiClient.post<{ link: ResearchLink }>(`/amazon/products/${productId}/research/cards/${cardId}/links`, { url, label });
+  return r.data.link;
+}
+export async function deleteResearchLink(productId: number, linkId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/research/links/${linkId}`);
+}
+
+export async function uploadResearchImage(productId: number, cardId: number, file: File): Promise<ResearchImage> {
+  const fd = new FormData(); fd.append('file', file);
+  return ((await apiClient.post(`/amazon/products/${productId}/research/cards/${cardId}/images`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })).data as { image: ResearchImage }).image;
+}
+export async function deleteResearchImage(productId: number, imageId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/research/images/${imageId}`);
+}
+export async function getResearchImageObjectUrl(productId: number, imageId: number): Promise<string> {
+  const r = await apiClient.get(`/amazon/products/${productId}/research/images/${imageId}`, { responseType: 'blob' });
+  return URL.createObjectURL(r.data as Blob);
+}

@@ -19,6 +19,7 @@ import { DraggableSectionList } from '../../components/amazon/DraggableSectionLi
 import { useDetailSectionOrder, type DetailSectionId } from '../../hooks/amazon/useDetailSectionOrder';
 import { UspSection } from '../../components/amazon/usp/UspSection';
 import { ManufacturersSection } from '../../components/amazon/manufacturers/ManufacturersSection';
+import { ResearchSection } from '../../components/amazon/research/ResearchSection';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -99,6 +100,9 @@ export function AmazonProductDetailPage() {
   // Paste-Support (Cmd+V)
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
+      // Hauptbild nur setzen, wenn nicht in ein Eingabefeld / eine Karte eingefügt wird
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest('input, textarea, [contenteditable="true"], [data-card-paste]')) return;
       const items = e.clipboardData?.items;
       if (!items) return;
       for (const item of items) {
@@ -255,6 +259,7 @@ export function AmazonProductDetailPage() {
               if (id === 'sourcing') return <SourcingSection productId={product.id} />;
               if (id === 'usp') return <UspSection productId={product.id} productName={product.name} />;
               if (id === 'manufacturers') return <ManufacturersSection productId={product.id} />;
+              if (id === 'research') return <ResearchSection productId={product.id} />;
               return <ChecklistSection productId={product.id} />;
             },
           }))}

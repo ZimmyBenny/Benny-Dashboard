@@ -19,6 +19,10 @@ export function ChecklistItemRow({ rowNumber, item, onUpdate, onRequestEdit, onR
   const [description, setDescription] = useState(item.description);
   useEffect(() => { setDescription(item.description); }, [item.description]);
 
+  const [editingRemark, setEditingRemark] = useState(false);
+  const [remark, setRemark] = useState(item.remark ?? '');
+  useEffect(() => { setRemark(item.remark ?? ''); }, [item.remark]);
+
   function saveDescription() {
     const trimmed = description.trim();
     if (trimmed.length === 0 || trimmed === item.description) {
@@ -26,6 +30,22 @@ export function ChecklistItemRow({ rowNumber, item, onUpdate, onRequestEdit, onR
       return;
     }
     onUpdate({ description: trimmed });
+  }
+
+  function saveRemark() {
+    setEditingRemark(false);
+    const trimmed = remark.trim();
+    const current = item.remark ?? '';
+    if (trimmed === current) {
+      setRemark(current);
+      return;
+    }
+    onUpdate({ remark: trimmed.length === 0 ? null : trimmed });
+  }
+
+  function cancelRemark() {
+    setRemark(item.remark ?? '');
+    setEditingRemark(false);
   }
 
   function toggleDone() {
@@ -72,7 +92,32 @@ export function ChecklistItemRow({ rowNumber, item, onUpdate, onRequestEdit, onR
         />
       </td>
       <td className="p-2 text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
-        {item.remark ?? ''}
+        {editingRemark ? (
+          <input
+            type="text"
+            value={remark}
+            onChange={(e) => setRemark(e.target.value)}
+            onBlur={saveRemark}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.currentTarget.blur(); }
+              else if (e.key === 'Escape') { cancelRemark(); }
+            }}
+            autoFocus
+            maxLength={500}
+            autoComplete="off"
+            spellCheck={false}
+            className="w-full px-2 py-1 rounded text-sm"
+            style={INPUT_STYLE}
+          />
+        ) : (
+          <div
+            onDoubleClick={() => setEditingRemark(true)}
+            className="px-2 py-1 rounded cursor-text min-h-[1.75rem] hover:bg-white/5 transition-colors"
+            title="Doppelklick zum Bearbeiten"
+          >
+            {item.remark ?? ''}
+          </div>
+        )}
       </td>
       <td className="p-2 text-sm">
         {item.link_url && linkText ? (
