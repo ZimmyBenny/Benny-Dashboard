@@ -10,6 +10,7 @@ import {
   eurPreis,
 } from '../../../hooks/amazon/useManufacturers';
 import { SectionHeader } from '../SectionHeader';
+import { useSectionExpanded } from '../../../hooks/amazon/useSectionExpanded';
 import { ManufacturerComparison } from './ManufacturerComparison';
 
 const ACCENT = '#34d399';
@@ -23,7 +24,7 @@ export function ManufacturersSection({ productId }: Props) {
   const reorder = useReorderManufacturers(productId);
   const updateSettings = useUpdateManufacturerSettings(productId);
 
-  const [expanded, setExpanded] = useState(true);
+  const { expanded, toggle } = useSectionExpanded(productId, 'manufacturers', true);
   const [order, setOrder] = useState<number[] | null>(null);
   const [rateInput, setRateInput] = useState<string | null>(null);
   const [fxLoading, setFxLoading] = useState(false);
@@ -94,7 +95,7 @@ export function ManufacturersSection({ productId }: Props) {
 
   return (
     <section className="rounded-xl" style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}>
-      <SectionHeader icon="factory" title="Hersteller" accent={ACCENT} expanded={expanded} onToggleExpand={() => setExpanded(e => !e)} />
+      <SectionHeader icon="factory" title="Hersteller" accent={ACCENT} expanded={expanded} onToggleExpand={toggle} />
       {expanded && (
         <div className="px-5 pb-5 flex flex-col gap-3">
           <div className="flex items-center gap-2 flex-wrap">
