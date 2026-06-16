@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 const STORAGE_KEY = 'amazon.detail.section-order';
-const DEFAULT_ORDER = ['sourcing', 'checklist', 'usp', 'manufacturers'] as const;
+const DEFAULT_ORDER = ['sourcing', 'checklist', 'usp', 'manufacturers', 'research'] as const;
 export type DetailSectionId = typeof DEFAULT_ORDER[number];
 
 function readOrder(): DetailSectionId[] {
