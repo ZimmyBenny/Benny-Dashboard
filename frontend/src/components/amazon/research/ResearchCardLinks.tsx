@@ -33,7 +33,8 @@ export function ResearchCardLinks({ productId, cardId, links }: { productId: num
           </button>
         </div>
       ))}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2"
+        onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) add(); }}>
         <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…"
           onKeyDown={(e) => { if (e.key === 'Enter') add(); }}
           className="flex-1 px-2 py-1 rounded text-sm" style={INPUT_STYLE} autoComplete="off" />
