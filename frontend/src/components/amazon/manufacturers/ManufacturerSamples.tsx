@@ -2,8 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { getSamplePhotoObjectUrl, type ManufacturerSample, type SamplePhoto } from '../../../api/amazon.api';
 import {
   useCreateSampleM, useUpdateSampleM, useDeleteSampleM,
-  useUploadSamplePhoto, useDeleteSamplePhoto,
+  useUploadSamplePhoto, useDeleteSamplePhoto, parsePreis,
 } from '../../../hooks/amazon/useManufacturers';
+
+function formatBetrag(n: number): string {
+  return n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 const INPUT_STYLE: React.CSSProperties = {
   background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)',
@@ -32,7 +36,7 @@ function PhotoThumb({ productId, mId, sId, photo, onDelete }: { productId: numbe
   );
 }
 
-function SampleBlock({ productId, mId, sample }: { productId: number; mId: number; sample: ManufacturerSample }) {
+function SampleBlock({ productId, mId, sample, rate }: { productId: number; mId: number; sample: ManufacturerSample; rate: number | null }) {
   const update = useUpdateSampleM(productId);
   const del = useDeleteSampleM(productId);
   const upload = useUploadSamplePhoto(productId);
@@ -131,19 +135,27 @@ function SampleBlock({ productId, mId, sample }: { productId: number; mId: numbe
             <option value="USD">USD</option>
             <option value="EUR">EUR</option>
           </select>
+          {(() => {
+            const amount = parsePreis(kosten);
+            if (amount === null || !rate || rate <= 0) return null;
+            const conv = sample.currency === 'USD'
+              ? `≈ ${formatBetrag(amount / rate)} €`
+              : `≈ ${formatBetrag(amount * rate)} $`;
+            return <span className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }} title={`Kurs: 1 € = ${formatBetrag(rate)} $ (aus Angeboten)`}>{conv}</span>;
+          })()}
         </div>
       </div>
     </div>
   );
 }
 
-export function ManufacturerSamples({ productId, mId, samples }: { productId: number; mId: number; samples?: ManufacturerSample[] }) {
+export function ManufacturerSamples({ productId, mId, samples, rate = null }: { productId: number; mId: number; samples?: ManufacturerSample[]; rate?: number | null }) {
   const create = useCreateSampleM(productId);
   const list = samples ?? [];
   return (
     <div className="flex flex-col gap-2">
       <p className="text-xs font-semibold tracking-wider" style={{ color: 'var(--color-on-surface-variant)' }}>SAMPLES</p>
-      {list.map(s => <SampleBlock key={s.id} productId={productId} mId={mId} sample={s} />)}
+      {list.map(s => <SampleBlock key={s.id} productId={productId} mId={mId} sample={s} rate={rate} />)}
       <button type="button" onClick={() => create.mutate(mId)}
         className="self-start px-2 py-1 rounded-md text-xs flex items-center gap-1"
         style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}>
