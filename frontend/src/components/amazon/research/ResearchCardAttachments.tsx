@@ -98,7 +98,6 @@ export function ResearchCardAttachments({ productId, cardId, attachments }: { pr
         <button type="button" onClick={() => fileInput.current?.click()}
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => { e.preventDefault(); pick(e.dataTransfer.files?.[0]); }}
-          onPaste={(e) => { for (const it of e.clipboardData.items) if (it.kind === 'file') { pick(it.getAsFile()); break; } }}
           className="flex items-center justify-center rounded-md"
           style={{ width: 88, height: 88, border: '1px dashed rgba(255,255,255,0.2)', color: 'var(--color-on-surface-variant)' }}
           aria-label="Anhang hinzufügen" title="Klick, Drag&Drop oder Cmd+V — Bild, E-Mail (.eml), PDF …">
