@@ -21,6 +21,22 @@ function deleteOfferFileFromDisk(filename: string | null | undefined) {
   if (!abs.startsWith(path.resolve(OFFER_FILES_DIR) + path.sep)) return;
   try { fs.unlinkSync(abs); } catch { /* schon weg */ }
 }
+
+const SAMPLE_PHOTOS_DIR = path.join(os.homedir(), '.local', 'share', 'benny-dashboard', 'amazon-manufacturer-sample-photos');
+if (!fs.existsSync(SAMPLE_PHOTOS_DIR)) fs.mkdirSync(SAMPLE_PHOTOS_DIR, { recursive: true });
+const samplePhotoUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, SAMPLE_PHOTOS_DIR),
+    filename: (_req, file, cb) => cb(null, `${crypto.randomUUID()}${path.extname(file.originalname) || ''}`),
+  }),
+  limits: { fileSize: 20 * 1024 * 1024 },
+});
+function deleteSamplePhotoFromDisk(filename: string | null | undefined) {
+  if (!filename) return;
+  const abs = path.resolve(SAMPLE_PHOTOS_DIR, filename);
+  if (!abs.startsWith(path.resolve(SAMPLE_PHOTOS_DIR) + path.sep)) return;
+  try { fs.unlinkSync(abs); } catch { /* schon weg */ }
+}
 interface OfferFileRow { id: number; offer_id: number; sort_order: number; file_path: string; original_name: string | null; mime: string | null; created_at: number; }
 function loadOfferFiles(offerId: number): OfferFileRow[] {
   return db.prepare(`SELECT * FROM amazon_manufacturer_offer_files WHERE offer_id = ? ORDER BY sort_order, id`).all(offerId) as OfferFileRow[];
@@ -67,8 +83,38 @@ function loadOffers(mId: number): OfferRow[] {
 function loadOffer(mId: number, oId: number): OfferRow | undefined {
   return db.prepare(`SELECT * FROM amazon_manufacturer_offers WHERE id = ? AND manufacturer_id = ?`).get(oId, mId) as OfferRow | undefined;
 }
+interface SampleRow {
+  id: number; manufacturer_id: number; sort_order: number;
+  bezeichnung: string; received_date: string | null; rating: number;
+  status: string; is_favorite: number;
+  notizen: string | null; maengel: string | null; kosten: string | null; currency: string;
+  created_at: number; updated_at: number;
+}
+interface SamplePhotoRow { id: number; sample_id: number; sort_order: number; file_path: string; original_name: string | null; mime: string | null; created_at: number; }
+const SAMPLE_STATUS = new Set(['angefragt', 'bestellt', 'erhalten', 'abgelehnt']);
+
+function loadSamples(mId: number): SampleRow[] {
+  return db.prepare(`SELECT * FROM amazon_manufacturer_samples WHERE manufacturer_id = ? ORDER BY sort_order, id`).all(mId) as SampleRow[];
+}
+function loadSample(mId: number, sId: number): SampleRow | undefined {
+  return db.prepare(`SELECT * FROM amazon_manufacturer_samples WHERE id = ? AND manufacturer_id = ?`).get(sId, mId) as SampleRow | undefined;
+}
+function loadSamplePhotos(sampleId: number): SamplePhotoRow[] {
+  return db.prepare(`SELECT * FROM amazon_manufacturer_sample_photos WHERE sample_id = ? ORDER BY sort_order, id`).all(sampleId) as SamplePhotoRow[];
+}
+function loadSamplePhoto(sampleId: number, photoId: number): SamplePhotoRow | undefined {
+  return db.prepare(`SELECT * FROM amazon_manufacturer_sample_photos WHERE id = ? AND sample_id = ?`).get(photoId, sampleId) as SamplePhotoRow | undefined;
+}
+function samplesWithPhotos(mId: number) {
+  return loadSamples(mId).map(s => ({ ...s, photos: loadSamplePhotos(s.id) }));
+}
+
 function withOffers(m: ManufacturerRow) {
-  return { ...m, offers: loadOffers(m.id).map(o => ({ ...o, files: loadOfferFiles(o.id) })) };
+  return {
+    ...m,
+    offers: loadOffers(m.id).map(o => ({ ...o, files: loadOfferFiles(o.id) })),
+    samples: samplesWithPhotos(m.id),
+  };
 }
 function loadMachbarkeit(productId: number, masterId: number): { umsetzbar: number; teilweise: number; nicht: number; offen: number; total: number } | null {
   const uspMan = db.prepare(`SELECT id FROM amazon_usp_manufacturers WHERE manufacturer_id = ? ORDER BY id LIMIT 1`).get(masterId) as { id: number } | undefined;
@@ -301,6 +347,113 @@ router.delete('/products/:id/manufacturers/:mId/offers/:oId/files/:fId', (req: R
   if (!f) { res.status(404).json({ error: 'not found' }); return; }
   db.prepare(`DELETE FROM amazon_manufacturer_offer_files WHERE id = ?`).run(fId);
   deleteOfferFileFromDisk(f.file_path);
+  res.status(204).end();
+});
+
+// ── Samples ──
+router.post('/products/:id/manufacturers/:mId/samples', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const mId = Number(req.params.mId);
+  if (![id, mId].every(Number.isInteger) || !ensureProduct(id) || !loadManufacturer(id, mId)) { res.status(404).json({ error: 'not found' }); return; }
+  const maxOrder = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_manufacturer_samples WHERE manufacturer_id = ?`).get(mId) as { m: number }).m;
+  const r = db.prepare(`INSERT INTO amazon_manufacturer_samples (manufacturer_id, sort_order) VALUES (?, ?)`).run(mId, maxOrder + 1);
+  const s = db.prepare(`SELECT * FROM amazon_manufacturer_samples WHERE id = ?`).get(r.lastInsertRowid) as SampleRow;
+  res.status(201).json({ sample: { ...s, photos: [] } });
+});
+
+router.patch('/products/:id/manufacturers/:mId/samples/reorder', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const mId = Number(req.params.mId);
+  if (![id, mId].every(Number.isInteger) || !ensureProduct(id) || !loadManufacturer(id, mId)) { res.status(404).json({ error: 'not found' }); return; }
+  const order = (req.body as { order?: unknown })?.order;
+  if (!Array.isArray(order) || order.some(x => !Number.isInteger(x))) { res.status(400).json({ error: 'invalid order' }); return; }
+  const own = new Set(loadSamples(mId).map(s => s.id));
+  if (order.length !== own.size || order.some((x: number) => !own.has(x))) { res.status(400).json({ error: 'order mismatch' }); return; }
+  const upd = db.prepare(`UPDATE amazon_manufacturer_samples SET sort_order = ? WHERE id = ?`);
+  db.transaction(() => { order.forEach((sid: number, idx: number) => upd.run(idx + 1, sid)); })();
+  res.json({ samples: samplesWithPhotos(mId) });
+});
+
+router.patch('/products/:id/manufacturers/:mId/samples/:sId', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const mId = Number(req.params.mId); const sId = Number(req.params.sId);
+  if (![id, mId, sId].every(Number.isInteger) || !ensureProduct(id) || !loadManufacturer(id, mId) || !loadSample(mId, sId)) { res.status(404).json({ error: 'not found' }); return; }
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const sets: string[] = []; const vals: unknown[] = [];
+  for (const field of ['bezeichnung', 'received_date', 'notizen', 'maengel', 'kosten'] as const) {
+    if (field in body) {
+      const n = normText(body[field]);
+      if ('error' in n) { res.status(400).json({ error: `invalid ${field}` }); return; }
+      if (!n.skip) { sets.push(`${field} = ?`); vals.push(n.value); }
+    }
+  }
+  if (body.currency !== undefined) {
+    if (body.currency !== 'USD' && body.currency !== 'EUR') { res.status(400).json({ error: 'invalid currency' }); return; }
+    sets.push('currency = ?'); vals.push(body.currency);
+  }
+  if (body.status !== undefined) {
+    if (typeof body.status !== 'string' || !SAMPLE_STATUS.has(body.status)) { res.status(400).json({ error: 'invalid status' }); return; }
+    sets.push('status = ?'); vals.push(body.status);
+  }
+  if (body.rating !== undefined) {
+    const rt = Number(body.rating);
+    if (!Number.isInteger(rt) || rt < 0 || rt > 5) { res.status(400).json({ error: 'invalid rating' }); return; }
+    sets.push('rating = ?'); vals.push(rt);
+  }
+  if (body.is_favorite !== undefined) {
+    if (body.is_favorite !== 0 && body.is_favorite !== 1) { res.status(400).json({ error: 'invalid is_favorite' }); return; }
+    sets.push('is_favorite = ?'); vals.push(body.is_favorite);
+  }
+  if (sets.length === 0) { res.json({ sample: { ...(loadSample(mId, sId) as SampleRow), photos: loadSamplePhotos(sId) } }); return; }
+  sets.push('updated_at = unixepoch()');
+  db.prepare(`UPDATE amazon_manufacturer_samples SET ${sets.join(', ')} WHERE id = ?`).run(...vals, sId);
+  res.json({ sample: { ...(loadSample(mId, sId) as SampleRow), photos: loadSamplePhotos(sId) } });
+});
+
+router.delete('/products/:id/manufacturers/:mId/samples/:sId', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const mId = Number(req.params.mId); const sId = Number(req.params.sId);
+  if (![id, mId, sId].every(Number.isInteger) || !ensureProduct(id) || !loadManufacturer(id, mId) || !loadSample(mId, sId)) { res.status(404).json({ error: 'not found' }); return; }
+  const photos = loadSamplePhotos(sId);
+  db.transaction(() => {
+    db.prepare(`DELETE FROM amazon_manufacturer_sample_photos WHERE sample_id = ?`).run(sId);
+    db.prepare(`DELETE FROM amazon_manufacturer_samples WHERE id = ?`).run(sId);
+  })();
+  photos.forEach(p => deleteSamplePhotoFromDisk(p.file_path));
+  res.status(204).end();
+});
+
+// ── Sample-Fotos ──
+router.post('/products/:id/manufacturers/:mId/samples/:sId/photos', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const mId = Number(req.params.mId); const sId = Number(req.params.sId);
+  if (![id, mId, sId].every(Number.isInteger) || !ensureProduct(id) || !loadManufacturer(id, mId) || !loadSample(mId, sId)) { res.status(404).json({ error: 'not found' }); return; }
+  samplePhotoUpload.single('file')(req, res, (err: unknown) => {
+    if (err) { res.status(400).json({ error: err instanceof Error ? err.message : 'upload failed' }); return; }
+    const file = (req as Request & { file?: { filename: string; originalname: string; mimetype: string } }).file;
+    if (!file) { res.status(400).json({ error: 'no file' }); return; }
+    const maxOrder = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_manufacturer_sample_photos WHERE sample_id = ?`).get(sId) as { m: number }).m;
+    const r = db.prepare(`INSERT INTO amazon_manufacturer_sample_photos (sample_id, sort_order, file_path, original_name, mime) VALUES (?, ?, ?, ?, ?)`)
+      .run(sId, maxOrder + 1, file.filename, Buffer.from(file.originalname, 'latin1').toString('utf8').slice(0, 300), file.mimetype.slice(0, 200));
+    res.status(201).json({ photo: db.prepare(`SELECT * FROM amazon_manufacturer_sample_photos WHERE id = ?`).get(r.lastInsertRowid) as SamplePhotoRow });
+  });
+});
+
+router.get('/products/:id/manufacturers/:mId/samples/:sId/photos/:photoId', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const mId = Number(req.params.mId); const sId = Number(req.params.sId); const photoId = Number(req.params.photoId);
+  if (![id, mId, sId, photoId].every(Number.isInteger) || !ensureProduct(id) || !loadManufacturer(id, mId) || !loadSample(mId, sId)) { res.status(404).end(); return; }
+  const p = loadSamplePhoto(sId, photoId);
+  if (!p) { res.status(404).end(); return; }
+  const abs = path.resolve(SAMPLE_PHOTOS_DIR, p.file_path);
+  if (!abs.startsWith(path.resolve(SAMPLE_PHOTOS_DIR) + path.sep) || !fs.existsSync(abs)) { res.status(404).end(); return; }
+  res.setHeader('Content-Type', p.mime || 'application/octet-stream');
+  const ascii = (p.original_name ?? 'foto').replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '');
+  res.setHeader('Content-Disposition', `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(p.original_name ?? 'foto')}`);
+  fs.createReadStream(abs).pipe(res);
+});
+
+router.delete('/products/:id/manufacturers/:mId/samples/:sId/photos/:photoId', (req: Request, res: Response) => {
+  const id = Number(req.params.id); const mId = Number(req.params.mId); const sId = Number(req.params.sId); const photoId = Number(req.params.photoId);
+  if (![id, mId, sId, photoId].every(Number.isInteger) || !ensureProduct(id) || !loadManufacturer(id, mId) || !loadSample(mId, sId)) { res.status(404).json({ error: 'not found' }); return; }
+  const p = loadSamplePhoto(sId, photoId);
+  if (!p) { res.status(404).json({ error: 'not found' }); return; }
+  db.prepare(`DELETE FROM amazon_manufacturer_sample_photos WHERE id = ?`).run(photoId);
+  deleteSamplePhotoFromDisk(p.file_path);
   res.status(204).end();
 });
 
