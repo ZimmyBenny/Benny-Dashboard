@@ -13,9 +13,12 @@ interface MyDataRow {
   amazon_email: string | null; amazon_store: string | null; merchant_token: string | null;
   updated_at: number;
 }
-interface FieldRow { id: number; group_key: string; sort_order: number; label: string; value: string; created_at: number; }
+interface FieldRow { id: number; group_key: string; group_id: number | null; sort_order: number; label: string; value: string; created_at: number; }
+interface GroupRow { id: number; sort_order: number; title: string; created_at: number; }
+const DEFAULT_GROUPS: [string, string][] = [
+  ['steuer', 'Steuer & Zoll'], ['bank', 'Bankverbindung'], ['firma', 'Firma & Kontakt'], ['amazon', 'Amazon-Konto'], ['weitere', 'Weitere'],
+];
 
-const GROUP_KEYS = new Set(['steuer', 'bank', 'firma', 'amazon', 'weitere']);
 const DEFAULT_FIELDS: [string, string][] = [
   ['steuer', 'EORI-Nummer'], ['steuer', 'USt-IdNr'], ['steuer', 'Steuernummer'], ['steuer', 'Finanzamt'],
   ['bank', 'Kontoinhaber'], ['bank', 'IBAN'], ['bank', 'BIC'], ['bank', 'Bank'],
@@ -33,6 +36,25 @@ function seedDefaultsIfNeeded(): void {
 }
 function loadFields(): FieldRow[] {
   return db.prepare(`SELECT * FROM amazon_my_data_custom ORDER BY sort_order, id`).all() as FieldRow[];
+}
+function loadGroups(): GroupRow[] {
+  return db.prepare(`SELECT * FROM amazon_my_data_group ORDER BY sort_order, id`).all() as GroupRow[];
+}
+function groupExists(id: number): boolean {
+  return db.prepare(`SELECT 1 FROM amazon_my_data_group WHERE id = ?`).get(id) !== undefined;
+}
+function seedGroupsIfNeeded(): void {
+  const seeded = (db.prepare(`SELECT groups_seeded FROM amazon_my_data WHERE id = 1`).get() as { groups_seeded: number } | undefined)?.groups_seeded;
+  if (seeded) return;
+  const insGroup = db.prepare(`INSERT INTO amazon_my_data_group (sort_order, title) VALUES (?, ?)`);
+  const mapFields = db.prepare(`UPDATE amazon_my_data_custom SET group_id = ? WHERE group_key = ? AND group_id IS NULL`);
+  db.transaction(() => {
+    DEFAULT_GROUPS.forEach(([key, title], idx) => {
+      const r = insGroup.run(idx + 1, title);
+      mapFields.run(r.lastInsertRowid, key);
+    });
+    db.prepare(`UPDATE amazon_my_data SET groups_seeded = 1 WHERE id = 1`).run();
+  })();
 }
 
 const DUMMY_HASH = '$2b$12$CwTycUXWue0Thq9StjUM0uJ8.m8yq9W/xWc9Cg3aB8fQaN8g6q6Dq';
@@ -116,14 +138,15 @@ router.post('/my-data/reset-pin', async (req: Request, res: Response) => {
 router.get('/my-data', requireMyDataUnlock, (_req: Request, res: Response) => {
   getRow();
   seedDefaultsIfNeeded();
-  res.json({ fields: loadFields() });
+  seedGroupsIfNeeded();
+  res.json({ groups: loadGroups(), fields: loadFields() });
 });
 
 router.post('/my-data/custom', requireMyDataUnlock, (req: Request, res: Response) => {
-  const gk = (req.body ?? {}).group_key;
-  const group_key = typeof gk === 'string' && GROUP_KEYS.has(gk) ? gk : 'weitere';
+  const gid = Number((req.body ?? {}).group_id);
+  if (!Number.isInteger(gid) || !groupExists(gid)) { res.status(400).json({ error: 'invalid group_id' }); return; }
   const maxOrder = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_my_data_custom`).get() as { m: number }).m;
-  const r = db.prepare(`INSERT INTO amazon_my_data_custom (group_key, sort_order) VALUES (?, ?)`).run(group_key, maxOrder + 1);
+  const r = db.prepare(`INSERT INTO amazon_my_data_custom (group_id, sort_order) VALUES (?, ?)`).run(gid, maxOrder + 1);
   res.status(201).json({ field: db.prepare(`SELECT * FROM amazon_my_data_custom WHERE id = ?`).get(r.lastInsertRowid) as FieldRow });
 });
 
@@ -157,6 +180,40 @@ router.post('/my-data/custom/reorder', requireMyDataUnlock, (req: Request, res: 
   if (!Array.isArray(order) || order.some(x => !Number.isInteger(x))) { res.status(400).json({ error: 'invalid order' }); return; }
   const upd = db.prepare(`UPDATE amazon_my_data_custom SET sort_order = ? WHERE id = ?`);
   db.transaction(() => { order.forEach((cid: number, idx: number) => upd.run(idx + 1, cid)); })();
+  res.status(204).end();
+});
+
+// ── Gruppen (Bereiche) ──
+router.post('/my-data/groups', requireMyDataUnlock, (_req: Request, res: Response) => {
+  const maxOrder = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_my_data_group`).get() as { m: number }).m;
+  const r = db.prepare(`INSERT INTO amazon_my_data_group (sort_order, title) VALUES (?, '')`).run(maxOrder + 1);
+  res.status(201).json({ group: db.prepare(`SELECT * FROM amazon_my_data_group WHERE id = ?`).get(r.lastInsertRowid) as GroupRow });
+});
+
+router.patch('/my-data/groups/:id', requireMyDataUnlock, (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !groupExists(id)) { res.status(404).json({ error: 'not found' }); return; }
+  const title = (req.body ?? {}).title;
+  if (typeof title !== 'string') { res.status(400).json({ error: 'invalid title' }); return; }
+  db.prepare(`UPDATE amazon_my_data_group SET title = ? WHERE id = ?`).run(title.slice(0, 200), id);
+  res.json({ group: db.prepare(`SELECT * FROM amazon_my_data_group WHERE id = ?`).get(id) as GroupRow });
+});
+
+router.delete('/my-data/groups/:id', requireMyDataUnlock, (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !groupExists(id)) { res.status(404).json({ error: 'not found' }); return; }
+  db.transaction(() => {
+    db.prepare(`DELETE FROM amazon_my_data_custom WHERE group_id = ?`).run(id);
+    db.prepare(`DELETE FROM amazon_my_data_group WHERE id = ?`).run(id);
+  })();
+  res.status(204).end();
+});
+
+router.post('/my-data/groups/reorder', requireMyDataUnlock, (req: Request, res: Response) => {
+  const order = (req.body as { order?: unknown })?.order;
+  if (!Array.isArray(order) || order.some(x => !Number.isInteger(x))) { res.status(400).json({ error: 'invalid order' }); return; }
+  const upd = db.prepare(`UPDATE amazon_my_data_group SET sort_order = ? WHERE id = ?`);
+  db.transaction(() => { order.forEach((gid: number, idx: number) => upd.run(idx + 1, gid)); })();
   res.status(204).end();
 });
 

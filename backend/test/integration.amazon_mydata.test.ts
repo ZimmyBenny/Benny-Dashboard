@@ -64,10 +64,15 @@ describe('Meine Daten — Daten (Unlock)', () => {
     expect((await request(app).get('/api/amazon/my-data')).status).toBe(401);
     const get = await request(app).get('/api/amazon/my-data').set('x-mydata-unlock', token);
     expect(get.status).toBe(200);
-    const labels = (get.body.fields as { label: string; group_key: string }[]).map(f => f.label);
+    const labels = (get.body.fields as { label: string }[]).map(f => f.label);
     expect(labels).toContain('EORI-Nummer');
     expect(labels).toContain('IBAN');
-    expect((get.body.fields as { group_key: string }[]).some(f => f.group_key === 'steuer')).toBe(true);
+    const titles = (get.body.groups as { title: string }[]).map(g => g.title);
+    expect(titles).toContain('Steuer & Zoll');
+    expect(titles).toContain('Amazon-Konto');
+    // EORI-Feld ist seiner Gruppe zugeordnet
+    const eori = (get.body.fields as { label: string; group_id: number | null }[]).find(f => f.label === 'EORI-Nummer');
+    expect(eori?.group_id).toBeTypeOf('number');
   });
 
   it('Feld-Label + Wert editierbar', async () => {
@@ -88,13 +93,37 @@ describe('Meine Daten — Daten (Unlock)', () => {
   it('neues Feld in einer Gruppe anlegen + loeschen', async () => {
     const token = (await request(app).post('/api/amazon/my-data/set-pin').send({ pin: '1234' })).body.token as string;
     const auth = { 'x-mydata-unlock': token };
-    const c = await request(app).post('/api/amazon/my-data/custom').set(auth).send({ group_key: 'steuer' });
+    const groups = (await request(app).get('/api/amazon/my-data').set(auth)).body.groups as { id: number; title: string }[];
+    const gid = groups.find(g => g.title === 'Steuer & Zoll')!.id;
+    const c = await request(app).post('/api/amazon/my-data/custom').set(auth).send({ group_id: gid });
     expect(c.status).toBe(201);
-    expect(c.body.field.group_key).toBe('steuer');
+    expect(c.body.field.group_id).toBe(gid);
     const fid = c.body.field.id;
     await request(app).patch(`/api/amazon/my-data/custom/${fid}`).set(auth).send({ label: 'Zoll', value: '8501' }).expect(200);
     await request(app).delete(`/api/amazon/my-data/custom/${fid}`).set(auth).expect(204);
     const after = await request(app).get('/api/amazon/my-data').set(auth);
     expect((after.body.fields as { id: number }[]).some(f => f.id === fid)).toBe(false);
+  });
+
+  it('ungueltige group_id beim Feld-Anlegen -> 400', async () => {
+    const token = (await request(app).post('/api/amazon/my-data/set-pin').send({ pin: '1234' })).body.token as string;
+    const auth = { 'x-mydata-unlock': token };
+    expect((await request(app).post('/api/amazon/my-data/custom').set(auth).send({ group_id: 99999 })).status).toBe(400);
+  });
+
+  it('Gruppe anlegen/umbenennen/loeschen (samt Feldern)', async () => {
+    const token = (await request(app).post('/api/amazon/my-data/set-pin').send({ pin: '1234' })).body.token as string;
+    const auth = { 'x-mydata-unlock': token };
+    const g = await request(app).post('/api/amazon/my-data/groups').set(auth).send({});
+    expect(g.status).toBe(201);
+    const gid = g.body.group.id;
+    await request(app).patch(`/api/amazon/my-data/groups/${gid}`).set(auth).send({ title: 'Versand' }).expect(200);
+    const fid = (await request(app).post('/api/amazon/my-data/custom').set(auth).send({ group_id: gid })).body.field.id;
+    const before = await request(app).get('/api/amazon/my-data').set(auth);
+    expect((before.body.groups as { id: number; title: string }[]).find(x => x.id === gid)?.title).toBe('Versand');
+    await request(app).delete(`/api/amazon/my-data/groups/${gid}`).set(auth).expect(204);
+    const after = await request(app).get('/api/amazon/my-data').set(auth);
+    expect((after.body.groups as { id: number }[]).some(x => x.id === gid)).toBe(false);
+    expect((after.body.fields as { id: number }[]).some(x => x.id === fid)).toBe(false);
   });
 });

@@ -5,27 +5,22 @@ import { useAuthStore } from '../../store/authStore';
 import {
   fetchMyDataStatus, setMyDataPin, verifyMyDataPin, changeMyDataPin, resetMyDataPin,
   fetchMyData, createMyDataField, updateMyDataField, deleteMyDataField,
-  type MyDataField,
+  createMyDataGroup, updateMyDataGroup, deleteMyDataGroup,
+  type MyDataField, type MyDataGroup,
 } from '../../api/amazon.api';
 
 const INPUT_STYLE: React.CSSProperties = {
   background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)',
 };
 
-const GROUPS: { key: string; title: string }[] = [
-  { key: 'steuer', title: 'Steuer & Zoll' },
-  { key: 'bank', title: 'Bankverbindung' },
-  { key: 'firma', title: 'Firma & Kontakt' },
-  { key: 'amazon', title: 'Amazon-Konto' },
-  { key: 'weitere', title: 'Weitere' },
-];
-
-function CopyBtn({ value }: { value: string }) {
+function CopyIconBtn({ getText, title }: { getText: () => string; title: string }) {
   const [done, setDone] = useState(false);
-  if (!value) return null;
   return (
-    <button type="button" title="Kopieren" onClick={() => { navigator.clipboard.writeText(value).then(() => { setDone(true); setTimeout(() => setDone(false), 1200); }); }}
-      className="p-1 rounded hover:bg-white/5 flex-shrink-0" style={{ color: done ? 'var(--color-secondary)' : 'var(--color-on-surface-variant)' }}>
+    <button type="button" title={title} onClick={() => {
+      const t = getText();
+      if (!t.trim()) return;
+      navigator.clipboard.writeText(t).then(() => { setDone(true); setTimeout(() => setDone(false), 1200); });
+    }} className="p-1 rounded hover:bg-white/5 flex-shrink-0" style={{ color: done ? 'var(--color-secondary)' : 'var(--color-on-surface-variant)' }}>
       <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{done ? 'check' : 'content_copy'}</span>
     </button>
   );
@@ -42,12 +37,48 @@ function FieldRow({ field, onSave, onDelete }: { field: MyDataField; onSave: (pa
         placeholder="Bezeichnung" className="w-44 flex-shrink-0 px-2 py-1 rounded text-sm" style={{ ...INPUT_STYLE, color: 'var(--color-on-surface-variant)' }} />
       <input value={value} onChange={(e) => setValue(e.target.value)} onBlur={() => { if (value !== field.value) onSave({ value }); }}
         placeholder="Wert" className="flex-1 px-2 py-1 rounded text-sm" style={INPUT_STYLE} autoComplete="off" />
-      <CopyBtn value={field.value} />
+      <CopyIconBtn title="Feld kopieren (mit Name)" getText={() => field.label ? `${field.label}: ${field.value}` : field.value} />
       <button type="button" onClick={() => { if (confirm(`Feld „${field.label || 'ohne Namen'}" wirklich löschen?`)) onDelete(); }} aria-label="Feld löschen"
         className="p-1 rounded hover:bg-white/5 flex-shrink-0" style={{ color: '#fca5a5' }}>
         <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete</span>
       </button>
     </div>
+  );
+}
+
+function GroupSection({ group, fields, onTitle, onDeleteGroup, onAddField, onSaveField, onDeleteField }: {
+  group: MyDataGroup; fields: MyDataField[];
+  onTitle: (title: string) => void; onDeleteGroup: () => void; onAddField: () => void;
+  onSaveField: (id: number, patch: { label?: string; value?: string }) => void; onDeleteField: (id: number) => void;
+}) {
+  const [title, setTitle] = useState(group.title);
+  useEffect(() => { setTitle(group.title); }, [group.title]);
+  const groupText = () => {
+    const lines = fields.map(f => f.label ? `${f.label}: ${f.value}` : f.value).filter(l => l.trim());
+    return [group.title, ...lines].filter(Boolean).join('\n');
+  };
+  return (
+    <section className="rounded-xl p-4 flex flex-col gap-2"
+      style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="flex items-center gap-2 mb-1">
+        <input value={title} onChange={(e) => setTitle(e.target.value)} onBlur={() => { if (title !== group.title) onTitle(title); }}
+          placeholder="Bereich benennen …"
+          className="flex-1 px-2 py-1 rounded text-xs font-semibold tracking-wider uppercase"
+          style={{ ...INPUT_STYLE, color: 'var(--color-on-surface-variant)' }} />
+        <CopyIconBtn title="Ganze Gruppe kopieren" getText={groupText} />
+        <button type="button" onClick={() => { if (confirm(`Bereich „${group.title || 'ohne Namen'}" samt Feldern wirklich löschen?`)) onDeleteGroup(); }}
+          aria-label="Bereich löschen" className="p-1 rounded hover:bg-white/5 flex-shrink-0" style={{ color: '#fca5a5' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete</span>
+        </button>
+      </div>
+      {fields.map(f => (
+        <FieldRow key={f.id} field={f} onSave={(p) => onSaveField(f.id, p)} onDelete={() => onDeleteField(f.id)} />
+      ))}
+      <button type="button" onClick={onAddField} className="self-start px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5"
+        style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}>
+        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span> Feld
+      </button>
+    </section>
   );
 }
 
@@ -130,9 +161,12 @@ export function AmazonMyDataPage() {
   const data = useQuery({ queryKey: ['mydata', 'data'], queryFn: fetchMyData, enabled: !!pinGateToken });
 
   const inval = () => qc.invalidateQueries({ queryKey: ['mydata', 'data'] });
-  const addField = useMutation({ mutationFn: (groupKey: string) => createMyDataField(groupKey), onSettled: inval });
+  const addField = useMutation({ mutationFn: (groupId: number) => createMyDataField(groupId), onSettled: inval });
   const patchField = useMutation({ mutationFn: (v: { id: number; patch: { label?: string; value?: string } }) => updateMyDataField(v.id, v.patch), onSettled: inval });
   const delField = useMutation({ mutationFn: (id: number) => deleteMyDataField(id), onSettled: inval });
+  const addGroup = useMutation({ mutationFn: () => createMyDataGroup(), onSettled: inval });
+  const patchGroup = useMutation({ mutationFn: (v: { id: number; title: string }) => updateMyDataGroup(v.id, v.title), onSettled: inval });
+  const delGroup = useMutation({ mutationFn: (id: number) => deleteMyDataGroup(id), onSettled: inval });
   const [changingPin, setChangingPin] = useState(false);
 
   function lock() { setPinGateToken(null); qc.removeQueries({ queryKey: ['mydata', 'data'] }); }
@@ -143,6 +177,7 @@ export function AmazonMyDataPage() {
     return <PageWrapper><PinGate pinSet={!!status.data?.pinSet} onUnlocked={(t) => { setPinGateToken(t); qc.invalidateQueries({ queryKey: ['mydata'] }); }} /></PageWrapper>;
   }
 
+  const groups = data.data?.groups ?? [];
   const fields = data.data?.fields ?? [];
   return (
     <PageWrapper>
@@ -161,24 +196,18 @@ export function AmazonMyDataPage() {
 
       {data.isLoading ? <p style={{ color: 'var(--color-on-surface-variant)' }}>Lade Daten …</p> : (
         <div className="flex flex-col gap-5">
-          {GROUPS.map(g => {
-            const groupFields = fields.filter(f => f.group_key === g.key);
-            return (
-              <section key={g.key} className="rounded-xl p-4 flex flex-col gap-2"
-                style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                <p className="text-xs font-semibold tracking-wider" style={{ color: 'var(--color-on-surface-variant)' }}>{g.title.toUpperCase()}</p>
-                {groupFields.map(f => (
-                  <FieldRow key={f.id} field={f}
-                    onSave={(p) => patchField.mutate({ id: f.id, patch: p })}
-                    onDelete={() => delField.mutate(f.id)} />
-                ))}
-                <button type="button" onClick={() => addField.mutate(g.key)} className="self-start px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5"
-                  style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span> Feld
-                </button>
-              </section>
-            );
-          })}
+          {groups.map(g => (
+            <GroupSection key={g.id} group={g} fields={fields.filter(f => f.group_id === g.id)}
+              onTitle={(title) => patchGroup.mutate({ id: g.id, title })}
+              onDeleteGroup={() => delGroup.mutate(g.id)}
+              onAddField={() => addField.mutate(g.id)}
+              onSaveField={(id, patch) => patchField.mutate({ id, patch })}
+              onDeleteField={(id) => delField.mutate(id)} />
+          ))}
+          <button type="button" onClick={() => addGroup.mutate()} className="self-start px-4 py-2 rounded-md text-sm flex items-center gap-1.5"
+            style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>create_new_folder</span> Bereich hinzufügen
+          </button>
         </div>
       )}
     </PageWrapper>
