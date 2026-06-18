@@ -577,9 +577,10 @@ export interface ManufacturerSample {
   bezeichnung: string; received_date: string | null; rating: number;
   status: 'angefragt' | 'bestellt' | 'erhalten' | 'abgelehnt'; is_favorite: number;
   notizen: string | null; maengel: string | null; kosten: string | null; currency: 'USD' | 'EUR';
+  sendungsnummer: string | null;
   created_at: number; updated_at: number; photos: SamplePhoto[];
 }
-export type SamplePatch = Partial<Pick<ManufacturerSample, 'bezeichnung' | 'received_date' | 'rating' | 'status' | 'is_favorite' | 'notizen' | 'maengel' | 'kosten' | 'currency'>>;
+export type SamplePatch = Partial<Pick<ManufacturerSample, 'bezeichnung' | 'received_date' | 'rating' | 'status' | 'is_favorite' | 'notizen' | 'maengel' | 'kosten' | 'currency' | 'sendungsnummer'>>;
 
 export async function createSampleM(productId: number, mId: number): Promise<ManufacturerSample> {
   return ((await apiClient.post(`/amazon/products/${productId}/manufacturers/${mId}/samples`, {})).data as { sample: ManufacturerSample }).sample;

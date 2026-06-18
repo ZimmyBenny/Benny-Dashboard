@@ -88,6 +88,7 @@ interface SampleRow {
   bezeichnung: string; received_date: string | null; rating: number;
   status: string; is_favorite: number;
   notizen: string | null; maengel: string | null; kosten: string | null; currency: string;
+  sendungsnummer: string | null;
   created_at: number; updated_at: number;
 }
 interface SamplePhotoRow { id: number; sample_id: number; sort_order: number; file_path: string; original_name: string | null; mime: string | null; created_at: number; }
@@ -377,7 +378,7 @@ router.patch('/products/:id/manufacturers/:mId/samples/:sId', (req: Request, res
   if (![id, mId, sId].every(Number.isInteger) || !ensureProduct(id) || !loadManufacturer(id, mId) || !loadSample(mId, sId)) { res.status(404).json({ error: 'not found' }); return; }
   const body = (req.body ?? {}) as Record<string, unknown>;
   const sets: string[] = []; const vals: unknown[] = [];
-  for (const field of ['bezeichnung', 'received_date', 'notizen', 'maengel', 'kosten'] as const) {
+  for (const field of ['bezeichnung', 'received_date', 'notizen', 'maengel', 'kosten', 'sendungsnummer'] as const) {
     if (field in body) {
       const n = normText(body[field]);
       if ('error' in n) { res.status(400).json({ error: `invalid ${field}` }); return; }
