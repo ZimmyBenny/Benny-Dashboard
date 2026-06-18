@@ -1,0 +1,211 @@
+import { useEffect, useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { PageWrapper } from '../../components/layout/PageWrapper';
+import { useAuthStore } from '../../store/authStore';
+import {
+  fetchMyDataStatus, setMyDataPin, verifyMyDataPin, changeMyDataPin, resetMyDataPin,
+  fetchMyData, updateMyData, createMyDataCustom, updateMyDataCustom, deleteMyDataCustom,
+  type MyDataCustom, type MyDataPatch,
+} from '../../api/amazon.api';
+
+const INPUT_STYLE: React.CSSProperties = {
+  background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)',
+};
+
+const GROUPS: { title: string; fields: { key: keyof MyDataPatch; label: string }[] }[] = [
+  { title: 'Steuer & Zoll', fields: [
+    { key: 'eori', label: 'EORI-Nummer' }, { key: 'vat_id', label: 'USt-IdNr' },
+    { key: 'tax_number', label: 'Steuernummer' }, { key: 'finanzamt', label: 'Finanzamt' } ] },
+  { title: 'Bankverbindung', fields: [
+    { key: 'bank_holder', label: 'Kontoinhaber' }, { key: 'iban', label: 'IBAN' },
+    { key: 'bic', label: 'BIC' }, { key: 'bank_name', label: 'Bank' } ] },
+  { title: 'Firma & Kontakt', fields: [
+    { key: 'name', label: 'Name' }, { key: 'firma', label: 'Firma' }, { key: 'adresse', label: 'Adresse' },
+    { key: 'email', label: 'E-Mail' }, { key: 'telefon', label: 'Telefon' }, { key: 'webseite', label: 'Webseite' } ] },
+  { title: 'Amazon-Konto', fields: [
+    { key: 'amazon_email', label: 'Seller-E-Mail' }, { key: 'amazon_store', label: 'Store-Name' },
+    { key: 'merchant_token', label: 'Merchant-Token' } ] },
+];
+
+function CopyBtn({ value }: { value: string | null }) {
+  const [done, setDone] = useState(false);
+  if (!value) return null;
+  return (
+    <button type="button" title="Kopieren" onClick={() => { navigator.clipboard.writeText(value).then(() => { setDone(true); setTimeout(() => setDone(false), 1200); }); }}
+      className="p-1 rounded hover:bg-white/5 flex-shrink-0" style={{ color: done ? 'var(--color-secondary)' : 'var(--color-on-surface-variant)' }}>
+      <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{done ? 'check' : 'content_copy'}</span>
+    </button>
+  );
+}
+
+function Field({ label, value, onSave }: { label: string; value: string | null; onSave: (v: string) => void }) {
+  const [v, setV] = useState(value ?? '');
+  useEffect(() => { setV(value ?? ''); }, [value]);
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs w-32 flex-shrink-0" style={{ color: 'var(--color-on-surface-variant)' }}>{label}</span>
+      <input value={v} onChange={(e) => setV(e.target.value)} onBlur={() => { if (v !== (value ?? '')) onSave(v); }}
+        className="flex-1 px-2 py-1 rounded text-sm" style={INPUT_STYLE} autoComplete="off" />
+      <CopyBtn value={value} />
+    </div>
+  );
+}
+
+function PinGate({ pinSet, onUnlocked }: { pinSet: boolean; onUnlocked: (token: string) => void }) {
+  const [pin, setPin] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+  const [forgot, setForgot] = useState(false);
+  const [pw, setPw] = useState(''); const [newPin, setNewPin] = useState('');
+
+  async function submit() {
+    setErr(null);
+    try {
+      const r = pinSet ? await verifyMyDataPin(pin) : await setMyDataPin(pin);
+      onUnlocked(r.token);
+    } catch { setErr(pinSet ? 'Falscher PIN.' : 'PIN muss mind. 4 Zeichen haben.'); }
+  }
+  async function reset() {
+    setErr(null);
+    try { const r = await resetMyDataPin(pw, newPin); onUnlocked(r.token); }
+    catch { setErr('App-Passwort falsch oder PIN zu kurz.'); }
+  }
+
+  return (
+    <div className="max-w-sm mx-auto mt-10 rounded-xl p-6 flex flex-col gap-3"
+      style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="flex items-center gap-2">
+        <span className="material-symbols-outlined" style={{ color: 'var(--color-primary)' }}>lock</span>
+        <h2 className="font-semibold" style={{ color: 'var(--color-on-surface)' }}>{pinSet ? 'Bereich entsperren' : 'PIN festlegen'}</h2>
+      </div>
+      {!forgot ? (
+        <>
+          <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+            placeholder={pinSet ? 'PIN eingeben' : 'Neuen PIN festlegen (min. 4 Zeichen)'} autoFocus
+            className="px-3 py-2 rounded-md text-sm" style={INPUT_STYLE} />
+          <button type="button" onClick={submit} className="px-3 py-2 rounded-md text-sm"
+            style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>
+            {pinSet ? 'Entsperren' : 'PIN festlegen'}
+          </button>
+          {pinSet && <button type="button" onClick={() => { setForgot(true); setErr(null); }} className="text-xs self-start"
+            style={{ color: 'var(--color-on-surface-variant)' }}>PIN vergessen?</button>}
+        </>
+      ) : (
+        <>
+          <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>Zum Zurücksetzen dein App-Login-Passwort + neuen PIN eingeben.</p>
+          <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="App-Passwort" className="px-3 py-2 rounded-md text-sm" style={INPUT_STYLE} />
+          <input type="password" value={newPin} onChange={(e) => setNewPin(e.target.value)} placeholder="Neuer PIN" className="px-3 py-2 rounded-md text-sm" style={INPUT_STYLE} />
+          <button type="button" onClick={reset} className="px-3 py-2 rounded-md text-sm" style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>PIN zurücksetzen</button>
+          <button type="button" onClick={() => { setForgot(false); setErr(null); }} className="text-xs self-start" style={{ color: 'var(--color-on-surface-variant)' }}>Zurück</button>
+        </>
+      )}
+      {err && <p className="text-xs" style={{ color: '#fca5a5' }}>{err}</p>}
+    </div>
+  );
+}
+
+function CustomField({ field, onSave, onDelete }: { field: MyDataCustom; onSave: (patch: { label?: string; value?: string }) => void; onDelete: () => void }) {
+  const [label, setLabel] = useState(field.label);
+  const [value, setValue] = useState(field.value);
+  useEffect(() => { setLabel(field.label); }, [field.label]);
+  useEffect(() => { setValue(field.value); }, [field.value]);
+  return (
+    <div className="flex items-center gap-2">
+      <input value={label} onChange={(e) => setLabel(e.target.value)} onBlur={() => { if (label !== field.label) onSave({ label }); }}
+        placeholder="Bezeichnung" className="w-40 px-2 py-1 rounded text-sm" style={INPUT_STYLE} />
+      <input value={value} onChange={(e) => setValue(e.target.value)} onBlur={() => { if (value !== field.value) onSave({ value }); }}
+        placeholder="Wert" className="flex-1 px-2 py-1 rounded text-sm" style={INPUT_STYLE} />
+      <CopyBtn value={field.value} />
+      <button type="button" onClick={() => { if (confirm('Feld wirklich löschen?')) onDelete(); }} aria-label="Feld löschen"
+        className="p-1 rounded hover:bg-white/5 flex-shrink-0" style={{ color: '#fca5a5' }}>
+        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete</span>
+      </button>
+    </div>
+  );
+}
+
+function ChangePinBox({ onClose, onChanged }: { onClose: () => void; onChanged: (token: string) => void }) {
+  const [oldPin, setOldPin] = useState(''); const [newPin, setNewPin] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+  async function submit() {
+    setErr(null);
+    try { const r = await changeMyDataPin(oldPin, newPin); onChanged(r.token); }
+    catch { setErr('Alter PIN falsch oder neuer PIN zu kurz.'); }
+  }
+  return (
+    <div className="rounded-xl p-4 mb-4 flex items-center gap-2 flex-wrap" style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <input type="password" value={oldPin} onChange={(e) => setOldPin(e.target.value)} placeholder="Alter PIN" className="px-2 py-1 rounded text-sm" style={INPUT_STYLE} />
+      <input type="password" value={newPin} onChange={(e) => setNewPin(e.target.value)} placeholder="Neuer PIN" className="px-2 py-1 rounded text-sm" style={INPUT_STYLE} />
+      <button type="button" onClick={submit} className="px-3 py-1.5 rounded-md text-sm" style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>Ändern</button>
+      <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-md text-sm" style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}>Abbrechen</button>
+      {err && <p className="text-xs w-full" style={{ color: '#fca5a5' }}>{err}</p>}
+    </div>
+  );
+}
+
+export function AmazonMyDataPage() {
+  const qc = useQueryClient();
+  const pinGateToken = useAuthStore((s) => s.pinGateToken);
+  const setPinGateToken = useAuthStore((s) => s.setPinGateToken);
+  const status = useQuery({ queryKey: ['mydata', 'status'], queryFn: fetchMyDataStatus });
+  const data = useQuery({ queryKey: ['mydata', 'data'], queryFn: fetchMyData, enabled: !!pinGateToken });
+
+  const inval = () => qc.invalidateQueries({ queryKey: ['mydata', 'data'] });
+  const patch = useMutation({ mutationFn: (p: MyDataPatch) => updateMyData(p), onSettled: inval });
+  const addCustom = useMutation({ mutationFn: () => createMyDataCustom(), onSettled: inval });
+  const patchCustom = useMutation({ mutationFn: (v: { id: number; patch: { label?: string; value?: string } }) => updateMyDataCustom(v.id, v.patch), onSettled: inval });
+  const delCustom = useMutation({ mutationFn: (id: number) => deleteMyDataCustom(id), onSettled: inval });
+  const [changingPin, setChangingPin] = useState(false);
+
+  function lock() { setPinGateToken(null); qc.removeQueries({ queryKey: ['mydata', 'data'] }); }
+
+  if (status.isLoading) return <PageWrapper><p style={{ color: 'var(--color-on-surface-variant)' }}>Lade …</p></PageWrapper>;
+
+  if (!pinGateToken) {
+    return <PageWrapper><PinGate pinSet={!!status.data?.pinSet} onUnlocked={(t) => { setPinGateToken(t); qc.invalidateQueries({ queryKey: ['mydata'] }); }} /></PageWrapper>;
+  }
+
+  const d = data.data?.data;
+  return (
+    <PageWrapper>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold" style={{ fontFamily: 'var(--font-headline)', color: 'var(--color-on-surface)' }}>Meine Daten</h1>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => setChangingPin(v => !v)} className="px-3 py-1.5 rounded-md text-sm"
+            style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}>PIN ändern</button>
+          <button type="button" onClick={lock} className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1"
+            style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>lock</span>Sperren</button>
+        </div>
+      </div>
+
+      {changingPin && <ChangePinBox onClose={() => setChangingPin(false)} onChanged={(t) => { setPinGateToken(t); setChangingPin(false); }} />}
+
+      {data.isLoading || !d ? <p style={{ color: 'var(--color-on-surface-variant)' }}>Lade Daten …</p> : (
+        <div className="flex flex-col gap-5">
+          {GROUPS.map(g => (
+            <section key={g.title} className="rounded-xl p-4 flex flex-col gap-2"
+              style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <p className="text-xs font-semibold tracking-wider" style={{ color: 'var(--color-on-surface-variant)' }}>{g.title.toUpperCase()}</p>
+              {g.fields.map(f => (
+                <Field key={f.key} label={f.label} value={d[f.key] as string | null} onSave={(v) => patch.mutate({ [f.key]: v } as MyDataPatch)} />
+              ))}
+            </section>
+          ))}
+          <section className="rounded-xl p-4 flex flex-col gap-2"
+            style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <p className="text-xs font-semibold tracking-wider" style={{ color: 'var(--color-on-surface-variant)' }}>EIGENE FELDER</p>
+            {(data.data?.custom ?? []).map(c => (
+              <CustomField key={c.id} field={c}
+                onSave={(p) => patchCustom.mutate({ id: c.id, patch: p })}
+                onDelete={() => delCustom.mutate(c.id)} />
+            ))}
+            <button type="button" onClick={() => addCustom.mutate()} className="self-start px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5"
+              style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span> Feld hinzufügen
+            </button>
+          </section>
+        </div>
+      )}
+    </PageWrapper>
+  );
+}

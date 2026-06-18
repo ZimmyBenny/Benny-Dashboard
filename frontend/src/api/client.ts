@@ -12,6 +12,10 @@ apiClient.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  const pinGateToken = useAuthStore.getState().pinGateToken;
+  if (pinGateToken) {
+    config.headers['x-mydata-unlock'] = pinGateToken;
+  }
   return config;
 });
 
