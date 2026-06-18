@@ -667,15 +667,7 @@ export async function getResearchImageObjectUrl(productId: number, imageId: numb
 }
 
 // ── Meine Daten (Stammdaten + PIN) ──
-export interface MyDataFields {
-  eori: string | null; vat_id: string | null; tax_number: string | null; finanzamt: string | null;
-  bank_holder: string | null; iban: string | null; bic: string | null; bank_name: string | null;
-  name: string | null; firma: string | null; adresse: string | null; email: string | null; telefon: string | null; webseite: string | null;
-  amazon_email: string | null; amazon_store: string | null; merchant_token: string | null;
-  updated_at: number;
-}
-export interface MyDataCustom { id: number; sort_order: number; label: string; value: string; created_at: number; }
-export type MyDataPatch = Partial<Omit<MyDataFields, 'updated_at'>>;
+export interface MyDataField { id: number; group_key: string; sort_order: number; label: string; value: string; created_at: number; }
 
 export async function fetchMyDataStatus(): Promise<{ pinSet: boolean }> {
   return (await apiClient.get('/amazon/my-data/status')).data as { pinSet: boolean };
@@ -692,18 +684,15 @@ export async function changeMyDataPin(oldPin: string, newPin: string): Promise<{
 export async function resetMyDataPin(password: string, newPin: string): Promise<{ token: string }> {
   return (await apiClient.post('/amazon/my-data/reset-pin', { password, newPin })).data as { token: string };
 }
-export async function fetchMyData(): Promise<{ data: MyDataFields; custom: MyDataCustom[] }> {
-  return (await apiClient.get('/amazon/my-data')).data as { data: MyDataFields; custom: MyDataCustom[] };
+export async function fetchMyData(): Promise<{ fields: MyDataField[] }> {
+  return (await apiClient.get('/amazon/my-data')).data as { fields: MyDataField[] };
 }
-export async function updateMyData(patch: MyDataPatch): Promise<{ data: MyDataFields }> {
-  return (await apiClient.patch('/amazon/my-data', patch)).data as { data: MyDataFields };
+export async function createMyDataField(groupKey: string): Promise<MyDataField> {
+  return ((await apiClient.post('/amazon/my-data/custom', { group_key: groupKey })).data as { field: MyDataField }).field;
 }
-export async function createMyDataCustom(): Promise<MyDataCustom> {
-  return ((await apiClient.post('/amazon/my-data/custom', {})).data as { field: MyDataCustom }).field;
+export async function updateMyDataField(id: number, patch: Partial<Pick<MyDataField, 'label' | 'value'>>): Promise<MyDataField> {
+  return ((await apiClient.patch(`/amazon/my-data/custom/${id}`, patch)).data as { field: MyDataField }).field;
 }
-export async function updateMyDataCustom(id: number, patch: Partial<Pick<MyDataCustom, 'label' | 'value'>>): Promise<MyDataCustom> {
-  return ((await apiClient.patch(`/amazon/my-data/custom/${id}`, patch)).data as { field: MyDataCustom }).field;
-}
-export async function deleteMyDataCustom(id: number): Promise<void> {
+export async function deleteMyDataField(id: number): Promise<void> {
   await apiClient.delete(`/amazon/my-data/custom/${id}`);
 }

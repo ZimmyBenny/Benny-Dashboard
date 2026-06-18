@@ -4,30 +4,23 @@ import { PageWrapper } from '../../components/layout/PageWrapper';
 import { useAuthStore } from '../../store/authStore';
 import {
   fetchMyDataStatus, setMyDataPin, verifyMyDataPin, changeMyDataPin, resetMyDataPin,
-  fetchMyData, updateMyData, createMyDataCustom, updateMyDataCustom, deleteMyDataCustom,
-  type MyDataCustom, type MyDataPatch,
+  fetchMyData, createMyDataField, updateMyDataField, deleteMyDataField,
+  type MyDataField,
 } from '../../api/amazon.api';
 
 const INPUT_STYLE: React.CSSProperties = {
   background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)',
 };
 
-const GROUPS: { title: string; fields: { key: keyof MyDataPatch; label: string }[] }[] = [
-  { title: 'Steuer & Zoll', fields: [
-    { key: 'eori', label: 'EORI-Nummer' }, { key: 'vat_id', label: 'USt-IdNr' },
-    { key: 'tax_number', label: 'Steuernummer' }, { key: 'finanzamt', label: 'Finanzamt' } ] },
-  { title: 'Bankverbindung', fields: [
-    { key: 'bank_holder', label: 'Kontoinhaber' }, { key: 'iban', label: 'IBAN' },
-    { key: 'bic', label: 'BIC' }, { key: 'bank_name', label: 'Bank' } ] },
-  { title: 'Firma & Kontakt', fields: [
-    { key: 'name', label: 'Name' }, { key: 'firma', label: 'Firma' }, { key: 'adresse', label: 'Adresse' },
-    { key: 'email', label: 'E-Mail' }, { key: 'telefon', label: 'Telefon' }, { key: 'webseite', label: 'Webseite' } ] },
-  { title: 'Amazon-Konto', fields: [
-    { key: 'amazon_email', label: 'Seller-E-Mail' }, { key: 'amazon_store', label: 'Store-Name' },
-    { key: 'merchant_token', label: 'Merchant-Token' } ] },
+const GROUPS: { key: string; title: string }[] = [
+  { key: 'steuer', title: 'Steuer & Zoll' },
+  { key: 'bank', title: 'Bankverbindung' },
+  { key: 'firma', title: 'Firma & Kontakt' },
+  { key: 'amazon', title: 'Amazon-Konto' },
+  { key: 'weitere', title: 'Weitere' },
 ];
 
-function CopyBtn({ value }: { value: string | null }) {
+function CopyBtn({ value }: { value: string }) {
   const [done, setDone] = useState(false);
   if (!value) return null;
   return (
@@ -38,15 +31,22 @@ function CopyBtn({ value }: { value: string | null }) {
   );
 }
 
-function Field({ label, value, onSave }: { label: string; value: string | null; onSave: (v: string) => void }) {
-  const [v, setV] = useState(value ?? '');
-  useEffect(() => { setV(value ?? ''); }, [value]);
+function FieldRow({ field, onSave, onDelete }: { field: MyDataField; onSave: (patch: { label?: string; value?: string }) => void; onDelete: () => void }) {
+  const [label, setLabel] = useState(field.label);
+  const [value, setValue] = useState(field.value);
+  useEffect(() => { setLabel(field.label); }, [field.label]);
+  useEffect(() => { setValue(field.value); }, [field.value]);
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs w-32 flex-shrink-0" style={{ color: 'var(--color-on-surface-variant)' }}>{label}</span>
-      <input value={v} onChange={(e) => setV(e.target.value)} onBlur={() => { if (v !== (value ?? '')) onSave(v); }}
-        className="flex-1 px-2 py-1 rounded text-sm" style={INPUT_STYLE} autoComplete="off" />
-      <CopyBtn value={value} />
+      <input value={label} onChange={(e) => setLabel(e.target.value)} onBlur={() => { if (label !== field.label) onSave({ label }); }}
+        placeholder="Bezeichnung" className="w-44 flex-shrink-0 px-2 py-1 rounded text-sm" style={{ ...INPUT_STYLE, color: 'var(--color-on-surface-variant)' }} />
+      <input value={value} onChange={(e) => setValue(e.target.value)} onBlur={() => { if (value !== field.value) onSave({ value }); }}
+        placeholder="Wert" className="flex-1 px-2 py-1 rounded text-sm" style={INPUT_STYLE} autoComplete="off" />
+      <CopyBtn value={field.value} />
+      <button type="button" onClick={() => { if (confirm(`Feld „${field.label || 'ohne Namen'}" wirklich löschen?`)) onDelete(); }} aria-label="Feld löschen"
+        className="p-1 rounded hover:bg-white/5 flex-shrink-0" style={{ color: '#fca5a5' }}>
+        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete</span>
+      </button>
     </div>
   );
 }
@@ -103,26 +103,6 @@ function PinGate({ pinSet, onUnlocked }: { pinSet: boolean; onUnlocked: (token: 
   );
 }
 
-function CustomField({ field, onSave, onDelete }: { field: MyDataCustom; onSave: (patch: { label?: string; value?: string }) => void; onDelete: () => void }) {
-  const [label, setLabel] = useState(field.label);
-  const [value, setValue] = useState(field.value);
-  useEffect(() => { setLabel(field.label); }, [field.label]);
-  useEffect(() => { setValue(field.value); }, [field.value]);
-  return (
-    <div className="flex items-center gap-2">
-      <input value={label} onChange={(e) => setLabel(e.target.value)} onBlur={() => { if (label !== field.label) onSave({ label }); }}
-        placeholder="Bezeichnung" className="w-40 px-2 py-1 rounded text-sm" style={INPUT_STYLE} />
-      <input value={value} onChange={(e) => setValue(e.target.value)} onBlur={() => { if (value !== field.value) onSave({ value }); }}
-        placeholder="Wert" className="flex-1 px-2 py-1 rounded text-sm" style={INPUT_STYLE} />
-      <CopyBtn value={field.value} />
-      <button type="button" onClick={() => { if (confirm('Feld wirklich löschen?')) onDelete(); }} aria-label="Feld löschen"
-        className="p-1 rounded hover:bg-white/5 flex-shrink-0" style={{ color: '#fca5a5' }}>
-        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete</span>
-      </button>
-    </div>
-  );
-}
-
 function ChangePinBox({ onClose, onChanged }: { onClose: () => void; onChanged: (token: string) => void }) {
   const [oldPin, setOldPin] = useState(''); const [newPin, setNewPin] = useState('');
   const [err, setErr] = useState<string | null>(null);
@@ -150,10 +130,9 @@ export function AmazonMyDataPage() {
   const data = useQuery({ queryKey: ['mydata', 'data'], queryFn: fetchMyData, enabled: !!pinGateToken });
 
   const inval = () => qc.invalidateQueries({ queryKey: ['mydata', 'data'] });
-  const patch = useMutation({ mutationFn: (p: MyDataPatch) => updateMyData(p), onSettled: inval });
-  const addCustom = useMutation({ mutationFn: () => createMyDataCustom(), onSettled: inval });
-  const patchCustom = useMutation({ mutationFn: (v: { id: number; patch: { label?: string; value?: string } }) => updateMyDataCustom(v.id, v.patch), onSettled: inval });
-  const delCustom = useMutation({ mutationFn: (id: number) => deleteMyDataCustom(id), onSettled: inval });
+  const addField = useMutation({ mutationFn: (groupKey: string) => createMyDataField(groupKey), onSettled: inval });
+  const patchField = useMutation({ mutationFn: (v: { id: number; patch: { label?: string; value?: string } }) => updateMyDataField(v.id, v.patch), onSettled: inval });
+  const delField = useMutation({ mutationFn: (id: number) => deleteMyDataField(id), onSettled: inval });
   const [changingPin, setChangingPin] = useState(false);
 
   function lock() { setPinGateToken(null); qc.removeQueries({ queryKey: ['mydata', 'data'] }); }
@@ -164,7 +143,7 @@ export function AmazonMyDataPage() {
     return <PageWrapper><PinGate pinSet={!!status.data?.pinSet} onUnlocked={(t) => { setPinGateToken(t); qc.invalidateQueries({ queryKey: ['mydata'] }); }} /></PageWrapper>;
   }
 
-  const d = data.data?.data;
+  const fields = data.data?.fields ?? [];
   return (
     <PageWrapper>
       <div className="flex items-center justify-between mb-4">
@@ -180,30 +159,26 @@ export function AmazonMyDataPage() {
 
       {changingPin && <ChangePinBox onClose={() => setChangingPin(false)} onChanged={(t) => { setPinGateToken(t); setChangingPin(false); }} />}
 
-      {data.isLoading || !d ? <p style={{ color: 'var(--color-on-surface-variant)' }}>Lade Daten …</p> : (
+      {data.isLoading ? <p style={{ color: 'var(--color-on-surface-variant)' }}>Lade Daten …</p> : (
         <div className="flex flex-col gap-5">
-          {GROUPS.map(g => (
-            <section key={g.title} className="rounded-xl p-4 flex flex-col gap-2"
-              style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <p className="text-xs font-semibold tracking-wider" style={{ color: 'var(--color-on-surface-variant)' }}>{g.title.toUpperCase()}</p>
-              {g.fields.map(f => (
-                <Field key={f.key} label={f.label} value={d[f.key] as string | null} onSave={(v) => patch.mutate({ [f.key]: v } as MyDataPatch)} />
-              ))}
-            </section>
-          ))}
-          <section className="rounded-xl p-4 flex flex-col gap-2"
-            style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <p className="text-xs font-semibold tracking-wider" style={{ color: 'var(--color-on-surface-variant)' }}>EIGENE FELDER</p>
-            {(data.data?.custom ?? []).map(c => (
-              <CustomField key={c.id} field={c}
-                onSave={(p) => patchCustom.mutate({ id: c.id, patch: p })}
-                onDelete={() => delCustom.mutate(c.id)} />
-            ))}
-            <button type="button" onClick={() => addCustom.mutate()} className="self-start px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5"
-              style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span> Feld hinzufügen
-            </button>
-          </section>
+          {GROUPS.map(g => {
+            const groupFields = fields.filter(f => f.group_key === g.key);
+            return (
+              <section key={g.key} className="rounded-xl p-4 flex flex-col gap-2"
+                style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <p className="text-xs font-semibold tracking-wider" style={{ color: 'var(--color-on-surface-variant)' }}>{g.title.toUpperCase()}</p>
+                {groupFields.map(f => (
+                  <FieldRow key={f.id} field={f}
+                    onSave={(p) => patchField.mutate({ id: f.id, patch: p })}
+                    onDelete={() => delField.mutate(f.id)} />
+                ))}
+                <button type="button" onClick={() => addField.mutate(g.key)} className="self-start px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5"
+                  style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span> Feld
+                </button>
+              </section>
+            );
+          })}
         </div>
       )}
     </PageWrapper>

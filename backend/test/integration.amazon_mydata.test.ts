@@ -58,17 +58,26 @@ describe('Meine Daten — Daten (Unlock)', () => {
   let db: Database.Database; let app: express.Express;
   beforeEach(async () => { db = createTestDb(); app = await makeApp(db); });
 
-  it('Daten-Route ohne Unlock-Token -> 401; mit Token -> ok, pin_hash nie geliefert', async () => {
+  it('Daten ohne Unlock-Token -> 401; mit Token -> Felder vorbefuellt (seed)', async () => {
     const set = await request(app).post('/api/amazon/my-data/set-pin').send({ pin: '1234' });
     const token = set.body.token as string;
     expect((await request(app).get('/api/amazon/my-data')).status).toBe(401);
     const get = await request(app).get('/api/amazon/my-data').set('x-mydata-unlock', token);
     expect(get.status).toBe(200);
-    expect((get.body.data as Record<string, unknown>).pin_hash).toBeUndefined();
-    await request(app).patch('/api/amazon/my-data').set('x-mydata-unlock', token).send({ eori: 'DE123', iban: 'DE0012' }).expect(200);
-    const after = await request(app).get('/api/amazon/my-data').set('x-mydata-unlock', token);
-    expect(after.body.data.eori).toBe('DE123');
-    expect(after.body.data.iban).toBe('DE0012');
+    const labels = (get.body.fields as { label: string; group_key: string }[]).map(f => f.label);
+    expect(labels).toContain('EORI-Nummer');
+    expect(labels).toContain('IBAN');
+    expect((get.body.fields as { group_key: string }[]).some(f => f.group_key === 'steuer')).toBe(true);
+  });
+
+  it('Feld-Label + Wert editierbar', async () => {
+    const token = (await request(app).post('/api/amazon/my-data/set-pin').send({ pin: '1234' })).body.token as string;
+    const auth = { 'x-mydata-unlock': token };
+    const fid = (await request(app).get('/api/amazon/my-data').set(auth)).body.fields[0].id;
+    await request(app).patch(`/api/amazon/my-data/custom/${fid}`).set(auth).send({ label: 'Zollkonto', value: 'DE123' }).expect(200);
+    const after = await request(app).get('/api/amazon/my-data').set(auth);
+    const f = (after.body.fields as { id: number; label: string; value: string }[]).find(x => x.id === fid);
+    expect(f).toMatchObject({ label: 'Zollkonto', value: 'DE123' });
   });
 
   it('ungueltiges Unlock-Token -> 401', async () => {
@@ -76,17 +85,16 @@ describe('Meine Daten — Daten (Unlock)', () => {
     expect((await request(app).get('/api/amazon/my-data').set('x-mydata-unlock', 'kaputt')).status).toBe(401);
   });
 
-  it('eigene Felder anlegen/patchen/loeschen', async () => {
+  it('neues Feld in einer Gruppe anlegen + loeschen', async () => {
     const token = (await request(app).post('/api/amazon/my-data/set-pin').send({ pin: '1234' })).body.token as string;
     const auth = { 'x-mydata-unlock': token };
-    const c = await request(app).post('/api/amazon/my-data/custom').set(auth).send({});
+    const c = await request(app).post('/api/amazon/my-data/custom').set(auth).send({ group_key: 'steuer' });
     expect(c.status).toBe(201);
+    expect(c.body.field.group_key).toBe('steuer');
     const fid = c.body.field.id;
-    await request(app).patch(`/api/amazon/my-data/custom/${fid}`).set(auth).send({ label: 'Kundennr.', value: 'A-42' }).expect(200);
-    const list = await request(app).get('/api/amazon/my-data').set(auth);
-    expect(list.body.custom[0]).toMatchObject({ label: 'Kundennr.', value: 'A-42' });
+    await request(app).patch(`/api/amazon/my-data/custom/${fid}`).set(auth).send({ label: 'Zoll', value: '8501' }).expect(200);
     await request(app).delete(`/api/amazon/my-data/custom/${fid}`).set(auth).expect(204);
-    const empty = await request(app).get('/api/amazon/my-data').set(auth);
-    expect(empty.body.custom).toEqual([]);
+    const after = await request(app).get('/api/amazon/my-data').set(auth);
+    expect((after.body.fields as { id: number }[]).some(f => f.id === fid)).toBe(false);
   });
 });

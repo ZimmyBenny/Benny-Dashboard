@@ -13,14 +13,27 @@ interface MyDataRow {
   amazon_email: string | null; amazon_store: string | null; merchant_token: string | null;
   updated_at: number;
 }
-interface CustomRow { id: number; sort_order: number; label: string; value: string; created_at: number; }
+interface FieldRow { id: number; group_key: string; sort_order: number; label: string; value: string; created_at: number; }
 
-const EDITABLE_FIELDS = [
-  'eori', 'vat_id', 'tax_number', 'finanzamt',
-  'bank_holder', 'iban', 'bic', 'bank_name',
-  'name', 'firma', 'adresse', 'email', 'telefon', 'webseite',
-  'amazon_email', 'amazon_store', 'merchant_token',
-] as const;
+const GROUP_KEYS = new Set(['steuer', 'bank', 'firma', 'amazon', 'weitere']);
+const DEFAULT_FIELDS: [string, string][] = [
+  ['steuer', 'EORI-Nummer'], ['steuer', 'USt-IdNr'], ['steuer', 'Steuernummer'], ['steuer', 'Finanzamt'],
+  ['bank', 'Kontoinhaber'], ['bank', 'IBAN'], ['bank', 'BIC'], ['bank', 'Bank'],
+  ['firma', 'Name'], ['firma', 'Firma'], ['firma', 'Adresse'], ['firma', 'E-Mail'], ['firma', 'Telefon'], ['firma', 'Webseite'],
+  ['amazon', 'Seller-E-Mail'], ['amazon', 'Store-Name'], ['amazon', 'Merchant-Token'],
+];
+function seedDefaultsIfNeeded(): void {
+  const seeded = (db.prepare(`SELECT fields_seeded FROM amazon_my_data WHERE id = 1`).get() as { fields_seeded: number } | undefined)?.fields_seeded;
+  if (seeded) return;
+  const ins = db.prepare(`INSERT INTO amazon_my_data_custom (group_key, sort_order, label, value) VALUES (?, ?, ?, '')`);
+  db.transaction(() => {
+    DEFAULT_FIELDS.forEach(([g, label], idx) => ins.run(g, idx + 1, label));
+    db.prepare(`UPDATE amazon_my_data SET fields_seeded = 1 WHERE id = 1`).run();
+  })();
+}
+function loadFields(): FieldRow[] {
+  return db.prepare(`SELECT * FROM amazon_my_data_custom ORDER BY sort_order, id`).all() as FieldRow[];
+}
 
 const DUMMY_HASH = '$2b$12$CwTycUXWue0Thq9StjUM0uJ8.m8yq9W/xWc9Cg3aB8fQaN8g6q6Dq';
 
@@ -32,12 +45,6 @@ function getRow(): MyDataRow {
   }
   return row;
 }
-function publicFields(row: MyDataRow) {
-  const { id: _id, pin_hash: _pin, ...rest } = row;
-  void _id; void _pin;
-  return rest;
-}
-
 // ── Unlock-Middleware ──
 export function requireMyDataUnlock(req: Request, res: Response, next: () => void): void {
   const token = req.headers['x-mydata-unlock'];
@@ -107,32 +114,17 @@ router.post('/my-data/reset-pin', async (req: Request, res: Response) => {
 
 // ── Daten (verlangen Unlock) ──
 router.get('/my-data', requireMyDataUnlock, (_req: Request, res: Response) => {
-  const row = getRow();
-  const custom = db.prepare(`SELECT * FROM amazon_my_data_custom ORDER BY sort_order, id`).all() as CustomRow[];
-  res.json({ data: publicFields(row), custom });
-});
-
-router.patch('/my-data', requireMyDataUnlock, (req: Request, res: Response) => {
-  const body = (req.body ?? {}) as Record<string, unknown>;
-  const sets: string[] = []; const vals: unknown[] = [];
-  for (const field of EDITABLE_FIELDS) {
-    if (field in body) {
-      const v = body[field];
-      if (v !== null && typeof v !== 'string') { res.status(400).json({ error: `invalid ${field}` }); return; }
-      sets.push(`${field} = ?`); vals.push(v === null ? null : (v as string).slice(0, 1000));
-    }
-  }
   getRow();
-  if (sets.length === 0) { res.json({ data: publicFields(getRow()) }); return; }
-  sets.push('updated_at = unixepoch()');
-  db.prepare(`UPDATE amazon_my_data SET ${sets.join(', ')} WHERE id = 1`).run(...vals);
-  res.json({ data: publicFields(getRow()) });
+  seedDefaultsIfNeeded();
+  res.json({ fields: loadFields() });
 });
 
-router.post('/my-data/custom', requireMyDataUnlock, (_req: Request, res: Response) => {
+router.post('/my-data/custom', requireMyDataUnlock, (req: Request, res: Response) => {
+  const gk = (req.body ?? {}).group_key;
+  const group_key = typeof gk === 'string' && GROUP_KEYS.has(gk) ? gk : 'weitere';
   const maxOrder = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_my_data_custom`).get() as { m: number }).m;
-  const r = db.prepare(`INSERT INTO amazon_my_data_custom (sort_order) VALUES (?)`).run(maxOrder + 1);
-  res.status(201).json({ field: db.prepare(`SELECT * FROM amazon_my_data_custom WHERE id = ?`).get(r.lastInsertRowid) as CustomRow });
+  const r = db.prepare(`INSERT INTO amazon_my_data_custom (group_key, sort_order) VALUES (?, ?)`).run(group_key, maxOrder + 1);
+  res.status(201).json({ field: db.prepare(`SELECT * FROM amazon_my_data_custom WHERE id = ?`).get(r.lastInsertRowid) as FieldRow });
 });
 
 router.patch('/my-data/custom/:id', requireMyDataUnlock, (req: Request, res: Response) => {
@@ -148,9 +140,9 @@ router.patch('/my-data/custom/:id', requireMyDataUnlock, (req: Request, res: Res
       sets.push(`${field} = ?`); vals.push((body[field] as string).slice(0, 1000));
     }
   }
-  if (sets.length === 0) { res.json({ field: db.prepare(`SELECT * FROM amazon_my_data_custom WHERE id = ?`).get(id) as CustomRow }); return; }
+  if (sets.length === 0) { res.json({ field: db.prepare(`SELECT * FROM amazon_my_data_custom WHERE id = ?`).get(id) as FieldRow }); return; }
   db.prepare(`UPDATE amazon_my_data_custom SET ${sets.join(', ')} WHERE id = ?`).run(...vals, id);
-  res.json({ field: db.prepare(`SELECT * FROM amazon_my_data_custom WHERE id = ?`).get(id) as CustomRow });
+  res.json({ field: db.prepare(`SELECT * FROM amazon_my_data_custom WHERE id = ?`).get(id) as FieldRow });
 });
 
 router.delete('/my-data/custom/:id', requireMyDataUnlock, (req: Request, res: Response) => {
