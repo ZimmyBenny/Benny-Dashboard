@@ -665,3 +665,44 @@ export async function getResearchImageObjectUrl(productId: number, imageId: numb
   const r = await apiClient.get(`/amazon/products/${productId}/research/images/${imageId}`, { responseType: 'blob' });
   return URL.createObjectURL(r.data as Blob);
 }
+
+// ── Meine Daten (Stammdaten + PIN) ──
+export interface MyDataGroup { id: number; sort_order: number; title: string; created_at: number; }
+export interface MyDataField { id: number; group_id: number | null; sort_order: number; label: string; value: string; created_at: number; }
+
+export async function fetchMyDataStatus(): Promise<{ pinSet: boolean }> {
+  return (await apiClient.get('/amazon/my-data/status')).data as { pinSet: boolean };
+}
+export async function setMyDataPin(pin: string): Promise<{ token: string }> {
+  return (await apiClient.post('/amazon/my-data/set-pin', { pin })).data as { token: string };
+}
+export async function verifyMyDataPin(pin: string): Promise<{ token: string }> {
+  return (await apiClient.post('/amazon/my-data/verify-pin', { pin })).data as { token: string };
+}
+export async function changeMyDataPin(oldPin: string, newPin: string): Promise<{ token: string }> {
+  return (await apiClient.post('/amazon/my-data/change-pin', { oldPin, newPin })).data as { token: string };
+}
+export async function resetMyDataPin(password: string, newPin: string): Promise<{ token: string }> {
+  return (await apiClient.post('/amazon/my-data/reset-pin', { password, newPin })).data as { token: string };
+}
+export async function fetchMyData(): Promise<{ groups: MyDataGroup[]; fields: MyDataField[] }> {
+  return (await apiClient.get('/amazon/my-data')).data as { groups: MyDataGroup[]; fields: MyDataField[] };
+}
+export async function createMyDataField(groupId: number): Promise<MyDataField> {
+  return ((await apiClient.post('/amazon/my-data/custom', { group_id: groupId })).data as { field: MyDataField }).field;
+}
+export async function createMyDataGroup(): Promise<MyDataGroup> {
+  return ((await apiClient.post('/amazon/my-data/groups', {})).data as { group: MyDataGroup }).group;
+}
+export async function updateMyDataGroup(id: number, title: string): Promise<MyDataGroup> {
+  return ((await apiClient.patch(`/amazon/my-data/groups/${id}`, { title })).data as { group: MyDataGroup }).group;
+}
+export async function deleteMyDataGroup(id: number): Promise<void> {
+  await apiClient.delete(`/amazon/my-data/groups/${id}`);
+}
+export async function updateMyDataField(id: number, patch: Partial<Pick<MyDataField, 'label' | 'value'>>): Promise<MyDataField> {
+  return ((await apiClient.patch(`/amazon/my-data/custom/${id}`, patch)).data as { field: MyDataField }).field;
+}
+export async function deleteMyDataField(id: number): Promise<void> {
+  await apiClient.delete(`/amazon/my-data/custom/${id}`);
+}

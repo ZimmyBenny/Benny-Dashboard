@@ -92,8 +92,6 @@ function SampleBlock({ productId, mId, sample, rate }: { productId: number; mId:
         </button>
         <input value={bez} onChange={(e) => setBez(e.target.value)} onBlur={() => { if (bez !== sample.bezeichnung) save({ bezeichnung: bez }); }}
           placeholder="Bezeichnung (z.B. Charge A)" className="flex-1 min-w-[160px] px-2 py-1 rounded text-sm font-semibold" style={INPUT_STYLE} />
-        <input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} onBlur={() => { if (datum !== (sample.received_date ?? '')) save({ received_date: datum }); }}
-          className="px-2 py-1 rounded text-xs" style={INPUT_STYLE} title="Erhalten am" />
         <div className="flex items-center">
           {[1, 2, 3, 4, 5].map(n => (
             <button key={n} type="button" onClick={() => save({ rating: sample.rating === n ? 0 : n })} aria-label={`${n} Sterne`}
@@ -131,6 +129,11 @@ function SampleBlock({ productId, mId, sample, rate }: { productId: number; mId:
           placeholder="Notizen zur Charge …" rows={2} className="w-full px-2 py-1 rounded text-sm resize-y" style={INPUT_STYLE} />
         <textarea value={maengel} onChange={(e) => setMaengel(e.target.value)} onBlur={() => { if (maengel !== (sample.maengel ?? '')) save({ maengel }); }}
           placeholder="Mängel / Verbesserungspunkte …" rows={2} className="w-full px-2 py-1 rounded text-sm resize-y" style={INPUT_STYLE} />
+        <div className="flex items-center gap-2">
+          <span className="text-xs w-24 flex-shrink-0" style={{ color: 'var(--color-on-surface-variant)' }}>Erhalten am</span>
+          <input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} onBlur={() => { if (datum !== (sample.received_date ?? '')) save({ received_date: datum }); }}
+            className="px-2 py-1 rounded text-sm" style={INPUT_STYLE} />
+        </div>
         <div className="flex items-center gap-2">
           <span className="text-xs w-24 flex-shrink-0" style={{ color: 'var(--color-on-surface-variant)' }}>Sendungsnr.</span>
           <input value={sendung} onChange={(e) => setSendung(e.target.value)} onBlur={() => { if (sendung !== (sample.sendungsnummer ?? '')) save({ sendungsnummer: sendung }); }}

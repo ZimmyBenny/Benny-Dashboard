@@ -227,7 +227,9 @@ function OfferRow({ productId, mId, offer }: OfferRowProps) {
         )}
       </div>
       {/* File area */}
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1"
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => { e.preventDefault(); handleFilesPick(e.dataTransfer.files); }}>
         {offer.files.length > 0 && (
           <div className="flex flex-col gap-1">
             {offer.files.map(f => (
@@ -246,10 +248,11 @@ function OfferRow({ productId, mId, offer }: OfferRowProps) {
           <button
             type="button"
             onClick={() => fileInput.current?.click()}
+            title="Klick oder Datei(en) hierher ziehen"
             className="self-start px-2 py-1 rounded-md text-xs flex items-center gap-1"
             style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}
           >
-            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>upload_file</span>Datei hochladen
+            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>upload_file</span>Datei hochladen (oder reinziehen)
           </button>
           {fileError && <span className="text-xs" style={{ color: '#fca5a5' }}>{fileError}</span>}
         </div>

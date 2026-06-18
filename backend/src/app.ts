@@ -27,6 +27,7 @@ import amazonChecklistRoutes from './routes/amazon.checklist.routes';
 import amazonUspRoutes from './routes/amazon.usp.routes';
 import amazonManufacturersRoutes from './routes/amazon.manufacturers.routes';
 import amazonResearchRoutes from './routes/amazon.research.routes';
+import amazonMyDataRoutes from './routes/amazon.mydata.routes';
 import steuerRoutes from './routes/steuer.routes';
 import { verifyToken, type AuthenticatedRequest } from './middleware/auth';
 
@@ -78,6 +79,7 @@ export function createApp() {
   app.use('/api/amazon', amazonUspRoutes);
   app.use('/api/amazon', amazonManufacturersRoutes);
   app.use('/api/amazon', amazonResearchRoutes);
+  app.use('/api/amazon', amazonMyDataRoutes);
   app.use('/api/steuer', steuerRoutes);
 
   // Temporary probe route to verify the guard end-to-end (kept; Plan 3 may remove)
