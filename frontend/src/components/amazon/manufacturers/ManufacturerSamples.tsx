@@ -49,11 +49,15 @@ function SampleBlock({ productId, mId, sample, rate }: { productId: number; mId:
   const [notizen, setNotizen] = useState(sample.notizen ?? '');
   const [maengel, setMaengel] = useState(sample.maengel ?? '');
   const [kosten, setKosten] = useState(sample.kosten ?? '');
+  const [sendung, setSendung] = useState(sample.sendungsnummer ?? '');
+  const [link, setLink] = useState(sample.link_url ?? '');
   useEffect(() => { setBez(sample.bezeichnung); }, [sample.bezeichnung]);
   useEffect(() => { setDatum(sample.received_date ?? ''); }, [sample.received_date]);
   useEffect(() => { setNotizen(sample.notizen ?? ''); }, [sample.notizen]);
   useEffect(() => { setMaengel(sample.maengel ?? ''); }, [sample.maengel]);
   useEffect(() => { setKosten(sample.kosten ?? ''); }, [sample.kosten]);
+  useEffect(() => { setSendung(sample.sendungsnummer ?? ''); }, [sample.sendungsnummer]);
+  useEffect(() => { setLink(sample.link_url ?? ''); }, [sample.link_url]);
 
   function save(patch: Parameters<typeof update.mutate>[0]['patch']) { update.mutate({ mId, sId: sample.id, patch }); }
 
@@ -127,6 +131,21 @@ function SampleBlock({ productId, mId, sample, rate }: { productId: number; mId:
           placeholder="Notizen zur Charge …" rows={2} className="w-full px-2 py-1 rounded text-sm resize-y" style={INPUT_STYLE} />
         <textarea value={maengel} onChange={(e) => setMaengel(e.target.value)} onBlur={() => { if (maengel !== (sample.maengel ?? '')) save({ maengel }); }}
           placeholder="Mängel / Verbesserungspunkte …" rows={2} className="w-full px-2 py-1 rounded text-sm resize-y" style={INPUT_STYLE} />
+        <div className="flex items-center gap-2">
+          <span className="text-xs w-24 flex-shrink-0" style={{ color: 'var(--color-on-surface-variant)' }}>Sendungsnr.</span>
+          <input value={sendung} onChange={(e) => setSendung(e.target.value)} onBlur={() => { if (sendung !== (sample.sendungsnummer ?? '')) save({ sendungsnummer: sendung }); }}
+            placeholder="Tracking-Nummer …" className="flex-1 px-2 py-1 rounded text-sm" style={INPUT_STYLE} />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs w-24 flex-shrink-0" style={{ color: 'var(--color-on-surface-variant)' }}>Link</span>
+          <input value={link} onChange={(e) => setLink(e.target.value)} onBlur={() => { if (link !== (sample.link_url ?? '')) save({ link_url: link }); }}
+            placeholder="https://… (z.B. Tracking- oder Produkt-Link)" className="flex-1 px-2 py-1 rounded text-sm" style={INPUT_STYLE} />
+          {sample.link_url && (
+            <a href={sample.link_url} target="_blank" rel="noopener noreferrer" className="p-1 rounded hover:bg-white/5 flex-shrink-0" title="Link öffnen" style={{ color: 'var(--color-primary)' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>open_in_new</span>
+            </a>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <input value={kosten} onChange={(e) => setKosten(e.target.value)} onBlur={() => { if (kosten !== (sample.kosten ?? '')) save({ kosten }); }}
             placeholder="Kosten" className="px-2 py-1 rounded text-sm w-32" style={INPUT_STYLE} />
