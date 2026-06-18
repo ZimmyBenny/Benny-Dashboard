@@ -7,7 +7,6 @@ import { UspMetaForm } from './UspMetaForm';
 import { UspPointList } from './UspPointList';
 import { UspManufacturers } from './UspManufacturers';
 import { UspMatrix } from './UspMatrix';
-import { UspOverview } from './UspOverview';
 import { DeleteUspPointDialog } from './DeleteUspPointDialog';
 import { UspVersions } from './UspVersions';
 import { UspPersonal } from './UspPersonal';
@@ -159,11 +158,6 @@ export function UspSection({ productId, productName }: Props) {
               <UspManufacturers productId={productId} manufacturers={data.manufacturers} />
               <UspMatrix
                 productId={productId}
-                points={data.points}
-                manufacturers={data.manufacturers}
-                feasibility={data.feasibility}
-              />
-              <UspOverview
                 points={data.points}
                 manufacturers={data.manufacturers}
                 feasibility={data.feasibility}

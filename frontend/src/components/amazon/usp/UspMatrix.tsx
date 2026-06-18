@@ -54,6 +54,17 @@ export function UspMatrix({ productId, points, manufacturers, feasibility }: {
   if (points.length === 0 || manufacturers.length === 0) return null;
   const map = new Map<string, UspFeasibility>();
   for (const f of feasibility) map.set(key(f.point_id, f.manufacturer_id), f);
+  const total = points.length;
+  function counts(mId: number) {
+    let umsetzbar = 0, teilweise = 0, nicht = 0;
+    for (const p of points) {
+      const s = map.get(key(p.id, mId))?.status ?? 'offen';
+      if (s === 'umsetzbar') umsetzbar++;
+      else if (s === 'teilweise') teilweise++;
+      else if (s === 'nicht') nicht++;
+    }
+    return { umsetzbar, teilweise, nicht, offen: total - umsetzbar - teilweise - nicht };
+  }
   return (
     <div className="mb-4">
       <span className="text-xs uppercase tracking-wide block mb-2" style={{ color: 'var(--color-on-surface-variant)' }}>Vergleich</span>
@@ -97,6 +108,26 @@ export function UspMatrix({ productId, points, manufacturers, feasibility }: {
               </tr>
             ))}
           </tbody>
+          <tfoot>
+            <tr style={{ borderTop: '2px solid rgba(255,255,255,0.18)' }}>
+              <td className="px-2 py-2 text-xs font-semibold uppercase tracking-wide" style={{ position: 'sticky', left: 0, background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface-variant)', verticalAlign: 'top' }}>Übersicht</td>
+              {manufacturers.map(m => {
+                const c = counts(m.id);
+                const canAll = c.umsetzbar === total;
+                return (
+                  <td key={m.id} style={{ verticalAlign: 'top', borderLeft: '2px solid rgba(255,255,255,0.14)' }}>
+                    <div className="flex flex-col gap-0.5 p-1.5 text-xs" style={{ minWidth: 150 }}>
+                      <span style={{ color: '#34d399', fontWeight: 700 }}>{c.umsetzbar} umsetzbar</span>
+                      <span style={{ color: '#fdba74' }}>{c.teilweise} teilweise</span>
+                      <span style={{ color: '#fca5a5' }}>{c.nicht} nicht</span>
+                      <span style={{ color: 'var(--color-on-surface-variant)' }}>{c.offen} offen / {total}</span>
+                      {canAll && <span style={{ color: '#34d399', fontWeight: 700 }}>kann alles ✓</span>}
+                    </div>
+                  </td>
+                );
+              })}
+            </tr>
+          </tfoot>
         </table>
       </div>
     </div>
