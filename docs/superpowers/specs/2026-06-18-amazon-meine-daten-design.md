@@ -60,7 +60,7 @@ gegen neugierige Blicke am bereits entsperrten Mac.
 
 ## Datenmodell (Backend)
 
-Migration `087_amazon_my_data.sql` (nächste freie Nummer). Single-Row-Muster
+Migration `088_amazon_my_data.sql` (nächste freie Nummer). Single-Row-Muster
 (wie `user`, `id = 1` erzwungen):
 
 ```
