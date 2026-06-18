@@ -34,7 +34,7 @@ describe('Manufacturer Samples API', () => {
     expect(c.body.sample.photos).toEqual([]);
 
     await request(app).patch(`/api/amazon/products/${pid}/manufacturers/${mId}/samples/${sId}`)
-      .send({ bezeichnung: 'Charge A', rating: 4, status: 'erhalten', is_favorite: 1, kosten: '40,23', currency: 'USD', maengel: 'Stangendicke' }).expect(200);
+      .send({ bezeichnung: 'Charge A', rating: 4, status: 'erhalten', is_favorite: 1, kosten: '40,23', currency: 'USD', maengel: 'Stangendicke', sendungsnummer: 'CN123456789DE' }).expect(200);
 
     const list = await request(app).get(`/api/amazon/products/${pid}/manufacturers`);
     expect(list.status).toBe(200);
@@ -44,6 +44,7 @@ describe('Manufacturer Samples API', () => {
     expect(m.samples[0].rating).toBe(4);
     expect(m.samples[0].is_favorite).toBe(1);
     expect(m.samples[0].maengel).toBe('Stangendicke');
+    expect(m.samples[0].sendungsnummer).toBe('CN123456789DE');
   });
 
   it('weist ungueltigen Status/Rating ab', async () => {

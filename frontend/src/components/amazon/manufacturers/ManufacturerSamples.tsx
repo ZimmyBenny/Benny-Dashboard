@@ -49,11 +49,13 @@ function SampleBlock({ productId, mId, sample, rate }: { productId: number; mId:
   const [notizen, setNotizen] = useState(sample.notizen ?? '');
   const [maengel, setMaengel] = useState(sample.maengel ?? '');
   const [kosten, setKosten] = useState(sample.kosten ?? '');
+  const [sendung, setSendung] = useState(sample.sendungsnummer ?? '');
   useEffect(() => { setBez(sample.bezeichnung); }, [sample.bezeichnung]);
   useEffect(() => { setDatum(sample.received_date ?? ''); }, [sample.received_date]);
   useEffect(() => { setNotizen(sample.notizen ?? ''); }, [sample.notizen]);
   useEffect(() => { setMaengel(sample.maengel ?? ''); }, [sample.maengel]);
   useEffect(() => { setKosten(sample.kosten ?? ''); }, [sample.kosten]);
+  useEffect(() => { setSendung(sample.sendungsnummer ?? ''); }, [sample.sendungsnummer]);
 
   function save(patch: Parameters<typeof update.mutate>[0]['patch']) { update.mutate({ mId, sId: sample.id, patch }); }
 
@@ -90,6 +92,8 @@ function SampleBlock({ productId, mId, sample, rate }: { productId: number; mId:
           placeholder="Bezeichnung (z.B. Charge A)" className="flex-1 min-w-[160px] px-2 py-1 rounded text-sm font-semibold" style={INPUT_STYLE} />
         <input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} onBlur={() => { if (datum !== (sample.received_date ?? '')) save({ received_date: datum }); }}
           className="px-2 py-1 rounded text-xs" style={INPUT_STYLE} title="Erhalten am" />
+        <input value={sendung} onChange={(e) => setSendung(e.target.value)} onBlur={() => { if (sendung !== (sample.sendungsnummer ?? '')) save({ sendungsnummer: sendung }); }}
+          placeholder="Sendungsnr." className="px-2 py-1 rounded text-xs w-44" style={INPUT_STYLE} title="Sendungsnummer (Tracking)" />
         <div className="flex items-center">
           {[1, 2, 3, 4, 5].map(n => (
             <button key={n} type="button" onClick={() => save({ rating: sample.rating === n ? 0 : n })} aria-label={`${n} Sterne`}
