@@ -28,18 +28,18 @@ export function ResearchCard({ productId, card, dragHandleProps }: {
   function onPasteCard(e: React.ClipboardEvent) {
     const items = e.clipboardData?.items;
     if (!items) return;
+    let handled = false;
     for (const it of items) {
       if (it.kind === 'file') {
         const f = it.getAsFile();
-        if (f && f.size <= MAX_BYTES) {
-          upload.mutate({ cardId: card.id, file: f });
-          e.preventDefault();
-          // verhindert, dass der globale Hauptbild-Paste-Listener der Detailseite dasselbe Bild abgreift
-          e.stopPropagation();
-          e.nativeEvent.stopImmediatePropagation();
-        }
-        break;
+        if (f && f.size <= MAX_BYTES) { upload.mutate({ cardId: card.id, file: f }); handled = true; }
       }
+    }
+    if (handled) {
+      e.preventDefault();
+      // verhindert, dass der globale Hauptbild-Paste-Listener der Detailseite dasselbe Bild abgreift
+      e.stopPropagation();
+      e.nativeEvent.stopImmediatePropagation();
     }
   }
 

@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { type Manufacturer } from '../../api/amazon.api';
-import { useManufacturers, useUpdateManufacturer, useDeleteManufacturer } from '../../hooks/amazon/useManufacturers';
+import { useManufacturers, useUpdateManufacturer, useDeleteManufacturer, parseRate } from '../../hooks/amazon/useManufacturers';
 import { ManufacturerOffers } from '../../components/amazon/manufacturers/ManufacturerOffers';
+import { ManufacturerSamples } from '../../components/amazon/manufacturers/ManufacturerSamples';
 
 const ACCENT = '#34d399';
 
@@ -98,6 +99,7 @@ export function ManufacturerDetailPage() {
       <div className="rounded-xl p-5 flex flex-col gap-5" style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)', borderLeft: `3px solid ${ACCENT}` }}>
         <Stammdaten productId={productId} manufacturer={manufacturer} />
         <ManufacturerOffers productId={productId} mId={manufacturer.id} offers={manufacturer.offers} />
+        <ManufacturerSamples productId={productId} mId={manufacturer.id} samples={manufacturer.samples} rate={parseRate(data.settings.usd_eur_rate)} />
       </div>
 
       {pendingDelete && (

@@ -55,6 +55,10 @@ export function ResearchCardAttachments({ productId, cardId, attachments }: { pr
     setErr(null);
     upload.mutate({ cardId, file: f });
   }
+  function pickMany(files: FileList | null | undefined) {
+    if (!files) return;
+    Array.from(files).forEach(pick);
+  }
 
   async function download(att: ResearchImage) {
     try {
@@ -97,15 +101,15 @@ export function ResearchCardAttachments({ productId, cardId, attachments }: { pr
         {images.map(att => <ImageThumb key={att.id} productId={productId} att={att} onDelete={() => del.mutate(att.id)} />)}
         <button type="button" onClick={() => fileInput.current?.click()}
           onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => { e.preventDefault(); pick(e.dataTransfer.files?.[0]); }}
+          onDrop={(e) => { e.preventDefault(); pickMany(e.dataTransfer.files); }}
           className="flex items-center justify-center rounded-md"
           style={{ width: 88, height: 88, border: '1px dashed rgba(255,255,255,0.2)', color: 'var(--color-on-surface-variant)' }}
           aria-label="Anhang hinzufügen" title="Klick, Drag&Drop oder Cmd+V — Bild, E-Mail (.eml), PDF …">
           <span className="material-symbols-outlined">attach_file</span>
         </button>
       </div>
-      <input ref={fileInput} type="file" className="hidden"
-        onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ''; }} />
+      <input ref={fileInput} type="file" multiple className="hidden"
+        onChange={(e) => { pickMany(e.target.files); e.target.value = ''; }} />
       <p className="text-xs mt-1" style={{ color: 'var(--color-on-surface-variant)', opacity: 0.7 }}>
         Bild, E-Mail (.eml), PDF u.a. — auch AirDrop/Download-Datei reinziehen oder Cmd+V.
       </p>
