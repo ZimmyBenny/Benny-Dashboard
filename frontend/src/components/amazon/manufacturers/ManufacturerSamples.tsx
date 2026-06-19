@@ -66,6 +66,7 @@ function SampleBlock({ productId, mId, sample, rate }: { productId: number; mId:
   const [kosten, setKosten] = useState(sample.kosten ?? '');
   const [sendung, setSendung] = useState(sample.sendungsnummer ?? '');
   const [link, setLink] = useState(sample.link_url ?? '');
+  const [dateKey, setDateKey] = useState(0); // erzwingt Remount des Datumsfelds beim Leeren
   useEffect(() => { setBez(sample.bezeichnung); }, [sample.bezeichnung]);
   useEffect(() => { setDatum(sample.received_date ?? ''); }, [sample.received_date]);
   useEffect(() => { setNotizen(sample.notizen ?? ''); }, [sample.notizen]);
@@ -145,10 +146,11 @@ function SampleBlock({ productId, mId, sample, rate }: { productId: number; mId:
           placeholder="Mängel / Verbesserungspunkte …" rows={2} className="w-full px-2 py-1 rounded text-sm resize-y" style={INPUT_STYLE} />
         <div className="flex items-center gap-2">
           <span className="text-xs w-24 flex-shrink-0" style={{ color: 'var(--color-on-surface-variant)' }}>Erhalten am</span>
-          <input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} onBlur={() => { if (datum !== (sample.received_date ?? '')) save({ received_date: datum }); }}
+          <input key={dateKey} type="date" value={datum} onChange={(e) => setDatum(e.target.value)} onBlur={() => { if (datum !== (sample.received_date ?? '')) save({ received_date: datum }); }}
             className="px-2 py-1 rounded text-sm" style={INPUT_STYLE} />
           {datum && (
-            <button type="button" onClick={() => { setDatum(''); if ((sample.received_date ?? '') !== '') save({ received_date: '' }); }}
+            <button type="button" onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { setDatum(''); setDateKey(k => k + 1); if ((sample.received_date ?? '') !== '') save({ received_date: '' }); }}
               title="Datum löschen" aria-label="Datum löschen" className="p-1 rounded hover:bg-white/5" style={{ color: 'var(--color-on-surface-variant)' }}>
               <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
             </button>
