@@ -82,6 +82,21 @@ export function UspSection({ productId, productName }: Props) {
     const r = await buildPdf();
     if (r) saveVersion.mutate({ manufacturerName: r.manufacturerName, blob: r.blob });
   }
+  async function handleExcel() {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    await new Promise(r => setTimeout(r, 350));
+    const fresh = await refetch();
+    if (!fresh.data) return;
+    const m = fresh.data.manufacturers.find(x => x.id === selectedMId) ?? fresh.data.manufacturers[0];
+    if (!m) return;
+    const incMap = new Map<number, number>();
+    for (const f of fresh.data.feasibility) if (f.manufacturer_id === m.id) incMap.set(f.point_id, f.include_in_pdf);
+    const included = fresh.data.points.filter(p => (incMap.get(p.id) ?? 1) !== 0);
+    const { exportUspExcel } = await import('../../../lib/amazon/exportUspExcel');
+    const { blob, filename } = await exportUspExcel(productName, included, m, fresh.data.feasibility);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+  }
 
   return (
     <section
@@ -184,6 +199,10 @@ export function UspSection({ productId, productName }: Props) {
                 <button type="button" onClick={handleDownload} className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5"
                   style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}>
                   <span className="material-symbols-outlined" style={{ fontSize: 16 }}>download</span>Herunterladen
+                </button>
+                <button type="button" onClick={handleExcel} className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5"
+                  style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>grid_on</span>Excel
                 </button>
                 <button type="button" onClick={handleSaveVersion} className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5"
                   style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}>
