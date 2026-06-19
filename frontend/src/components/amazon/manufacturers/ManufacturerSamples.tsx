@@ -147,6 +147,12 @@ function SampleBlock({ productId, mId, sample, rate }: { productId: number; mId:
           <span className="text-xs w-24 flex-shrink-0" style={{ color: 'var(--color-on-surface-variant)' }}>Erhalten am</span>
           <input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} onBlur={() => { if (datum !== (sample.received_date ?? '')) save({ received_date: datum }); }}
             className="px-2 py-1 rounded text-sm" style={INPUT_STYLE} />
+          {datum && (
+            <button type="button" onClick={() => { setDatum(''); if ((sample.received_date ?? '') !== '') save({ received_date: '' }); }}
+              title="Datum löschen" aria-label="Datum löschen" className="p-1 rounded hover:bg-white/5" style={{ color: 'var(--color-on-surface-variant)' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs w-24 flex-shrink-0" style={{ color: 'var(--color-on-surface-variant)' }}>Sendungsnr.</span>
