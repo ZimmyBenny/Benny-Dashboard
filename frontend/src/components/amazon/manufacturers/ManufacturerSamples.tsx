@@ -66,7 +66,7 @@ function SampleBlock({ productId, mId, sample, rate }: { productId: number; mId:
   const [kosten, setKosten] = useState(sample.kosten ?? '');
   const [sendung, setSendung] = useState(sample.sendungsnummer ?? '');
   const [link, setLink] = useState(sample.link_url ?? '');
-  const [dateKey, setDateKey] = useState(0); // erzwingt Remount des Datumsfelds beim Leeren
+  const [editingDate, setEditingDate] = useState(false); // Datumsfeld nur zeigen, wenn gesetzt oder beim Anlegen
   useEffect(() => { setBez(sample.bezeichnung); }, [sample.bezeichnung]);
   useEffect(() => { setDatum(sample.received_date ?? ''); }, [sample.received_date]);
   useEffect(() => { setNotizen(sample.notizen ?? ''); }, [sample.notizen]);
@@ -146,13 +146,21 @@ function SampleBlock({ productId, mId, sample, rate }: { productId: number; mId:
           placeholder="Mängel / Verbesserungspunkte …" rows={2} className="w-full px-2 py-1 rounded text-sm resize-y" style={INPUT_STYLE} />
         <div className="flex items-center gap-2">
           <span className="text-xs w-24 flex-shrink-0" style={{ color: 'var(--color-on-surface-variant)' }}>Erhalten am</span>
-          <input key={dateKey} type="date" value={datum} onChange={(e) => setDatum(e.target.value)} onBlur={() => { if (datum !== (sample.received_date ?? '')) save({ received_date: datum }); }}
-            className="px-2 py-1 rounded text-sm" style={INPUT_STYLE} />
-          {datum && (
-            <button type="button" onMouseDown={(e) => e.preventDefault()}
-              onClick={() => { setDatum(''); setDateKey(k => k + 1); if ((sample.received_date ?? '') !== '') save({ received_date: '' }); }}
-              title="Datum löschen" aria-label="Datum löschen" className="p-1 rounded hover:bg-white/5" style={{ color: 'var(--color-on-surface-variant)' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
+          {(datum || editingDate) ? (
+            <>
+              <input type="date" autoFocus={editingDate && !datum} value={datum} onChange={(e) => setDatum(e.target.value)}
+                onBlur={() => { setEditingDate(false); if (datum !== (sample.received_date ?? '')) save({ received_date: datum }); }}
+                className="px-2 py-1 rounded text-sm" style={INPUT_STYLE} />
+              <button type="button" onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { setDatum(''); setEditingDate(false); if ((sample.received_date ?? '') !== '') save({ received_date: '' }); }}
+                title="Datum löschen" aria-label="Datum löschen" className="p-1 rounded hover:bg-white/5" style={{ color: 'var(--color-on-surface-variant)' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
+              </button>
+            </>
+          ) : (
+            <button type="button" onClick={() => setEditingDate(true)} className="px-2 py-1 rounded text-sm flex items-center gap-1"
+              style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span> Datum
             </button>
           )}
         </div>
