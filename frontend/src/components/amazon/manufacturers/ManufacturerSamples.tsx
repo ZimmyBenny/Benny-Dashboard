@@ -12,24 +12,39 @@ function formatBetrag(n: number): string {
 const INPUT_STYLE: React.CSSProperties = {
   background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)',
 };
-const ALLOWED = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_BYTES = 20 * 1024 * 1024;
 const STATUS_OPTS: ManufacturerSample['status'][] = ['angefragt', 'bestellt', 'erhalten', 'abgelehnt'];
 
 function PhotoThumb({ productId, mId, sId, photo, onDelete }: { productId: number; mId: number; sId: number; photo: SamplePhoto; onDelete: () => void }) {
+  const isImage = (photo.mime ?? '').startsWith('image/');
   const [src, setSrc] = useState<string | null>(null);
   useEffect(() => {
+    if (!isImage) return;
     let revoked = false; let url: string | null = null;
     getSamplePhotoObjectUrl(productId, mId, sId, photo.id).then(u => { if (revoked) { URL.revokeObjectURL(u); return; } url = u; setSrc(u); }).catch(() => setSrc(null));
     return () => { revoked = true; if (url) URL.revokeObjectURL(url); };
-  }, [productId, mId, sId, photo.id]);
+  }, [isImage, productId, mId, sId, photo.id]);
+  async function openFile() {
+    try { const url = await getSamplePhotoObjectUrl(productId, mId, sId, photo.id); window.open(url, '_blank'); setTimeout(() => URL.revokeObjectURL(url), 10000); } catch { /* ignore */ }
+  }
+  const name = photo.original_name ?? 'Datei';
+  const isPdf = (photo.mime ?? '') === 'application/pdf' || name.toLowerCase().endsWith('.pdf');
   return (
     <div className="relative group" style={{ width: 88, height: 88 }}>
-      {src ? <a href={src} target="_blank" rel="noopener noreferrer"><img src={src} alt="" className="w-full h-full object-cover rounded-md" /></a>
-           : <div className="w-full h-full rounded-md" style={{ background: 'var(--color-surface-container-low)' }} />}
+      {isImage ? (
+        src ? <a href={src} target="_blank" rel="noopener noreferrer"><img src={src} alt="" className="w-full h-full object-cover rounded-md" /></a>
+            : <div className="w-full h-full rounded-md" style={{ background: 'var(--color-surface-container-low)' }} />
+      ) : (
+        <button type="button" onClick={openFile} title={name}
+          className="w-full h-full rounded-md flex flex-col items-center justify-center gap-1 px-1"
+          style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 26, color: isPdf ? '#fca5a5' : 'var(--color-on-surface-variant)' }}>{isPdf ? 'picture_as_pdf' : 'description'}</span>
+          <span className="text-[10px] leading-tight truncate w-full text-center" style={{ color: 'var(--color-on-surface-variant)' }}>{name}</span>
+        </button>
+      )}
       <button type="button" onClick={onDelete}
         className="absolute top-1 right-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity px-1"
-        style={{ background: 'rgba(0,0,0,0.6)', color: '#fca5a5' }} aria-label="Foto entfernen">
+        style={{ background: 'rgba(0,0,0,0.6)', color: '#fca5a5' }} aria-label="Anhang entfernen">
         <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
       </button>
     </div>
@@ -63,8 +78,7 @@ function SampleBlock({ productId, mId, sample, rate }: { productId: number; mId:
 
   function pick(f: File | undefined | null) {
     if (!f) return;
-    if (!ALLOWED.includes(f.type)) { setErr('Nur JPG, PNG oder WEBP.'); return; }
-    if (f.size > MAX_BYTES) { setErr('Bild größer als 20 MB.'); return; }
+    if (f.size > MAX_BYTES) { setErr('Datei größer als 20 MB.'); return; }
     setErr(null);
     upload.mutate({ mId, sId: sample.id, file: f });
   }
@@ -77,7 +91,7 @@ function SampleBlock({ productId, mId, sample, rate }: { productId: number; mId:
     let handled = false;
     for (const it of items) if (it.kind === 'file') {
       const f = it.getAsFile();
-      if (f && ALLOWED.includes(f.type) && f.size <= MAX_BYTES) { upload.mutate({ mId, sId: sample.id, file: f }); handled = true; }
+      if (f && f.size <= MAX_BYTES) { upload.mutate({ mId, sId: sample.id, file: f }); handled = true; }
     }
     if (handled) { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }
   }
@@ -116,11 +130,11 @@ function SampleBlock({ productId, mId, sample, rate }: { productId: number; mId:
           onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); pickMany(e.dataTransfer.files); }}
           className="flex items-center justify-center rounded-md"
           style={{ width: 88, height: 88, border: '1px dashed rgba(255,255,255,0.2)', color: 'var(--color-on-surface-variant)' }}
-          aria-label="Fotos hinzufügen" title="Klick (Mehrfachauswahl), Drag&Drop oder Cmd+V — AirDrop-Datei reinziehen">
+          aria-label="Anhang hinzufügen" title="Bilder + PDF u.a. — Klick (Mehrfachauswahl), Drag&Drop oder Cmd+V, auch AirDrop">
           <span className="material-symbols-outlined">add_photo_alternate</span>
         </button>
       </div>
-      <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden"
+      <input ref={fileInput} type="file" multiple className="hidden"
         onChange={(e) => { pickMany(e.target.files); e.target.value = ''; }} />
       {err && <p className="text-xs mt-1" style={{ color: '#fca5a5' }}>{err}</p>}
 
