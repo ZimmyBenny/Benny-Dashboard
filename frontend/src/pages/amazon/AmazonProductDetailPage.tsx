@@ -97,26 +97,6 @@ export function AmazonProductDetailPage() {
     upload.mutate({ id: product.id, file: f });
   }
 
-  // Paste-Support (Cmd+V)
-  useEffect(() => {
-    const onPaste = (e: ClipboardEvent) => {
-      // Hauptbild nur setzen, wenn nicht in ein Eingabefeld / eine Karte eingefügt wird
-      const target = e.target as HTMLElement | null;
-      if (target && target.closest('input, textarea, [contenteditable="true"], [data-card-paste]')) return;
-      const items = e.clipboardData?.items;
-      if (!items) return;
-      for (const item of items) {
-        if (item.kind === 'file') {
-          const f = item.getAsFile();
-          if (f) { handlePickFile(f); break; }
-        }
-      }
-    };
-    document.addEventListener('paste', onPaste);
-    return () => document.removeEventListener('paste', onPaste);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product?.id]);
-
   if (!Number.isInteger(id)) {
     return (
       <PageWrapper>
@@ -185,20 +165,11 @@ export function AmazonProductDetailPage() {
         <div className="flex flex-col md:flex-row gap-4 items-stretch">
         {/* Bild-Bereich */}
         <section className="flex flex-col gap-3 w-full md:w-[420px] md:flex-shrink-0">
-          <button
-            type="button"
-            onClick={() => fileInput.current?.click()}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              e.preventDefault();
-              handlePickFile(e.dataTransfer.files?.[0]);
-            }}
-            className="block w-full"
-            disabled={uploading}
-            aria-label={product.image_path ? 'Bild ersetzen' : 'Bild hinzufügen'}
-          >
+          {/* Bild ist reine Anzeige — geaendert wird AUSSCHLIESSLICH ueber die Knoepfe "Ersetzen"/"Entfernen".
+              Kein Klick-aufs-Bild, kein Drag&Drop, kein Cmd+V — verhindert versehentliches Ueberschreiben. */}
+          <div className="block w-full">
             <ProductImageLarge product={product} />
-          </button>
+          </div>
           <input
             ref={fileInput}
             type="file"
@@ -242,9 +213,6 @@ export function AmazonProductDetailPage() {
             )}
           </div>
 
-          <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)', opacity: 0.7 }}>
-            Auch per Drag&amp;Drop oder Cmd+V einfügbar. JPG/PNG/WEBP, max 5 MB.
-          </p>
           {error && <p className="text-sm" style={{ color: '#fca5a5' }}>{error}</p>}
         </section>
 
