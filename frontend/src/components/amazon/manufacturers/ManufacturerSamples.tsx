@@ -4,6 +4,7 @@ import {
   useCreateSampleM, useUpdateSampleM, useDeleteSampleM,
   useUploadSamplePhoto, useDeleteSamplePhoto, parsePreis,
 } from '../../../hooks/amazon/useManufacturers';
+import { SamplePruefberichtModal } from './SamplePruefberichtModal';
 
 function formatBetrag(n: number): string {
   return n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -54,6 +55,7 @@ function PhotoThumb({ productId, mId, sId, photo, onDelete }: { productId: numbe
 function SampleBlock({ productId, mId, sample, rate }: { productId: number; mId: number; sample: ManufacturerSample; rate: number | null }) {
   const update = useUpdateSampleM(productId);
   const del = useDeleteSampleM(productId);
+  const [pruefOpen, setPruefOpen] = useState(false);
   const upload = useUploadSamplePhoto(productId);
   const delPhoto = useDeleteSamplePhoto(productId);
   const fileInput = useRef<HTMLInputElement | null>(null);
@@ -119,11 +121,18 @@ function SampleBlock({ productId, mId, sample, rate }: { productId: number; mId:
           className="px-2 py-1 rounded text-xs" style={INPUT_STYLE}>
           {STATUS_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
+        <button type="button" onClick={() => setPruefOpen(true)} title="Prüfbericht"
+          className="px-2 py-1 rounded text-xs flex items-center gap-1" style={INPUT_STYLE}>
+          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>fact_check</span>Prüfbericht
+        </button>
         <button type="button" onClick={() => { if (confirm(`Sample „${sample.bezeichnung || 'ohne Namen'}" wirklich löschen?`)) del.mutate({ mId, sId: sample.id }); }}
           aria-label="Sample löschen" className="p-1 rounded hover:bg-white/5" style={{ color: '#fca5a5' }}>
           <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete</span>
         </button>
       </div>
+      {pruefOpen && (
+        <SamplePruefberichtModal productId={productId} mId={mId} sample={sample} onClose={() => setPruefOpen(false)} />
+      )}
 
       <div className="flex flex-wrap gap-2 items-center mt-2">
         {sample.photos.map(p => <PhotoThumb key={p.id} productId={productId} mId={mId} sId={sample.id} photo={p} onDelete={() => delPhoto.mutate({ mId, sId: sample.id, photoId: p.id })} />)}
