@@ -84,7 +84,25 @@ function LogoBlock({ productId, meta }: { productId: number; meta: UspMeta }) {
 function MarkeField({ marke, finalMarke, onSave }: { marke: string | null; finalMarke: string | null; onSave: (v: string) => void }) {
   const [v, setV] = useState(marke ?? '');
   useEffect(() => { setV(marke ?? ''); }, [marke]);
-  const hasOverride = (marke ?? '').trim().length > 0;
+
+  // Markierte Marke (aus dem Markenname-Modul) gewinnt IMMER. Solange dort eine Marke
+  // markiert ist, wird sie schreibgeschuetzt angezeigt — keine abweichende Handeingabe.
+  if (finalMarke) {
+    return (
+      <div className="flex flex-col gap-1">
+        <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>Marke</span>
+        <div
+          className="w-full px-2 py-1.5 rounded-md text-sm"
+          style={{ background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          {finalMarke}
+        </div>
+        <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>Im Markenname markiert — dort änderbar.</span>
+      </div>
+    );
+  }
+
+  // Fallback: keine Marke markiert -> manuelle Eingabe weiterhin moeglich (alte Daten bleiben erhalten)
   return (
     <label className="flex flex-col gap-1">
       <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>Marke</span>
@@ -92,18 +110,11 @@ function MarkeField({ marke, finalMarke, onSave }: { marke: string | null; final
         value={v}
         onChange={(e) => setV(e.target.value)}
         onBlur={() => { if (v !== (marke ?? '')) onSave(v); }}
-        placeholder={finalMarke ? `${finalMarke} (aus Markenname)` : 'Marke'}
+        placeholder="Marke (oder im Markenname markieren)"
         className="w-full px-2 py-1.5 rounded-md text-sm"
         style={{ background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}
       />
-      {finalMarke && !hasOverride && (
-        <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>Automatisch aus Markenname: {finalMarke}</span>
-      )}
-      {finalMarke && hasOverride && (
-        <button type="button" onClick={() => { setV(''); onSave(''); }} className="self-start text-xs flex items-center gap-1" style={{ color: 'var(--color-on-surface-variant)' }}>
-          <span className="material-symbols-outlined" style={{ fontSize: 14 }}>undo</span>auf Markenname zurücksetzen ({finalMarke})
-        </button>
-      )}
+      <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>Noch keine Marke im Markenname markiert.</span>
     </label>
   );
 }

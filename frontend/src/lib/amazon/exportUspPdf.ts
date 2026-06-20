@@ -133,7 +133,9 @@ export async function exportUspPdf(
   paragraph(productName, { size: 15, color: BLUE, style: 'bold', lh: 19, gap: 12 });
 
   // ── Meta: Marke, dann Logo darunter, dann der Rest ──
-  const markeText = (meta.marke && meta.marke.trim()) || finalMarke || 'wird nachgereicht';
+  // Markierte Marke (aus Markenname-Modul) gewinnt IMMER. Manuelle Eingabe nur als Fallback,
+  // wenn KEINE Marke markiert ist (damit alte Werte nicht verloren gehen).
+  const markeText = (finalMarke && finalMarke.trim()) || (meta.marke && meta.marke.trim()) || 'wird nachgereicht';
   paragraph(`Marke: ${markeText}`, { size: 10, color: BODY, lh: 15, gap: 6 });
 
   if (meta.logo_path) {
