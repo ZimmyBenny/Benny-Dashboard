@@ -107,7 +107,17 @@ function loadSamplePhoto(sampleId: number, photoId: number): SamplePhotoRow | un
   return db.prepare(`SELECT * FROM amazon_manufacturer_sample_photos WHERE id = ? AND sample_id = ?`).get(photoId, sampleId) as SamplePhotoRow | undefined;
 }
 function samplesWithPhotos(mId: number) {
-  return loadSamples(mId).map(s => ({ ...s, photos: loadSamplePhotos(s.id) }));
+  // Pruefbericht-Fortschritt je Sample: total = USP-Punkte des Produkts, done = bewertete (Status != 'offen')
+  const productRow = db.prepare(`SELECT product_id FROM amazon_manufacturers WHERE id = ?`).get(mId) as { product_id: number } | undefined;
+  const inspectionTotal = productRow
+    ? (db.prepare(`SELECT COUNT(*) AS c FROM amazon_usp_points WHERE product_id = ?`).get(productRow.product_id) as { c: number }).c
+    : 0;
+  return loadSamples(mId).map(s => {
+    const done = (db.prepare(
+      `SELECT COUNT(*) AS c FROM amazon_sample_inspection_results WHERE sample_id = ? AND status != 'offen'`
+    ).get(s.id) as { c: number }).c;
+    return { ...s, photos: loadSamplePhotos(s.id), inspection_total: inspectionTotal, inspection_done: done };
+  });
 }
 
 function withOffers(m: ManufacturerRow) {

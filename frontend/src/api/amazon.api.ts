@@ -579,6 +579,7 @@ export interface ManufacturerSample {
   notizen: string | null; maengel: string | null; kosten: string | null; currency: 'USD' | 'EUR';
   sendungsnummer: string | null; link_url: string | null;
   created_at: number; updated_at: number; photos: SamplePhoto[];
+  inspection_total: number; inspection_done: number;
 }
 export type SamplePatch = Partial<Pick<ManufacturerSample, 'bezeichnung' | 'received_date' | 'rating' | 'status' | 'is_favorite' | 'notizen' | 'maengel' | 'kosten' | 'currency' | 'sendungsnummer' | 'link_url'>>;
 

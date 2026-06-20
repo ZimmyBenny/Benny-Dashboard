@@ -56,6 +56,15 @@ function SampleBlock({ productId, mId, sample, rate }: { productId: number; mId:
   const update = useUpdateSampleM(productId);
   const del = useDeleteSampleM(productId);
   const [pruefOpen, setPruefOpen] = useState(false);
+  // Pruefbericht-Ampel: erst ab Erhalten-Datum; gruen wenn ALLE Anforderungen bewertet, sonst rot
+  const insReceived = !!(sample.received_date && sample.received_date.trim());
+  const insFertig = insReceived && sample.inspection_total > 0 && sample.inspection_done >= sample.inspection_total;
+  const insStyle: React.CSSProperties = !insReceived
+    ? INPUT_STYLE
+    : insFertig
+      ? { background: 'rgba(16,185,129,0.16)', color: '#34d399', border: '1px solid rgba(16,185,129,0.45)' }
+      : { background: 'rgba(239,68,68,0.16)', color: '#f87171', border: '1px solid rgba(239,68,68,0.45)' };
+  const insIcon = !insReceived ? 'fact_check' : insFertig ? 'check_circle' : 'pending';
   const upload = useUploadSamplePhoto(productId);
   const delPhoto = useDeleteSamplePhoto(productId);
   const fileInput = useRef<HTMLInputElement | null>(null);
@@ -121,9 +130,10 @@ function SampleBlock({ productId, mId, sample, rate }: { productId: number; mId:
           className="px-2 py-1 rounded text-xs" style={INPUT_STYLE}>
           {STATUS_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <button type="button" onClick={() => setPruefOpen(true)} title="Prüfbericht"
-          className="px-2 py-1 rounded text-xs flex items-center gap-1" style={INPUT_STYLE}>
-          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>fact_check</span>Prüfbericht
+        <button type="button" onClick={() => setPruefOpen(true)}
+          title={!insReceived ? 'Prüfbericht — bewertbar ab Erhalten-Datum' : insFertig ? 'Prüfbericht: fertig (alle bewertet)' : `Prüfbericht: ${sample.inspection_done}/${sample.inspection_total} bewertet`}
+          className="px-2 py-1 rounded text-xs flex items-center gap-1" style={insStyle}>
+          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{insIcon}</span>Prüfbericht
         </button>
         <button type="button" onClick={() => { if (confirm(`Sample „${sample.bezeichnung || 'ohne Namen'}" wirklich löschen?`)) del.mutate({ mId, sId: sample.id }); }}
           aria-label="Sample löschen" className="p-1 rounded hover:bg-white/5" style={{ color: '#fca5a5' }}>
