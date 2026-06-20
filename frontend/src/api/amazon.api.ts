@@ -706,3 +706,38 @@ export async function updateMyDataField(id: number, patch: Partial<Pick<MyDataFi
 export async function deleteMyDataField(id: number): Promise<void> {
   await apiClient.delete(`/amazon/my-data/custom/${id}`);
 }
+
+// ── Sample-Pruefbericht ──────────────────────────────────────────────────────
+export type InspectionStatus = 'erfuellt' | 'teilweise' | 'nicht' | 'offen';
+
+export interface InspectionPoint {
+  id: number;
+  title: string;
+  body: string | null;
+  questions: string[];
+  soll_status: string | null;
+  ist_status: InspectionStatus;
+  ist_note: string | null;
+}
+export interface SampleInspection {
+  product_name: string;
+  manufacturer_name: string;
+  marke: string | null;
+  inspection_notes: string | null;
+  points: InspectionPoint[];
+}
+
+const inspectionBase = (pid: number, mid: number, sid: number) =>
+  `/amazon/products/${pid}/manufacturers/${mid}/samples/${sid}/inspection`;
+
+export async function fetchSampleInspection(pid: number, mid: number, sid: number): Promise<SampleInspection> {
+  return (await apiClient.get(inspectionBase(pid, mid, sid))).data as SampleInspection;
+}
+export async function saveInspectionResult(
+  pid: number, mid: number, sid: number, pointId: number, status: InspectionStatus, note: string | null,
+): Promise<void> {
+  await apiClient.put(`${inspectionBase(pid, mid, sid)}/${pointId}`, { status, note });
+}
+export async function saveInspectionNotes(pid: number, mid: number, sid: number, inspection_notes: string | null): Promise<void> {
+  await apiClient.patch(inspectionBase(pid, mid, sid), { inspection_notes });
+}
