@@ -41,7 +41,9 @@ export function UspSection({ productId, productName }: Props) {
   const [expanded, setExpanded] = useState(() => readExpanded(productId));
   const [pendingDelete, setPendingDelete] = useState<UspPoint | null>(null);
   const [selectedMId, setSelectedMId] = useState<number | null>(null);
-  const activeMId = selectedMId ?? (data?.manufacturers[0]?.id ?? null);
+  const [pdfHint, setPdfHint] = useState<string | null>(null);
+  // Standard: KEIN Hersteller vorausgewaehlt -> Export bleibt neutral (ohne Marke), bis bewusst gewaehlt wird
+  const activeMId = selectedMId;
 
   function toggle() {
     setExpanded(prev => {
@@ -60,8 +62,10 @@ export function UspSection({ productId, productName }: Props) {
     await new Promise(r => setTimeout(r, 350));
     const fresh = await refetch();
     if (!fresh.data) return null;
-    const m = fresh.data.manufacturers.find(x => x.id === selectedMId) ?? fresh.data.manufacturers[0];
-    if (!m) return null;
+    // PDF ist das Marken-Angebot -> ohne bewusst gewaehlten Hersteller NICHT still den ersten nehmen
+    const m = selectedMId == null ? null : (fresh.data.manufacturers.find(x => x.id === selectedMId) ?? null);
+    if (!m) { setPdfHint('Für das PDF bitte zuerst einen Hersteller auswählen.'); return null; }
+    setPdfHint(null);
     const incMap = new Map<number, number>();
     for (const f of fresh.data.feasibility) if (f.manufacturer_id === m.id) incMap.set(f.point_id, f.include_in_pdf);
     const included = fresh.data.points.filter(p => (incMap.get(p.id) ?? 1) !== 0);
@@ -87,11 +91,16 @@ export function UspSection({ productId, productName }: Props) {
     await new Promise(r => setTimeout(r, 350));
     const fresh = await refetch();
     if (!fresh.data) return;
-    const m = fresh.data.manufacturers.find(x => x.id === selectedMId) ?? fresh.data.manufacturers[0];
-    if (!m) return;
-    const incMap = new Map<number, number>();
-    for (const f of fresh.data.feasibility) if (f.manufacturer_id === m.id) incMap.set(f.point_id, f.include_in_pdf);
-    const included = fresh.data.points.filter(p => (incMap.get(p.id) ?? 1) !== 0);
+    setPdfHint(null);
+    // Neutral (kein Hersteller gewaehlt): alle Punkte, kein Marken-Bezug. Sonst nur die fuer
+    // diesen Hersteller freigegebenen Punkte.
+    const m = selectedMId == null ? null : (fresh.data.manufacturers.find(x => x.id === selectedMId) ?? null);
+    let included = fresh.data.points;
+    if (m) {
+      const incMap = new Map<number, number>();
+      for (const f of fresh.data.feasibility) if (f.manufacturer_id === m.id) incMap.set(f.point_id, f.include_in_pdf);
+      included = fresh.data.points.filter(p => (incMap.get(p.id) ?? 1) !== 0);
+    }
     const { exportUspExcel } = await import('../../../lib/amazon/exportUspExcel');
     const { blob, filename } = await exportUspExcel(productName, included, m, fresh.data.feasibility);
     const a = document.createElement('a');
@@ -140,9 +149,10 @@ export function UspSection({ productId, productName }: Props) {
               {data.manufacturers.length > 0 && (
                 <div className="flex items-center gap-2 mb-2 text-sm">
                   <span style={{ color: 'var(--color-on-surface-variant)' }}>PDF-Auswahl für Hersteller:</span>
-                  <select value={activeMId ?? ''} onChange={(e) => setSelectedMId(Number(e.target.value))}
+                  <select value={activeMId ?? ''} onChange={(e) => { setSelectedMId(e.target.value === '' ? null : Number(e.target.value)); setPdfHint(null); }}
                     className="px-2 py-1 rounded-md text-sm"
                     style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <option value="">— kein Hersteller —</option>
                     {data.manufacturers.map(m => <option key={m.id} value={m.id}>{m.name || 'Hersteller'}</option>)}
                   </select>
                 </div>
@@ -180,7 +190,7 @@ export function UspSection({ productId, productName }: Props) {
               <div className="flex items-center gap-2">
                 <select
                   value={activeMId ?? ''}
-                  onChange={(e) => setSelectedMId(Number(e.target.value))}
+                  onChange={(e) => { setSelectedMId(e.target.value === '' ? null : Number(e.target.value)); setPdfHint(null); }}
                   className="px-2 py-1.5 rounded-md text-sm"
                   style={{
                     background: 'var(--color-surface-container-high)',
@@ -188,6 +198,7 @@ export function UspSection({ productId, productName }: Props) {
                     border: '1px solid rgba(255,255,255,0.08)',
                   }}
                 >
+                  <option value="">— kein Hersteller —</option>
                   {data.manufacturers.map(m => (
                     <option key={m.id} value={m.id}>{m.name || 'Hersteller'}</option>
                   ))}
@@ -209,6 +220,9 @@ export function UspSection({ productId, productName }: Props) {
                   <span className="material-symbols-outlined" style={{ fontSize: 16 }}>save</span>Als Version speichern
                 </button>
               </div>
+              {pdfHint && (
+                <p className="text-xs mt-1.5" style={{ color: '#fca5a5' }}>{pdfHint}</p>
+              )}
               <UspVersions productId={productId} />
               <UspPersonal productId={productId} data={data} />
             </>

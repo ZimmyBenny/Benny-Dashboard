@@ -12,10 +12,19 @@ const STATUS_TO_LABEL: Record<UspFeasibilityStatus, string> = {
 const GREEN = 'FFB6E2C6', ORANGE = 'FFFCD9A8', RED = 'FFF3B6B6', YELLOW = 'FFFCE9A8';
 const HEAD_BG = 'FF2D4696', HEAD_TXT = 'FFFFFFFF';
 
+// Gitterlinien: duenner grauer Rahmen um JEDE Zelle, damit Zeilen/Spalten klar abgegrenzt sind
+const GRID = 'FFAAB0B6';
+const gridBorder = {
+  top: { style: 'thin' as const, color: { argb: GRID } },
+  left: { style: 'thin' as const, color: { argb: GRID } },
+  bottom: { style: 'thin' as const, color: { argb: GRID } },
+  right: { style: 'thin' as const, color: { argb: GRID } },
+};
+
 export async function exportUspExcel(
   productName: string,
   points: UspPoint[],
-  manufacturer: UspManufacturer,
+  manufacturer: UspManufacturer | null,
   feasibility: UspFeasibility[],
 ): Promise<{ blob: Blob; filename: string }> {
   const ExcelJS = (await import('exceljs')).default;
@@ -23,7 +32,7 @@ export async function exportUspExcel(
 
   // feasibility (Status+Notiz) je Punkt fuer DIESEN Hersteller
   const fMap = new Map<number, UspFeasibility>();
-  for (const f of feasibility) if (f.manufacturer_id === manufacturer.id) fMap.set(f.point_id, f);
+  if (manufacturer) for (const f of feasibility) if (f.manufacturer_id === manufacturer.id) fMap.set(f.point_id, f);
 
   // ── Blatt 1: Anleitung ──
   const guide = wb.addWorksheet('Anleitung');
@@ -69,6 +78,7 @@ export async function exportUspExcel(
     c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEAD_BG } };
     c.font = { bold: true, color: { argb: HEAD_TXT } };
     c.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+    c.border = gridBorder;
   });
 
   points.forEach((p, idx) => {
@@ -76,7 +86,7 @@ export async function exportUspExcel(
     const anf = [p.body ?? '', ...(p.questions ?? []).map(q => `Frage: ${q.text}`)].filter(s => s && s.trim()).join('\n');
     const kann = STATUS_TO_LABEL[f?.status ?? 'offen'];
     const row = ws.addRow({ punkt: idx + 1, thema: p.title || '', anf, kann, erledigt: 'Nein', notizen: f?.note ?? '' });
-    row.eachCell(c => { c.alignment = { vertical: 'top', wrapText: true }; });
+    row.eachCell({ includeEmpty: true }, c => { c.alignment = { vertical: 'top', wrapText: true }; c.border = gridBorder; });
     const fill = kann === 'Ja' ? GREEN : kann === 'Teilweise' ? ORANGE : kann === 'Nein' ? RED : YELLOW;
     row.getCell('kann').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fill } };
   });
@@ -101,6 +111,7 @@ export async function exportUspExcel(
 
   const buf = await wb.xlsx.writeBuffer();
   const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  const filename = `Anforderungen_${slug(productName)}_${slug(manufacturer.name || 'Hersteller')}_${new Date().toLocaleDateString('en-CA')}.xlsx`;
+  const brandPart = manufacturer ? `_${slug(manufacturer.name || 'Hersteller')}` : '';
+  const filename = `Anforderungen_${slug(productName)}${brandPart}_${new Date().toLocaleDateString('en-CA')}.xlsx`;
   return { blob, filename };
 }
