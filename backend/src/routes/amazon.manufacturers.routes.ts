@@ -458,4 +458,111 @@ router.delete('/products/:id/manufacturers/:mId/samples/:sId/photos/:photoId', (
   res.status(204).end();
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Sample-Pruefbericht: ein Sample gegen die USP-Anforderungen pruefen
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface SampleInspectionContext {
+  sample_id: number; manufacturer_id: number; manufacturer_name: string;
+  inspection_notes: string | null; product_id: number; product_name: string;
+}
+function sampleInspectionContext(sampleId: number): SampleInspectionContext | undefined {
+  return db.prepare(`
+    SELECT s.id AS sample_id, s.manufacturer_id, s.inspection_notes,
+           m.name AS manufacturer_name, m.product_id, p.name AS product_name
+    FROM amazon_manufacturer_samples s
+    JOIN amazon_manufacturers m ON m.id = s.manufacturer_id
+    JOIN amazon_products p ON p.id = m.product_id
+    WHERE s.id = ?
+  `).get(sampleId) as SampleInspectionContext | undefined;
+}
+
+const VALID_INSPECTION_STATUS = new Set(['erfuellt', 'teilweise', 'nicht', 'offen']);
+
+// GET Pruefbericht laden (USP-Punkte + Soll/Ist + Kopf-Daten)
+router.get('/products/:id/manufacturers/:mId/samples/:sampleId/inspection', (req: Request, res: Response) => {
+  const sampleId = Number(req.params.sampleId);
+  const ctx = sampleInspectionContext(sampleId);
+  if (!ctx) { res.status(404).json({ error: 'sample not found' }); return; }
+
+  const finalRow = db.prepare(
+    `SELECT name FROM amazon_brand_name_candidates WHERE product_id = ? AND is_final = 1 ORDER BY id LIMIT 1`
+  ).get(ctx.product_id) as { name: string } | undefined;
+
+  const points = db.prepare(
+    `SELECT id, title, body FROM amazon_usp_points WHERE product_id = ? ORDER BY sort_order, id`
+  ).all(ctx.product_id) as { id: number; title: string; body: string | null }[];
+
+  const questionsByPoint = new Map<number, string[]>();
+  for (const q of db.prepare(
+    `SELECT q.point_id AS point_id, q.text AS text FROM amazon_usp_point_questions q
+     JOIN amazon_usp_points p ON p.id = q.point_id WHERE p.product_id = ? ORDER BY q.sort_order, q.id`
+  ).all(ctx.product_id) as { point_id: number; text: string }[]) {
+    const arr = questionsByPoint.get(q.point_id) ?? [];
+    arr.push(q.text);
+    questionsByPoint.set(q.point_id, arr);
+  }
+
+  // Soll: Hersteller-Angabe, falls dieser Hersteller im USP verknuepft ist
+  const uspMan = db.prepare(
+    `SELECT id FROM amazon_usp_manufacturers WHERE product_id = ? AND manufacturer_id = ?`
+  ).get(ctx.product_id, ctx.manufacturer_id) as { id: number } | undefined;
+  const sollByPoint = new Map<number, string>();
+  if (uspMan) {
+    for (const f of db.prepare(
+      `SELECT point_id, status FROM amazon_usp_feasibility WHERE manufacturer_id = ?`
+    ).all(uspMan.id) as { point_id: number; status: string }[]) {
+      sollByPoint.set(f.point_id, f.status);
+    }
+  }
+
+  const resultByPoint = new Map<number, { status: string; note: string | null }>();
+  for (const r of db.prepare(
+    `SELECT point_id, status, note FROM amazon_sample_inspection_results WHERE sample_id = ?`
+  ).all(sampleId) as { point_id: number; status: string; note: string | null }[]) {
+    resultByPoint.set(r.point_id, { status: r.status, note: r.note });
+  }
+
+  res.json({
+    product_name: ctx.product_name,
+    manufacturer_name: ctx.manufacturer_name,
+    marke: finalRow?.name ?? null,
+    inspection_notes: ctx.inspection_notes,
+    points: points.map((p) => ({
+      id: p.id,
+      title: p.title,
+      body: p.body,
+      questions: questionsByPoint.get(p.id) ?? [],
+      soll_status: sollByPoint.get(p.id) ?? null,
+      ist_status: resultByPoint.get(p.id)?.status ?? 'offen',
+      ist_note: resultByPoint.get(p.id)?.note ?? null,
+    })),
+  });
+});
+
+// PUT Ergebnis je Punkt (Upsert)
+router.put('/products/:id/manufacturers/:mId/samples/:sampleId/inspection/:pointId', (req: Request, res: Response) => {
+  const sampleId = Number(req.params.sampleId);
+  const pointId = Number(req.params.pointId);
+  const status = String(req.body?.status ?? 'offen');
+  if (!VALID_INSPECTION_STATUS.has(status)) { res.status(400).json({ error: 'invalid status' }); return; }
+  const note = req.body?.note == null ? null : String(req.body.note);
+  if (!sampleInspectionContext(sampleId)) { res.status(404).json({ error: 'sample not found' }); return; }
+  db.prepare(`
+    INSERT INTO amazon_sample_inspection_results (sample_id, point_id, status, note, updated_at)
+    VALUES (?, ?, ?, ?, unixepoch())
+    ON CONFLICT(sample_id, point_id) DO UPDATE SET status = excluded.status, note = excluded.note, updated_at = unixepoch()
+  `).run(sampleId, pointId, status, note);
+  res.json({ ok: true });
+});
+
+// PATCH Zusatz-Notizen des Pruefberichts
+router.patch('/products/:id/manufacturers/:mId/samples/:sampleId/inspection', (req: Request, res: Response) => {
+  const sampleId = Number(req.params.sampleId);
+  if (!sampleInspectionContext(sampleId)) { res.status(404).json({ error: 'sample not found' }); return; }
+  const notes = req.body?.inspection_notes == null ? null : String(req.body.inspection_notes);
+  db.prepare(`UPDATE amazon_manufacturer_samples SET inspection_notes = ? WHERE id = ?`).run(notes, sampleId);
+  res.json({ ok: true });
+});
+
 export default router;
