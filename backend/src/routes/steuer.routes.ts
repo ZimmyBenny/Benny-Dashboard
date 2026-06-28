@@ -7,6 +7,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { ZipArchive } from 'archiver';
+import { createBackup } from '../db/backup';
 
 const router = Router();
 const MAX_NAME = 300;
@@ -158,6 +159,74 @@ router.post('/copy-year', (req: Request, res: Response) => {
     }
   })();
   res.status(201).json({ categories: loadCategoriesForYear(to) });
+});
+
+// sync-year (literal — additiver Abgleich; MUSS vor /:jahr-Familie stehen)
+router.post('/sync-year', (req: Request, res: Response) => {
+  const body = (req.body ?? {}) as { from_jahr?: unknown; to_jahr?: unknown };
+  const from = Number(body.from_jahr); const to = Number(body.to_jahr);
+  if (!Number.isInteger(from) || !Number.isInteger(to)) { res.status(400).json({ error: 'invalid jahr' }); return; }
+  if (from === to) { res.status(400).json({ error: 'gleiches jahr' }); return; }
+
+  const fromCats = db.prepare(`SELECT * FROM steuer_categories WHERE jahr = ? ORDER BY sort_order, id`).all(from) as CategoryRow[];
+  if (fromCats.length === 0) {
+    res.status(201).json({ categories: loadCategoriesForYear(to), summary: { addedCategories: 0, addedItems: 0 } });
+    return;
+  }
+
+  // Datensicherheit — Backup vor der Bulk-Operation (Benutzerwunsch, auch bei reinen Inserts)
+  createBackup('steuer-sync-year');
+
+  let addedCategories = 0;
+  let addedItems = 0;
+
+  const insCat = db.prepare(`INSERT INTO steuer_categories (jahr, sort_order, name) VALUES (?, ?, ?)`);
+  const insItem = db.prepare(`INSERT INTO steuer_items (category_id, sort_order, title, is_done, note) VALUES (?, ?, ?, 0, ?)`);
+
+  db.transaction(() => {
+    // Ziel-Kategorien nach getrimmtem Namen indexieren
+    const toCats = db.prepare(`SELECT * FROM steuer_categories WHERE jahr = ?`).all(to) as CategoryRow[];
+    const toCatByTrimmedName = new Map<string, CategoryRow>();
+    for (const c of toCats) toCatByTrimmedName.set(c.name.trim(), c);
+
+    let maxCatOrder = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM steuer_categories WHERE jahr = ?`).get(to) as { m: number }).m;
+
+    for (const fc of fromCats) {
+      const key = fc.name.trim();
+      let target = toCatByTrimmedName.get(key);
+
+      if (!target) {
+        // Fehlende Kategorie hinten anlegen, danach alle Punkte uebernehmen
+        maxCatOrder += 1;
+        const r = insCat.run(to, maxCatOrder, fc.name);
+        const newCatId = Number(r.lastInsertRowid);
+        target = { id: newCatId } as CategoryRow;
+        toCatByTrimmedName.set(key, target);
+        addedCategories++;
+
+        const items = db.prepare(`SELECT * FROM steuer_items WHERE category_id = ? ORDER BY sort_order, id`).all(fc.id) as ItemRow[];
+        let order = 0;
+        for (const it of items) { order += 1; insItem.run(newCatId, order, it.title, it.note); addedItems++; }
+      } else {
+        // Bestehende Kategorie: nur fehlende Punkte hinten ergaenzen
+        const existing = db.prepare(`SELECT title FROM steuer_items WHERE category_id = ?`).all(target.id) as Array<{ title: string }>;
+        const existingTitles = new Set(existing.map(e => e.title.trim()));
+        let maxItemOrder = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM steuer_items WHERE category_id = ?`).get(target.id) as { m: number }).m;
+
+        const items = db.prepare(`SELECT * FROM steuer_items WHERE category_id = ? ORDER BY sort_order, id`).all(fc.id) as ItemRow[];
+        for (const it of items) {
+          const tk = it.title.trim();
+          if (existingTitles.has(tk)) continue;
+          maxItemOrder += 1;
+          insItem.run(target.id, maxItemOrder, it.title, it.note);
+          existingTitles.add(tk);
+          addedItems++;
+        }
+      }
+    }
+  })();
+
+  res.status(201).json({ categories: loadCategoriesForYear(to), summary: { addedCategories, addedItems } });
 });
 
 // Kategorie-Reorder (literal-Segment 'reorder' — VOR /categories/:id)
