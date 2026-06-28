@@ -40,6 +40,10 @@ export async function deleteSteuerFile(itemId: number, fId: number): Promise<voi
 export async function copySteuerYear(fromJahr: number, toJahr: number): Promise<SteuerCategory[]> {
   return ((await apiClient.post('/steuer/copy-year', { from_jahr: fromJahr, to_jahr: toJahr })).data as { categories: SteuerCategory[] }).categories;
 }
+export interface SteuerSyncSummary { addedCategories: number; addedItems: number; }
+export async function syncSteuerYear(fromJahr: number, toJahr: number): Promise<{ categories: SteuerCategory[]; summary: SteuerSyncSummary }> {
+  return (await apiClient.post('/steuer/sync-year', { from_jahr: fromJahr, to_jahr: toJahr })).data as { categories: SteuerCategory[]; summary: SteuerSyncSummary };
+}
 export async function exportSteuerPdf(jahr: number, itemIds: number[] | 'all'): Promise<Blob> {
   const r = await apiClient.post(`/steuer/${jahr}/export`, { item_ids: itemIds }, { responseType: 'blob' });
   return r.data as Blob;

@@ -4,7 +4,7 @@ import {
   fetchSteuerJahre, fetchSteuer,
   createSteuerCategory, updateSteuerCategory, deleteSteuerCategory, reorderSteuerCategories,
   createSteuerItem, updateSteuerItem, deleteSteuerItem, reorderSteuerItems,
-  uploadSteuerFile, deleteSteuerFile, copySteuerYear,
+  uploadSteuerFile, deleteSteuerFile, copySteuerYear, syncSteuerYear,
 } from '../../api/steuer.api';
 
 export const steuerJahreKey = ['steuer', 'jahre'] as const;
@@ -29,3 +29,4 @@ export function useReorderSteuerItems(jahr: number) { const inval = useInval(jah
 export function useUploadSteuerFile(jahr: number) { const inval = useInval(jahr); return useMutation({ mutationFn: ({ itemId, file }: { itemId: number; file: File }) => uploadSteuerFile(itemId, file), onSettled: inval }); }
 export function useDeleteSteuerFile(jahr: number) { const inval = useInval(jahr); return useMutation({ mutationFn: ({ itemId, fId }: { itemId: number; fId: number }) => deleteSteuerFile(itemId, fId), onSettled: inval }); }
 export function useCopySteuerYear(jahr: number) { const inval = useInval(jahr); return useMutation({ mutationFn: ({ fromJahr, toJahr }: { fromJahr: number; toJahr: number }) => copySteuerYear(fromJahr, toJahr), onSettled: inval }); }
+export function useSyncSteuerYear(jahr: number) { const inval = useInval(jahr); return useMutation({ mutationFn: ({ fromJahr, toJahr }: { fromJahr: number; toJahr: number }) => syncSteuerYear(fromJahr, toJahr), onSettled: inval }); }
