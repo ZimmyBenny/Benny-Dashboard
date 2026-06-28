@@ -8,6 +8,7 @@ import {
   useDeleteSteuerCategory,
   useReorderSteuerCategories,
   useCopySteuerYear,
+  useSyncSteuerYear,
 } from '../../hooks/finanzen/useSteuer';
 import { SteuerCategoryBlock } from '../../components/finanzen/SteuerCategoryBlock';
 
@@ -58,6 +59,8 @@ export function TaxChecklistPage() {
   const [catOrder, setCatOrder] = useState<number[] | null>(null);
   const [newYearInput, setNewYearInput] = useState('');
   const [copyFromYear, setCopyFromYear] = useState<number | null>(null);
+  const [syncFromYear, setSyncFromYear] = useState<number | null>(null);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [exporting, setExporting] = useState(false);
   const dragCatIndex = useRef<number | null>(null);
@@ -82,6 +85,7 @@ export function TaxChecklistPage() {
   const deleteCat = useDeleteSteuerCategory(jahr);
   const reorderCats = useReorderSteuerCategories(jahr);
   const copySteuerYear = useCopySteuerYear(jahr);
+  const syncSteuerYear = useSyncSteuerYear(jahr);
 
   // Jahr-Optionen: alle bekannten Jahre + aktuelles Jahr + selektiertes Jahr, absteigend
   const jahreOptions = Array.from(new Set([...(jahreData ?? []), currentYear, jahr])).sort((a, b) => b - a);
@@ -90,6 +94,15 @@ export function TaxChecklistPage() {
   const quellJahre = (jahreData ?? []).filter(j => j !== jahr).sort((a, b) => b - a);
   const vorjahr = quellJahre[0] ?? null;
   const effektivQuelle = (copyFromYear !== null && quellJahre.includes(copyFromYear)) ? copyFromYear : vorjahr;
+  const syncQuelle = (syncFromYear !== null && quellJahre.includes(syncFromYear)) ? syncFromYear : vorjahr;
+
+  async function runSync() {
+    if (syncQuelle === null) return;
+    const ok = window.confirm(`Punkte aus ${syncQuelle} werden in ${jahr} ergänzt. Bestehende Punkte, Dateien und Notizen bleiben unverändert. Fortfahren?`);
+    if (!ok) return;
+    const res = await syncSteuerYear.mutateAsync({ fromJahr: syncQuelle, toJahr: jahr });
+    setSyncMsg(`${res.summary.addedCategories} Kategorien und ${res.summary.addedItems} Punkte ergänzt.`);
+  }
 
   // Drag-Reorder für Kategorien
   const catIds = catOrder ?? (data?.categories.map(c => c.id) ?? []);
@@ -120,7 +133,7 @@ export function TaxChecklistPage() {
 
   function openYear() {
     const y = parseInt(newYearInput, 10);
-    if (Number.isInteger(y) && y >= 1990 && y <= 2100) { setJahr(y); setCatOrder(null); setNewYearInput(''); setSelectedIds(new Set()); }
+    if (Number.isInteger(y) && y >= 1990 && y <= 2100) { setJahr(y); setCatOrder(null); setNewYearInput(''); setSelectedIds(new Set()); setSyncMsg(null); }
   }
 
   return (
@@ -145,7 +158,7 @@ export function TaxChecklistPage() {
       <div className="flex items-center gap-2 flex-wrap mb-6">
         <select
           value={jahr}
-          onChange={(e) => { setJahr(Number(e.target.value)); setCatOrder(null); setSelectedIds(new Set()); }}
+          onChange={(e) => { setJahr(Number(e.target.value)); setCatOrder(null); setSelectedIds(new Set()); setSyncMsg(null); }}
           className="px-3 py-1.5 rounded-md text-sm"
           style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}
         >
@@ -170,7 +183,42 @@ export function TaxChecklistPage() {
         >
           <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>Jahr öffnen
         </button>
+
+        {quellJahre.length > 0 && (
+          <>
+            <span style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.1)', display: 'inline-block', margin: '0 4px' }} />
+            <span className="text-sm flex-shrink-0" style={{ color: 'var(--color-on-surface-variant)' }}>Vorlage:</span>
+            <select
+              value={syncQuelle ?? ''}
+              onChange={(e) => setSyncFromYear(Number(e.target.value))}
+              className="px-2 py-1.5 rounded-md text-sm flex-shrink-0"
+              style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}
+            >
+              {quellJahre.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+            <button
+              type="button"
+              onClick={runSync}
+              disabled={syncSteuerYear.isPending || syncQuelle === null}
+              className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5 flex-shrink-0"
+              style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)', opacity: (syncSteuerYear.isPending || syncQuelle === null) ? 0.6 : 1 }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>sync</span>
+              {syncSteuerYear.isPending ? 'Gleiche ab …' : 'Aus Vorlage abgleichen'}
+            </button>
+          </>
+        )}
       </div>
+
+      {syncMsg && (
+        <div
+          className="rounded-xl px-4 py-3 mb-6 flex items-center gap-2"
+          style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#34d399' }}>check_circle</span>
+          <span className="text-sm" style={{ color: '#34d399' }}>{syncMsg}</span>
+        </div>
+      )}
 
       {/* Lade- und Fehlerzustände */}
       {isLoading && (
