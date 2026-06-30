@@ -42,6 +42,7 @@ import {
 } from '../../api/belege.api';
 import apiClient from '../../api/client';
 import { formatCurrencyFromCents, formatDate } from '../../lib/format';
+import { todayLocal } from '../../lib/dates';
 
 export function BelegeDetailPage() {
   const { id: idStr } = useParams<{ id: string }>();
@@ -49,6 +50,8 @@ export function BelegeDetailPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [suggestTriedFor, setSuggestTriedFor] = useState<string | null>(null);
+  const [showPaidConfirm, setShowPaidConfirm] = useState(false);
+  const [paidDate, setPaidDate] = useState('');
 
   const { data: r, isLoading, error } = useQuery({
     queryKey: ['belege', id],
@@ -551,6 +554,98 @@ export function BelegeDetailPage() {
 
               <Section title="Aktionen">
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  {r.status !== 'bezahlt' && r.status !== 'storniert' && (
+                    !showPaidConfirm ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPaidDate(r.payment_date || todayLocal());
+                          setShowPaidConfirm(true);
+                        }}
+                        disabled={updateMut.isPending}
+                        style={{
+                          background: 'rgba(92,253,128,0.12)',
+                          color: '#5cfd80',
+                          border: '1px solid rgba(92,253,128,0.35)',
+                          borderRadius: '0.5rem',
+                          padding: '0.625rem 1.25rem',
+                          fontSize: '0.875rem',
+                          fontFamily: 'Manrope, sans-serif',
+                          fontWeight: 600,
+                          cursor: updateMut.isPending ? 'wait' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.375rem',
+                        }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>paid</span>
+                        Als bezahlt markieren
+                      </button>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <input
+                          type="date"
+                          value={paidDate}
+                          onChange={(e) => setPaidDate(e.target.value)}
+                          style={{
+                            background: 'rgba(255,255,255,0.04)',
+                            color: 'var(--color-on-surface)',
+                            border: '1px solid rgba(148,170,255,0.2)',
+                            borderRadius: '0.5rem',
+                            padding: '0.5rem 0.75rem',
+                            fontFamily: 'var(--font-body)',
+                            fontSize: '0.875rem',
+                            colorScheme: 'dark',
+                            outline: 'none',
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            updateMut.mutate({ status: 'bezahlt', payment_date: paidDate });
+                            setShowPaidConfirm(false);
+                          }}
+                          disabled={updateMut.isPending || !paidDate}
+                          style={{
+                            background: 'rgba(92,253,128,0.12)',
+                            color: '#5cfd80',
+                            border: '1px solid rgba(92,253,128,0.35)',
+                            borderRadius: '0.5rem',
+                            padding: '0.625rem 1.25rem',
+                            fontSize: '0.875rem',
+                            fontFamily: 'Manrope, sans-serif',
+                            fontWeight: 700,
+                            cursor: updateMut.isPending || !paidDate ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.375rem',
+                            opacity: updateMut.isPending || !paidDate ? 0.6 : 1,
+                          }}
+                        >
+                          Bestätigen
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowPaidConfirm(false)}
+                          style={{
+                            background: 'rgba(255,255,255,0.04)',
+                            color: 'var(--color-on-surface-variant)',
+                            border: '1px solid rgba(148,170,255,0.2)',
+                            borderRadius: '0.5rem',
+                            padding: '0.625rem 1.25rem',
+                            fontSize: '0.875rem',
+                            fontFamily: 'var(--font-body)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.375rem',
+                          }}
+                        >
+                          Abbrechen
+                        </button>
+                      </div>
+                    )
+                  )}
                   {!isLocked && (
                     <button
                       type="button"

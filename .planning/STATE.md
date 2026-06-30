@@ -184,9 +184,11 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 | 260518-t17 | DJ-Angebot UX (sevDesk-Stil): Speichern-Feedback + Rabatt-Spalte pro Position + Inline-Create-Link (Modal raus) + Lazy-Gesamtrabatt | 2026-05-18 | 2173727 | [260518-t17-dj-angebot-ux-save-feedback-rabatt-spalt](.planning/quick/260518-t17-dj-angebot-ux-save-feedback-rabatt-spalt/) |
 | 260518-thg | PDF: Rabatt-Spalte in Positionen-Tabelle ergaenzt + Logo groesser/naeher am Content | 2026-05-18 | (HEAD) | [260518-thg-pdf-rabatt-spalte-in-der-positionen-tabe](.planning/quick/260518-thg-pdf-rabatt-spalte-in-der-positionen-tabe/) |
 | 260518-uxi | DJ-Angebot: Optionale Positionen (sevDesk-Stil) — Toggle "Optional", "Opt." statt Pos-Nr im PDF, separate "Summe optionaler Positionen brutto" | 2026-05-18 | e9de663 | [260518-uxi-dj-quote-optionale-positionen-sevdesk-st](.planning/quick/260518-uxi-dj-quote-optionale-positionen-sevdesk-st/) |
+| 260628-mat | Steuer-Checkliste: Aus Vorlage abgleichen (sync-year) — additiver Jahres-Abgleich, nur Fehlendes ergänzen, Dateien/Notizen/Haken bleiben erhalten | 2026-06-28 | 17a541f | [260628-mat-steuer-checkliste-aus-vorlage-abgleichen](.planning/quick/260628-mat-steuer-checkliste-aus-vorlage-abgleichen/) |
+| 260628-ogt | Tabellen-Vorschau (.xlsx/.xls/.csv) im FilePreviewModal — SpreadsheetPreview mit SheetJS, Reiter-Wechsel, Lade-/Fehlerzustand, isSpreadsheet vor isText | 2026-06-28 | 8c968c5 | [260628-ogt-tabellen-vorschau-xlsx-xls-csv-im-filepr](.planning/quick/260628-ogt-tabellen-vorschau-xlsx-xls-csv-im-filepr/) |
 
 ---
-*State initialized: 2026-04-07 | Last activity: 2026-05-18 - Completed quick task 260518-uxi: Optionale Positionen im DJ-Angebot*
+*State initialized: 2026-04-07 | Last activity: 2026-06-28 - Completed quick task 260628-ogt: Tabellen-Vorschau xlsx/xls/csv im FilePreviewModal*
 | 2026-04-10 | fast | TaskCard onClick → SlideOver fix (PointerSensor distance constraint) | ✅ |
 | 2026-04-10 | fast | TaskSlideOver Backdrop-Klick schließt Panel nicht mehr | ✅ |
 | 2026-04-10 | 260410-v3q | Status-Notiz beim Drag (DragPrompt + DB-Migration + KanbanBoard-Pause) | ✅ |
