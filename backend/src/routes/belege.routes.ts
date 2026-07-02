@@ -39,6 +39,23 @@ import type { AuthenticatedRequest } from '../middleware/auth';
 
 const router = Router();
 
+// Volle deutsche Monatsnamen mit echten Umlauten (Memory-Regel feedback_umlauts) —
+// Index 0 = Januar, passt direkt zu bucketIdx bei period === 'monat' (month - 1).
+const MONAT_NAMEN_LANG = [
+  'Januar',
+  'Februar',
+  'März',
+  'April',
+  'Mai',
+  'Juni',
+  'Juli',
+  'August',
+  'September',
+  'Oktober',
+  'November',
+  'Dezember',
+];
+
 // Mount upload sub-router unter /upload
 router.use('/', uploadRouter);
 
@@ -786,6 +803,7 @@ router.get('/overview-kpis', (req, res) => {
   // Steuerzahllast: nur fuer konkrete Jahre sinnvoll (UStVA-Aggregation pro Jahr).
   // Bei year=all blenden wir den KPI aus (null).
   let steuerzahllast: number | null = null;
+  let periodLabel: string | null = null;
   if (ustvaSetting !== 'keine' && yearParam !== 'all') {
     const period = ustvaSetting as UstvaPeriod;
     const buckets = aggregateForUstva(year, period);
@@ -799,6 +817,13 @@ router.get('/overview-kpis', (req, res) => {
       bucketIdx = 0;
     }
     steuerzahllast = buckets[bucketIdx]?.zahllast_cents ?? 0;
+    if (period === 'monat') {
+      periodLabel = `${MONAT_NAMEN_LANG[bucketIdx]} ${year}`;
+    } else if (period === 'quartal') {
+      periodLabel = `Q${bucketIdx + 1} ${year}`;
+    } else {
+      periodLabel = String(year);
+    }
   }
 
   // Steuerrelevant fuer das ausgewaehlte Jahr (oder gesamt bei year=all).
@@ -829,6 +854,7 @@ router.get('/overview-kpis', (req, res) => {
     offeneZahlungenSumCents: offen.sum_cents,
     ueberfaellig,
     steuerzahllastCurrentPeriodCents: steuerzahllast,
+    periodLabel,
     steuerrelevantThisYearCents: steuerrelevant,
     ustvaZeitraum: ustvaSetting,
   });
