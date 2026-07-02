@@ -25,6 +25,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { StatusBadge } from '../../components/dj/StatusBadge';
 import { PdfPreview } from '../../components/belege/PdfPreview';
+import { BelegLightbox } from '../../components/belege/BelegLightbox';
 import { AuditTrail } from '../../components/belege/AuditTrail';
 import {
   fetchReceipt,
@@ -52,6 +53,7 @@ export function BelegeDetailPage() {
   const [suggestTriedFor, setSuggestTriedFor] = useState<string | null>(null);
   const [showPaidConfirm, setShowPaidConfirm] = useState(false);
   const [paidDate, setPaidDate] = useState('');
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const { data: r, isLoading, error } = useQuery({
     queryKey: ['belege', id],
@@ -307,7 +309,37 @@ export function BelegeDetailPage() {
             {/* Linke Spalte: PDF/Bild-Preview */}
             <div style={{ position: 'sticky', top: '1rem' }}>
               {fileUrl && primaryFile ? (
-                <PdfPreview url={fileUrl} mimeType={primaryFile.mime_type} />
+                <div style={{ position: 'relative', cursor: 'zoom-in' }} onClick={() => setLightboxOpen(true)}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLightboxOpen(true);
+                    }}
+                    title="Vollbild anzeigen"
+                    style={{
+                      position: 'absolute',
+                      top: '0.75rem',
+                      right: '0.75rem',
+                      zIndex: 2,
+                      background: 'rgba(0,0,0,0.55)',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      borderRadius: '0.5rem',
+                      padding: '0.375rem 0.625rem',
+                      color: '#fff',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem',
+                      fontSize: '0.75rem',
+                      fontFamily: 'var(--font-body)',
+                    }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>open_in_full</span>
+                    Vollbild
+                  </button>
+                  <PdfPreview url={fileUrl} mimeType={primaryFile.mime_type} />
+                </div>
               ) : (
                 <div
                   style={{
@@ -791,13 +823,17 @@ export function BelegeDetailPage() {
                 )}
               </Section>
 
-              <Section title="Verlauf">
+              <CollapsibleSection title="Verlauf" count={r.audit_log.length}>
                 <AuditTrail entries={r.audit_log} />
-              </Section>
+              </CollapsibleSection>
             </div>
           </div>
         </div>
       </div>
+
+      {lightboxOpen && fileUrl && primaryFile && (
+        <BelegLightbox url={fileUrl} mimeType={primaryFile.mime_type} onClose={() => setLightboxOpen(false)} />
+      )}
     </PageWrapper>
   );
 }
@@ -831,6 +867,69 @@ function Section({ title, children }: { title: string; children: React.ReactNode
         {title}
       </h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>{children}</div>
+    </section>
+  );
+}
+
+/**
+ * Einklappbare Sektion — Styling identisch zu `Section`, aber der Header ist
+ * klickbar und toggelt den Body. Standardmäßig zugeklappt (Feature 1,
+ * Plan quick-260702-vz7): Verlauf/Audit-Trail soll die Seite nicht dauerhaft
+ * dominieren, bleibt aber erreichbar.
+ */
+function CollapsibleSection({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  count: number;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section
+      style={{
+        background: 'var(--color-surface-variant)',
+        borderRadius: '0.75rem',
+        padding: '1.25rem',
+        border: '1px solid rgba(148,170,255,0.08)',
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          width: '100%',
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          margin: 0,
+          marginBottom: open ? '0.75rem' : 0,
+          cursor: 'pointer',
+        }}
+      >
+        <h3
+          style={{
+            fontFamily: 'Manrope, sans-serif',
+            fontSize: '0.75rem',
+            fontWeight: 700,
+            margin: 0,
+            color: 'var(--color-on-surface-variant)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+          }}
+        >
+          {title} ({count} Einträge)
+        </h3>
+        <span className="material-symbols-outlined" style={{ fontSize: '1.25rem', color: 'var(--color-on-surface-variant)' }}>
+          {open ? 'expand_less' : 'expand_more'}
+        </span>
+      </button>
+      {open && <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>{children}</div>}
     </section>
   );
 }
