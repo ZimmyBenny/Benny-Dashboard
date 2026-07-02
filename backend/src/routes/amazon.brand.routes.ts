@@ -36,9 +36,11 @@ interface CandidateRow {
   is_final: number;
   remarks: string | null;
   trademark_status: ResearchStatus | null;
-  domain_com_status: ResearchStatus | null;
+  domain_shop_status: ResearchStatus | null;
   domain_de_status: ResearchStatus | null;
   social_status: ResearchStatus | null;
+  tiktok_status: ResearchStatus | null;
+  instagram_status: ResearchStatus | null;
   research_url: string | null;
   research_notes: string | null;
   ranking: number | null;
@@ -223,7 +225,7 @@ router.patch('/products/:id/brand/names/:nameId', (req: Request, res: Response) 
     params.push(v.value);
   }
 
-  for (const col of ['trademark_status', 'domain_com_status', 'domain_de_status', 'social_status'] as const) {
+  for (const col of ['trademark_status', 'domain_shop_status', 'domain_de_status', 'social_status', 'tiktok_status', 'instagram_status'] as const) {
     if (body[col] !== undefined) {
       if (body[col] !== null &&
           (typeof body[col] !== 'string' || !VALID_RESEARCH_STATUS.has(body[col] as ResearchStatus))) {

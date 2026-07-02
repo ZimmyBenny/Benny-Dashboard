@@ -148,9 +148,15 @@ describe('Brand API — Candidates', () => {
     const cid = (await request(app).post(`/api/amazon/products/${pid}/brand/names`).send({ name: 'Acme' })).body.name.id;
 
     const r1 = await request(app).patch(`/api/amazon/products/${pid}/brand/names/${cid}`)
-      .send({ trademark_status: 'frei', domain_com_status: 'belegt', domain_de_status: 'unklar', social_status: 'frei' });
+      .send({
+        trademark_status: 'frei', domain_shop_status: 'belegt', domain_de_status: 'unklar',
+        social_status: 'frei', tiktok_status: 'frei', instagram_status: 'unklar',
+      });
     expect(r1.status).toBe(200);
     expect(r1.body.name.trademark_status).toBe('frei');
+    expect(r1.body.name.domain_shop_status).toBe('belegt');
+    expect(r1.body.name.tiktok_status).toBe('frei');
+    expect(r1.body.name.instagram_status).toBe('unklar');
 
     const r2 = await request(app).patch(`/api/amazon/products/${pid}/brand/names/${cid}`)
       .send({ trademark_status: 'kaputt' });
