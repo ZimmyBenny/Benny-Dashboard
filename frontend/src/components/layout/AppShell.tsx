@@ -12,6 +12,8 @@ export function AppShell() {
   const isDjModule = location.pathname.startsWith('/dj');
   const isAmazonModule = location.pathname.startsWith('/amazon');
   const isFinanceModule = location.pathname.startsWith('/finances');
+  // Schärfe-Pass app-weit — ausser im Belege-Modul (bleibt bewusst ausgenommen)
+  const isBelege = location.pathname.startsWith('/belege');
 
   // Theme auf documentElement synchronisieren
   useEffect(() => {
@@ -45,6 +47,7 @@ export function AppShell() {
       className="flex h-screen overflow-hidden"
       style={{ backgroundColor: 'var(--color-background)', position: 'relative' }}
       data-module={isDjModule ? 'dj' : isAmazonModule ? 'amazon' : isFinanceModule ? 'finance' : undefined}
+      data-sharp={isBelege ? undefined : ''}
     >
       {/* Global ambient light leaks — subtle atmospheric depth */}
       <div aria-hidden style={{
