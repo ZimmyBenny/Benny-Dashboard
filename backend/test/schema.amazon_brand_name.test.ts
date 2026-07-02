@@ -45,6 +45,7 @@ describe('Migration 060 — amazon_brand_name + amazon_brand_name_candidates', (
       'is_interesting', 'is_maybe', 'is_yes', 'is_no', 'is_favorite', 'is_archived',
       'remarks',
       'trademark_status', 'domain_com_status', 'domain_de_status', 'social_status',
+      'domain_shop_status', 'tiktok_status', 'instagram_status',
       'research_url', 'research_notes',
       'created_at', 'updated_at',
     ]) {
@@ -67,6 +68,14 @@ describe('Migration 060 — amazon_brand_name + amazon_brand_name_candidates', (
     expect(() => db.prepare(
       `INSERT INTO amazon_brand_name_candidates (product_id, name, domain_com_status) VALUES (?, 'X', ?)`
     ).run(pid, 'belegt')).not.toThrow();
+
+    expect(() => db.prepare(
+      `INSERT INTO amazon_brand_name_candidates (product_id, name, tiktok_status) VALUES (?, 'X', ?)`
+    ).run(pid, 'belegt')).not.toThrow();
+
+    expect(() => db.prepare(
+      `INSERT INTO amazon_brand_name_candidates (product_id, name, instagram_status) VALUES (?, 'X', ?)`
+    ).run(pid, 'kaputt')).toThrow();
 
     expect(() => db.prepare(
       `INSERT INTO amazon_brand_name_candidates (product_id, name, is_favorite) VALUES (?, 'X', ?)`
