@@ -1,7 +1,7 @@
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import type { Review, ReviewStatus } from '../../../api/reviews.api';
-import { STATUS_CONFIG, TERMINAL } from './reviewStatus';
+import { STATUS_CONFIG } from './reviewStatus';
 import { ReviewCard } from './ReviewCard';
 
 interface Props {
@@ -29,7 +29,6 @@ const EMPTY: Record<ReviewStatus, { heading: string; body?: string; icon: string
 export function ReviewColumn({ status, reviews, onCardClick, onForward, compact = false }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const cfg = STATUS_CONFIG[status];
-  const isTerminal = TERMINAL.includes(status);
   const empty = EMPTY[status];
 
   const isEmpty = reviews.length === 0;
@@ -40,7 +39,7 @@ export function ReviewColumn({ status, reviews, onCardClick, onForward, compact 
       style={{
         width: '100%',
         minHeight: compact ? 120 : undefined,
-        background: isOver ? 'rgba(148,170,255,0.06)' : (isTerminal ? 'rgba(25,37,64,0.30)' : 'rgba(25,37,64,0.40)'),
+        background: isOver ? 'rgba(148,170,255,0.06)' : 'var(--color-surface-container)',
         borderRadius: '0.75rem',
         padding: compact ? '0.625rem' : (isEmpty ? '0.5rem 0.875rem' : '0.75rem 0.875rem 0.875rem'),
         transition: 'background 150ms ease',

@@ -82,7 +82,7 @@ export function ReviewCard({ review, onCardClick, onForward }: Props) {
     borderRadius: '0.75rem',
     padding: '1rem',
     // Hover-Border via useState (re-render-safe; nicht via e.currentTarget.style — Revision Iteration 1)
-    border: `1px solid ${isHover ? 'rgba(148,170,255,0.3)' : 'var(--color-surface-container-high)'}`,
+    border: `1px solid ${isHover ? 'rgba(148,170,255,0.3)' : 'var(--color-outline-variant)'}`,
     cursor: 'pointer',
     listStyle: 'none',
   };
