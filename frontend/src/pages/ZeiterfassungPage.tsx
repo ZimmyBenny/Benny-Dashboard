@@ -173,11 +173,11 @@ function EntryPanel({
 
   return (
     <div style={{
-      background: 'rgba(25,37,64,0.6)',
+      background: 'var(--color-surface-container)',
       backdropFilter: 'blur(20px)',
       WebkitBackdropFilter: 'blur(20px)',
-      border: '1px solid rgba(255,255,255,0.08)',
-      borderTop: '1px solid rgba(255,255,255,0.14)',
+      border: '1px solid var(--color-outline-variant)',
+      borderTop: '1px solid var(--color-outline-variant)',
       borderRadius: '1rem',
       padding: '1.75rem',
     }}>
@@ -485,11 +485,11 @@ function EntryList({
               style={{
                 display: 'flex', alignItems: 'center', gap: '1rem',
                 padding: '0.875rem 1rem',
-                background: 'rgba(25,37,64,0.4)',
+                background: 'var(--color-surface-container)',
                 backdropFilter: 'blur(12px)',
                 WebkitBackdropFilter: 'blur(12px)',
-                border: '1px solid rgba(255,255,255,0.06)',
-                borderTop: '1px solid rgba(255,255,255,0.1)',
+                border: '1px solid var(--color-outline-variant)',
+                borderTop: '1px solid var(--color-outline-variant)',
                 borderRadius: '0.75rem',
                 transition: 'border-color 200ms ease',
               }}
@@ -740,15 +740,15 @@ export function ZeiterfassungPage() {
     <PageWrapper>
       {/* ── Timer-Karte ─────────────────────────────────────── */}
       <div style={{
-        background: 'rgba(25,37,64,0.5)',
+        background: 'var(--color-surface-container)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
-        border: '1px solid rgba(255,255,255,0.06)',
+        border: '1px solid var(--color-outline-variant)',
         borderTop: isRunning
           ? '1px solid rgba(52,181,250,0.4)'
           : isPaused
             ? '1px solid rgba(204,151,255,0.4)'
-            : '1px solid rgba(255,255,255,0.12)',
+            : '1px solid var(--color-outline-variant)',
         borderRadius: '1.25rem',
         padding: '2.5rem',
         marginBottom: '2rem',
@@ -1012,11 +1012,11 @@ export function ZeiterfassungPage() {
 
       {/* ── Export-Panel ─────────────────────────────────────── */}
       <div style={{
-        background: 'rgba(25,37,64,0.6)',
+        background: 'var(--color-surface-container)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        borderTop: '1px solid rgba(255,255,255,0.14)',
+        border: '1px solid var(--color-outline-variant)',
+        borderTop: '1px solid var(--color-outline-variant)',
         borderRadius: '1rem',
         padding: '1.5rem 1.75rem',
         marginBottom: '2rem',
