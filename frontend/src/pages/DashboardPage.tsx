@@ -3,15 +3,13 @@ import { useState, useEffect } from 'react';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { useTimerStore } from '../store/timerStore';
 import { fetchVisibleQuickLinks, type QuickLink } from '../api/quickLinks.api';
-import { fetchTaskStats, fetchTasks, createTask, type TaskStats, type Task } from '../api/tasks.api';
+import { fetchTaskStats, createTask, type TaskStats, type Task } from '../api/tasks.api';
 import { TaskSlideOver } from '../components/tasks/TaskSlideOver';
 import { fetchContracts, type Contract } from '../api/contracts.api';
 import { fetchSaldo, type HaushaltSaldo } from '../api/haushalt.api';
 import { NeueAnfrageModal } from '../components/dj/NeueAnfrageModal';
 import { fetchDjOverview, type DjOverview } from '../api/dj.api';
 import { fetchEvents, type CalendarEvent } from '../api/calendar.api';
-import { fetchReviewStats, fetchReviews, type ReviewStats } from '../api/reviews.api';
-import { fetchSteuer } from '../api/steuer.api';
 import { isoDateLocal, todayLocal, addDaysLocal } from '../lib/dates';
 
 function getGreeting(): { time: string; name: string } {
@@ -93,33 +91,6 @@ export function DashboardPage() {
   const [haushaltSaldo, setHaushaltSaldo] = useState<HaushaltSaldo | null>(null);
   useEffect(() => {
     fetchSaldo().then(setHaushaltSaldo).catch(() => {});
-  }, []);
-
-  // Finanzen-Übersicht: Review-Stats (Saldo + Refunds) laufendes Jahr
-  const [reviewStats, setReviewStats] = useState<ReviewStats | null>(null);
-  useEffect(() => {
-    fetchReviewStats(new Date().getFullYear()).then(setReviewStats).catch(() => {});
-  }, []);
-
-  // Finanzen-Übersicht: Verkaufsbereite Bewertungen (client-seitig gezählt)
-  const [readyToSellCount, setReadyToSellCount] = useState<number | null>(null);
-  useEffect(() => {
-    fetchReviews().then(rs => setReadyToSellCount(rs.filter(r => r.status === 'bereit_verkauf').length)).catch(() => {});
-  }, []);
-
-  // Finanzen-Übersicht: Steuer-Checklisten-Fortschritt 2026
-  const [steuerProgress, setSteuerProgress] = useState<{ done: number; total: number } | null>(null);
-  useEffect(() => {
-    fetchSteuer(new Date().getFullYear()).then(payload => {
-      const items = payload.categories.flatMap(c => c.items);
-      setSteuerProgress({ done: items.filter(i => i.is_done === 1).length, total: items.length });
-    }).catch(() => {});
-  }, []);
-
-  // Finanzen-Übersicht: Offene Finanzen-Aufgaben
-  const [financeTasksOpen, setFinanceTasksOpen] = useState<number | null>(null);
-  useEffect(() => {
-    fetchTasks({ status: 'open', area: 'Finanzen' }).then(ts => setFinanceTasksOpen(ts.length)).catch(() => {});
   }, []);
 
   // Neue Aufgabe SlideOver
@@ -815,90 +786,6 @@ export function DashboardPage() {
                 </p>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
                   Überfällig
-                </p>
-              </div>
-            </button>
-          </div>
-        </>
-      )}
-
-      {/* ── Finanzen-Übersicht ────────────────────────────── */}
-      {reviewStats !== null && (
-        <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '2.5rem', marginBottom: '1.25rem' }}>
-            <p style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: '0.65rem',
-              letterSpacing: '0.22em',
-              textTransform: 'uppercase',
-              color: 'var(--color-outline)',
-              whiteSpace: 'nowrap',
-            }}>
-              Finanzen-Übersicht
-            </p>
-            <div style={{
-              flex: 1, height: '1px',
-              background: 'linear-gradient(90deg, var(--color-outline-variant) 0%, transparent 100%)',
-            }} />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.875rem' }}>
-            {/* Saldo laufendes Jahr */}
-            <button className="module-card" onClick={() => navigate('/finances')} style={{ textAlign: 'left', padding: '1.25rem' }}>
-              <div style={{ position: 'relative', zIndex: 1 }}>
-                <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.03em', color: reviewStats.realized_profit_cents >= 0 ? '#4ade80' : 'var(--color-error)', lineHeight: 1, marginBottom: '0.375rem' }}>
-                  {(reviewStats.realized_profit_cents / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                </p>
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
-                  Saldo {new Date().getFullYear()}
-                </p>
-              </div>
-            </button>
-
-            {/* Offene Refunds */}
-            <button className="module-card" onClick={() => navigate('/finances')} style={{ textAlign: 'left', padding: '1.25rem' }}>
-              <div style={{ position: 'relative', zIndex: 1 }}>
-                <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.03em', color: reviewStats.open_refunds > 0 ? '#fb923c' : 'var(--color-on-surface)', lineHeight: 1, marginBottom: '0.375rem' }}>
-                  {reviewStats.open_refunds}
-                </p>
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
-                  Offene Refunds
-                </p>
-              </div>
-            </button>
-
-            {/* Verkaufsbereit */}
-            <button className="module-card" onClick={() => navigate('/finances')} style={{ textAlign: 'left', padding: '1.25rem' }}>
-              <div style={{ position: 'relative', zIndex: 1 }}>
-                <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.03em', color: 'var(--color-secondary)', lineHeight: 1, marginBottom: '0.375rem' }}>
-                  {readyToSellCount ?? 0}
-                </p>
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
-                  Verkaufsbereit
-                </p>
-              </div>
-            </button>
-
-            {/* Steuer-Checkliste */}
-            <button className="module-card" onClick={() => navigate('/finances/steuer-checkliste')} style={{ textAlign: 'left', padding: '1.25rem' }}>
-              <div style={{ position: 'relative', zIndex: 1 }}>
-                <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.03em', color: 'var(--color-primary)', lineHeight: 1, marginBottom: '0.375rem' }}>
-                  {steuerProgress?.done ?? 0} / {steuerProgress?.total ?? 0}
-                </p>
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
-                  Steuer-Checkliste
-                </p>
-              </div>
-            </button>
-
-            {/* Offene Finanzen-Aufgaben */}
-            <button className="module-card" onClick={() => navigate('/tasks')} style={{ textAlign: 'left', padding: '1.25rem' }}>
-              <div style={{ position: 'relative', zIndex: 1 }}>
-                <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.03em', color: 'var(--color-on-surface)', lineHeight: 1, marginBottom: '0.375rem' }}>
-                  {financeTasksOpen ?? 0}
-                </p>
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
-                  Finanzen-Aufgaben
                 </p>
               </div>
             </button>
