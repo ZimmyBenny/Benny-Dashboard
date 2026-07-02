@@ -295,6 +295,24 @@
   transform: translateY(-2px);
 }
 
+/* ── Schärfe-Pass Pilot — nur innerhalb data-sharp ──────────────
+   Isolierter Scope (aktuell nur Amazon-Dashboard): firmere Ränder,
+   kein Glas-Blur, near-solide Füllung, Tabellen-Ziffern.
+   Reversibel: data-sharp-Attribut + diesen Block entfernen. */
+[data-sharp] .module-card {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgba(13, 20, 38, 0.9);
+  border-color: rgba(148, 170, 255, 0.16);
+  border-top-color: rgba(148, 170, 255, 0.24);
+}
+[data-sharp] .module-card:hover {
+  border-color: rgba(148, 170, 255, 0.3);
+}
+[data-sharp] {
+  font-variant-numeric: tabular-nums;
+}
+
 /* Sidebar accent line for active nav */
 .nav-active-accent {
   position: relative;
