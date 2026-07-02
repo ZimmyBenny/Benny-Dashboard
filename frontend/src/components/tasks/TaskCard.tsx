@@ -45,7 +45,7 @@ export function TaskCard({ task, onClick, isDragging = false, onArchive, onDelet
         transform: CSS.Transform.toString(transform),
         transition: transition ?? 'border-color 150ms ease',
         background: 'var(--color-surface-container)',
-        border: `1px solid ${hovered && !dragging ? 'rgba(204,151,255,0.3)' : 'var(--color-outline-variant)'}`,
+        border: `1px solid ${hovered && !dragging ? 'rgba(204,151,255,0.3)' : 'var(--color-surface-container-high)'}`,
         borderRadius: '0.75rem',
         padding: '1rem',
         cursor: 'pointer',

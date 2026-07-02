@@ -123,7 +123,7 @@ export function ContactsPage() {
   // Inline-Styles
   // ---------------------------------------------------------------------------
   const inputStyle: React.CSSProperties = {
-    background: 'var(--color-surface-container)',
+    background: 'rgba(255,255,255,0.06)',
     border: '1px solid var(--color-outline-variant)',
     borderRadius: '0.5rem',
     color: 'var(--color-on-surface)',
@@ -345,7 +345,7 @@ function ContactRow({ contact, onClick }: { contact: Contact; onClick: () => voi
         alignItems: 'center',
         gap: '0.875rem',
         padding: '0.75rem 1rem',
-        background: hovered ? 'var(--color-surface-container-high)' : 'var(--color-surface-container)',
+        background: hovered ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.03)',
         border: '1px solid var(--color-outline-variant)',
         borderRadius: '0.5rem',
         cursor: 'pointer',

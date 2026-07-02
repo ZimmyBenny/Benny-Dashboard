@@ -135,8 +135,8 @@ export function RemindersColumn() {
       flexDirection: 'column',
       minWidth: '280px',
       flex: 1,
-      background: 'var(--color-surface-container)',
-      border: '1px solid var(--color-outline-variant)',
+      background: 'rgba(25,37,64,0.4)',
+      border: '1px solid rgba(255,255,255,0.06)',
       borderRadius: '0.875rem',
       overflow: 'hidden',
     }}>
@@ -148,7 +148,7 @@ export function RemindersColumn() {
         alignItems: 'center',
         gap: '0.5rem',
         padding: '0.875rem 1rem',
-        borderBottom: '1px solid var(--color-outline-variant)',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
       }}>
         <span
           className="material-symbols-outlined"
