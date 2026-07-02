@@ -142,6 +142,13 @@ export function Sidebar() {
     }
   }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Amazon-Untermenü automatisch aufklappen wenn auf /amazon/* Route
+  useEffect(() => {
+    if (location.pathname.startsWith('/amazon') && !expandedGroups.has('/amazon')) {
+      setExpandedGroups(prev => new Set([...prev, '/amazon']));
+    }
+  }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+
   function toggleGroup(path: string) {
     setExpandedGroups(prev => {
       const next = new Set(prev);

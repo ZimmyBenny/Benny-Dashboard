@@ -74,7 +74,7 @@ export const pageNames: Record<string, string> = {
   '/dj/settings':     'DJ Einstellungen',
   '/finances':                      'Finanzen',
   '/finances/steuer-checkliste':   'Steuer-Checkliste',
-  '/amazon':                          'Amazon',
+  '/amazon':                          'Amazon-Dashboard',
   '/amazon/entwicklung':              'Entwicklung',
   '/amazon/entwicklung/checkliste':   'Checkliste',
   '/amazon/entwicklung/markenname':   'Markenname',

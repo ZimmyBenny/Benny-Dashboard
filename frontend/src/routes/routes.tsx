@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter } from 'react-router-dom';
 import { PrivateRoute } from './PrivateRoute';
 import { AppShell } from '../components/layout/AppShell';
 import { LoginPage } from '../pages/LoginPage';
@@ -19,6 +19,7 @@ import { DjAccountingPage } from '../pages/dj/DjAccountingPage';
 import { DjSettingsPage } from '../pages/dj/DjSettingsPage';
 import { FinancesPage } from '../pages/FinancesPage';
 import { TaxChecklistPage } from '../pages/finanzen/TaxChecklistPage';
+import { AmazonDashboardPage } from '../pages/amazon/AmazonDashboardPage';
 import { AmazonOverviewPage } from '../pages/amazon/AmazonOverviewPage';
 import { AmazonProductDetailPage } from '../pages/amazon/AmazonProductDetailPage';
 import { AmazonChecklistMasterPage } from '../pages/amazon/AmazonChecklistMasterPage';
@@ -75,7 +76,7 @@ export const router = createBrowserRouter([
           { path: '/dj/settings',         element: <DjSettingsPage /> },
           { path: '/finances',       element: <FinancesPage /> },
           { path: '/finances/steuer-checkliste', element: <TaxChecklistPage /> },
-          { path: '/amazon',                       element: <Navigate to="/amazon/entwicklung" replace /> },
+          { path: '/amazon',                       element: <AmazonDashboardPage /> },
           { path: '/amazon/entwicklung',           element: <AmazonOverviewPage /> },
           { path: '/amazon/entwicklung/products/:id', element: <AmazonProductDetailPage /> },
           { path: '/amazon/entwicklung/products/:id/hersteller/:mId', element: <ManufacturerDetailPage /> },
