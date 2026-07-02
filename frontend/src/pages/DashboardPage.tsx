@@ -3,13 +3,15 @@ import { useState, useEffect } from 'react';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import { useTimerStore } from '../store/timerStore';
 import { fetchVisibleQuickLinks, type QuickLink } from '../api/quickLinks.api';
-import { fetchTaskStats, createTask, type TaskStats, type Task } from '../api/tasks.api';
+import { fetchTaskStats, fetchTasks, createTask, type TaskStats, type Task } from '../api/tasks.api';
 import { TaskSlideOver } from '../components/tasks/TaskSlideOver';
 import { fetchContracts, type Contract } from '../api/contracts.api';
 import { fetchSaldo, type HaushaltSaldo } from '../api/haushalt.api';
 import { NeueAnfrageModal } from '../components/dj/NeueAnfrageModal';
 import { fetchDjOverview, type DjOverview } from '../api/dj.api';
 import { fetchEvents, type CalendarEvent } from '../api/calendar.api';
+import { fetchReviewStats, fetchReviews, type ReviewStats } from '../api/reviews.api';
+import { fetchSteuer } from '../api/steuer.api';
 import { isoDateLocal, todayLocal, addDaysLocal } from '../lib/dates';
 
 function getGreeting(): { time: string; name: string } {
@@ -91,6 +93,33 @@ export function DashboardPage() {
   const [haushaltSaldo, setHaushaltSaldo] = useState<HaushaltSaldo | null>(null);
   useEffect(() => {
     fetchSaldo().then(setHaushaltSaldo).catch(() => {});
+  }, []);
+
+  // Finanzen-Übersicht: Review-Stats (Saldo + Refunds) laufendes Jahr
+  const [reviewStats, setReviewStats] = useState<ReviewStats | null>(null);
+  useEffect(() => {
+    fetchReviewStats(new Date().getFullYear()).then(setReviewStats).catch(() => {});
+  }, []);
+
+  // Finanzen-Übersicht: Verkaufsbereite Bewertungen (client-seitig gezählt)
+  const [readyToSellCount, setReadyToSellCount] = useState<number | null>(null);
+  useEffect(() => {
+    fetchReviews().then(rs => setReadyToSellCount(rs.filter(r => r.status === 'bereit_verkauf').length)).catch(() => {});
+  }, []);
+
+  // Finanzen-Übersicht: Steuer-Checklisten-Fortschritt 2026
+  const [steuerProgress, setSteuerProgress] = useState<{ done: number; total: number } | null>(null);
+  useEffect(() => {
+    fetchSteuer(new Date().getFullYear()).then(payload => {
+      const items = payload.categories.flatMap(c => c.items);
+      setSteuerProgress({ done: items.filter(i => i.is_done === 1).length, total: items.length });
+    }).catch(() => {});
+  }, []);
+
+  // Finanzen-Übersicht: Offene Finanzen-Aufgaben
+  const [financeTasksOpen, setFinanceTasksOpen] = useState<number | null>(null);
+  useEffect(() => {
+    fetchTasks({ status: 'open', area: 'Finanzen' }).then(ts => setFinanceTasksOpen(ts.length)).catch(() => {});
   }, []);
 
   // Neue Aufgabe SlideOver
