@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { useUiStore } from '../../store/uiStore';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { SharpGridBackground } from './SharpGridBackground';
 import { ReminderPoller } from '../tasks/ReminderPoller';
 
 export function AppShell() {
@@ -65,8 +66,12 @@ export function AppShell() {
       <Sidebar />
       <div className="flex flex-col flex-1 min-w-0" style={{ position: 'relative', zIndex: 1 }}>
         <Header />
-        <main className="flex flex-col flex-1 min-h-0 overflow-hidden">
-          <Outlet />
+        <main className="flex flex-col flex-1 min-h-0 overflow-hidden" style={{ position: 'relative' }}>
+          {/* Dezentes Hintergrund-Raster — global auf allen Seiten (Schärfe-Pass) */}
+          <SharpGridBackground />
+          <div className="flex flex-col flex-1 min-h-0" style={{ position: 'relative', zIndex: 1 }}>
+            <Outlet />
+          </div>
         </main>
       </div>
       <ReminderPoller />

@@ -22,7 +22,6 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { PageWrapper } from '../../components/layout/PageWrapper';
-import { SharpGridBackground } from '../../components/layout/SharpGridBackground';
 import { KPICard } from '../../components/dj/KPICard';
 import { StatusBadge } from '../../components/dj/StatusBadge';
 import {
@@ -82,8 +81,6 @@ export function BelegeOverviewPage() {
           position: 'relative',
         }}
       >
-        <SharpGridBackground />
-
         {/* Ambient Glow oben rechts (blau) */}
         <div
           style={{

@@ -7,7 +7,6 @@ import { AmazonStatusKpis } from '../../components/amazon/AmazonStatusKpis';
 import { AmazonActiveProducts } from '../../components/amazon/AmazonActiveProducts';
 import { AmazonOpenTasks } from '../../components/amazon/AmazonOpenTasks';
 import { AmazonNavTiles } from '../../components/amazon/AmazonNavTiles';
-import { SharpGridBackground } from '../../components/layout/SharpGridBackground';
 
 function SectionDivider({ label }: { label: string }) {
   return (
@@ -31,9 +30,6 @@ export function AmazonDashboardPage() {
   return (
     <PageWrapper>
       <div data-sharp style={{ maxWidth: '1400px', margin: '0 auto', padding: '2.5rem 2rem', position: 'relative' }}>
-
-        {/* Dezentes Hintergrund-Raster (Schärfe-Pass) */}
-        <SharpGridBackground />
 
         {/* Ambient Glow oben rechts (blau) */}
         <div style={{

@@ -11,7 +11,6 @@ import { NeueAnfrageModal } from '../components/dj/NeueAnfrageModal';
 import { fetchDjOverview, type DjOverview } from '../api/dj.api';
 import { fetchEvents, type CalendarEvent } from '../api/calendar.api';
 import { isoDateLocal, todayLocal, addDaysLocal } from '../lib/dates';
-import { SharpGridBackground } from '../components/layout/SharpGridBackground';
 
 function getGreeting(): { time: string; name: string } {
   const hour = new Date().getHours();
@@ -150,7 +149,6 @@ export function DashboardPage() {
   return (
     <PageWrapper>
       <div style={{ position: 'relative' }}>
-        <SharpGridBackground />
         <div style={{ position: 'relative', zIndex: 1 }}>
       {/* ── Hero ─────────────────────────────────────────── */}
       <div style={{ position: 'relative', marginBottom: '2rem', paddingTop: '0.25rem', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>

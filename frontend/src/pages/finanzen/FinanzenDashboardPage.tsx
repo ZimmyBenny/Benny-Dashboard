@@ -3,7 +3,6 @@ import { PageWrapper } from '../../components/layout/PageWrapper';
 import { FinanzenStatusKpis } from '../../components/finanzen/FinanzenStatusKpis';
 import { FinanzenOpenTasks } from '../../components/finanzen/FinanzenOpenTasks';
 import { FinanzenNavTiles } from '../../components/finanzen/FinanzenNavTiles';
-import { SharpGridBackground } from '../../components/layout/SharpGridBackground';
 
 function SectionDivider({ label }: { label: string }) {
   return (
@@ -25,7 +24,6 @@ export function FinanzenDashboardPage() {
   return (
     <PageWrapper>
       <div style={{ position: 'relative' }}>
-        <SharpGridBackground />
         <div style={{ position: 'relative', zIndex: 1 }}>
       {/* ── Header ─────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', marginBottom: '2rem' }}>

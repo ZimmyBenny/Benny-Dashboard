@@ -12,7 +12,6 @@ import {
 import { NeueAnfrageModal } from '../../components/dj/NeueAnfrageModal';
 import { StatusBadge, EVENT_TYPE_LABELS } from '../../components/dj/StatusBadge';
 import { parseLocalDate } from '../../lib/dates';
-import { SharpGridBackground } from '../../components/layout/SharpGridBackground';
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 
@@ -68,9 +67,6 @@ export function DjOverviewPage() {
   return (
     <PageWrapper>
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2.5rem 2rem', position: 'relative' }}>
-
-        {/* Dezentes Hintergrund-Raster (Schärfe-Pass) */}
-        <SharpGridBackground />
 
         {/* Ambient Glow oben rechts (blau) */}
         <div style={{
