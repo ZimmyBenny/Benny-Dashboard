@@ -76,10 +76,12 @@ export function BrandFavoriteCard({ productId, candidate }: Props) {
   }
 
   const fields: Array<{ label: string; key: keyof CandidatePatch; current: ResearchStatus | null }> = [
-    { label: 'Markenrecht', key: 'trademark_status',  current: candidate.trademark_status },
-    { label: '.com Domain', key: 'domain_com_status', current: candidate.domain_com_status },
-    { label: '.de Domain',  key: 'domain_de_status',  current: candidate.domain_de_status },
-    { label: 'Social Media',key: 'social_status',     current: candidate.social_status },
+    { label: 'Markenrecht',  key: 'trademark_status',   current: candidate.trademark_status },
+    { label: '.shop Domain', key: 'domain_shop_status', current: candidate.domain_shop_status },
+    { label: '.de Domain',   key: 'domain_de_status',   current: candidate.domain_de_status },
+    { label: 'Social Media', key: 'social_status',      current: candidate.social_status },
+    { label: 'TikTok',       key: 'tiktok_status',      current: candidate.tiktok_status },
+    { label: 'Instagram',    key: 'instagram_status',   current: candidate.instagram_status },
   ];
 
   return (

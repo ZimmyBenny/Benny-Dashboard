@@ -194,9 +194,11 @@ export interface BrandCandidate {
   is_final: 0 | 1;
   remarks: string | null;
   trademark_status: ResearchStatus | null;
-  domain_com_status: ResearchStatus | null;
+  domain_shop_status: ResearchStatus | null;
   domain_de_status: ResearchStatus | null;
   social_status: ResearchStatus | null;
+  tiktok_status: ResearchStatus | null;
+  instagram_status: ResearchStatus | null;
   research_url: string | null;
   research_notes: string | null;
   ranking: number | null;
@@ -222,9 +224,11 @@ export type CandidatePatch = Partial<{
   is_final: 0 | 1;
   remarks: string | null;
   trademark_status: ResearchStatus | null;
-  domain_com_status: ResearchStatus | null;
+  domain_shop_status: ResearchStatus | null;
   domain_de_status: ResearchStatus | null;
   social_status: ResearchStatus | null;
+  tiktok_status: ResearchStatus | null;
+  instagram_status: ResearchStatus | null;
   research_url: string | null;
   research_notes: string | null;
   ranking: number | null;
