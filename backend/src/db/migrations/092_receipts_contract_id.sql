@@ -1,0 +1,23 @@
+-- Migration 092: receipts.contract_id
+--
+-- Beleg ↔ Vertrag-Verknüpfung (Feature 3, Plan quick-260702-vz7).
+--
+-- Beziehung: n:1 — ein Vertrag kann viele Belege haben, ein Beleg höchstens
+-- einen Vertrag. Nullable, da die meisten Belege keinen Vertragsbezug haben.
+--
+-- GoBD: contract_id ist NICHT im GoBD-Lock-Trigger erfasst (Migration 040,
+-- trg_receipts_no_update_after_freigabe) — analog zu notes/tags/payment_date
+-- bleibt die Verknüpfung nach Freigabe eines Belegs änderbar. Der Trigger
+-- wird hier bewusst NICHT erweitert.
+--
+-- ON DELETE SET NULL: Wird ein Vertrag gelöscht, verlieren die zugehörigen
+-- Belege nur die Verknüpfung, nicht sich selbst.
+--
+-- Kein createBackup() nötig — reine additive Migration (ADD COLUMN), kein
+-- Bulk-Update. Die Migrations-Pipeline sichert ohnehin automatisch
+-- (siehe migrate.ts).
+--
+-- Reines ADD COLUMN, KEIN PRAGMA foreign_keys — wird zentral in migrate.ts
+-- gesteuert (Projektregel CLAUDE.md).
+
+ALTER TABLE receipts ADD COLUMN contract_id INTEGER REFERENCES contracts_and_deadlines(id) ON DELETE SET NULL;

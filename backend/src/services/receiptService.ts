@@ -183,6 +183,7 @@ const UPDATABLE_FIELDS = [
   'title',
   'notes',
   'tags',
+  'contract_id',
 ] as const;
 
 /**

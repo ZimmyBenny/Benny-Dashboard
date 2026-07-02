@@ -310,6 +310,19 @@ router.get('/:id/attachments/:attachmentId/download', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /:id/receipts — Zugehörige Belege (Rückrichtung, Feature 3, Plan quick-260702-vz7)
+// ---------------------------------------------------------------------------
+router.get('/:id/receipts', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: 'Ungueltige id' });
+  const rows = db.prepare(
+    `SELECT id, receipt_date, amount_gross_cents, currency, supplier_name, title
+     FROM receipts WHERE contract_id = ? ORDER BY receipt_date DESC`
+  ).all(id);
+  return res.json(rows);
+});
+
+// ---------------------------------------------------------------------------
 // GET /:id — Detail
 // ---------------------------------------------------------------------------
 router.get('/:id', (req, res) => {

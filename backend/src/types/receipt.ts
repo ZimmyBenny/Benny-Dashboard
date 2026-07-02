@@ -74,6 +74,7 @@ export interface Receipt {
   corrected_by_receipt_id: number | null;
   linked_invoice_id: number | null;
   linked_trip_id: number | null;
+  contract_id: number | null;
   title: string | null;
   notes: string | null;
   tags: string | null;
@@ -113,6 +114,7 @@ export interface CreateReceiptInput {
   original_filename?: string | null;
   linked_invoice_id?: number | null;
   linked_trip_id?: number | null;
+  contract_id?: number | null;
   title?: string | null;
   notes?: string | null;
   tags?: string | null;

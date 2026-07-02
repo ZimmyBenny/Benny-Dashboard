@@ -934,7 +934,7 @@ router.post('/:id/korrektur', (req, res) => {
     .prepare(
       `SELECT id, type, supplier_name, supplier_invoice_number, receipt_date,
               amount_gross_cents, amount_net_cents, vat_rate, vat_amount_cents,
-              currency, tax_category_id
+              currency, tax_category_id, contract_id
        FROM receipts WHERE id = ?`,
     )
     .get(id) as
@@ -950,6 +950,7 @@ router.post('/:id/korrektur', (req, res) => {
         vat_amount_cents: number;
         currency: string;
         tax_category_id: number | null;
+        contract_id: number | null;
       }
     | undefined;
   if (!orig) {
@@ -962,11 +963,11 @@ router.post('/:id/korrektur', (req, res) => {
       `INSERT INTO receipts (
          type, source, supplier_name, supplier_invoice_number, receipt_date,
          currency, amount_gross_cents, amount_net_cents, vat_rate, vat_amount_cents,
-         amount_gross_eur_cents, status, corrects_receipt_id, tax_category_id, notes, title
+         amount_gross_eur_cents, status, corrects_receipt_id, tax_category_id, notes, title, contract_id
        ) VALUES (
          ?, 'manual_upload', ?, ?, date('now'),
          ?, ?, ?, ?, ?,
-         ?, 'zu_pruefen', ?, ?, ?, ?
+         ?, 'zu_pruefen', ?, ?, ?, ?, ?
        )`,
     )
     .run(
@@ -983,6 +984,7 @@ router.post('/:id/korrektur', (req, res) => {
       orig.tax_category_id,
       `Korrekturbeleg zu Beleg #${id}`,
       `Korrektur: ${orig.supplier_name ?? `Beleg #${id}`}`,
+      orig.contract_id,
     );
   const newId = Number(result.lastInsertRowid);
 
@@ -1042,7 +1044,17 @@ router.get('/:id', (req, res) => {
     `,
     )
     .all(id);
-  res.json({ ...receipt, files, area_links: areaLinks, ocr_results: ocr, audit_log: audit });
+
+  // Vertrags-Kurzinfo (Feature 3, Plan quick-260702-vz7) — nur nachladen wenn verknuepft.
+  const contract = receipt.contract_id
+    ? db
+        .prepare(
+          `SELECT id, title, cost_interval, reminder_date FROM contracts_and_deadlines WHERE id = ?`,
+        )
+        .get(receipt.contract_id) ?? null
+    : null;
+
+  res.json({ ...receipt, files, area_links: areaLinks, ocr_results: ocr, audit_log: audit, contract });
 });
 
 /**
@@ -1065,8 +1077,50 @@ router.patch('/:id', (req, res) => {
     res.status(400).json({ error: 'Ungueltige id' });
     return;
   }
+
+  // contract_id-Validierung + Vertrags-Activity-Log (Feature 3, Plan quick-260702-vz7).
+  // Vor receiptService.update pruefen, damit ein ungueltiger Vertrag einen
+  // sprechenden 400/404 liefert statt eines rohen FK-Fehlers.
+  const body = (req.body ?? {}) as { contract_id?: unknown };
+  let newContractId: number | null | undefined;
+  if ('contract_id' in body) {
+    if (body.contract_id === null) {
+      newContractId = null;
+    } else {
+      const cid = Number(body.contract_id);
+      if (!Number.isFinite(cid)) {
+        res.status(400).json({ error: 'contract_id muss eine Zahl oder null sein' });
+        return;
+      }
+      const contractExists = db
+        .prepare(`SELECT id FROM contracts_and_deadlines WHERE id = ?`)
+        .get(cid);
+      if (!contractExists) {
+        res.status(404).json({ error: 'Vertrag nicht gefunden' });
+        return;
+      }
+      newContractId = cid;
+    }
+  }
+  const oldContractId = newContractId !== undefined
+    ? ((db.prepare(`SELECT contract_id FROM receipts WHERE id = ?`).get(id) as { contract_id: number | null } | undefined)?.contract_id ?? null)
+    : undefined;
+
   try {
     const updated = receiptService.update(req, id, req.body ?? {});
+
+    if (newContractId !== undefined && newContractId !== oldContractId) {
+      if (newContractId !== null) {
+        db.prepare(
+          `INSERT INTO contracts_and_deadlines_activity_log (item_id, event_type, message) VALUES (?, ?, ?)`,
+        ).run(newContractId, 'receipt_linked', `Beleg #${id} verknüpft`);
+      }
+      if (oldContractId) {
+        db.prepare(
+          `INSERT INTO contracts_and_deadlines_activity_log (item_id, event_type, message) VALUES (?, ?, ?)`,
+        ).run(oldContractId, 'receipt_unlinked', `Beleg #${id} entfernt`);
+      }
+    }
 
     // supplier_memory lernt aus dem aktualisierten Tripel
     if (updated.supplier_name) {
