@@ -104,6 +104,12 @@ export interface OverviewKpis {
    * `null` wenn `ustva_zeitraum='keine'` (UI blendet die KPI dann aus).
    */
   steuerzahllastCurrentPeriodCents: number | null;
+  /**
+   * Anzeige-Label des aktuellen UStVA-Zeitraums, z.B. "Q3 2026",
+   * "Juli 2026" oder "2026". `null` wenn kein Zeitraum aktiv
+   * (ustva_zeitraum='keine' oder year=all).
+   */
+  periodLabel: string | null;
   /** Summe steuerrelevanter Brutto-Beträge im aktuellen Jahr (Cents) */
   steuerrelevantThisYearCents: number;
   /** Setting `app_settings.ustva_zeitraum` */

@@ -259,6 +259,7 @@ export function BelegeOverviewPage() {
                     ? '–'
                     : formatCurrencyFromCents(kpis?.steuerzahllastCurrentPeriodCents)
                 }
+                sublabel={kpisLoading ? undefined : (kpis?.periodLabel ?? undefined)}
                 icon="account_balance"
                 accentColor="secondary"
                 onClick={() => navigate('/belege/steuer')}
