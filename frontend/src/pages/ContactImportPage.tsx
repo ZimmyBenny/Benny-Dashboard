@@ -154,7 +154,7 @@ export function ContactImportPage() {
   // ---------------------------------------------------------------------------
   const rowStyle: React.CSSProperties = {
     display: 'flex', gap: '0.875rem', padding: '0.625rem 0.875rem',
-    background: 'rgba(255,255,255,0.03)', border: '1px solid var(--color-outline-variant)',
+    background: 'var(--color-surface-container)', border: '1px solid var(--color-outline-variant)',
     borderRadius: '0.375rem', alignItems: 'center', marginBottom: '0.375rem',
   };
 
@@ -283,7 +283,7 @@ export function ContactImportPage() {
         <div>
           {/* Datei-Info */}
           <div style={{
-            background: 'rgba(255,255,255,0.03)', border: '1px solid var(--color-outline-variant)',
+            background: 'var(--color-surface-container)', border: '1px solid var(--color-outline-variant)',
             borderRadius: '0.5rem', padding: '0.875rem 1rem', marginBottom: '1rem',
             display: 'flex', alignItems: 'center', gap: '0.875rem',
           }}>
