@@ -31,19 +31,49 @@ function CopyIconBtn({ getText, title }: { getText: () => string; title: string 
 function FieldRow({ field, onSave, onDelete }: { field: MyDataField; onSave: (patch: { label?: string; value?: string }) => void; onDelete: () => void }) {
   const [label, setLabel] = useState(field.label);
   const [value, setValue] = useState(field.value);
+  const [valFocus, setValFocus] = useState(false);
   useEffect(() => { setLabel(field.label); }, [field.label]);
   useEffect(() => { setValue(field.value); }, [field.value]);
+  const filled = value.trim() !== '';
   return (
-    <div className="flex items-center gap-2">
-      <input value={label} onChange={(e) => setLabel(e.target.value)} onBlur={() => { if (label !== field.label) onSave({ label }); }}
-        placeholder="Bezeichnung" className="w-44 flex-shrink-0 px-2 py-1 rounded text-sm" style={{ ...INPUT_STYLE, color: 'var(--color-on-surface-variant)' }} />
-      <input value={value} onChange={(e) => setValue(e.target.value)} onBlur={() => { if (value !== field.value) onSave({ value }); }}
-        placeholder="Wert" className="flex-1 px-2 py-1 rounded text-sm" style={INPUT_STYLE} autoComplete="off" />
-      <CopyIconBtn title="Feld kopieren (mit Name)" getText={() => field.label ? `${field.label}: ${field.value}` : field.value} />
-      <button type="button" onClick={() => { if (confirm(`Feld „${field.label || 'ohne Namen'}" wirklich löschen?`)) onDelete(); }} aria-label="Feld löschen"
-        className="p-1 rounded hover:bg-white/5 flex-shrink-0" style={{ color: '#fca5a5' }}>
-        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete</span>
-      </button>
+    <div className="group flex items-center gap-2 py-1.5 pl-2 pr-1"
+      style={{
+        borderLeft: `3px solid ${filled ? 'var(--color-secondary)' : 'rgba(255,255,255,0.08)'}`,
+        borderBottom: '1px solid rgba(255,255,255,0.05)',
+        borderTopLeftRadius: 3,
+        borderBottomLeftRadius: 3,
+        transition: 'border-color 200ms',
+      }}>
+      <input
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+        onBlur={() => { if (label !== field.label) onSave({ label }); }}
+        placeholder="Bezeichnung"
+        className="w-44 flex-shrink-0 px-2 py-1 rounded text-sm hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-hidden"
+        style={{ background: 'transparent', border: 'none', color: 'var(--color-on-surface-variant)' }}
+      />
+      <input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => { setValFocus(false); if (value !== field.value) onSave({ value }); }}
+        onFocus={() => setValFocus(true)}
+        placeholder="Wert"
+        className="flex-1 px-2 py-1 rounded text-sm focus:outline-hidden"
+        style={{
+          background: 'var(--color-surface-container-low)',
+          border: `1px solid ${valFocus ? 'rgba(148,170,255,0.5)' : 'rgba(255,255,255,0.08)'}`,
+          color: 'var(--color-on-surface)',
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+        }}
+        autoComplete="off"
+      />
+      <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150">
+        <CopyIconBtn title="Feld kopieren (mit Name)" getText={() => field.label ? `${field.label}: ${field.value}` : field.value} />
+        <button type="button" onClick={() => { if (confirm(`Feld „${field.label || 'ohne Namen'}" wirklich löschen?`)) onDelete(); }} aria-label="Feld löschen"
+          className="p-1 rounded hover:bg-white/5 flex-shrink-0" style={{ color: '#fca5a5' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete</span>
+        </button>
+      </div>
     </div>
   );
 }
