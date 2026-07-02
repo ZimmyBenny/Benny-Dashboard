@@ -29,7 +29,19 @@ export function AmazonDashboardPage() {
 
   return (
     <PageWrapper>
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2.5rem 2rem', position: 'relative' }}>
+      <div data-sharp style={{ maxWidth: '1400px', margin: '0 auto', padding: '2.5rem 2rem', position: 'relative' }}>
+
+        {/* Dezentes Hintergrund-Raster (Schärfe-Pass Pilot) */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          pointerEvents: 'none',
+          zIndex: 0,
+          backgroundImage:
+            'repeating-linear-gradient(0deg, rgba(148,170,255,0.035) 0px, rgba(148,170,255,0.035) 1px, transparent 1px, transparent 32px), ' +
+            'repeating-linear-gradient(90deg, rgba(148,170,255,0.035) 0px, rgba(148,170,255,0.035) 1px, transparent 1px, transparent 32px)',
+          backgroundSize: '32px 32px',
+        }} />
 
         {/* Ambient Glow oben rechts (blau) */}
         <div style={{
