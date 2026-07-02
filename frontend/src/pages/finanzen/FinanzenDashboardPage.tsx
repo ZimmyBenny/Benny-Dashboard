@@ -52,13 +52,14 @@ export function FinanzenDashboardPage() {
         </button>
       </div>
 
+      {/* ── Offene Aufgaben (Hero-Panel ganz oben) ─────────── */}
+      <div style={{ marginBottom: '2rem' }}>
+        <FinanzenOpenTasks />
+      </div>
+
       {/* ── Kennzahlen ─────────────────────────────────────── */}
       <SectionDivider label="Kennzahlen" />
       <FinanzenStatusKpis />
-
-      {/* ── Offene Finanzen-Aufgaben ───────────────────────── */}
-      <SectionDivider label="Offene Finanzen-Aufgaben" />
-      <FinanzenOpenTasks />
 
       {/* ── Bereiche ───────────────────────────────────────── */}
       <SectionDivider label="Bereiche" />
