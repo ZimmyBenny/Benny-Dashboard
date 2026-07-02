@@ -822,6 +822,90 @@ export function DashboardPage() {
         </>
       )}
 
+      {/* ── Finanzen-Übersicht ────────────────────────────── */}
+      {reviewStats !== null && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '2.5rem', marginBottom: '1.25rem' }}>
+            <p style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: '0.65rem',
+              letterSpacing: '0.22em',
+              textTransform: 'uppercase',
+              color: 'var(--color-outline)',
+              whiteSpace: 'nowrap',
+            }}>
+              Finanzen-Übersicht
+            </p>
+            <div style={{
+              flex: 1, height: '1px',
+              background: 'linear-gradient(90deg, var(--color-outline-variant) 0%, transparent 100%)',
+            }} />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.875rem' }}>
+            {/* Saldo laufendes Jahr */}
+            <button className="module-card" onClick={() => navigate('/finances')} style={{ textAlign: 'left', padding: '1.25rem' }}>
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.03em', color: reviewStats.realized_profit_cents >= 0 ? '#4ade80' : 'var(--color-error)', lineHeight: 1, marginBottom: '0.375rem' }}>
+                  {(reviewStats.realized_profit_cents / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                </p>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
+                  Saldo {new Date().getFullYear()}
+                </p>
+              </div>
+            </button>
+
+            {/* Offene Refunds */}
+            <button className="module-card" onClick={() => navigate('/finances')} style={{ textAlign: 'left', padding: '1.25rem' }}>
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.03em', color: reviewStats.open_refunds > 0 ? '#fb923c' : 'var(--color-on-surface)', lineHeight: 1, marginBottom: '0.375rem' }}>
+                  {reviewStats.open_refunds}
+                </p>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
+                  Offene Refunds
+                </p>
+              </div>
+            </button>
+
+            {/* Verkaufsbereit */}
+            <button className="module-card" onClick={() => navigate('/finances')} style={{ textAlign: 'left', padding: '1.25rem' }}>
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.03em', color: 'var(--color-secondary)', lineHeight: 1, marginBottom: '0.375rem' }}>
+                  {readyToSellCount ?? 0}
+                </p>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
+                  Verkaufsbereit
+                </p>
+              </div>
+            </button>
+
+            {/* Steuer-Checkliste */}
+            <button className="module-card" onClick={() => navigate('/finances/steuer-checkliste')} style={{ textAlign: 'left', padding: '1.25rem' }}>
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.03em', color: 'var(--color-primary)', lineHeight: 1, marginBottom: '0.375rem' }}>
+                  {steuerProgress?.done ?? 0} / {steuerProgress?.total ?? 0}
+                </p>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
+                  Steuer-Checkliste
+                </p>
+              </div>
+            </button>
+
+            {/* Offene Finanzen-Aufgaben */}
+            <button className="module-card" onClick={() => navigate('/tasks')} style={{ textAlign: 'left', padding: '1.25rem' }}>
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2rem', letterSpacing: '-0.03em', color: 'var(--color-on-surface)', lineHeight: 1, marginBottom: '0.375rem' }}>
+                  {financeTasksOpen ?? 0}
+                </p>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-on-surface-variant)' }}>
+                  Finanzen-Aufgaben
+                </p>
+              </div>
+            </button>
+          </div>
+        </>
+      )}
+
       {/* ── Schnellzugriff ───────────────────────────────── */}
       <div style={{ marginTop: '2.5rem' }}>
         {/* Full-width card inkl. Titel */}
