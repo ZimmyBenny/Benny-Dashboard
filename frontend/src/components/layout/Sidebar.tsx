@@ -149,6 +149,13 @@ export function Sidebar() {
     }
   }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Finanzen-Untermenü automatisch aufklappen wenn auf /finances/* Route
+  useEffect(() => {
+    if (location.pathname.startsWith('/finances') && !expandedGroups.has('/finances')) {
+      setExpandedGroups(prev => new Set([...prev, '/finances']));
+    }
+  }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+
   function toggleGroup(path: string) {
     setExpandedGroups(prev => {
       const next = new Set(prev);

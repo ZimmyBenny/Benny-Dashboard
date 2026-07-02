@@ -19,6 +19,7 @@ import { DjAccountingPage } from '../pages/dj/DjAccountingPage';
 import { DjSettingsPage } from '../pages/dj/DjSettingsPage';
 import { FinancesPage } from '../pages/FinancesPage';
 import { TaxChecklistPage } from '../pages/finanzen/TaxChecklistPage';
+import { FinanzenDashboardPage } from '../pages/finanzen/FinanzenDashboardPage';
 import { AmazonDashboardPage } from '../pages/amazon/AmazonDashboardPage';
 import { AmazonOverviewPage } from '../pages/amazon/AmazonOverviewPage';
 import { AmazonProductDetailPage } from '../pages/amazon/AmazonProductDetailPage';
@@ -74,7 +75,8 @@ export const router = createBrowserRouter([
           { path: '/dj/trips',            element: <DjTripsPage /> },
           { path: '/dj/accounting',       element: <DjAccountingPage /> },
           { path: '/dj/settings',         element: <DjSettingsPage /> },
-          { path: '/finances',       element: <FinancesPage /> },
+          { path: '/finances',       element: <FinanzenDashboardPage /> },
+          { path: '/finances/bewertungen', element: <FinancesPage /> },
           { path: '/finances/steuer-checkliste', element: <TaxChecklistPage /> },
           { path: '/amazon',                       element: <AmazonDashboardPage /> },
           { path: '/amazon/entwicklung',           element: <AmazonOverviewPage /> },

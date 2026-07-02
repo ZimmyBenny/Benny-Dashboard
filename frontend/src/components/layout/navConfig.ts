@@ -31,7 +31,7 @@ export const navItems: NavItem[] = [
     { path: '/amazon/meine-daten',             label: 'Meine Daten',  icon: 'lock' },
   ]},
   { path: '/finances', label: 'Finanzen', icon: 'account_balance_wallet', subItems: [
-    { path: '/finances',                   label: 'Bewertungen',      icon: 'reviews' },
+    { path: '/finances/bewertungen',       label: 'Bewertungen',      icon: 'reviews' },
     { path: '/finances/steuer-checkliste', label: 'Steuer-Checkliste', icon: 'checklist' },
     { path: '/haushalt',                   label: 'Haushalt',         icon: 'family_restroom' },
   ]},
@@ -72,7 +72,8 @@ export const pageNames: Record<string, string> = {
   '/dj/trips':        'Fahrten',
   '/dj/accounting':   'Buchhaltung',
   '/dj/settings':     'DJ Einstellungen',
-  '/finances':                      'Finanzen',
+  '/finances':                      'Finanzen-Dashboard',
+  '/finances/bewertungen':          'Bewertungen',
   '/finances/steuer-checkliste':   'Steuer-Checkliste',
   '/amazon':                          'Amazon-Dashboard',
   '/amazon/entwicklung':              'Entwicklung',
