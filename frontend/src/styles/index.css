@@ -312,12 +312,6 @@
 }
 [data-sharp] {
   font-variant-numeric: tabular-nums;
-  /* Token-Engine: zentraler Kartenrand-Token akzent-getönt schärfen.
-     Zieht app-weit auf alle token-gebundenen Ränder (Karten, Panels,
-     Inputs, Divider), die var(--color-outline-variant) nutzen. Pro Modul
-     nimmt --color-primary die Akzentfarbe auf (blau DJ/Amazon/Finanzen,
-     lila auf Default-Seiten). Surface-Tokens bleiben unangetastet. */
-  --color-outline-variant: color-mix(in srgb, var(--color-primary) 48%, #58658d);
 }
 /* Defensiv: falls Glas-Karten im Sharp-Scope auftauchen → kein Blur. */
 [data-sharp] .glass-card {
@@ -330,10 +324,6 @@
   background: rgba(234, 231, 244, 0.88);
   border-color: color-mix(in srgb, var(--color-primary) 22%, transparent);
   border-top-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
-}
-/* Light-Theme-Guard für den Token — Ränder sichtbar halten. */
-[data-theme="light"] [data-sharp] {
-  --color-outline-variant: color-mix(in srgb, var(--color-primary) 30%, #c8c5d8);
 }
 
 /* Sidebar accent line for active nav */
