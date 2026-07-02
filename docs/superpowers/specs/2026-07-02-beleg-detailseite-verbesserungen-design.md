@@ -39,15 +39,17 @@ Drei Verbesserungen an der Beleg-Detailseite, in **einem** Durchlauf umgesetzt:
 - Lightbox: dunkler Backdrop, zentrierte Darstellung, Schließen per ✕-Button und `Esc`.
 - **Backdrop-Klick schließt NICHT** (Projektregel `feedback_ux_patterns`) — nur ✕/Esc.
 - Zoom: Bilder skalierbar; PDF wird groß (nahe Viewport-Höhe) dargestellt.
-- Wiederverwendung/Anlehnung an die bestehende `PdfPreviewModal`-Komponente (DJ-Angebote/Rechnungen); falls sie Bilder nicht abdeckt, um Bild-Fall erweitern statt Neubau.
+- **Neue Belege-eigene Lightbox-Komponente** auf Basis der Blob-Lade-Logik von `belege/PdfPreview` (lädt via apiClient mit Auth-Header — direkter `iframe`/`img`-Zugriff liefert 401). Das DJ-`PdfPreviewModal` wird NICHT wiederverwendet: es ist PDF-only, schließt per Backdrop-Klick (verletzt die Projektregel) und hat keine Auth-Blob-Logik; es zu ändern wäre ein DJ-Regressionsrisiko.
 
-**Umfang:** Frontend; ggf. kleine Erweiterung der vorhandenen Modal-Komponente.
+**Umfang:** Frontend; eine neue Komponente im Belege-Kontext.
 
 ---
 
 ## Feature 3 — Beleg ↔ Vertrag verknüpfen
 
-Die dickste der drei. Nutzt das **vorhandene** Modul `contracts_and_deadlines` (Migr. 018/019/021/022/033) inkl. Feldern `provider_name`, `cost_amount`, `cost_interval` (einmalig/monatlich/quartalsweise/jährlich), `start_date`, `reminder_date`, `cancellation_notice_weeks`, `area` und dem Reminder-Job `contractReminders` (erinnert über `reminder_date`).
+Die dickste der drei. Nutzt das **vorhandene** Modul `contracts_and_deadlines` (Migr. 018/019/021/022/033) inkl. Feldern `provider_name`, `cost_amount`, `cost_interval` (einmalig/monatlich/quartalsweise/jährlich), `start_date`, `reminder_date`, `cancellation_notice_weeks`, `area` und dem Reminder-Job `contractReminders`.
+
+**Wichtiger Ist-Befund (Review 2026-07-02):** Der Reminder-Job liest `reminder_date` heute NICHT. Er berechnet sein Erinnerungsdatum selbst (nächster Jahrestag − 56 Tage, hartkodiert, `contractReminders.ts:34-36`) und feuert nur bei `auto_renews=1 AND cost_interval='jaehrlich' AND start_date IS NOT NULL AND status='aktiv' AND is_archived=0`. Monatlich/quartalsweise/einmalig lösen nie eine Erinnerung aus. → Deshalb enthält dieses Feature eine **Job-Erweiterung** (siehe unten), damit das versprochene Verhalten real ist.
 
 ### Datenmodell
 
@@ -59,9 +61,20 @@ Die dickste der drei. Nutzt das **vorhandene** Modul `contracts_and_deadlines` (
 ### Backend
 
 - `GET /api/belege/:id` liefert zusätzlich `contract_id` und eine schlanke `contract`-Kurzinfo (id, title, cost_interval, reminder_date) für die Anzeige.
-- `PATCH /api/belege/:id` akzeptiert `contract_id` (setzen/entfernen) — als GoBD-freies Feld.
-- **Neu anlegen aus Beleg:** wiederverwenden des bestehenden `POST` der Vertrags-Routes (`contracts.routes.ts`). Der Beleg liefert die Vorbelegung; nach dem Anlegen wird die zurückgegebene `contract_id` am Beleg gesetzt. Kein Doppel-Endpoint.
-- **Rückrichtung:** `GET /api/contracts/:id` (oder ein `.../receipts`-Sub-Endpoint) liefert die zugehörigen Belege (Datum, Betrag, id) für die „Zugehörige Belege"-Liste.
+- `PATCH /api/belege/:id` akzeptiert `contract_id` (setzen/entfernen) — als GoBD-freies Feld. **Konkret:** `contract_id` in die `UPDATABLE_FIELDS`-Whitelist von `receiptService.update` aufnehmen (sonst stiller No-op) + Existenz-Validierung der Vertrags-ID (400/404 statt roher FK-Fehler). Der Audit-Log-Eintrag am Beleg entsteht dadurch automatisch über den PATCH-Pfad.
+- **Vertrags-Activity-Log:** Verknüpfen/Entfernen erzeugt zusätzlich einen Eintrag im `contracts_and_deadlines_activity_log` (bestehendes Muster in `contracts.routes.ts`).
+- **Neu anlegen aus Beleg:** wiederverwenden des bestehenden `POST /` der Vertrags-Routes (`contracts.routes.ts:325-401`, verlangt nur `title`). Der Beleg liefert die Vorbelegung; nach dem Anlegen wird die zurückgegebene `contract_id` am Beleg gesetzt. Kein Doppel-Endpoint.
+- **Korrekturbeleg erbt die Verknüpfung:** `POST /:id/korrektur` kopiert eine explizite Spaltenliste — `contract_id` wird dort ergänzt, damit Storno/Korrektur fachlich beim selben Vertrag bleiben (sonst stimmen Summen je Vertrag nicht).
+- **Vertrag löschen absichern:** `DELETE /:id` ist heute Hard-Delete ohne Prüfung. Neu: Response/Vorab-Info mit Anzahl verknüpfter Belege; das Frontend zeigt einen Confirm-Dialog („N verknüpfte Belege — Verknüpfungen werden entfernt") gemäß Projektregel „Confirm vor Löschen". `ON DELETE SET NULL` verhindert Datenbruch.
+- **Rückrichtung:** `GET /api/contracts/:id/receipts` liefert die zugehörigen Belege (id, Datum, Betrag, **Währung**) für die „Zugehörige Belege"-Liste. (Existiert heute nicht — Neubau.)
+
+### Reminder-Job-Erweiterung (contractReminders.ts)
+
+Kleiner Umbau (~20 Zeilen), damit Erinnerungen für alle Intervalle und mit Nutzer-Override funktionieren:
+
+1. **`reminder_date` als Override:** Ist am Vertrag ein `reminder_date` gesetzt, gilt dieses Datum — der Job erinnert daran statt an sein berechnetes Datum.
+2. **Alle Intervalle:** Ohne gesetztes `reminder_date` berechnet der Job die nächste Fälligkeit auch für `monatlich` und `quartalsweise` (Formel „nächstes zukünftiges Vorkommen" analog der bestehenden Anniversary-Logik) und erinnert `cancellation_notice_weeks` Wochen vorher (statt hartkodierter 56 Tage; Default der Spalte ist 4 Wochen). `einmalig` ohne `reminder_date` → keine Erinnerung.
+3. Bestehendes Verhalten für jährliche Auto-Renew-Verträge bleibt kompatibel (nur die 56-Tage-Konstante weicht dem `cancellation_notice_weeks`-Feld).
 
 ### Frontend — im Beleg (Abschnitt „Zuordnung")
 
@@ -73,20 +86,21 @@ Neues Feld **„Vertrag"**:
 | Vertragsfeld | Quelle aus Beleg |
 |---|---|
 | `title` / `provider_name` | Lieferant (z. B. „netcup GmbH") |
-| `cost_amount` | Bruttobetrag |
+| `cost_amount` | Bruttobetrag — **Cents ÷ 100** (Beleg speichert `amount_gross_cents` INTEGER, Vertrag `cost_amount` REAL in Euro; Faktor-100-Falle!) |
 | `currency` | Beleg-Währung |
-| `area` | Beleg-Bereich (primär) |
+| `area` | Beleg-Bereich (primär) — **mit Mapping**, da der Vertrags-CHECK nur `Privat/DJ/Amazon/Cashback/Finanzen/Banken/Sonstiges` erlaubt, Beleg-Areas aber frei sind: exakter Treffer → übernehmen; „Amazon FBA" → `Amazon`; sonst → `Sonstiges` |
 | `start_date` | Rechnungsdatum |
 | `cost_interval` | **leer → Nutzer wählt** (nichts wird geraten) |
 
 **Erinnerungsdatum (Vorschlag + editierbar):**
-- Beim Anlegen/Verknüpfen schlägt das System `reminder_date` vor = **nächste Fälligkeit** (`start_date` + gewähltes Intervall) **minus** `cancellation_notice_weeks`.
+- Beim Anlegen/Verknüpfen schlägt das System `reminder_date` vor = **nächste zukünftige Fälligkeit** (nächstes Vorkommen von `start_date` + Intervall, nicht naiv `start_date + Intervall` — bei älteren Verträgen läge das in der Vergangenheit) **minus** `cancellation_notice_weeks`.
 - Der Vorschlag ist ein Default im Formular und **jederzeit überschreibbar**. Ohne gewähltes Intervall (einmalig) → kein Vorschlag.
-- Danach erinnert der bestehende `contractReminders`-Job automatisch. Ändert der Nutzer später das Intervall/Datum am Vertrag, folgt die Erinnerung dem Vertrag (keine Sonderlogik am Beleg).
+- Danach erinnert der (erweiterte, s. o.) `contractReminders`-Job: gesetztes `reminder_date` gewinnt, sonst Berechnung je Intervall. Ändert der Nutzer später Intervall/Datum am Vertrag, folgt die Erinnerung dem Vertrag (keine Sonderlogik am Beleg).
 
 ### Frontend — im Vertrag (Rückrichtung)
 
-- Neuer Abschnitt **„Zugehörige Belege"** auf der Vertrags-Detail-/SlideOver-Ansicht: Liste der verknüpften Belege (Datum, Betrag) mit Sprung zum jeweiligen Beleg.
+- Neuer Abschnitt **„Zugehörige Belege"** im `ContractSlideOver` (als Full-width-Sektion nach „Dokumente & Anhänge"): Liste der verknüpften Belege (Datum, Betrag **inkl. Beleg-Währung** — kann von der Vertragswährung abweichen) mit Sprung zum jeweiligen Beleg.
+- **Vertrags-Picker ist ein Neubau** (es existiert kein wiederverwendbarer Search-Picker; `workbook/ContactPicker` dient als Muster).
 
 ---
 
@@ -96,15 +110,15 @@ Neues Feld **„Vertrag"**:
 - Kein automatisches Fortschreiben des `reminder_date` bei jeder neuen Rechnung — der Vorschlag greift bei Anlage/Verknüpfung; Feineinstellung passiert am Vertrag.
 - Keine n:m-Verknüpfung (ein Beleg → ein Vertrag genügt).
 - Keine Änderung an der GoBD-Lock-Logik außer der bewussten Nicht-Aufnahme von `contract_id`.
+- Keine Änderung am DJ-`PdfPreviewModal` (Regressionsrisiko; Belege bekommen eine eigene Lightbox).
 
 ## Betroffene Bereiche (Überblick)
 
-- **DB:** 1 Migration (neue Spalte `receipts.contract_id`).
-- **Backend:** `belege.routes.ts` (GET/PATCH um `contract_id`), `contracts.routes.ts` (Belege-Rückabfrage), ggf. Response-Typen.
-- **Frontend:** `BelegeDetailPage.tsx` (Verlauf-Akkordeon, Lightbox-Trigger, Zuordnung→Vertrag), `PdfPreview`/`PdfPreviewModal` (Lightbox), Vertrags-Ansicht (`ContractsPage`/`ContractSlideOver` — „Zugehörige Belege"), neuer Vertrags-Picker.
+- **DB:** 1 Migration (neue Spalte `receipts.contract_id`, additiv).
+- **Backend:** `belege.routes.ts` (GET um contract-Info, Korrektur-Kopierliste), `receiptService.ts` (`UPDATABLE_FIELDS` + Validierung), `contracts.routes.ts` (`GET /:id/receipts`, Delete-Confirm-Info, Activity-Log), `jobs/contractReminders.ts` (Override + Intervalle).
+- **Frontend:** `BelegeDetailPage.tsx` (Verlauf-Akkordeon, Lightbox-Trigger, Zuordnung→Vertrag), neue Belege-Lightbox (Basis: Blob-Logik aus `belege/PdfPreview`), neuer Vertrags-Picker (Muster: `workbook/ContactPicker`), `ContractSlideOver` („Zugehörige Belege"), Vertrags-Lösch-Confirm.
 - **Datensicherheit:** reine Additiv-Migration (ADD COLUMN), kein Bulk-Update → kein `createBackup` nötig; die Migrations-Pipeline sichert ohnehin automatisch.
 
-## Offene Detailfragen für die Planung
+## Review-Historie
 
-- Genaue Wiederverwendung: existiert bereits ein Vertrags-Such-Picker (analog `ContactSearchPicker`/`ServiceSearchPicker`), der sich adaptieren lässt?
-- Deckt `PdfPreviewModal` Bilder ab oder nur PDF? (bestimmt, ob erweitern oder generische Lightbox).
+- **2026-07-02, Fable-Review:** GoBD-Trigger-Analyse und n:1-Architektur bestätigt. Korrigiert: Reminder-Job las `reminder_date` nicht (→ Job-Erweiterung beschlossen), Area-CHECK-Mapping ergänzt, Cents→Euro-Konvertierung ergänzt, Lightbox von DJ-Modal-Wiederverwendung auf Belege-eigenen Neubau umgestellt, Korrekturbeleg-Vererbung + PATCH-Whitelist + Lösch-Confirm aufgenommen. Beide vormals offenen Detailfragen damit beantwortet.
