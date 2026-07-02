@@ -10,6 +10,7 @@ export function AppShell() {
   const theme = useUiStore((state) => state.theme);
   const location = useLocation();
   const isDjModule = location.pathname.startsWith('/dj');
+  const isAmazonModule = location.pathname.startsWith('/amazon');
 
   // Theme auf documentElement synchronisieren
   useEffect(() => {
@@ -42,7 +43,7 @@ export function AppShell() {
     <div
       className="flex h-screen overflow-hidden"
       style={{ backgroundColor: 'var(--color-background)', position: 'relative' }}
-      data-module={isDjModule ? 'dj' : undefined}
+      data-module={isDjModule ? 'dj' : isAmazonModule ? 'amazon' : undefined}
     >
       {/* Global ambient light leaks — subtle atmospheric depth */}
       <div aria-hidden style={{
