@@ -29,6 +29,34 @@ export function AmazonDashboardPage() {
 
   return (
     <PageWrapper>
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2.5rem 2rem', position: 'relative' }}>
+
+        {/* Ambient Glow oben rechts (blau) */}
+        <div style={{
+          position: 'absolute',
+          top: '-100px',
+          right: '-100px',
+          width: '600px',
+          height: '600px',
+          background: 'radial-gradient(circle, rgba(148,170,255,0.06) 0%, transparent 60%)',
+          pointerEvents: 'none',
+          zIndex: 0,
+        }} />
+
+        {/* Ambient Glow unten links (grün) */}
+        <div style={{
+          position: 'absolute',
+          bottom: '-80px',
+          left: '-80px',
+          width: '400px',
+          height: '400px',
+          background: 'radial-gradient(circle, rgba(92,253,128,0.04) 0%, transparent 60%)',
+          pointerEvents: 'none',
+          zIndex: 0,
+        }} />
+
+        {/* Content über den Glows */}
+        <div style={{ position: 'relative', zIndex: 1 }}>
       {/* ── Header ─────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', marginBottom: '2rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', minWidth: 0 }}>
@@ -90,6 +118,8 @@ export function AmazonDashboardPage() {
       <AmazonNavTiles />
 
       <NewProductDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
+        </div>
+      </div>
     </PageWrapper>
   );
 }
