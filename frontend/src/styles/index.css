@@ -295,22 +295,30 @@
   transform: translateY(-2px);
 }
 
-/* ── Schärfe-Pass Pilot — nur innerhalb data-sharp ──────────────
-   Isolierter Scope (aktuell nur Amazon-Dashboard): firmere Ränder,
+/* ── Schärfe-Pass — nur innerhalb data-sharp ────────────────────
+   Isolierter Scope (app-weit, ausser Belege): firmere Ränder,
    kein Glas-Blur, near-solide Füllung, Tabellen-Ziffern.
+   Kartenrand nimmt pro Modul die Akzentfarbe (--color-primary) auf.
    Reversibel: data-sharp-Attribut + diesen Block entfernen. */
 [data-sharp] .module-card {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   background: rgba(13, 20, 38, 0.9);
-  border-color: rgba(148, 170, 255, 0.16);
-  border-top-color: rgba(148, 170, 255, 0.24);
+  border-color: color-mix(in srgb, var(--color-primary) 18%, transparent);
+  border-top-color: color-mix(in srgb, var(--color-primary) 28%, transparent);
 }
 [data-sharp] .module-card:hover {
-  border-color: rgba(148, 170, 255, 0.3);
+  border-color: color-mix(in srgb, var(--color-primary) 34%, transparent);
 }
 [data-sharp] {
   font-variant-numeric: tabular-nums;
+}
+/* Light-Theme-Guard — helle Füllung bewahren (data-theme sitzt auf html,
+   data-sharp auf dem Shell-Nachfahren → Nachfahren-Kombinator nötig). */
+[data-theme="light"] [data-sharp] .module-card {
+  background: rgba(234, 231, 244, 0.88);
+  border-color: color-mix(in srgb, var(--color-primary) 22%, transparent);
+  border-top-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
 }
 
 /* Sidebar accent line for active nav */
