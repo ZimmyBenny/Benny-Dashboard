@@ -86,6 +86,11 @@ export function AmazonDashboardPage() {
         </button>
       </div>
 
+      {/* ── Offene Aufgaben (Hero-Panel ganz oben) ─────────── */}
+      <div style={{ marginBottom: '2rem' }}>
+        <AmazonOpenTasks />
+      </div>
+
       {/* ── Status-KPIs ────────────────────────────────────── */}
       {isLoading && (
         <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-outline)', marginBottom: '1.75rem' }}>
@@ -108,10 +113,6 @@ export function AmazonDashboardPage() {
           <AmazonActiveProducts products={data.active} />
         </>
       )}
-
-      {/* ── Offene Aufgaben ────────────────────────────────── */}
-      <SectionDivider label="Offene Amazon-Aufgaben" />
-      <AmazonOpenTasks />
 
       {/* ── Navigation ─────────────────────────────────────── */}
       <SectionDivider label="Bereiche" />
