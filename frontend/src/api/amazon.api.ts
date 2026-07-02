@@ -742,3 +742,20 @@ export async function saveInspectionResult(
 export async function saveInspectionNotes(pid: number, mid: number, sid: number, inspection_notes: string | null): Promise<void> {
   await apiClient.patch(inspectionBase(pid, mid, sid), { inspection_notes });
 }
+
+// ── Amazon-Modul-Dashboard ────────────────────────────────────────────────────
+export interface AmazonDashboardActiveProduct {
+  id: number;
+  name: string;
+  has_image: boolean;
+  checklist: { done: number; total: number };
+  sourcing: { done: number; total: number };
+}
+export interface AmazonDashboard {
+  counts: { interessant: number; aktiv: number; bestehend: number; verworfen: number };
+  active: AmazonDashboardActiveProduct[];
+}
+export async function getAmazonDashboard(): Promise<AmazonDashboard> {
+  const r = await apiClient.get<AmazonDashboard>('/amazon/dashboard');
+  return r.data;
+}
