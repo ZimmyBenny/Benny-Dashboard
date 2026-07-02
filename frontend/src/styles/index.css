@@ -317,7 +317,7 @@
      Inputs, Divider), die var(--color-outline-variant) nutzen. Pro Modul
      nimmt --color-primary die Akzentfarbe auf (blau DJ/Amazon/Finanzen,
      lila auf Default-Seiten). Surface-Tokens bleiben unangetastet. */
-  --color-outline-variant: color-mix(in srgb, var(--color-primary) 42%, transparent);
+  --color-outline-variant: color-mix(in srgb, var(--color-primary) 48%, #58658d);
 }
 /* Defensiv: falls Glas-Karten im Sharp-Scope auftauchen → kein Blur. */
 [data-sharp] .glass-card {
