@@ -8,6 +8,8 @@ import {
   createMyDataGroup, updateMyDataGroup, deleteMyDataGroup,
   type MyDataField, type MyDataGroup,
 } from '../../api/amazon.api';
+import { exportMyDataPdf } from '../../lib/amazon/exportMyDataPdf';
+import { useDraggableModal } from '../../hooks/useDraggableModal';
 
 const INPUT_STYLE: React.CSSProperties = {
   background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)',
@@ -153,6 +155,68 @@ function ChangePinBox({ onClose, onChanged }: { onClose: () => void; onChanged: 
   );
 }
 
+function ExportDialog({
+  groups,
+  selectedGroupIds,
+  onToggle,
+  includeEmpty,
+  onToggleEmpty,
+  onClose,
+  onExport,
+}: {
+  groups: MyDataGroup[];
+  selectedGroupIds: number[];
+  onToggle: (id: number) => void;
+  includeEmpty: boolean;
+  onToggleEmpty: () => void;
+  onClose: () => void;
+  onExport: () => void;
+}) {
+  const { onMouseDown, modalStyle, headerStyle } = useDraggableModal();
+  return (
+    <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', zIndex: 1000 }}>
+      <div data-draggable-modal onClick={(e) => e.stopPropagation()}
+        style={{ width: 'min(520px,96vw)', maxHeight: '92vh', background: 'var(--color-surface-container)', borderRadius: '1rem', boxShadow: '0 20px 60px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', ...modalStyle }}>
+        {/* Header */}
+        <div onMouseDown={onMouseDown} style={{ ...headerStyle, borderBottom: '1px solid var(--color-surface-container-high)', padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontFamily: 'var(--font-headline)', fontWeight: 700, color: 'var(--color-on-surface)' }}>Als PDF exportieren</span>
+          <button type="button" onMouseDown={(e) => e.stopPropagation()} onClick={onClose}
+            className="p-1 rounded hover:bg-white/5" style={{ color: 'var(--color-on-surface-variant)' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>close</span>
+          </button>
+        </div>
+        {/* Body */}
+        <div style={{ padding: '1.25rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <p style={{ fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)', marginBottom: '0.5rem' }}>Bereiche auswählen:</p>
+          {groups.slice().sort((a, b) => a.sort_order - b.sort_order).map((g) => (
+            <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', color: 'var(--color-on-surface)', fontSize: '0.875rem' }}>
+              <input type="checkbox" checked={selectedGroupIds.includes(g.id)} onChange={() => onToggle(g.id)} style={{ accentColor: 'var(--color-primary)', width: 16, height: 16 }} />
+              {g.title || 'Ohne Titel'}
+            </label>
+          ))}
+          <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.08)', margin: '0.75rem 0 0.25rem' }} />
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', color: 'var(--color-on-surface)', fontSize: '0.875rem' }}>
+            <input type="checkbox" checked={includeEmpty} onChange={onToggleEmpty} style={{ accentColor: 'var(--color-primary)', width: 16, height: 16 }} />
+            Leere Felder einschließen
+          </label>
+          <div style={{ display: 'flex', gap: '0.625rem', marginTop: '1rem' }}>
+            <button type="button" onClick={onExport} disabled={selectedGroupIds.length === 0}
+              className="px-4 py-2 rounded-md text-sm font-medium"
+              style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)', opacity: selectedGroupIds.length === 0 ? 0.5 : 1, flex: 1 }}>
+              Als PDF exportieren
+            </button>
+            <button type="button" onClick={onClose}
+              className="px-4 py-2 rounded-md text-sm"
+              style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}>
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function AmazonMyDataPage() {
   const qc = useQueryClient();
   const pinGateToken = useAuthStore((s) => s.pinGateToken);
@@ -168,8 +232,25 @@ export function AmazonMyDataPage() {
   const patchGroup = useMutation({ mutationFn: (v: { id: number; title: string }) => updateMyDataGroup(v.id, v.title), onSettled: inval });
   const delGroup = useMutation({ mutationFn: (id: number) => deleteMyDataGroup(id), onSettled: inval });
   const [changingPin, setChangingPin] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
+  const [includeEmpty, setIncludeEmpty] = useState(false);
 
   function lock() { setPinGateToken(null); qc.removeQueries({ queryKey: ['mydata', 'data'] }); }
+
+  function openExportDialog() {
+    setSelectedGroupIds(groups.map((g) => g.id));
+    setIncludeEmpty(false);
+    setShowExportDialog(true);
+  }
+
+  async function handleExport() {
+    (document.activeElement as HTMLElement | null)?.blur();
+    await new Promise((r) => setTimeout(r, 350));
+    const fresh = await qc.fetchQuery({ queryKey: ['mydata', 'data'], queryFn: fetchMyData });
+    exportMyDataPdf({ groups: fresh.groups, fields: fresh.fields, selectedGroupIds, includeEmpty });
+    setShowExportDialog(false);
+  }
 
   if (status.isLoading) return <PageWrapper><p style={{ color: 'var(--color-on-surface-variant)' }}>Lade …</p></PageWrapper>;
 
@@ -184,6 +265,9 @@ export function AmazonMyDataPage() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold" style={{ fontFamily: 'var(--font-headline)', color: 'var(--color-on-surface)' }}>Meine Daten</h1>
         <div className="flex items-center gap-2">
+          <button type="button" onClick={openExportDialog} className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1"
+            style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>picture_as_pdf</span>Export</button>
           <button type="button" onClick={() => setChangingPin(v => !v)} className="px-3 py-1.5 rounded-md text-sm"
             style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}>PIN ändern</button>
           <button type="button" onClick={lock} className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1"
@@ -209,6 +293,17 @@ export function AmazonMyDataPage() {
             <span className="material-symbols-outlined" style={{ fontSize: 18 }}>create_new_folder</span> Bereich hinzufügen
           </button>
         </div>
+      )}
+      {showExportDialog && (
+        <ExportDialog
+          groups={groups}
+          selectedGroupIds={selectedGroupIds}
+          onToggle={(id) => setSelectedGroupIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])}
+          includeEmpty={includeEmpty}
+          onToggleEmpty={() => setIncludeEmpty((v) => !v)}
+          onClose={() => setShowExportDialog(false)}
+          onExport={handleExport}
+        />
       )}
     </PageWrapper>
   );
