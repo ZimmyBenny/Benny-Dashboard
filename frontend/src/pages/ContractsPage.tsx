@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { PageWrapper } from '../components/layout/PageWrapper';
-import { fetchContracts, archiveContract, deleteContract, createContract, updateContract, type Contract } from '../api/contracts.api';
+import { fetchContracts, fetchContract, archiveContract, deleteContract, createContract, updateContract, fetchContractReceipts, type Contract } from '../api/contracts.api';
 import { ContractSlideOver } from '../components/contracts/ContractSlideOver';
 import { todayLocal } from '../lib/dates';
 
@@ -410,7 +410,7 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
   // Vom Dashboard: navigate('/contracts', { state: { openNew: true } })
   const location = useLocation();
   useEffect(() => {
-    const st = location.state as { openNew?: boolean; segment?: Segment } | null;
+    const st = location.state as { openNew?: boolean; segment?: Segment; openContractId?: number } | null;
     if (st?.openNew) {
       setEditingContract(null);
       setIsSlideOverOpen(true);
@@ -420,6 +420,28 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
       setSegment(st.segment);
       window.history.replaceState({}, '');
     }
+    // Sprung aus einem Beleg (Feature 3, Plan quick-260702-vz7): Vertrag aus der
+    // geladenen Liste nehmen ODER via fetchContract nachladen (z.B. wenn er im
+    // aktuellen Segment/Filter nicht enthalten ist).
+    if (st?.openContractId) {
+      const targetId = st.openContractId;
+      const existing = contracts.find((c) => c.id === targetId);
+      if (existing) {
+        setEditingContract(existing);
+        setIsSlideOverOpen(true);
+      } else {
+        fetchContract(targetId)
+          .then((c) => {
+            setEditingContract(c);
+            setIsSlideOverOpen(true);
+          })
+          .catch(() => {
+            // ignore — Vertrag existiert nicht (mehr)
+          });
+      }
+      window.history.replaceState({}, '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state]);
 
   const LIMIT = 50;
@@ -488,7 +510,19 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
   }
 
   async function handleDelete(contract: Contract) {
-    if (!confirm(`„${contract.title}" wirklich unwiderruflich löschen?`)) return;
+    // Confirm mit Belege-Anzahl (Projektregel "Confirm vor Löschen") — Feature 3,
+    // Plan quick-260702-vz7. ON DELETE SET NULL entfernt beim Löschen nur die
+    // Verknüpfungen, die Belege selbst bleiben erhalten.
+    let receiptCount = 0;
+    try {
+      receiptCount = (await fetchContractReceipts(contract.id)).length;
+    } catch {
+      // ignore — Confirm faellt dann auf die Standard-Meldung zurueck
+    }
+    const message = receiptCount > 0
+      ? `${receiptCount} verknüpfte Belege — die Verknüpfungen werden entfernt. „${contract.title}" wirklich löschen?`
+      : `„${contract.title}" wirklich unwiderruflich löschen?`;
+    if (!confirm(message)) return;
     try {
       await deleteContract(contract.id);
       loadContracts(0, false);

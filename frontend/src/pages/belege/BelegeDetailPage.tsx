@@ -42,8 +42,10 @@ import {
   type Area,
 } from '../../api/belege.api';
 import apiClient from '../../api/client';
+import { createContract } from '../../api/contracts.api';
+import { ContractPicker } from '../../components/contracts/ContractPicker';
 import { formatCurrencyFromCents, formatDate } from '../../lib/format';
-import { todayLocal } from '../../lib/dates';
+import { todayLocal, addDaysLocal } from '../../lib/dates';
 
 export function BelegeDetailPage() {
   const { id: idStr } = useParams<{ id: string }>();
@@ -54,6 +56,7 @@ export function BelegeDetailPage() {
   const [showPaidConfirm, setShowPaidConfirm] = useState(false);
   const [paidDate, setPaidDate] = useState('');
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [showNewContractPanel, setShowNewContractPanel] = useState(false);
 
   const { data: r, isLoading, error } = useQuery({
     queryKey: ['belege', id],
@@ -536,6 +539,116 @@ export function BelegeDetailPage() {
                     Korrigiert durch #{(r as ReceiptDetail & { corrected_by_receipt_id?: number | null }).corrected_by_receipt_id}
                   </p>
                 )}
+
+                {/* Vertrag-Verknüpfung (Feature 3, Plan quick-260702-vz7) */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '140px 1fr',
+                    gap: '0.75rem',
+                    alignItems: 'flex-start',
+                    padding: '0.25rem 0',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: '0.75rem',
+                      color: 'var(--color-on-surface-variant)',
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 500,
+                      paddingTop: '0.375rem',
+                    }}
+                  >
+                    Vertrag
+                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {r.contract_id && r.contract ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                        <button
+                          type="button"
+                          onClick={() => navigate('/contracts', { state: { openContractId: r.contract_id } })}
+                          title="Zum Vertrag springen"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.375rem',
+                            background: 'rgba(148,170,255,0.12)',
+                            border: '1px solid rgba(148,170,255,0.35)',
+                            borderRadius: '999px',
+                            padding: '0.3rem 0.75rem',
+                            color: 'var(--color-primary)',
+                            fontFamily: 'var(--font-body)',
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: '0.95rem' }}>description</span>
+                          {r.contract.title} · {intervalLabel(r.contract.cost_interval)}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateMut.mutate({ contract_id: null } as Partial<ReceiptDetail>)}
+                          disabled={updateMut.isPending}
+                          title="Verknüpfung entfernen"
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--color-on-surface-variant)',
+                            cursor: updateMut.isPending ? 'not-allowed' : 'pointer',
+                            fontFamily: 'var(--font-body)',
+                            fontSize: '0.78rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.15rem',
+                          }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: '0.9rem' }}>close</span>
+                          entfernen
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          <ContractPicker
+                            onSelect={(contract) =>
+                              updateMut.mutate({ contract_id: contract.id } as Partial<ReceiptDetail>)
+                            }
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewContractPanel((v) => !v)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.375rem',
+                              background: 'rgba(255,255,255,0.04)',
+                              border: '1px solid rgba(148,170,255,0.2)',
+                              borderRadius: '0.5rem',
+                              padding: '0.5rem 0.875rem',
+                              color: 'var(--color-on-surface)',
+                              fontFamily: 'var(--font-body)',
+                              fontSize: '0.85rem',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>add_circle</span>
+                            Neuen Vertrag anlegen
+                          </button>
+                        </div>
+                        {showNewContractPanel && (
+                          <NewContractPanel
+                            receipt={r}
+                            onCreated={(newId) => {
+                              updateMut.mutate({ contract_id: newId } as Partial<ReceiptDetail>);
+                              setShowNewContractPanel(false);
+                            }}
+                            onCancel={() => setShowNewContractPanel(false)}
+                          />
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
               </Section>
 
               <Section title="Notizen">
@@ -931,6 +1044,255 @@ function CollapsibleSection({
       </button>
       {open && <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>{children}</div>}
     </section>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Vertrag-Verknüpfung — Helpers + Inline-Anlege-Panel (Feature 3, quick-260702-vz7)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Erlaubte Vertrags-Areas (CHECK-Constraint in contracts_and_deadlines). */
+const CONTRACT_ALLOWED_AREAS = ['Privat', 'DJ', 'Amazon', 'Cashback', 'Finanzen', 'Banken', 'Sonstiges'];
+
+/** Mappt eine Beleg-Area auf eine erlaubte Vertrags-Area: exakter Treffer → übernehmen, "Amazon FBA" → Amazon, sonst → Sonstiges. */
+function mapAreaToContractArea(areaName: string | null): string {
+  if (!areaName) return 'Sonstiges';
+  if (CONTRACT_ALLOWED_AREAS.includes(areaName)) return areaName;
+  if (areaName === 'Amazon FBA') return 'Amazon';
+  return 'Sonstiges';
+}
+
+function intervalLabel(interval: string | null | undefined): string {
+  switch (interval) {
+    case 'jaehrlich':
+      return 'jährlich';
+    case 'monatlich':
+      return 'monatlich';
+    case 'quartalsweise':
+      return 'quartalsweise';
+    case 'einmalig':
+      return 'einmalig';
+    default:
+      return '—';
+  }
+}
+
+const INTERVAL_STEP_MONTHS: Record<string, number> = { monatlich: 1, quartalsweise: 3, jaehrlich: 12 };
+
+function parseYMD(s: string): { y: number; m: number; d: number } {
+  const [y, m, d] = s.split('-').map(Number);
+  return { y, m, d };
+}
+
+function formatYMD(y: number, m: number, d: number): string {
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+function addMonthsClamped(start: { y: number; m: number; d: number }, months: number): { y: number; m: number; d: number } {
+  const totalM = start.y * 12 + (start.m - 1) + months;
+  const ny = Math.floor(totalM / 12);
+  const nm = (totalM % 12) + 1;
+  const daysInMonth = new Date(ny, nm, 0).getDate();
+  const nd = Math.min(start.d, daysInMonth);
+  return { y: ny, m: nm, d: nd };
+}
+
+/**
+ * Nächste zukünftige Fälligkeit (>= today) für ein Zahlungsintervall ab
+ * start_date — spiegelt die Backend-Logik in contractReminders.ts (bewusst
+ * dupliziert, siehe CLAUDE.md-Konvention "kein Monorepo").
+ */
+function computeNextDueLocal(startDate: string, today: string, interval: string): string | null {
+  const step = INTERVAL_STEP_MONTHS[interval];
+  if (!step || !startDate) return null;
+  const start = parseYMD(startDate);
+  const maxIter = Math.ceil((100 * 12) / step);
+  for (let i = 0; i <= maxIter; i++) {
+    const occ = addMonthsClamped(start, i * step);
+    const candidate = formatYMD(occ.y, occ.m, occ.d);
+    if (candidate >= today) return candidate;
+  }
+  return null;
+}
+
+function NewContractPanel({
+  receipt,
+  onCreated,
+  onCancel,
+}: {
+  receipt: ReceiptDetail;
+  onCreated: (contractId: number) => void;
+  onCancel: () => void;
+}) {
+  const primaryAreaName = receipt.area_links.find((a) => a.is_primary === 1)?.area_name ?? null;
+  const mappedArea = mapAreaToContractArea(primaryAreaName);
+  const [title, setTitle] = useState(receipt.supplier_name ?? '');
+  const [costInterval, setCostInterval] = useState('');
+  const [reminderDate, setReminderDate] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const costAmount = receipt.amount_gross_cents / 100;
+
+  // Erinnerungsdatum-Vorschlag: naechste Faelligkeit minus 4 Wochen (Spalten-Default
+  // cancellation_notice_weeks) — solange kein Intervall (bzw. einmalig) gewaehlt ist,
+  // gibt es keinen Vorschlag. Der Vorschlag ist jederzeit ueberschreibbar.
+  useEffect(() => {
+    if (!costInterval || costInterval === 'einmalig') {
+      setReminderDate('');
+      return;
+    }
+    const nextDue = computeNextDueLocal(receipt.receipt_date, todayLocal(), costInterval);
+    setReminderDate(nextDue ? addDaysLocal(nextDue, -28) : '');
+  }, [costInterval, receipt.receipt_date]);
+
+  async function handleCreate() {
+    if (!title.trim()) {
+      setError('Titel erforderlich');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const created = await createContract({
+        title: title.trim(),
+        provider_name: receipt.supplier_name,
+        cost_amount: costAmount,
+        currency: receipt.currency,
+        area: mappedArea,
+        start_date: receipt.receipt_date,
+        cost_interval: costInterval || null,
+        reminder_date: reminderDate || null,
+      });
+      onCreated(created.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Vertrag konnte nicht angelegt werden');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const panelInputStyle: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.05)',
+    border: '1px solid rgba(148,170,255,0.15)',
+    borderRadius: '0.375rem',
+    padding: '0.375rem 0.625rem',
+    color: 'var(--color-on-surface)',
+    fontFamily: 'var(--font-body)',
+    fontSize: '0.85rem',
+    outline: 'none',
+  };
+  const panelLabelStyle: React.CSSProperties = {
+    fontSize: '0.7rem',
+    color: 'var(--color-on-surface-variant)',
+    fontFamily: 'var(--font-body)',
+    display: 'block',
+    marginBottom: '0.2rem',
+  };
+
+  return (
+    <div
+      style={{
+        background: 'rgba(255,255,255,0.03)',
+        border: '1px solid rgba(148,170,255,0.15)',
+        borderRadius: '0.5rem',
+        padding: '0.875rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.625rem',
+      }}
+    >
+      <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-on-surface-variant)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        Neuer Vertrag
+      </p>
+
+      <div>
+        <label style={panelLabelStyle}>Titel</label>
+        <input style={{ ...panelInputStyle, width: '100%', boxSizing: 'border-box' }} value={title} onChange={(e) => setTitle(e.target.value)} />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
+        <div>
+          <label style={panelLabelStyle}>Betrag</label>
+          <input style={{ ...panelInputStyle, width: '100%', boxSizing: 'border-box' }} value={`${costAmount.toFixed(2)} ${receipt.currency}`} disabled />
+        </div>
+        <div>
+          <label style={panelLabelStyle}>Bereich</label>
+          <input style={{ ...panelInputStyle, width: '100%', boxSizing: 'border-box' }} value={mappedArea} disabled />
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
+        <div>
+          <label style={panelLabelStyle}>Startdatum</label>
+          <input style={{ ...panelInputStyle, width: '100%', boxSizing: 'border-box' }} value={formatDate(receipt.receipt_date)} disabled />
+        </div>
+        <div>
+          <label style={panelLabelStyle}>Zahlungsintervall</label>
+          <select
+            style={{ ...panelInputStyle, width: '100%', boxSizing: 'border-box' }}
+            value={costInterval}
+            onChange={(e) => setCostInterval(e.target.value)}
+          >
+            <option value="">— wählen —</option>
+            <option value="einmalig">Einmalig</option>
+            <option value="monatlich">Monatlich</option>
+            <option value="quartalsweise">Quartalsweise</option>
+            <option value="jaehrlich">Jährlich</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label style={panelLabelStyle}>Erinnerungsdatum (Vorschlag, editierbar)</label>
+        <input
+          type="date"
+          style={{ ...panelInputStyle, width: '100%', boxSizing: 'border-box' }}
+          value={reminderDate}
+          onChange={(e) => setReminderDate(e.target.value)}
+        />
+      </div>
+
+      {error && <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--color-error)', fontFamily: 'var(--font-body)' }}>{error}</p>}
+
+      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+        <button
+          type="button"
+          onClick={onCancel}
+          style={{
+            background: 'transparent',
+            border: '1px solid rgba(148,170,255,0.2)',
+            borderRadius: '0.5rem',
+            padding: '0.4rem 1rem',
+            color: 'var(--color-on-surface-variant)',
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.8rem',
+            cursor: 'pointer',
+          }}
+        >
+          Abbrechen
+        </button>
+        <button
+          type="button"
+          onClick={handleCreate}
+          disabled={saving}
+          style={{
+            background: 'rgba(148,170,255,0.18)',
+            border: '1px solid rgba(148,170,255,0.4)',
+            borderRadius: '0.5rem',
+            padding: '0.4rem 1rem',
+            color: 'var(--color-primary)',
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.8rem',
+            fontWeight: 600,
+            cursor: saving ? 'wait' : 'pointer',
+            opacity: saving ? 0.6 : 1,
+          }}
+        >
+          {saving ? 'Wird angelegt…' : 'Anlegen'}
+        </button>
+      </div>
+    </div>
   );
 }
 

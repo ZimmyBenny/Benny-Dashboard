@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import type { Contract, ContractAttachment } from '../../api/contracts.api';
+import { useNavigate } from 'react-router-dom';
+import type { Contract, ContractAttachment, ContractReceipt } from '../../api/contracts.api';
 import {
   fetchContractAttachments,
   uploadContractAttachment,
@@ -7,7 +8,9 @@ import {
   downloadContractAttachment,
   openContractAttachment,
   revealContractAttachment,
+  fetchContractReceipts,
 } from '../../api/contracts.api';
+import { formatCurrencyFromCents, formatDate } from '../../lib/format';
 
 // ---------------------------------------------------------------------------
 // Styles — exakt wie TaskSlideOver
@@ -157,6 +160,7 @@ interface ContractSlideOverProps {
 // ---------------------------------------------------------------------------
 
 export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete }: ContractSlideOverProps) {
+  const navigate = useNavigate();
   const [form, setForm] = useState<FormData>(() => contractToForm(contract));
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Set<string>>(new Set());
@@ -167,6 +171,9 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
   const [isDragOver, setIsDragOver] = useState(false);
   const dragCounter = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Zugehörige Belege (Feature 3, Plan quick-260702-vz7)
+  const [linkedReceipts, setLinkedReceipts] = useState<ContractReceipt[]>([]);
 
   // Arbeits-Contract (entweder aus Props oder nach Auto-Speichern eines neuen Eintrags)
   const [workingContract, setWorkingContract] = useState<Contract | null>(contract);
@@ -189,6 +196,15 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
       fetchContractAttachments(workingContract.id).then(setAttachments).catch(() => setAttachments([]));
     } else {
       setAttachments([]);
+    }
+  }, [workingContract?.id, isOpen]);
+
+  // Zugehörige Belege laden
+  useEffect(() => {
+    if (isOpen && workingContract?.id) {
+      fetchContractReceipts(workingContract.id).then(setLinkedReceipts).catch(() => setLinkedReceipts([]));
+    } else {
+      setLinkedReceipts([]);
     }
   }, [workingContract?.id, isOpen]);
 
@@ -1013,6 +1029,52 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
                 </div>
               ))}
             </div>
+
+            {/* Zugehörige Belege (full width) — Feature 3, Plan quick-260702-vz7 */}
+            {workingContract && (
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={LABEL_STYLE}>Zugehörige Belege</label>
+                {linkedReceipts.length === 0 ? (
+                  <p style={{ fontSize: '0.8rem', color: 'var(--color-outline)', fontFamily: 'var(--font-body)', margin: 0 }}>
+                    Keine verknüpften Belege
+                  </p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    {linkedReceipts.map((rec) => (
+                      <div
+                        key={rec.id}
+                        onClick={() => {
+                          onClose();
+                          navigate(`/belege/${rec.id}`);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '0.75rem',
+                          padding: '0.5rem 0',
+                          borderBottom: '1px solid var(--color-outline-variant)',
+                          cursor: 'pointer',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(204,151,255,0.06)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)', flexShrink: 0 }}>
+                          {formatDate(rec.receipt_date)}
+                        </span>
+                        <span style={{ flex: 1, fontFamily: 'var(--font-body)', fontSize: '0.85rem', color: 'var(--color-on-surface)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {rec.supplier_name ?? rec.title ?? `Beleg #${rec.id}`}
+                        </span>
+                        <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-on-surface)', flexShrink: 0 }}>
+                          {formatCurrencyFromCents(rec.amount_gross_cents)}
+                          {rec.currency !== 'EUR' ? ` ${rec.currency}` : ''}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
           </div>
 

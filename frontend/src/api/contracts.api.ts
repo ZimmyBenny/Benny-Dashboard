@@ -100,6 +100,23 @@ export async function deleteContract(id: number): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Zugehörige Belege (Rückrichtung, Feature 3, Plan quick-260702-vz7)
+// ---------------------------------------------------------------------------
+
+export interface ContractReceipt {
+  id: number;
+  receipt_date: string;
+  amount_gross_cents: number;
+  currency: string;
+  supplier_name: string | null;
+  title: string | null;
+}
+
+export async function fetchContractReceipts(contractId: number): Promise<ContractReceipt[]> {
+  return apiClient.get<ContractReceipt[]>(`/contracts/${contractId}/receipts`).then(r => r.data);
+}
+
+// ---------------------------------------------------------------------------
 // Anhänge
 // ---------------------------------------------------------------------------
 

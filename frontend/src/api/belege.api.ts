@@ -39,12 +39,20 @@ export interface ReceiptListItem {
   original_filename: string | null;
   linked_invoice_id: number | null;
   linked_trip_id: number | null;
+  contract_id: number | null;
   title: string | null;
   notes: string | null;
 }
 
 /** Detail-Response inkl. Joins (files / area_links / ocr_results / audit_log). */
 export interface ReceiptDetail extends ReceiptListItem {
+  /** Vertrags-Kurzinfo (nur gesetzt wenn contract_id != null) — Feature 3, Plan quick-260702-vz7. */
+  contract?: {
+    id: number;
+    title: string;
+    cost_interval: string | null;
+    reminder_date: string | null;
+  } | null;
   files: Array<{
     id: number;
     original_filename: string;
