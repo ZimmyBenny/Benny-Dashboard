@@ -11,6 +11,7 @@ export function AppShell() {
   const location = useLocation();
   const isDjModule = location.pathname.startsWith('/dj');
   const isAmazonModule = location.pathname.startsWith('/amazon');
+  const isFinanceModule = location.pathname.startsWith('/finances');
 
   // Theme auf documentElement synchronisieren
   useEffect(() => {
@@ -43,7 +44,7 @@ export function AppShell() {
     <div
       className="flex h-screen overflow-hidden"
       style={{ backgroundColor: 'var(--color-background)', position: 'relative' }}
-      data-module={isDjModule ? 'dj' : isAmazonModule ? 'amazon' : undefined}
+      data-module={isDjModule ? 'dj' : isAmazonModule ? 'amazon' : isFinanceModule ? 'finance' : undefined}
     >
       {/* Global ambient light leaks — subtle atmospheric depth */}
       <div aria-hidden style={{
