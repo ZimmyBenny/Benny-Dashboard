@@ -14,7 +14,7 @@ interface TaskCardProps {
 
 const PRIORITY_STYLES: Record<Task['priority'], { color: string; bg: string; label: string }> = {
   urgent: { color: 'var(--color-error)', bg: 'rgba(255,110,132,0.12)', label: 'Dringend' },
-  high:   { color: 'var(--color-primary)', bg: 'rgba(204,151,255,0.12)', label: 'Hoch' },
+  high:   { color: 'var(--color-primary)', bg: 'rgba(148,170,255,0.12)', label: 'Hoch' },
   medium: { color: 'var(--color-on-surface-variant)', bg: 'rgba(163,170,196,0.1)', label: 'Mittel' },
   low:    { color: 'var(--color-outline)', bg: 'rgba(109,117,140,0.1)', label: 'Niedrig' },
 };
@@ -45,7 +45,7 @@ export function TaskCard({ task, onClick, isDragging = false, onArchive, onDelet
         transform: CSS.Transform.toString(transform),
         transition: transition ?? 'border-color 150ms ease',
         background: 'var(--color-surface-container)',
-        border: `1px solid ${hovered && !dragging ? 'rgba(204,151,255,0.3)' : 'var(--color-surface-container-high)'}`,
+        border: `1px solid ${hovered && !dragging ? 'rgba(148,170,255,0.3)' : 'var(--color-surface-container-high)'}`,
         borderRadius: '0.75rem',
         padding: '1rem',
         cursor: 'pointer',
@@ -221,7 +221,7 @@ export function TaskCard({ task, onClick, isDragging = false, onArchive, onDelet
               fontSize: '0.65rem',
               letterSpacing: '0.04em',
             }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-primary)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(204,151,255,0.3)'; }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-primary)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(148,170,255,0.3)'; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-outline)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.08)'; }}
           >
             <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>inventory_2</span>

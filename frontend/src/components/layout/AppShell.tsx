@@ -53,7 +53,7 @@ export function AppShell() {
       <div aria-hidden style={{
         position: 'absolute', top: 0, right: 0,
         width: '600px', height: '600px',
-        background: 'radial-gradient(circle at top right, rgba(204,151,255,0.05) 0%, transparent 60%)',
+        background: 'radial-gradient(circle at top right, rgba(148,170,255,0.05) 0%, transparent 60%)',
         pointerEvents: 'none', zIndex: 0,
       }} />
       <div aria-hidden style={{

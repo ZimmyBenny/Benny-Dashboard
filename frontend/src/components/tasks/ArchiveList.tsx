@@ -96,7 +96,7 @@ export function ArchiveList({ onTaskClick, refreshKey = 0 }: ArchiveListProps) {
                   alignItems: 'center',
                   gap: '0.75rem',
                 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(204,151,255,0.2)'; }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(148,170,255,0.2)'; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--color-surface-container-high)'; }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: 'var(--color-outline)', flexShrink: 0 }}>inventory_2</span>

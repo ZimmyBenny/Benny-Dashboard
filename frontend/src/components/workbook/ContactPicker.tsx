@@ -74,8 +74,8 @@ export function ContactPicker({ contactId, contactName, onChange, compact }: Con
           padding: '0.2rem 0.6rem',
           borderRadius: '999px',
           fontSize: '0.78rem',
-          background: contactId ? 'rgba(204,151,255,0.12)' : 'var(--color-surface-container)',
-          border: `1px solid ${contactId ? 'rgba(204,151,255,0.35)' : 'var(--color-outline-variant)'}`,
+          background: contactId ? 'rgba(148,170,255,0.12)' : 'var(--color-surface-container)',
+          border: `1px solid ${contactId ? 'rgba(148,170,255,0.35)' : 'var(--color-outline-variant)'}`,
           cursor: 'pointer',
           color: contactId ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
           userSelect: 'none',
@@ -162,7 +162,7 @@ export function ContactPicker({ contactId, contactName, onChange, compact }: Con
                   textAlign: 'left',
                   transition: 'background 100ms ease',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(204,151,255,0.08)')}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(148,170,255,0.08)')}
                 onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
               >
                 <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-on-surface)' }}>

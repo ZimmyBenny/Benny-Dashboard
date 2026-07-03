@@ -325,7 +325,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
       title={title}
       style={{
         padding: '0.3rem 0.45rem',
-        background: active ? 'rgba(204,151,255,0.15)' : 'transparent',
+        background: active ? 'rgba(148,170,255,0.15)' : 'transparent',
         border: 'none',
         borderRadius: '0.3rem',
         cursor: 'pointer',
@@ -349,7 +349,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         display: 'flex',
         alignItems: 'center',
         padding: '0.3rem',
-        background: active ? 'rgba(204,151,255,0.15)' : 'transparent',
+        background: active ? 'rgba(148,170,255,0.15)' : 'transparent',
         border: 'none',
         borderRadius: '0.3rem',
         cursor: 'pointer',
@@ -423,8 +423,8 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
             alignItems: 'center',
             gap: '0.25rem',
             padding: '0.3rem 0.6rem',
-            background: 'rgba(204,151,255,0.1)',
-            border: '1px solid rgba(204,151,255,0.25)',
+            background: 'rgba(148,170,255,0.1)',
+            border: '1px solid rgba(148,170,255,0.25)',
             borderRadius: '0.3rem',
             cursor: 'pointer',
             color: 'var(--color-primary)',
@@ -516,7 +516,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         {dragOver && (
           <div style={{
             position: 'absolute', inset: 0, zIndex: 10,
-            background: 'rgba(204,151,255,0.08)',
+            background: 'rgba(148,170,255,0.08)',
             border: '2px dashed var(--color-primary)',
             borderRadius: '0.5rem',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -571,7 +571,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
                 style={{
                   display: 'flex', alignItems: 'center',
                   padding: '0.2rem',
-                  background: selectMode ? 'rgba(204,151,255,0.15)' : 'transparent',
+                  background: selectMode ? 'rgba(148,170,255,0.15)' : 'transparent',
                   border: 'none',
                   borderRadius: '0.25rem',
                   cursor: 'pointer',
@@ -600,7 +600,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
                 cursor: selectMode ? 'pointer' : 'default',
                 padding: '0.1rem 0.25rem',
                 borderRadius: '0.2rem',
-                background: selectMode && selectedIds.has(att.id) ? 'rgba(204,151,255,0.08)' : 'transparent',
+                background: selectMode && selectedIds.has(att.id) ? 'rgba(148,170,255,0.08)' : 'transparent',
               }}
             >
               {selectMode && (

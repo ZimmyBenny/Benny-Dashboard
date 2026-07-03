@@ -165,7 +165,7 @@ export function WorkbookSearch({ onClose, onNavigate }: WorkbookSearchProps) {
               style={{
                 width: '100%',
                 padding: '0.85rem 1.25rem',
-                background: i === selectedIndex ? 'rgba(204,151,255,0.1)' : 'transparent',
+                background: i === selectedIndex ? 'rgba(148,170,255,0.1)' : 'transparent',
                 borderTop: 'none',
                 borderRight: 'none',
                 borderBottom: '1px solid var(--color-outline-variant)',

@@ -168,9 +168,9 @@ export function PageList({ pages, activeId, onSelect, onNew, onNewChild, onReloa
             width: '100%',
             padding: isChild ? '0.55rem 0.75rem' : '0.75rem 1rem',
             background: isActive
-              ? 'rgba(204,151,255,0.08)'
+              ? 'rgba(148,170,255,0.08)'
               : isDropTarget
-              ? 'rgba(204,151,255,0.18)'
+              ? 'rgba(148,170,255,0.18)'
               : 'transparent',
             borderLeft: isActive
               ? '3px solid var(--color-primary)'
@@ -301,7 +301,7 @@ export function PageList({ pages, activeId, onSelect, onNew, onNewChild, onReloa
         {!isChild && expandedIds.has(page.id) && (
           <div style={{
             marginLeft: '1rem',
-            borderLeft: '2px solid rgba(204,151,255,0.25)',
+            borderLeft: '2px solid rgba(148,170,255,0.25)',
             background: 'rgba(0,0,0,0.08)',
           }}>
             {loadingChildren.has(page.id) ? (
@@ -377,7 +377,7 @@ export function PageList({ pages, activeId, onSelect, onNew, onNewChild, onReloa
             title={showPinned ? 'Alle anzeigen' : 'Nur Gepinnte'}
             style={{
               display: 'flex', alignItems: 'center', padding: '0.35rem',
-              background: showPinned ? 'rgba(204,151,255,0.15)' : 'transparent',
+              background: showPinned ? 'rgba(148,170,255,0.15)' : 'transparent',
               border: '1px solid var(--color-outline-variant)', borderRadius: '0.35rem',
               cursor: 'pointer',
               color: showPinned ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',

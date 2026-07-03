@@ -254,7 +254,7 @@ export function ContactImportPage() {
             padding: '3rem 2rem',
             textAlign: 'center',
             cursor: 'pointer',
-            background: dragging ? 'rgba(204,151,255,0.04)' : 'rgba(255,255,255,0.02)',
+            background: dragging ? 'rgba(148,170,255,0.04)' : 'rgba(255,255,255,0.02)',
             transition: 'border-color 150ms ease, background 150ms ease',
             marginBottom: '1.5rem',
           }}

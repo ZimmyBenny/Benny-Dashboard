@@ -374,7 +374,7 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
   const focusStyle = `
     .contract-input:focus {
       border-color: var(--color-primary);
-      box-shadow: 0 0 0 2px rgba(204,151,255,0.15);
+      box-shadow: 0 0 0 2px rgba(148,170,255,0.15);
     }
   `;
 
@@ -921,7 +921,7 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
                   borderRadius: '0.625rem',
                   padding: '0.75rem 1rem',
                   marginBottom: '0.5rem',
-                  background: isDragOver ? 'rgba(204,151,255,0.07)' : 'transparent',
+                  background: isDragOver ? 'rgba(148,170,255,0.07)' : 'transparent',
                   transition: 'border-color 0.15s, background 0.15s',
                   display: 'flex',
                   alignItems: 'center',
@@ -1056,7 +1056,7 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
                           borderBottom: '1px solid var(--color-outline-variant)',
                           cursor: 'pointer',
                         }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(204,151,255,0.06)')}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(148,170,255,0.06)')}
                         onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                       >
                         <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)', flexShrink: 0 }}>

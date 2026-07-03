@@ -91,7 +91,7 @@ export function KanbanColumn({
           flex: 1,
           padding: '0.75rem',
           minHeight: '200px',
-          background: isOver ? 'rgba(204,151,255,0.04)' : 'transparent',
+          background: isOver ? 'rgba(148,170,255,0.04)' : 'transparent',
           transition: 'background 150ms ease',
         }}
       >
@@ -135,7 +135,7 @@ export function KanbanColumn({
               transition: 'border-color 150ms ease, color 150ms ease',
             }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(204,151,255,0.3)';
+              (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(148,170,255,0.3)';
               (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-primary)';
             }}
             onMouseLeave={(e) => {

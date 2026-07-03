@@ -75,7 +75,7 @@ function SortableItem({
     padding: '0.625rem 0.75rem',
     borderRadius: '0.5rem',
     border: '1px solid rgba(255,255,255,0.06)',
-    background: isDragging ? 'rgba(204,151,255,0.06)' : 'transparent',
+    background: isDragging ? 'rgba(148,170,255,0.06)' : 'transparent',
     marginBottom: '0.375rem',
   };
 
@@ -247,7 +247,7 @@ function AccordionHeader({
       <span style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         width: '36px', height: '36px', borderRadius: '10px', flexShrink: 0,
-        background: isOpen ? 'rgba(204,151,255,0.15)' : 'rgba(255,255,255,0.05)',
+        background: isOpen ? 'rgba(148,170,255,0.15)' : 'rgba(255,255,255,0.05)',
         transition: 'background 0.2s',
       }}>
         <span className="material-symbols-outlined" style={{
@@ -469,7 +469,7 @@ export function SettingsPage() {
                   { icon: 'warning',  text: 'Bleibt die Ampel rot: start.command nie doppelt öffnen. Im Terminal kill $(lsof -ti :3001) eingeben — danach startet das Backend von selbst neu.' },
                 ].map(({ icon, text }, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '8px', flexShrink: 0, background: 'rgba(204,151,255,0.1)' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '8px', flexShrink: 0, background: 'rgba(148,170,255,0.1)' }}>
                       <span className="material-symbols-outlined" style={{ fontSize: '15px', color: 'var(--color-primary)' }}>{icon}</span>
                     </span>
                     <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface-variant)', lineHeight: 1.55, paddingTop: '0.2rem' }}>{text}</span>

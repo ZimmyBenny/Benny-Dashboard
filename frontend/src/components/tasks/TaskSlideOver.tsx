@@ -271,7 +271,7 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
   const focusStyle = `
     .task-input:focus {
       border-color: var(--color-primary);
-      box-shadow: 0 0 0 2px rgba(204,151,255,0.15);
+      box-shadow: 0 0 0 2px rgba(148,170,255,0.15);
     }
   `;
 
@@ -616,8 +616,8 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
                   <span style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    background: 'rgba(204,151,255,0.15)',
-                    border: '1px solid rgba(204,151,255,0.3)',
+                    background: 'rgba(148,170,255,0.15)',
+                    border: '1px solid rgba(148,170,255,0.3)',
                     borderRadius: '999px',
                     padding: '0.25rem 0.75rem',
                     fontSize: '0.8rem',

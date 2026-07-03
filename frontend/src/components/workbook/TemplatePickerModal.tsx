@@ -156,7 +156,7 @@ function TemplateCard({
       }}
       onMouseEnter={(e) => {
         if (!disabled) {
-          (e.currentTarget as HTMLButtonElement).style.background = 'rgba(204,151,255,0.08)';
+          (e.currentTarget as HTMLButtonElement).style.background = 'rgba(148,170,255,0.08)';
           (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-primary)';
         }
       }}

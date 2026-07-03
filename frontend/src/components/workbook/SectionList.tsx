@@ -177,9 +177,9 @@ export function SectionList({ sections, activeId, onSelect, onNew, onReload }: S
                 display: 'flex', alignItems: 'center', gap: '0.6rem',
                 padding: '0.55rem 1rem',
                 background: activeId === section.id
-                  ? 'rgba(204,151,255,0.08)'
+                  ? 'rgba(148,170,255,0.08)'
                   : dragOverId === section.id
-                  ? 'rgba(204,151,255,0.18)'
+                  ? 'rgba(148,170,255,0.18)'
                   : 'transparent',
                 borderLeft: activeId === section.id
                   ? '3px solid var(--color-primary)'

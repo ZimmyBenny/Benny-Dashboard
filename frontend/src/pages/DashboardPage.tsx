@@ -156,7 +156,7 @@ export function DashboardPage() {
         <div aria-hidden style={{
           position: 'absolute', top: '-60px', right: '-80px',
           width: '280px', height: '280px', borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(204,151,255,0.09) 0%, transparent 65%)',
+          background: 'radial-gradient(circle, rgba(148,170,255,0.09) 0%, transparent 65%)',
           pointerEvents: 'none',
         }} />
         <div aria-hidden style={{
@@ -270,8 +270,8 @@ export function DashboardPage() {
             marginBottom: '1.75rem',
             background: timerStatus === 'running'
               ? 'rgba(52,181,250,0.07)'
-              : 'rgba(204,151,255,0.07)',
-            border: `1px solid ${timerStatus === 'running' ? 'rgba(52,181,250,0.2)' : 'rgba(204,151,255,0.2)'}`,
+              : 'rgba(148,170,255,0.07)',
+            border: `1px solid ${timerStatus === 'running' ? 'rgba(52,181,250,0.2)' : 'rgba(148,170,255,0.2)'}`,
             borderRadius: '0.875rem',
             cursor: 'pointer',
             transition: 'border-color 200ms ease',
@@ -865,9 +865,9 @@ export function DashboardPage() {
                     transition: 'border-color 150ms ease, color 150ms ease, background 150ms ease',
                   }}
                   onMouseEnter={e => {
-                    (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(204,151,255,0.35)';
+                    (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(148,170,255,0.35)';
                     (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-primary)';
-                    (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(204,151,255,0.06)';
+                    (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(148,170,255,0.06)';
                   }}
                   onMouseLeave={e => {
                     (e.currentTarget as HTMLAnchorElement).style.borderColor = 'rgba(255,255,255,0.09)';

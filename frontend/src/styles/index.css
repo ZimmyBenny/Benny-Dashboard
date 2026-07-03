@@ -75,7 +75,7 @@
   --font-label:    "Inter", sans-serif;
 
   /* Glow + Blur — CSS-Variablen, NICHT Tailwind-Scale (per D-04) */
-  --glow-primary:   0 0 20px rgba(204, 151, 255, 0.3);
+  --glow-primary:   0 0 20px rgba(148, 170, 255, 0.3);
   --glow-secondary: 0 0 12px rgba(52, 181, 250, 0.1);
   --glow-error:     0 0 12px rgba(255, 110, 132, 0.3);
   --glass-blur:     blur(20px);
@@ -215,7 +215,7 @@
 
 /* Text-Glow Utility */
 .text-glow {
-  text-shadow: 0 0 20px rgba(204, 151, 255, 0.4);
+  text-shadow: 0 0 20px rgba(148, 170, 255, 0.4);
 }
 
 /* Display Typography — Electric Noir Hero Text */
@@ -246,7 +246,7 @@
   right: -120px;
   width: 480px;
   height: 480px;
-  background: radial-gradient(circle, rgba(204, 151, 255, 0.07) 0%, transparent 65%);
+  background: radial-gradient(circle, rgba(148, 170, 255, 0.07) 0%, transparent 65%);
   pointer-events: none;
   border-radius: 50%;
   z-index: 0;
@@ -292,8 +292,8 @@
   opacity: 1;
 }
 .module-card:hover {
-  border-color: rgba(204, 151, 255, 0.2);
-  box-shadow: 0 0 32px rgba(204, 151, 255, 0.12), 0 8px 32px rgba(0, 0, 0, 0.4);
+  border-color: rgba(148, 170, 255, 0.2);
+  box-shadow: 0 0 32px rgba(148, 170, 255, 0.12), 0 8px 32px rgba(0, 0, 0, 0.4);
   transform: translateY(-2px);
 }
 
@@ -319,7 +319,7 @@
   height: 60%;
   background: var(--color-primary);
   border-radius: 0 2px 2px 0;
-  box-shadow: 0 0 8px rgba(204, 151, 255, 0.6);
+  box-shadow: 0 0 8px rgba(148, 170, 255, 0.6);
 }
 
 /* CSS Scrollbar — Electric Noir (per DS-11) */
@@ -516,7 +516,7 @@ body {
 
 /* WorkbookSearch FTS5 mark highlight */
 .workbook-search mark {
-  background: rgba(204, 151, 255, 0.25);
+  background: rgba(148, 170, 255, 0.25);
   color: var(--color-on-surface);
   padding: 0 0.15rem;
   border-radius: 0.2rem;

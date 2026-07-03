@@ -264,7 +264,7 @@ function EntryPanel({
           <label style={labelStyle}>Kontakt</label>
           {contactId ? (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-              background: 'rgba(204,151,255,0.15)', border: '1px solid rgba(204,151,255,0.3)',
+              background: 'rgba(148,170,255,0.15)', border: '1px solid rgba(148,170,255,0.3)',
               borderRadius: '999px', padding: '0.3rem 0.75rem',
             }}>
               <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.85rem', color: 'var(--color-primary)' }}>
@@ -313,7 +313,7 @@ function EntryPanel({
                           gap: '0.5rem',
                           borderBottom: '1px solid rgba(255,255,255,0.04)',
                         }}
-                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(204,151,255,0.1)')}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(148,170,255,0.1)')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                       >
                         <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface)' }}>
@@ -747,7 +747,7 @@ export function ZeiterfassungPage() {
         borderTop: isRunning
           ? '1px solid rgba(52,181,250,0.4)'
           : isPaused
-            ? '1px solid rgba(204,151,255,0.4)'
+            ? '1px solid rgba(148,170,255,0.4)'
             : '1px solid rgba(255,255,255,0.12)',
         borderRadius: '1.25rem',
         padding: '2.5rem',
@@ -770,7 +770,7 @@ export function ZeiterfassungPage() {
           <div aria-hidden style={{
             position: 'absolute', top: '-60px', left: '50%', transform: 'translateX(-50%)',
             width: '400px', height: '200px',
-            background: 'radial-gradient(ellipse, rgba(204,151,255,0.08) 0%, transparent 70%)',
+            background: 'radial-gradient(ellipse, rgba(148,170,255,0.08) 0%, transparent 70%)',
             pointerEvents: 'none',
           }} />
         )}
@@ -784,9 +784,9 @@ export function ZeiterfassungPage() {
             background: isRunning
               ? 'rgba(52,181,250,0.12)'
               : isPaused
-                ? 'rgba(204,151,255,0.12)'
+                ? 'rgba(148,170,255,0.12)'
                 : 'rgba(255,255,255,0.06)',
-            border: `1px solid ${isRunning ? 'rgba(52,181,250,0.3)' : isPaused ? 'rgba(204,151,255,0.3)' : 'rgba(255,255,255,0.08)'}`,
+            border: `1px solid ${isRunning ? 'rgba(52,181,250,0.3)' : isPaused ? 'rgba(148,170,255,0.3)' : 'rgba(255,255,255,0.08)'}`,
             fontFamily: 'var(--font-body)',
             fontSize: '0.7rem',
             letterSpacing: '0.1em',
@@ -863,7 +863,7 @@ export function ZeiterfassungPage() {
               color: '#000', border: 'none', cursor: 'pointer',
               fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.9rem',
               letterSpacing: '0.04em',
-              boxShadow: '0 0 24px rgba(204,151,255,0.2)',
+              boxShadow: '0 0 24px rgba(148,170,255,0.2)',
               transition: 'box-shadow 200ms ease',
             }}>
               <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>play_arrow</span>
@@ -897,9 +897,9 @@ export function ZeiterfassungPage() {
               display: 'flex', alignItems: 'center', gap: '0.5rem',
               padding: '0.75rem 1.5rem',
               borderRadius: '9999px',
-              background: 'rgba(204,151,255,0.12)',
+              background: 'rgba(148,170,255,0.12)',
               color: 'var(--color-primary)',
-              border: '1px solid rgba(204,151,255,0.3)',
+              border: '1px solid rgba(148,170,255,0.3)',
               cursor: 'pointer',
               fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.9rem',
             }}>
@@ -1103,9 +1103,9 @@ export function ZeiterfassungPage() {
               display: 'flex', alignItems: 'center', gap: '0.5rem',
               padding: '0.625rem 1.25rem',
               borderRadius: '0.5rem',
-              background: exportEntries.length === 0 ? 'rgba(255,255,255,0.03)' : 'rgba(204,151,255,0.08)',
+              background: exportEntries.length === 0 ? 'rgba(255,255,255,0.03)' : 'rgba(148,170,255,0.08)',
               color: exportEntries.length === 0 ? 'var(--color-outline)' : 'var(--color-primary)',
-              border: `1px solid ${exportEntries.length === 0 ? 'var(--color-outline-variant)' : 'rgba(204,151,255,0.25)'}`,
+              border: `1px solid ${exportEntries.length === 0 ? 'var(--color-outline-variant)' : 'rgba(148,170,255,0.25)'}`,
               cursor: exportEntries.length === 0 ? 'not-allowed' : 'pointer',
               fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.875rem',
               transition: 'background 200ms ease, border-color 200ms ease',

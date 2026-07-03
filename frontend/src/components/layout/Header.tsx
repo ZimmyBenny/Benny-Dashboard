@@ -30,7 +30,7 @@ export function Header() {
           width: '5px', height: '5px',
           borderRadius: '50%',
           background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
-          boxShadow: '0 0 8px rgba(204,151,255,0.7)',
+          boxShadow: '0 0 8px rgba(148,170,255,0.7)',
         }} />
       </div>
     </header>

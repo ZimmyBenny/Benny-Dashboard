@@ -101,7 +101,7 @@ const btnSecondary: React.CSSProperties = {
 const btnAdd: React.CSSProperties = {
   ...btnSecondary,
   color: 'var(--color-primary)',
-  borderColor: 'rgba(204,151,255,0.3)',
+  borderColor: 'rgba(148,170,255,0.3)',
   marginTop: '0.5rem',
 };
 
