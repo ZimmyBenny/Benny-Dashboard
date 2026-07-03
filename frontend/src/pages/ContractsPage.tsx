@@ -21,7 +21,7 @@ const ITEM_TYPE_ICONS: Record<string, string> = {
 };
 
 const AREA_COLORS: Record<string, string> = {
-  DJ: '#cc97ff',
+  DJ: '#2dd4bf',
   Amazon: '#ff9900',
   Cashback: '#4ade80',
   Finanzen: '#60a5fa',
@@ -202,7 +202,7 @@ function ensureContractBlinkStyles() {
 
 const AREA_CHART_COLORS: Record<string, string> = {
   Privat: '#f472b6',
-  DJ: '#cc97ff',
+  DJ: '#2dd4bf',
   Amazon: '#fb923c',
   Cashback: '#4ade80',
   Finanzen: '#60a5fa',

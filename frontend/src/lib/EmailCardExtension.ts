@@ -60,7 +60,7 @@ export const EmailCardExtension = Node.create<Record<string, never>>({
         'margin: 0.5rem 0',
         'background: var(--color-surface-container, rgba(255,255,255,0.04))',
         'border: 1px solid var(--color-outline-variant, rgba(255,255,255,0.12))',
-        'border-left: 3px solid var(--color-primary, #cc97ff)',
+        'border-left: 3px solid var(--color-primary, #94aaff)',
         'border-radius: 0.5rem',
         'cursor: default',
         'user-select: none',
@@ -73,7 +73,7 @@ export const EmailCardExtension = Node.create<Record<string, never>>({
       icon.textContent = 'mail';
       icon.style.cssText = [
         'font-size: 1.4rem',
-        'color: var(--color-primary, #cc97ff)',
+        'color: var(--color-primary, #94aaff)',
         'flex-shrink: 0',
         'margin-top: 0.1rem',
       ].join(';');

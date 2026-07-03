@@ -88,7 +88,7 @@ export interface StatusConfigEntry {
  */
 export const STATUS_CONFIG: Record<ReviewStatus, StatusConfigEntry> = {
   vorgemerkt:     { label: 'Vorgemerkt',          icon: 'bookmark',              accent: '#6d758c', bg: 'rgba(109,117,140,0.20)', border: 'rgba(109,117,140,0.40)' },
-  bestellt:       { label: 'Bestellt',            icon: 'local_shipping',        accent: '#cc97ff', bg: 'rgba(204,151,255,0.15)', border: 'rgba(204,151,255,0.40)' },
+  bestellt:       { label: 'Bestellt',            icon: 'local_shipping',        accent: '#2dd4bf', bg: 'rgba(45,212,191,0.15)',  border: 'rgba(45,212,191,0.40)' },
   erhalten:       { label: 'Erhalten',            icon: 'inbox',                 accent: '#34b5fa', bg: 'rgba(52,181,250,0.15)',  border: 'rgba(52,181,250,0.40)' },
   bewertet:       { label: 'Bewertet',            icon: 'rate_review',           accent: '#a68cff', bg: 'rgba(166,140,255,0.15)', border: 'rgba(166,140,255,0.40)' },
   geld_erhalten:  { label: 'Geld erhalten',       icon: 'account_balance_wallet', accent: '#4ade80', bg: 'rgba(74,222,128,0.15)',  border: 'rgba(74,222,128,0.40)' },

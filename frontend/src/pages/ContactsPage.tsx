@@ -14,7 +14,7 @@ import { todayLocal } from '../lib/dates';
 // Farben fuer Bereich-Badges
 // ---------------------------------------------------------------------------
 const AREA_COLORS: Record<string, string> = {
-  DJ: '#cc97ff',
+  DJ: '#2dd4bf',
   Amazon: '#ff9900',
   Cashback: '#4ade80',
   Finanzen: '#60a5fa',
