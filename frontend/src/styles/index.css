@@ -15,19 +15,19 @@
   --color-surface-container-highest: #192540;
   --color-surface-variant:           #192540;
   --color-surface-bright:            #1f2b49;
-  --color-surface-tint:              #cc97ff;
+  --color-surface-tint:              #94aaff;
 
   /* Primaer */
-  --color-primary:             #cc97ff;
-  --color-primary-dim:         #9c48ea;
-  --color-primary-container:   #c284ff;
-  --color-primary-fixed:       #c284ff;
-  --color-primary-fixed-dim:   #b971ff;
-  --color-inverse-primary:     #842cd3;
-  --color-on-primary:          #47007c;
+  --color-primary:             #94aaff;
+  --color-primary-dim:         #3367ff;
+  --color-primary-container:   #809bff;
+  --color-primary-fixed:       #809bff;
+  --color-primary-fixed-dim:   #809bff;
+  --color-inverse-primary:     #3367ff;
+  --color-on-primary:          #060e20;
   --color-on-primary-fixed:    #000000;
-  --color-on-primary-fixed-variant: #430076;
-  --color-on-primary-container: #360061;
+  --color-on-primary-fixed-variant: #12318f;
+  --color-on-primary-container: #060e20;
 
   /* Sekundaer */
   --color-secondary:             #34b5fa;
@@ -106,12 +106,12 @@
   --color-on-secondary:           #003915;
   --color-on-secondary-container: #dee5ff;
 
-  /* Tertiary — Deep Violet */
-  --color-tertiary:              #a68cff;
-  --color-tertiary-dim:          #7e51ff;
-  --color-tertiary-container:    #3d0099;
+  /* Tertiary — Teal */
+  --color-tertiary:              #2dd4bf;
+  --color-tertiary-dim:          #14b8a6;
+  --color-tertiary-container:    #115e59;
   --color-on-tertiary:           #060e20;
-  --color-on-tertiary-container: #ece0ff;
+  --color-on-tertiary-container: #ccfbf1;
 
   /* Glow angepasst */
   --glow-primary:   0 0 20px rgba(148, 170, 255, 0.35);
@@ -144,12 +144,12 @@
   --color-on-secondary:           #003915;
   --color-on-secondary-container: #dee5ff;
 
-  /* Tertiary — Deep Violet */
-  --color-tertiary:              #a68cff;
-  --color-tertiary-dim:          #7e51ff;
-  --color-tertiary-container:    #3d0099;
+  /* Tertiary — Teal */
+  --color-tertiary:              #2dd4bf;
+  --color-tertiary-dim:          #14b8a6;
+  --color-tertiary-container:    #115e59;
   --color-on-tertiary:           #060e20;
-  --color-on-tertiary-container: #ece0ff;
+  --color-on-tertiary-container: #ccfbf1;
 
   /* Glow angepasst */
   --glow-primary:   0 0 20px rgba(148, 170, 255, 0.35);
@@ -181,12 +181,12 @@
   --color-on-secondary:           #003915;
   --color-on-secondary-container: #dee5ff;
 
-  /* Tertiary — Deep Violet */
-  --color-tertiary:              #a68cff;
-  --color-tertiary-dim:          #7e51ff;
-  --color-tertiary-container:    #3d0099;
+  /* Tertiary — Teal */
+  --color-tertiary:              #2dd4bf;
+  --color-tertiary-dim:          #14b8a6;
+  --color-tertiary-container:    #115e59;
   --color-on-tertiary:           #060e20;
-  --color-on-tertiary-container: #ece0ff;
+  --color-on-tertiary-container: #ccfbf1;
 
   /* Glow angepasst */
   --glow-primary:   0 0 20px rgba(148, 170, 255, 0.35);
@@ -340,40 +340,40 @@ body {
 /* ── Light-Theme Override (Electric Noir — hell, warm getoennt) ── */
 [data-theme="light"] {
   /* Hintergruende — warm-weiss, leicht blaeulich getoennt */
-  --color-background:                #f5f3ff;
-  --color-surface:                   #f5f3ff;
-  --color-surface-dim:               #ece9f7;
+  --color-background:                #f4f6fb;
+  --color-surface:                   #f4f6fb;
+  --color-surface-dim:               #e7ebf4;
   --color-surface-container-lowest:  #ffffff;
-  --color-surface-container-low:     #f0edf8;
-  --color-surface-container:         #eae7f4;
-  --color-surface-container-high:    #e4e0f0;
-  --color-surface-container-highest: #ddd9ec;
-  --color-surface-variant:           #ddd9ec;
-  --color-surface-bright:            #f8f6ff;
-  --color-surface-tint:              #7b2fc9;
+  --color-surface-container-low:     #eef1f8;
+  --color-surface-container:         #e6eaf3;
+  --color-surface-container-high:    #e0e5f0;
+  --color-surface-container-highest: #d8dded;
+  --color-surface-variant:           #d8dded;
+  --color-surface-bright:            #f7f9fe;
+  --color-surface-tint:              #2f4fd8;
 
   /* Primaer — satter, dunkler als im Dark-Theme */
-  --color-primary:             #7b2fc9;
-  --color-primary-dim:         #6320a8;
-  --color-primary-container:   #eedcff;
-  --color-primary-fixed:       #eedcff;
-  --color-primary-fixed-dim:   #dbb8ff;
-  --color-inverse-primary:     #cc97ff;
+  --color-primary:             #2f4fd8;
+  --color-primary-dim:         #2440b0;
+  --color-primary-container:   #dbe3ff;
+  --color-primary-fixed:       #dbe3ff;
+  --color-primary-fixed-dim:   #b3c4ff;
+  --color-inverse-primary:     #94aaff;
   --color-on-primary:          #ffffff;
-  --color-on-primary-fixed:    #2a004f;
-  --color-on-primary-fixed-variant: #430076;
-  --color-on-primary-container: #2a004f;
+  --color-on-primary-fixed:    #001452;
+  --color-on-primary-fixed-variant: #12318f;
+  --color-on-primary-container: #001452;
 
   /* Sekundaer */
-  --color-secondary:             #0073a8;
-  --color-secondary-dim:         #005d8a;
-  --color-secondary-container:   #c8e6ff;
-  --color-secondary-fixed:       #c8e6ff;
-  --color-secondary-fixed-dim:   #8ecfff;
+  --color-secondary:             #0f8a3d;
+  --color-secondary-dim:         #0b6e30;
+  --color-secondary-container:   #c6f0d4;
+  --color-secondary-fixed:       #c6f0d4;
+  --color-secondary-fixed-dim:   #90dfa8;
   --color-on-secondary:          #ffffff;
-  --color-on-secondary-fixed:    #001e30;
-  --color-on-secondary-fixed-variant: #004a6e;
-  --color-on-secondary-container: #001e30;
+  --color-on-secondary-fixed:    #00210f;
+  --color-on-secondary-fixed-variant: #005226;
+  --color-on-secondary-container: #00210f;
 
   /* Tertiaer */
   --color-tertiary:              #4a4e54;
@@ -394,30 +394,30 @@ body {
   --color-on-error-container: #400012;
 
   /* On-Surface / Outline */
-  --color-on-surface:          #1c1b2e;
+  --color-on-surface:          #14161f;
   --color-on-surface-variant:  #48465c;
-  --color-on-background:       #1c1b2e;
+  --color-on-background:       #14161f;
   --color-outline:             #7a7890;
   --color-outline-variant:     #c8c5d8;
 
   /* Inverse */
   --color-inverse-surface:     #2f2d42;
-  --color-inverse-on-surface:  #f3f0ff;
+  --color-inverse-on-surface:  #f2f4fb;
 
   /* Glow — dezenter im Light-Theme */
-  --glow-primary:   0 0 16px rgba(123, 47, 201, 0.12);
-  --glow-secondary: 0 0 10px rgba(0, 115, 168, 0.08);
+  --glow-primary:   0 0 16px rgba(47, 79, 216, 0.12);
+  --glow-secondary: 0 0 10px rgba(15, 138, 61, 0.09);
   --glow-error:     0 0 10px rgba(186, 26, 64, 0.12);
-  --glass-bg:       rgba(234, 231, 244, 0.6);
+  --glass-bg:       rgba(231, 235, 244, 0.6);
 }
 
 [data-theme="light"] .glass-card {
-  background: rgba(234, 231, 244, 0.6);
+  background: rgba(231, 235, 244, 0.6);
   border-top-color: rgba(0, 0, 0, 0.06);
 }
 
 [data-theme="light"] .module-card {
-  background: rgba(234, 231, 244, 0.6);
+  background: rgba(231, 235, 244, 0.6);
   border-color: rgba(0, 0, 0, 0.08);
   border-top-color: rgba(0, 0, 0, 0.1);
 }

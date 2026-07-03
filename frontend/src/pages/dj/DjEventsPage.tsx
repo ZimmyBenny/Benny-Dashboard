@@ -659,7 +659,7 @@ export function DjEventsPage() {
                         anfrage:                 'rgba(148,170,255,0.06)',
                         vorgespraech_vereinbart: 'rgba(148,170,255,0.06)',
                         angebot_gesendet:        'rgba(148,170,255,0.08)',
-                        bestaetigt:              'rgba(166,140,255,0.08)',
+                        bestaetigt:              'rgba(45,212,191,0.08)',
                         abgeschlossen:           'rgba(92,253,128,0.07)',
                         abgesagt:                'rgba(255,110,132,0.06)',
                       };

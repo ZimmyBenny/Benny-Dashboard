@@ -12,7 +12,7 @@ const STATUS_CONFIG: Record<AnyStatus, { label: string; bg: string; text: string
   neu:                       { label: 'Neu',                    bg: 'var(--color-outline-variant-20)', text: 'var(--color-on-surface-variant)', dot: '#94aaff' },
   vorgespraech_vereinbart:   { label: 'Vorgespräch vereinbart', bg: 'rgba(148,170,255,0.15)',          text: 'var(--color-primary)',            dot: '#94aaff' },
   angebot_gesendet:          { label: 'Angebot gesendet',       bg: 'rgba(148,170,255,0.15)',          text: 'var(--color-primary)',            dot: '#94aaff' },
-  bestaetigt:                { label: 'Bestätigt',              bg: 'rgba(166,140,255,0.15)',          text: 'var(--color-tertiary)',           dot: '#5cfd80' },
+  bestaetigt:                { label: 'Bestätigt',              bg: 'rgba(45,212,191,0.15)',          text: 'var(--color-tertiary)',           dot: '#5cfd80' },
   abgeschlossen:             { label: 'Abgeschlossen',          bg: 'rgba(92,253,128,0.15)',           text: 'var(--color-secondary)',          dot: 'rgba(92,253,128,0.5)' },
   abgesagt:                  { label: 'Abgesagt',               bg: 'rgba(255,110,132,0.15)',          text: 'var(--color-error)',              dot: '#ff6e84' },
   // Quote-Status
@@ -23,7 +23,7 @@ const STATUS_CONFIG: Record<AnyStatus, { label: string; bg: string; text: string
   abgelaufen:                { label: 'Abgelaufen',             bg: 'rgba(109,117,140,0.2)',           text: 'var(--color-on-surface-variant)', dot: 'rgba(109,117,140,0.5)' },
   // Invoice-Status
   offen:                     { label: 'Offen',                  bg: 'rgba(148,170,255,0.15)',          text: 'var(--color-primary)',            dot: '#94aaff' },
-  teilbezahlt:               { label: 'Teilbezahlt',            bg: 'rgba(166,140,255,0.15)',          text: 'var(--color-tertiary)',           dot: '#a68cff' },
+  teilbezahlt:               { label: 'Teilbezahlt',            bg: 'rgba(45,212,191,0.15)',          text: 'var(--color-tertiary)',           dot: '#2dd4bf' },
   bezahlt:                   { label: 'Bezahlt',                bg: 'rgba(92,253,128,0.15)',           text: 'var(--color-secondary)',          dot: '#5cfd80' },
   ueberfaellig:              { label: 'Überfällig',             bg: 'rgba(255,110,132,0.15)',          text: 'var(--color-error)',              dot: '#ff6e84' },
   storniert:                 { label: 'Storniert',              bg: 'rgba(109,117,140,0.3)',           text: 'var(--color-outline)', extra: 'line-through', dot: 'rgba(109,117,140,0.5)' },

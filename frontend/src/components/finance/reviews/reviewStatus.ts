@@ -90,7 +90,7 @@ export const STATUS_CONFIG: Record<ReviewStatus, StatusConfigEntry> = {
   vorgemerkt:     { label: 'Vorgemerkt',          icon: 'bookmark',              accent: '#6d758c', bg: 'rgba(109,117,140,0.20)', border: 'rgba(109,117,140,0.40)' },
   bestellt:       { label: 'Bestellt',            icon: 'local_shipping',        accent: '#2dd4bf', bg: 'rgba(45,212,191,0.15)',  border: 'rgba(45,212,191,0.40)' },
   erhalten:       { label: 'Erhalten',            icon: 'inbox',                 accent: '#34b5fa', bg: 'rgba(52,181,250,0.15)',  border: 'rgba(52,181,250,0.40)' },
-  bewertet:       { label: 'Bewertet',            icon: 'rate_review',           accent: '#a68cff', bg: 'rgba(166,140,255,0.15)', border: 'rgba(166,140,255,0.40)' },
+  bewertet:       { label: 'Bewertet',            icon: 'rate_review',           accent: '#f472b6', bg: 'rgba(244,114,182,0.15)', border: 'rgba(244,114,182,0.40)' },
   geld_erhalten:  { label: 'Geld erhalten',       icon: 'account_balance_wallet', accent: '#4ade80', bg: 'rgba(74,222,128,0.15)',  border: 'rgba(74,222,128,0.40)' },
   bereit_verkauf: { label: 'Bereit zu verkaufen', icon: 'sell',                  accent: '#5cfd80', bg: 'rgba(92,253,128,0.12)',  border: 'rgba(92,253,128,0.35)' },
   behalten:       { label: 'Behalten',            icon: 'home',                  accent: '#ffc457', bg: 'rgba(255,196,87,0.15)',  border: 'rgba(255,196,87,0.40)' },
