@@ -83,11 +83,13 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   DJ MODULE — "The Synthetic Conductor" color scope
-   Überschreibt Primary/Secondary/Tertiary + Font nur innerhalb
-   von [data-module="dj"]. Rest des Dashboards bleibt unverändert.
+   GLOBALE PALETTE — "The Synthetic Conductor" (Electric Blue / Emerald)
+   Gilt app-weit via :root (User-Entscheidung 2026-07-03: Blau/Grün +
+   Manrope als Standard für ALLE Bereiche). Die [data-module]-Selektoren
+   bleiben (redundant, setzen dieselben Werte).
    Werte aus: DJ Dashboard/files/DESIGN_SYSTEM.md
    ═══════════════════════════════════════════════════════════════════ */
+:root,
 [data-module="dj"] {
   /* Primary — Electric Blue */
   --color-primary:              #94aaff;
