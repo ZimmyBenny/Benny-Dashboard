@@ -4,9 +4,9 @@
   /* === ELECTRIC NOIR — vollstaendige Token-Palette === */
   /* Quelle: Design/home_hero_page/code.html tailwind.config */
 
-  /* Hintergruende */
-  --color-background:                #060e20;
-  --color-surface:                   #060e20;
+  /* Hintergruende — ECOSYSTEM-Hintergrundfarbe (aus Screenshot gesampelt, etwas dunkler) */
+  --color-background:                #0f161e;
+  --color-surface:                   #0f161e;
   --color-surface-dim:               #060e20;
   --color-surface-container-lowest:  #000000;
   --color-surface-container-low:     #091328;

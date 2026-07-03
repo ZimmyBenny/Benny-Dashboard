@@ -1,7 +1,7 @@
 /**
  * SharpGridBackground — dezentes Hintergrund-Raster für die Dashboard-Landings.
  *
- * Feines 32px-Raster aus zwei repeating-linear-gradients. Die Linienfarbe
+ * Feines 44px-Raster aus zwei repeating-linear-gradients. Die Linienfarbe
  * leitet sich per color-mix aus --color-primary ab und nimmt damit automatisch
  * den Modul-Akzent auf (blau in DJ/Amazon/Finanzen, lila auf Default-Seiten).
  *
@@ -20,9 +20,9 @@ export function SharpGridBackground() {
         pointerEvents: 'none',
         zIndex: 0,
         backgroundImage:
-          `repeating-linear-gradient(0deg, ${line} 0px, ${line} 1px, transparent 1px, transparent 32px), ` +
-          `repeating-linear-gradient(90deg, ${line} 0px, ${line} 1px, transparent 1px, transparent 32px)`,
-        backgroundSize: '32px 32px',
+          `repeating-linear-gradient(0deg, ${line} 0px, ${line} 1px, transparent 1px, transparent 44px), ` +
+          `repeating-linear-gradient(90deg, ${line} 0px, ${line} 1px, transparent 1px, transparent 44px)`,
+        backgroundSize: '44px 44px',
       }}
     />
   );
