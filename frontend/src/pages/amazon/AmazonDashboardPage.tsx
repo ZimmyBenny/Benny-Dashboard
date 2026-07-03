@@ -88,8 +88,13 @@ export function AmazonDashboardPage() {
       </div>
 
       {/* ── Offene Aufgaben (Hero-Panel ganz oben) ─────────── */}
-      <div style={{ marginBottom: '2rem' }}>
+      <div style={{ marginBottom: '1.25rem' }}>
         <AmazonOpenTasks />
+      </div>
+
+      {/* ── Zeit (DE/China) & EUR/USD-Wechselkurs ──────────── */}
+      <div style={{ marginBottom: '2rem' }}>
+        <AmazonInfoBar />
       </div>
 
       {/* ── Status-KPIs ────────────────────────────────────── */}
@@ -106,11 +111,6 @@ export function AmazonDashboardPage() {
       {data && (
         <AmazonStatusKpis counts={data.counts} onNavigate={() => navigate('/amazon/entwicklung')} />
       )}
-
-      {/* ── Zeit (DE/China) & EUR/USD-Wechselkurs ──────────── */}
-      <div style={{ marginTop: '1.25rem' }}>
-        <AmazonInfoBar />
-      </div>
 
       {/* ── Aktive Produkte ────────────────────────────────── */}
       {data && (

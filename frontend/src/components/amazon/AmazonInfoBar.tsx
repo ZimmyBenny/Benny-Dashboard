@@ -14,21 +14,21 @@ function fmtDate(d: Date, tz: string): string {
   return d.toLocaleDateString('de-DE', { timeZone: tz, weekday: 'long', day: 'numeric', month: 'long' });
 }
 
-const CARD: React.CSSProperties = { padding: '1.25rem 1.5rem' };
-const INNER: React.CSSProperties = { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: '0.4rem' };
+const CARD: React.CSSProperties = { padding: '0.7rem 0.95rem' };
+const INNER: React.CSSProperties = { position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: '0.2rem' };
 const LABEL: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: '0.5rem',
-  fontFamily: 'var(--font-body)', fontSize: '0.7rem', letterSpacing: '0.08em',
+  display: 'flex', alignItems: 'center', gap: '0.4rem',
+  fontFamily: 'var(--font-body)', fontSize: '0.6rem', letterSpacing: '0.07em',
   textTransform: 'uppercase', color: 'var(--color-on-surface-variant)',
 };
 const VALUE: React.CSSProperties = {
-  fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '1.7rem', lineHeight: 1.05,
+  fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '1.2rem', lineHeight: 1.05,
   color: 'var(--color-on-surface)', fontVariantNumeric: 'tabular-nums',
 };
-const SUB: React.CSSProperties = { fontFamily: 'var(--font-body)', fontSize: '0.72rem', color: 'var(--color-outline)' };
+const SUB: React.CSSProperties = { fontFamily: 'var(--font-body)', fontSize: '0.66rem', color: 'var(--color-outline)' };
 
 function Icon({ name }: { name: string }) {
-  return <span className="material-symbols-outlined" style={{ fontSize: '1.05rem', color: 'var(--color-primary)' }}>{name}</span>;
+  return <span className="material-symbols-outlined" style={{ fontSize: '0.9rem', color: 'var(--color-primary)' }}>{name}</span>;
 }
 
 export function AmazonInfoBar() {
@@ -49,7 +49,7 @@ export function AmazonInfoBar() {
   const fxSub = fx.data?.date ? `Stand ${fx.data.date}` : 'EUR → USD';
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '0.5rem' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '0.5rem' }}>
       <div className="module-card" style={CARD}>
         <div style={INNER}>
           <div style={LABEL}><Icon name="schedule" /> Deutschland</div>
