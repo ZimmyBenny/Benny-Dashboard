@@ -10,7 +10,7 @@
  * pointerEvents:none — blockiert keine Klicks.
  */
 export function SharpGridBackground() {
-  const line = 'color-mix(in srgb, var(--color-primary) 3.5%, transparent)';
+  const line = 'var(--sharp-grid-line)';
   return (
     <div
       aria-hidden

@@ -196,6 +196,10 @@
   --font-headline: "Manrope", "Epilogue", sans-serif;
 }
 
+/* Hintergrund-Raster (SharpGridBackground) — theme-abhaengig sichtbar */
+:root                { --sharp-grid-line: color-mix(in srgb, var(--color-primary) 3.5%, transparent); }
+[data-theme="light"] { --sharp-grid-line: color-mix(in srgb, var(--color-primary) 14%, transparent); }
+
 /* Glass-Card Klasse — exakter Wert aus Design-HTML (per D-05) */
 /* NICHT via Tailwind-Opacity-Modifier, da rgba(25,37,64,0.4) nicht identisch mit surface-variant/40 */
 .glass-card {
