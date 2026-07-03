@@ -271,6 +271,9 @@ export function Sidebar() {
         backgroundColor: '#0a0a0f',
         borderRight: '1px solid rgba(255,255,255,0.07)',
         boxShadow: '2px 0 16px rgba(0,0,0,0.6)',
+        // Sidebar-Text weisser (scoped, global unveraendert)
+        '--color-on-surface': '#f4f6fc',
+        '--color-on-surface-variant': '#c8cee1',
       }}
     >
       {/* Brand mark */}
