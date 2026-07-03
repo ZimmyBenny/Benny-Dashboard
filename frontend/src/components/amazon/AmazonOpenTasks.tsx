@@ -81,7 +81,7 @@ export function AmazonOpenTasks() {
       <div style={{
         border: '1px solid rgba(148,170,255,0.25)',
         borderRadius: '1rem',
-        background: 'linear-gradient(135deg, rgba(148,170,255,0.06) 0%, rgba(6,14,32,0.55) 100%)',
+        background: 'linear-gradient(135deg, rgba(148,170,255,0.06) 0%, var(--color-surface-container) 100%)',
         boxShadow: '0 0 40px rgba(148,170,255,0.12), inset 0 1px 0 rgba(255,255,255,0.04)',
         padding: '1.25rem 1.5rem',
       }}>
@@ -161,8 +161,8 @@ export function AmazonOpenTasks() {
                     textAlign: 'left', cursor: 'pointer', width: '100%',
                     display: 'flex', alignItems: 'center', gap: '0.75rem',
                     padding: '0.7rem 0.9rem', borderRadius: '0.65rem',
-                    background: overdue ? 'rgba(255,110,132,0.06)' : 'rgba(255,255,255,0.02)',
-                    border: '1px solid rgba(255,255,255,0.06)',
+                    background: overdue ? 'rgba(255,110,132,0.06)' : 'var(--color-surface-container-high)',
+                    border: '1px solid var(--color-outline-variant)',
                     borderLeft: overdue ? '3px solid var(--color-error)' : '3px solid rgba(148,170,255,0.35)',
                   }}
                 >

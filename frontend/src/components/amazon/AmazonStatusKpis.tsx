@@ -35,7 +35,7 @@ export function AmazonStatusKpis({ counts, onNavigate }: Props) {
           key={kpi.key}
           onClick={onNavigate}
           style={{
-            background: 'rgba(13,20,38,0.90)',
+            background: 'var(--color-surface-container)',
             border: '1px solid rgba(148,170,255,0.16)',
             borderRadius: '0.75rem',
             padding: '1rem 1.125rem',
@@ -48,11 +48,11 @@ export function AmazonStatusKpis({ counts, onNavigate }: Props) {
           }}
           onMouseEnter={(e) => {
             (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(148,170,255,0.30)';
-            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(20,30,52,0.95)';
+            (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-surface-container-high)';
           }}
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(148,170,255,0.16)';
-            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(13,20,38,0.90)';
+            (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-surface-container)';
           }}
         >
           <span
