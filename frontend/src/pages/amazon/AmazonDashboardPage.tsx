@@ -7,6 +7,7 @@ import { AmazonStatusKpis } from '../../components/amazon/AmazonStatusKpis';
 import { AmazonActiveProducts } from '../../components/amazon/AmazonActiveProducts';
 import { AmazonOpenTasks } from '../../components/amazon/AmazonOpenTasks';
 import { AmazonNavTiles } from '../../components/amazon/AmazonNavTiles';
+import { AmazonInfoBar } from '../../components/amazon/AmazonInfoBar';
 
 function SectionDivider({ label }: { label: string }) {
   return (
@@ -105,6 +106,11 @@ export function AmazonDashboardPage() {
       {data && (
         <AmazonStatusKpis counts={data.counts} onNavigate={() => navigate('/amazon/entwicklung')} />
       )}
+
+      {/* ── Zeit (DE/China) & EUR/USD-Wechselkurs ──────────── */}
+      <div style={{ marginTop: '1.25rem' }}>
+        <AmazonInfoBar />
+      </div>
 
       {/* ── Aktive Produkte ────────────────────────────────── */}
       {data && (
