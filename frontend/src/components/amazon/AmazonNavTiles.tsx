@@ -16,13 +16,13 @@ const TILES: Tile[] = [
 export function AmazonNavTiles() {
   const navigate = useNavigate();
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.625rem' }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0.625rem' }}>
       {TILES.map((tile) => (
         <button
           key={tile.path}
           className="module-card"
           onClick={() => navigate(tile.path)}
-          style={{ textAlign: 'left', padding: '1rem 1.125rem', cursor: 'pointer' }}
+          style={{ width: '190px', textAlign: 'left', padding: '1rem 1.125rem', cursor: 'pointer' }}
         >
           <span className="material-symbols-outlined" aria-hidden style={{
             position: 'absolute', bottom: '0.25rem', right: '0.5rem',
