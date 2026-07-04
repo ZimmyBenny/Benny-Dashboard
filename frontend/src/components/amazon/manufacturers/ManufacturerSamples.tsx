@@ -16,6 +16,15 @@ const INPUT_STYLE: React.CSSProperties = {
 const MAX_BYTES = 20 * 1024 * 1024;
 const STATUS_OPTS: ManufacturerSample['status'][] = ['angefragt', 'bestellt', 'erhalten', 'abgelehnt'];
 
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1 min-w-0">
+      <span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--color-on-surface-variant)' }}>{label}</span>
+      {children}
+    </label>
+  );
+}
+
 function PhotoThumb({ productId, mId, sId, photo, onDelete }: { productId: number; mId: number; sId: number; photo: SamplePhoto; onDelete: () => void }) {
   const isImage = (photo.mime ?? '').startsWith('image/');
   const [src, setSrc] = useState<string | null>(null);
@@ -109,8 +118,11 @@ function SampleBlock({ productId, mId, sample, rate }: { productId: number; mId:
   }
 
   return (
-    <div className="rounded-lg p-3" onPaste={onPaste} data-card-paste
-      style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}>
+    <div className="relative overflow-hidden rounded-xl p-4" onPaste={onPaste} data-card-paste
+      style={{ background: 'var(--color-surface-container)', border: `1px solid ${sample.is_favorite ? 'rgba(148,170,255,0.35)' : 'var(--color-outline-variant, rgba(255,255,255,0.08))'}` }}>
+      {sample.is_favorite ? (
+        <div className="absolute top-0 left-0 right-0" style={{ height: 3, background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))' }} />
+      ) : null}
       <div className="flex items-center gap-2 flex-wrap">
         <button type="button" onClick={() => save({ is_favorite: sample.is_favorite ? 0 : 1 })}
           style={{ color: sample.is_favorite ? '#fbbf24' : 'var(--color-on-surface-variant)' }} title="Favorit/Gewinner">
@@ -158,63 +170,70 @@ function SampleBlock({ productId, mId, sample, rate }: { productId: number; mId:
         onChange={(e) => { pickMany(e.target.files); e.target.value = ''; }} />
       {err && <p className="text-xs mt-1" style={{ color: '#fca5a5' }}>{err}</p>}
 
-      <div className="flex flex-col gap-2 mt-2">
-        <textarea value={notizen} onChange={(e) => setNotizen(e.target.value)} onBlur={() => { if (notizen !== (sample.notizen ?? '')) save({ notizen }); }}
-          placeholder="Notizen zur Charge …" rows={2} className="w-full px-2 py-1 rounded text-sm resize-y" style={INPUT_STYLE} />
-        <textarea value={maengel} onChange={(e) => setMaengel(e.target.value)} onBlur={() => { if (maengel !== (sample.maengel ?? '')) save({ maengel }); }}
-          placeholder="Mängel / Verbesserungspunkte …" rows={2} className="w-full px-2 py-1 rounded text-sm resize-y" style={INPUT_STYLE} />
-        <div className="flex items-center gap-2">
-          <span className="text-xs w-24 flex-shrink-0" style={{ color: 'var(--color-on-surface-variant)' }}>Erhalten am</span>
-          {(datum || editingDate) ? (
-            <>
-              <input type="date" autoFocus={editingDate && !datum} value={datum} onChange={(e) => setDatum(e.target.value)}
-                onBlur={() => { setEditingDate(false); if (datum !== (sample.received_date ?? '')) save({ received_date: datum }); }}
-                className="px-2 py-1 rounded text-sm" style={INPUT_STYLE} />
-              <button type="button" onMouseDown={(e) => e.preventDefault()}
-                onClick={() => { setDatum(''); setEditingDate(false); if ((sample.received_date ?? '') !== '') save({ received_date: '' }); }}
-                title="Datum löschen" aria-label="Datum löschen" className="p-1 rounded hover:bg-white/5" style={{ color: 'var(--color-on-surface-variant)' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
+      <div className="flex flex-col gap-2 mt-3">
+        <Field label="Notizen">
+          <textarea value={notizen} onChange={(e) => setNotizen(e.target.value)} onBlur={() => { if (notizen !== (sample.notizen ?? '')) save({ notizen }); }}
+            placeholder="Notizen zur Charge …" rows={2} className="w-full px-2 py-1 rounded text-sm resize-y" style={INPUT_STYLE} />
+        </Field>
+        <Field label="Mängel / Verbesserungen">
+          <textarea value={maengel} onChange={(e) => setMaengel(e.target.value)} onBlur={() => { if (maengel !== (sample.maengel ?? '')) save({ maengel }); }}
+            placeholder="Mängel / Verbesserungspunkte …" rows={2} className="w-full px-2 py-1 rounded text-sm resize-y" style={INPUT_STYLE} />
+        </Field>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <Field label="Erhalten am">
+            {(datum || editingDate) ? (
+              <div className="flex items-center gap-1">
+                <input type="date" autoFocus={editingDate && !datum} value={datum} onChange={(e) => setDatum(e.target.value)}
+                  onBlur={() => { setEditingDate(false); if (datum !== (sample.received_date ?? '')) save({ received_date: datum }); }}
+                  className="px-2 py-1 rounded text-sm flex-1" style={INPUT_STYLE} />
+                <button type="button" onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { setDatum(''); setEditingDate(false); if ((sample.received_date ?? '') !== '') save({ received_date: '' }); }}
+                  title="Datum löschen" aria-label="Datum löschen" className="p-1 rounded hover:bg-white/5 flex-shrink-0" style={{ color: 'var(--color-on-surface-variant)' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
+                </button>
+              </div>
+            ) : (
+              <button type="button" onClick={() => setEditingDate(true)} className="self-start px-2 py-1 rounded text-sm flex items-center gap-1"
+                style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span> Datum
               </button>
-            </>
-          ) : (
-            <button type="button" onClick={() => setEditingDate(true)} className="px-2 py-1 rounded text-sm flex items-center gap-1"
-              style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span> Datum
-            </button>
-          )}
+            )}
+          </Field>
+          <Field label="Sendungsnr.">
+            <input value={sendung} onChange={(e) => setSendung(e.target.value)} onBlur={() => { if (sendung !== (sample.sendungsnummer ?? '')) save({ sendungsnummer: sendung }); }}
+              placeholder="Tracking-Nummer …" className="w-full px-2 py-1 rounded text-sm" style={INPUT_STYLE} />
+          </Field>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs w-24 flex-shrink-0" style={{ color: 'var(--color-on-surface-variant)' }}>Sendungsnr.</span>
-          <input value={sendung} onChange={(e) => setSendung(e.target.value)} onBlur={() => { if (sendung !== (sample.sendungsnummer ?? '')) save({ sendungsnummer: sendung }); }}
-            placeholder="Tracking-Nummer …" className="flex-1 px-2 py-1 rounded text-sm" style={INPUT_STYLE} />
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs w-24 flex-shrink-0" style={{ color: 'var(--color-on-surface-variant)' }}>Link</span>
-          <input value={link} onChange={(e) => setLink(e.target.value)} onBlur={() => { if (link !== (sample.link_url ?? '')) save({ link_url: link }); }}
-            placeholder="https://… (z.B. Tracking- oder Produkt-Link)" className="flex-1 px-2 py-1 rounded text-sm" style={INPUT_STYLE} />
-          {sample.link_url && (
-            <a href={sample.link_url} target="_blank" rel="noopener noreferrer" className="p-1 rounded hover:bg-white/5 flex-shrink-0" title="Link öffnen" style={{ color: 'var(--color-primary)' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>open_in_new</span>
-            </a>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <input value={kosten} onChange={(e) => setKosten(e.target.value)} onBlur={() => { if (kosten !== (sample.kosten ?? '')) save({ kosten }); }}
-            placeholder="Kosten" className="px-2 py-1 rounded text-sm w-32" style={INPUT_STYLE} />
-          <select value={sample.currency} onChange={(e) => save({ currency: e.target.value as 'USD' | 'EUR' })}
-            className="px-2 py-1 rounded text-sm" style={INPUT_STYLE}>
-            <option value="USD">USD</option>
-            <option value="EUR">EUR</option>
-          </select>
-          {(() => {
-            const amount = parsePreis(kosten);
-            if (amount === null || !rate || rate <= 0) return null;
-            const conv = sample.currency === 'USD'
-              ? `≈ ${formatBetrag(amount / rate)} €`
-              : `≈ ${formatBetrag(amount * rate)} $`;
-            return <span className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }} title={`Kurs: 1 € = ${formatBetrag(rate)} $ (aus Angeboten)`}>{conv}</span>;
-          })()}
-        </div>
+        <Field label="Link">
+          <div className="flex items-center gap-2">
+            <input value={link} onChange={(e) => setLink(e.target.value)} onBlur={() => { if (link !== (sample.link_url ?? '')) save({ link_url: link }); }}
+              placeholder="https://… (z.B. Tracking- oder Produkt-Link)" className="flex-1 px-2 py-1 rounded text-sm" style={INPUT_STYLE} />
+            {sample.link_url && (
+              <a href={sample.link_url} target="_blank" rel="noopener noreferrer" className="p-1 rounded hover:bg-white/5 flex-shrink-0" title="Link öffnen" style={{ color: 'var(--color-primary)' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>open_in_new</span>
+              </a>
+            )}
+          </div>
+        </Field>
+        <Field label="Kosten">
+          <div className="flex items-center gap-2">
+            <input value={kosten} onChange={(e) => setKosten(e.target.value)} onBlur={() => { if (kosten !== (sample.kosten ?? '')) save({ kosten }); }}
+              placeholder="Kosten" className="px-2 py-1 rounded text-sm w-32" style={INPUT_STYLE} />
+            <select value={sample.currency} onChange={(e) => save({ currency: e.target.value as 'USD' | 'EUR' })}
+              className="px-2 py-1 rounded text-sm" style={INPUT_STYLE}>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+            </select>
+            {(() => {
+              const amount = parsePreis(kosten);
+              if (amount === null || !rate || rate <= 0) return null;
+              const conv = sample.currency === 'USD'
+                ? `≈ ${formatBetrag(amount / rate)} €`
+                : `≈ ${formatBetrag(amount * rate)} $`;
+              return <span className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }} title={`Kurs: 1 € = ${formatBetrag(rate)} $ (aus Angeboten)`}>{conv}</span>;
+            })()}
+          </div>
+        </Field>
       </div>
     </div>
   );
