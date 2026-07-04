@@ -79,6 +79,22 @@ const AREA_LABELS: Record<string, string> = {
   privat: 'Privat',
 };
 
+/** Zählt Dateien und Ordner rekursiv über den flachen Baum (inkl. des Ordners selbst). */
+function countFolderContents(
+  tree: DocFolder[],
+  rootId: number,
+): { files: number; folders: number } {
+  let files = 0;
+  let folders = 0;
+  const walk = (id: number) => {
+    folders += 1;
+    files += tree.find((f) => f.id === id)?.file_count ?? 0;
+    for (const child of tree.filter((f) => f.parent_id === id)) walk(child.id);
+  };
+  walk(rootId);
+  return { files, folders };
+}
+
 export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
   const queryClient = useQueryClient();
   const { preview, open: openPreview, close: closePreview } = useFilePreview();
@@ -566,9 +582,12 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                             type="button"
                             title="Löschen"
                             onClick={() => {
+                              const counts = countFolderContents(tree, folder.id);
                               if (
                                 confirm(
-                                  `Ordner „${folder.name}" enthält ${folder.file_count} Dateien. Wirklich löschen?`,
+                                  counts.folders > 1
+                                    ? `Ordner „${folder.name}" enthält ${counts.files} Dateien in ${counts.folders} Ordnern. Wirklich löschen?`
+                                    : `Ordner „${folder.name}" enthält ${counts.files} Dateien. Wirklich löschen?`,
                                 )
                               ) {
                                 deleteFolderMut.mutate(folder.id);
