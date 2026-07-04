@@ -886,7 +886,7 @@ export function DashboardPage() {
         </div>
       </div>
 
-      <QuickNote />
+      <QuickNote scope="start" />
       <TaskSlideOver
         isOpen={isNewTaskOpen}
         onClose={() => setIsNewTaskOpen(false)}

@@ -68,7 +68,7 @@ export function FinanzenDashboardPage() {
       <SectionDivider label="Bereiche" />
       <FinanzenNavTiles />
 
-      <QuickNote />
+      <QuickNote scope="finanzen" />
         </div>
       </div>
     </PageWrapper>

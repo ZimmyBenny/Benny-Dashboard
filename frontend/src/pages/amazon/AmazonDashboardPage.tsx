@@ -125,7 +125,7 @@ export function AmazonDashboardPage() {
       <SectionDivider label="Bereiche" />
       <AmazonNavTiles />
 
-      <QuickNote />
+      <QuickNote scope="amazon" />
 
       <NewProductDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
         </div>

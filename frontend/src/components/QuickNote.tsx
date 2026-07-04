@@ -1,41 +1,45 @@
 import { useState, useEffect, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getQuickNote, saveQuickNote } from '../api/quicknote.api';
+import { TaskSlideOver } from './tasks/TaskSlideOver';
+import { createTask, type Task } from '../api/tasks.api';
 
 /**
- * QuickNote — globales Scratchpad am Fuß der Dashboards.
- * Ein Textfeld, Auto-Speichern (entprellt ~700ms + beim Verlassen),
- * gespeichert im app_settings-Key 'quick_note'. Reibungslos, kein Button.
+ * QuickNote — Scratchpad PRO Dashboard (scope).
+ * Ein Textfeld, Auto-Speichern (entprellt ~700ms + onBlur), getrennt je Bereich
+ * gespeichert (app_settings-Key quick_note_<scope>). Plus "→ In Aufgabe"-Button,
+ * der den Notiz-Text mit passendem Bereich ins Aufgaben-Formular übernimmt.
  */
-export function QuickNote() {
-  const { data } = useQuery({ queryKey: ['quick-note'], queryFn: getQuickNote, staleTime: 60_000 });
+const SCOPE_AREA: Record<string, string> = {
+  amazon: 'Amazon', dj: 'DJ', finanzen: 'Finanzen', start: 'Sonstiges',
+};
+
+export function QuickNote({ scope }: { scope: string }) {
+  const queryClient = useQueryClient();
+  const { data } = useQuery({ queryKey: ['quick-note', scope], queryFn: () => getQuickNote(scope), staleTime: 60_000 });
   const [text, setText] = useState<string | null>(null);
   const [saved, setSaved] = useState(true);
+  const [taskOpen, setTaskOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Einmalig mit geladenem Wert initialisieren
-  useEffect(() => {
-    if (data !== undefined && text === null) setText(data);
-  }, [data, text]);
-
+  useEffect(() => { if (data !== undefined && text === null) setText(data); }, [data, text]);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
   function scheduleSave(v: string) {
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      saveQuickNote(v).then(() => setSaved(true)).catch(() => {});
-    }, 700);
+    timer.current = setTimeout(() => { saveQuickNote(scope, v).then(() => setSaved(true)).catch(() => {}); }, 700);
   }
-
-  function handleChange(v: string) {
-    setText(v);
-    setSaved(false);
-    scheduleSave(v);
-  }
-
+  function handleChange(v: string) { setText(v); setSaved(false); scheduleSave(v); }
   function handleBlur() {
     if (timer.current) clearTimeout(timer.current);
-    if (text !== null) saveQuickNote(text).then(() => setSaved(true)).catch(() => {});
+    if (text !== null) saveQuickNote(scope, text).then(() => setSaved(true)).catch(() => {});
+  }
+
+  const trimmed = (text ?? '').trim();
+
+  async function handleTaskSave(dataToSave: Partial<Task> & { title: string }) {
+    await createTask(dataToSave);
+    queryClient.invalidateQueries({ queryKey: ['tasks'] });
   }
 
   return (
@@ -65,6 +69,32 @@ export function QuickNote() {
           }}
         />
       </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+        <button
+          onClick={() => setTaskOpen(true)}
+          disabled={!trimmed}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.35rem',
+            fontFamily: 'var(--font-body)', fontSize: '0.72rem', fontWeight: 600,
+            padding: '0.35rem 0.7rem', borderRadius: '9999px',
+            border: '1px solid var(--color-outline-variant)', background: 'transparent',
+            color: trimmed ? 'var(--color-primary)' : 'var(--color-outline)',
+            cursor: trimmed ? 'pointer' : 'not-allowed', opacity: trimmed ? 1 : 0.55,
+            transition: 'color 150ms ease, border-color 150ms ease',
+          }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '0.95rem' }}>add_task</span>
+          In Aufgabe umwandeln
+        </button>
+      </div>
+      <TaskSlideOver
+        isOpen={taskOpen}
+        onClose={() => setTaskOpen(false)}
+        task={null}
+        onSave={handleTaskSave}
+        onDelete={async () => {}}
+        prefill={{ title: trimmed, area: SCOPE_AREA[scope] }}
+      />
     </div>
   );
 }

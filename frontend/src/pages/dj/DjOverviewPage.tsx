@@ -699,7 +699,7 @@ export function DjOverviewPage() {
             )}
           </div>
 
-        <QuickNote />
+        <QuickNote scope="dj" />
         </div>{/* /content-wrapper */}
       </div>
       {showNeueAnfrage && (
