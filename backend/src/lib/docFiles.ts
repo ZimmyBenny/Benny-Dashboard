@@ -33,6 +33,14 @@ export const DEFAULT_DOKUMENTE_ROOT = path.join(
 );
 
 /**
+ * Default-Spiegel-Pfad: <Projektwurzel>/Dokumente — relativ zum Modulpfad
+ * aufgeloest (backend/src/lib -> 3 Ebenen hoch), NICHT process.cwd():
+ * das Backend laeuft mit cwd=backend/, cwd-basiert landete der Spiegel
+ * faelschlich in backend/Dokumente statt im iCloud-Projektordner.
+ */
+const DEFAULT_MIRROR_PATH = path.resolve(__dirname, '..', '..', '..', 'Dokumente');
+
+/**
  * Liefert den konfigurierten Dokumente-Root.
  * - Liest app_settings.dokumente_storage_path; falls leer/whitespace -> DEFAULT.
  */
@@ -60,12 +68,12 @@ export function getMirrorPath(): string | null {
       .prepare(`SELECT value FROM app_settings WHERE key = 'dokumente_mirror_path'`)
       .get() as KvRow | undefined;
     if (row === undefined) {
-      return path.join(process.cwd(), 'Dokumente');
+      return DEFAULT_MIRROR_PATH;
     }
     const v = row.value?.trim();
     return v && v.length > 0 ? v : null;
   } catch {
-    return path.join(process.cwd(), 'Dokumente');
+    return DEFAULT_MIRROR_PATH;
   }
 }
 
