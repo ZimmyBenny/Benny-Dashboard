@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { PageWrapper } from '../../components/layout/PageWrapper';
+import { ResearchSection } from '../../components/amazon/research/ResearchSection';
 import {
   fetchGlobalResearch, getResearchImageObjectUrl,
   type GlobalResearchCard, type ResearchImage,
@@ -135,39 +136,52 @@ export function AmazonResearchGlobalPage() {
           <h1 className="text-2xl font-semibold" style={{ color: 'var(--color-on-surface)' }}>Recherche &amp; Wissen</h1>
         </div>
         <p className="text-sm mt-1" style={{ color: 'var(--color-on-surface-variant)' }}>
-          Alle global geschalteten Recherche-Karten — produktübergreifend, mit Herkunft.
+          Eigene, produktunabhängige Recherche — plus alle aus Produkten geteilten Karten.
         </p>
       </div>
 
-      {isLoading && (
-        <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>Lädt …</p>
-      )}
-      {isError && (
-        <p className="text-sm" style={{ color: '#fca5a5' }}>Fehler beim Laden der globalen Recherche-Karten.</p>
-      )}
-      {!isLoading && !isError && groups.length === 0 && (
-        <div className="rounded-lg p-6 text-center text-sm"
-          style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)', color: 'var(--color-on-surface-variant)' }}>
-          Noch keine Karte global geschaltet. Öffne in einer Produkt-Recherche eine Karte und klicke auf das Globus-Symbol, um sie hier anzuzeigen.
-        </div>
-      )}
-
-      <div className="flex flex-col gap-6">
-        {groups.map(g => (
-          <section key={g.productId}>
-            <div className="flex items-center gap-2 mb-2">
-              <h2 className="text-base font-medium" style={{ color: 'var(--color-on-surface)' }}>{g.productName}</h2>
-              <span className="text-xs rounded-full px-2 py-0.5"
-                style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)' }}>
-                {g.cards.length}
-              </span>
-            </div>
-            <div className="flex flex-col gap-3">
-              {g.cards.map(c => <GlobalCard key={c.id} card={c} />)}
-            </div>
-          </section>
-        ))}
+      {/* Eigener, editierbarer globaler Recherche-Bereich (produktunabhängig) */}
+      <div className="mb-8">
+        <ResearchSection scope="global" defaultOpen />
       </div>
+
+      {/* Aus Produkten „global" geteilte Karten (read-only, mit Herkunft) */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <span className="material-symbols-outlined" style={{ fontSize: 20, color: 'var(--color-on-surface-variant)' }}>share</span>
+          <h2 className="text-lg font-semibold" style={{ color: 'var(--color-on-surface)' }}>Aus Produkten geteilt</h2>
+        </div>
+
+        {isLoading && (
+          <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>Lädt …</p>
+        )}
+        {isError && (
+          <p className="text-sm" style={{ color: '#fca5a5' }}>Fehler beim Laden der geteilten Recherche-Karten.</p>
+        )}
+        {!isLoading && !isError && groups.length === 0 && (
+          <div className="rounded-lg p-6 text-center text-sm"
+            style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)', color: 'var(--color-on-surface-variant)' }}>
+            Noch keine Karte aus einem Produkt geteilt. Öffne in einer Produkt-Recherche eine Karte und klicke auf das Globus-Symbol, um sie hier anzuzeigen.
+          </div>
+        )}
+
+        <div className="flex flex-col gap-6">
+          {groups.map(g => (
+            <section key={g.productId}>
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="text-base font-medium" style={{ color: 'var(--color-on-surface)' }}>{g.productName}</h3>
+                <span className="text-xs rounded-full px-2 py-0.5"
+                  style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)' }}>
+                  {g.cards.length}
+                </span>
+              </div>
+              <div className="flex flex-col gap-3">
+                {g.cards.map(c => <GlobalCard key={c.id} card={c} />)}
+              </div>
+            </section>
+          ))}
+        </div>
+      </section>
     </PageWrapper>
   );
 }
