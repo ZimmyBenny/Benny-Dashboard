@@ -203,13 +203,42 @@ export function BelegeTaxPage() {
           </table>
         </div>
 
-        {/* Legende — erklaert die UStVA-Kennziffern */}
+        {/* Drilldown */}
+        {drillIdx !== null && (
+          <section>
+            <h2
+              style={{
+                fontFamily: 'Manrope, sans-serif',
+                fontSize: '1.25rem',
+                fontWeight: 700,
+                color: 'var(--color-on-surface)',
+                margin: '0 0 0.75rem',
+              }}
+            >
+              Drilldown ·{' '}
+              {data.buckets.find((b) => b.period_index === drillIdx)?.label ??
+                `Bucket ${drillIdx}`}
+            </h2>
+            <p style={{ ...textMuted, marginBottom: '0.75rem' }}>
+              {drillLoading
+                ? 'Lade …'
+                : `${drillItems.length} ${drillItems.length === 1 ? 'Beleg' : 'Belege'} im Bucket (steuerrelevant, Ist-Versteuerung).`}
+            </p>
+            <ReceiptsTable
+              items={drillItems}
+              isLoading={drillLoading}
+              onClick={(r) => navigate(`/belege/${r.id}`)}
+            />
+          </section>
+        )}
+
+        {/* Legende — erklaert die UStVA-Kennziffern (am Seitenende) */}
         <div
           style={{
             background: 'var(--color-surface-variant)',
             borderRadius: '0.75rem',
             padding: '1rem 1.25rem',
-            marginBottom: '1.5rem',
+            marginTop: '2rem',
           }}
         >
           <p
@@ -267,35 +296,6 @@ export function BelegeTaxPage() {
             ))}
           </div>
         </div>
-
-        {/* Drilldown */}
-        {drillIdx !== null && (
-          <section>
-            <h2
-              style={{
-                fontFamily: 'Manrope, sans-serif',
-                fontSize: '1.25rem',
-                fontWeight: 700,
-                color: 'var(--color-on-surface)',
-                margin: '0 0 0.75rem',
-              }}
-            >
-              Drilldown ·{' '}
-              {data.buckets.find((b) => b.period_index === drillIdx)?.label ??
-                `Bucket ${drillIdx}`}
-            </h2>
-            <p style={{ ...textMuted, marginBottom: '0.75rem' }}>
-              {drillLoading
-                ? 'Lade …'
-                : `${drillItems.length} ${drillItems.length === 1 ? 'Beleg' : 'Belege'} im Bucket (steuerrelevant, Ist-Versteuerung).`}
-            </p>
-            <ReceiptsTable
-              items={drillItems}
-              isLoading={drillLoading}
-              onClick={(r) => navigate(`/belege/${r.id}`)}
-            />
-          </section>
-        )}
       </Container>
     </PageWrapper>
   );
