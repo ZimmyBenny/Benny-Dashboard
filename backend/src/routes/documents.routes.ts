@@ -63,6 +63,8 @@ interface DocFolderRow {
   area_slug: string | null;
   created_at: string;
   file_count: number;
+  product_id: number | null;
+  product_name: string | null;
 }
 
 interface DocFileRow {
@@ -202,7 +204,8 @@ router.get('/search', (req, res) => {
   }
 
   let folderSql = `SELECT id, parent_id, name, is_area_root, area_slug, created_at,
-      (SELECT COUNT(*) FROM doc_files WHERE folder_id = doc_folders.id) AS file_count
+      (SELECT COUNT(*) FROM doc_files WHERE folder_id = doc_folders.id) AS file_count,
+      product_id, NULL AS product_name
     FROM doc_folders
     WHERE name LIKE ? ESCAPE '\\' COLLATE NOCASE AND is_area_root = 0`;
   const folderParams: unknown[] = [like];
@@ -249,12 +252,73 @@ router.get('/tree', (_req, res) => {
   const rows = db
     .prepare(
       `SELECT f.id, f.parent_id, f.name, f.is_area_root, f.area_slug, f.created_at,
-              (SELECT COUNT(*) FROM doc_files WHERE folder_id = f.id) AS file_count
+              (SELECT COUNT(*) FROM doc_files WHERE folder_id = f.id) AS file_count,
+              f.product_id, ap.name AS product_name
        FROM doc_folders f
+       LEFT JOIN amazon_products ap ON ap.id = f.product_id
        ORDER BY f.is_area_root DESC, f.name COLLATE NOCASE ASC`,
     )
     .all() as DocFolderRow[];
   res.json(rows);
+});
+
+/**
+ * GET /api/dokumente/folders/by-product/:productId — alle mit einem Amazon-Produkt
+ * verknuepften Ordner inkl. Pfad. MUSS vor /folders/:id registriert sein, sonst
+ * matcht der :id-Parameter "by-product" (Threat T-kn6-02).
+ */
+router.get('/folders/by-product/:productId', (req, res) => {
+  const productId = parseInt(req.params.productId, 10);
+  if (!Number.isFinite(productId)) {
+    res.status(400).json({ error: 'Ungueltige Produkt-ID' });
+    return;
+  }
+
+  const rows = db
+    .prepare(
+      `SELECT id, parent_id, name, area_slug FROM doc_folders WHERE product_id = ?
+       ORDER BY name COLLATE NOCASE ASC`,
+    )
+    .all(productId) as Array<{
+    id: number;
+    parent_id: number | null;
+    name: string;
+    area_slug: string | null;
+  }>;
+
+  const allFolders = db
+    .prepare(`SELECT id, parent_id, name, is_area_root FROM doc_folders`)
+    .all() as Array<{ id: number; parent_id: number | null; name: string; is_area_root: number }>;
+  const folderMap = new Map(allFolders.map((f) => [f.id, f]));
+
+  function pathSegments(folderId: number): string[] {
+    // Sammelt Namen von folderId bis zur Wurzel, dreht um, laesst die
+    // Bereichs-Wurzel selbst weg (analog GET /search).
+    const chain: Array<{ name: string; is_area_root: number }> = [];
+    let cursor: number | null = folderId;
+    let guard = 0;
+    while (cursor !== null && guard < 50) {
+      guard++;
+      const f = folderMap.get(cursor);
+      if (!f) break;
+      chain.push({ name: f.name, is_area_root: f.is_area_root });
+      cursor = f.parent_id;
+    }
+    chain.reverse();
+    if (chain.length > 0 && chain[0].is_area_root === 1) {
+      chain.shift();
+    }
+    return chain.map((c) => c.name);
+  }
+
+  res.json(
+    rows.map((f) => ({
+      id: f.id,
+      name: f.name,
+      area_slug: f.area_slug,
+      path: f.parent_id !== null ? pathSegments(f.parent_id) : [],
+    })),
+  );
 });
 
 /** GET /api/dokumente/folders/:id — Unterordner + Dateien eines Ordners. */
@@ -267,8 +331,10 @@ router.get('/folders/:id', (req, res) => {
   const folders = db
     .prepare(
       `SELECT f.id, f.parent_id, f.name, f.is_area_root, f.area_slug, f.created_at,
-              (SELECT COUNT(*) FROM doc_files WHERE folder_id = f.id) AS file_count
+              (SELECT COUNT(*) FROM doc_files WHERE folder_id = f.id) AS file_count,
+              f.product_id, ap.name AS product_name
        FROM doc_folders f
+       LEFT JOIN amazon_products ap ON ap.id = f.product_id
        WHERE f.parent_id = ?
        ORDER BY f.name COLLATE NOCASE ASC`,
     )
@@ -312,7 +378,7 @@ router.post('/folders', async (req, res) => {
     const row = db
       .prepare(
         `SELECT id, parent_id, name, is_area_root, area_slug, created_at,
-                0 AS file_count
+                0 AS file_count, NULL AS product_id, NULL AS product_name
          FROM doc_folders WHERE id = ?`,
       )
       .get(newId);
@@ -346,7 +412,11 @@ router.patch('/folders/:id', async (req, res) => {
     return;
   }
 
-  const { name, parent_id } = (req.body ?? {}) as { name?: string; parent_id?: number };
+  const { name, parent_id, product_id } = (req.body ?? {}) as {
+    name?: string;
+    parent_id?: number;
+    product_id?: number | null;
+  };
 
   // Alte Pfade VOR dem DB-Update ermitteln (beide lesen aus der DB)
   const oldPath = folderFsPath(id);
@@ -361,6 +431,9 @@ router.patch('/folders/:id', async (req, res) => {
       }
       if (parent_id !== undefined) {
         db.prepare(`UPDATE doc_folders SET parent_id = ? WHERE id = ?`).run(parent_id, id);
+      }
+      if (product_id !== undefined) {
+        db.prepare(`UPDATE doc_folders SET product_id = ? WHERE id = ?`).run(product_id, id);
       }
     });
     tx();
@@ -392,8 +465,11 @@ router.patch('/folders/:id', async (req, res) => {
     const updated = db
       .prepare(
         `SELECT f.id, f.parent_id, f.name, f.is_area_root, f.area_slug, f.created_at,
-                (SELECT COUNT(*) FROM doc_files WHERE folder_id = f.id) AS file_count
-         FROM doc_folders f WHERE f.id = ?`,
+                (SELECT COUNT(*) FROM doc_files WHERE folder_id = f.id) AS file_count,
+                f.product_id, ap.name AS product_name
+         FROM doc_folders f
+         LEFT JOIN amazon_products ap ON ap.id = f.product_id
+         WHERE f.id = ?`,
       )
       .get(id);
     res.json(updated);
