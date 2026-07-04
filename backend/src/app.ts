@@ -30,6 +30,7 @@ import amazonResearchRoutes from './routes/amazon.research.routes';
 import amazonMyDataRoutes from './routes/amazon.mydata.routes';
 import amazonDashboardRoutes from './routes/amazon.dashboard.routes';
 import steuerRoutes from './routes/steuer.routes';
+import documentsRoutes from './routes/documents.routes';
 import { verifyToken, type AuthenticatedRequest } from './middleware/auth';
 
 export function createApp() {
@@ -71,6 +72,7 @@ export function createApp() {
   app.use('/api/dj', djRoutes);
   app.use('/api/reminders', remindersRoutes);
   app.use('/api/belege', belegeRoutes);
+  app.use('/api/dokumente', documentsRoutes);
   app.use('/api/trips', tripsRoutes);
   app.use('/api/finance/reviews', reviewsRoutes);
   app.use('/api/amazon', amazonProductsRoutes);

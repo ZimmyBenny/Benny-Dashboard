@@ -120,4 +120,17 @@ app.listen(PORT, () => {
   import('./jobs/contractReminders').then(({ startContractReminderJob }) => {
     startContractReminderJob();
   }).catch(err => console.error('[contracts-cron] Failed to load contractReminders:', err));
+
+  // Dokumente: Trash-Purge beim Server-Start (>30 Tage alte Eintraege loeschen)
+  // Lazy import + try/catch — Server darf nie deswegen crashen.
+  import('./lib/docFiles')
+    .then(async ({ purgeTrash }) => {
+      try {
+        await purgeTrash(30);
+        console.log('[dokumente] trash purge done');
+      } catch (err) {
+        console.warn('[dokumente] trash purge failed:', (err as Error).message);
+      }
+    })
+    .catch((err) => console.warn('[dokumente] failed to load docFiles:', (err as Error).message));
 });
