@@ -54,7 +54,7 @@ export function QuickNote({ scope }: { scope: string }) {
           {saved ? 'gespeichert' : 'speichert…'}
         </span>
       </div>
-      <div style={{ background: 'var(--color-surface-container)', border: '1px solid var(--color-outline-variant)', borderRadius: '0.75rem', padding: '0.35rem' }}>
+      <div style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '0.75rem', padding: '0.35rem' }}>
         <textarea
           value={text ?? ''}
           onChange={(e) => handleChange(e.target.value)}

@@ -802,8 +802,8 @@ export function DashboardPage() {
         <div style={{
           width: '100%',
           padding: '1.25rem 1.5rem',
-          background: 'var(--color-surface-container)',
-          border: '1px solid var(--color-surface-container-high)',
+          background: 'rgba(255,255,255,0.025)',
+          border: '1px solid rgba(255,255,255,0.06)',
           borderRadius: '1rem',
         }}>
           {/* Titel */}
