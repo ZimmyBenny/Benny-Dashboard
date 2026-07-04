@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { useDraggableModal } from '../../hooks/useDraggableModal';
 import { fetchDjTrips, createDjTrip, deleteDjTrip, DjTrip } from '../../api/dj.api';
+import { fetchAreas } from '../../api/belege.api';
 import { formatCurrency, formatDate, formatKm } from '../../lib/format';
 
 const DISCLAIMER =
@@ -17,6 +18,7 @@ interface TripForm {
   distance_km: string;
   purpose: string;
   rate_per_km: string;
+  area_slug: string;
 }
 
 const EMPTY_FORM: TripForm = {
@@ -26,6 +28,7 @@ const EMPTY_FORM: TripForm = {
   distance_km: '',
   purpose: '',
   rate_per_km: '0.30',
+  area_slug: 'dj',
 };
 
 const inputStyle: React.CSSProperties = {
@@ -73,6 +76,16 @@ export function DjTripsPage() {
     queryFn: () => fetchDjTrips(year),
   });
 
+  const { data: areas = [] } = useQuery({
+    queryKey: ['areas'],
+    queryFn: fetchAreas,
+  });
+
+  function areaLabel(slug: string | null): string {
+    if (!slug) return 'DJ';
+    return areas.find(a => a.slug === slug)?.name ?? slug;
+  }
+
   const totalKm = trips.reduce((s, t) => s + (t.distance_km ?? 0), 0);
   const totalReimbursement = trips.reduce((s, t) => s + t.reimbursement_amount, 0);
   const totalMeal = trips.reduce((s, t) => s + t.meal_allowance, 0);
@@ -118,6 +131,7 @@ export function DjTripsPage() {
       distance_km: parseFloat(form.distance_km),
       purpose: form.purpose,
       rate_per_km: parseFloat(form.rate_per_km) || 0.30,
+      area_slug: form.area_slug,
     });
   }
 
@@ -216,7 +230,7 @@ export function DjTripsPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: 'rgba(255,255,255,0.04)' }}>
-                    {['Datum', 'Veranstaltung', 'Eventart', 'Einfache Strecke', 'Von', 'Nach', 'Gesamt (H+R)', 'Absetzbarer Wert', ''].map(h => (
+                    {['Datum', 'Veranstaltung', 'Eventart', 'Bereich', 'Einfache Strecke', 'Von', 'Nach', 'Gesamt (H+R)', 'Absetzbarer Wert', ''].map(h => (
                       <th key={h} style={{
                         padding: '0.75rem 1rem', textAlign: 'left',
                         fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.7rem',
@@ -248,6 +262,13 @@ export function DjTripsPage() {
                             fontSize: '0.7rem', fontWeight: 600, whiteSpace: 'nowrap',
                           }}>{t.purpose}</span>
                         ) : <span style={{ color: 'var(--color-on-surface-variant)' }}>–</span>}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem' }}>
+                        <span style={{
+                          background: 'rgba(92,253,128,0.15)', color: '#5cfd80',
+                          borderRadius: '0.375rem', padding: '0.125rem 0.5rem',
+                          fontSize: '0.7rem', fontWeight: 600, whiteSpace: 'nowrap',
+                        }}>{areaLabel(t.area_slug)}</span>
                       </td>
                       <td style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)' }}>
                         {t.distance_km ? formatKm(t.distance_km) : <span style={{ fontStyle: 'italic', opacity: 0.5 }}>Unbekannte Entfernung</span>}
@@ -288,7 +309,7 @@ export function DjTripsPage() {
                 {trips.length > 0 && (
                   <tfoot>
                     <tr style={{ background: 'rgba(148,170,255,0.05)', borderTop: '1px solid rgba(148,170,255,0.15)' }}>
-                      <td colSpan={6} style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)', fontWeight: 600, textAlign: 'right' }}>
+                      <td colSpan={7} style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)', fontWeight: 600, textAlign: 'right' }}>
                         Summe gefahrene Kilometer (Hin + Rück)
                       </td>
                       <td style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-primary)', fontWeight: 700 }}>
@@ -401,6 +422,18 @@ export function DjTripsPage() {
                   {formatCurrency(reimbursement * 2)}
                 </span>
               </div>
+
+              <FormField label="Bereich">
+                <select value={form.area_slug} onChange={e => field('area_slug', e.target.value)} style={inputStyle}>
+                  {areas.length === 0 && <option value="dj">DJ</option>}
+                  {areas.map(a => (
+                    <option key={a.slug} value={a.slug}>{a.name}</option>
+                  ))}
+                </select>
+              </FormField>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', margin: '-0.5rem 0 0' }}>
+                Bei privaten/Pendler-Fahrten gilt ggf. ein anderer km-Satz — im Zweifel Steuerberater fragen.
+              </p>
 
               <FormField label="Zweck">
                 <input type="text" placeholder="z. B. Fahrt zum DJ-Event" value={form.purpose} onChange={e => field('purpose', e.target.value)} style={inputStyle} />
