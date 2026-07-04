@@ -317,3 +317,13 @@ export const triggerDbBackup = (): Promise<{ ok: true; path: string }> =>
  */
 export const deleteReceipt = (id: number): Promise<void> =>
   apiClient.delete(`/belege/${id}`).then(() => undefined);
+
+// ── Finder-Spiegel (Plan quick-260704-m69) ────────────────────────────────
+
+/** POST /api/belege/mirror-rebuild — Finder-Spiegel komplett neu aufbauen. */
+export const rebuildBelegeMirror = (): Promise<{ ok: true }> =>
+  apiClient.post('/belege/mirror-rebuild').then((r) => r.data);
+
+/** POST /api/belege/dj-pdf-backfill — einmaliger Nachtrag fehlender DJ-Rechnungs-PDFs. */
+export const backfillDjPdfs = (): Promise<{ ok: true; generated: number }> =>
+  apiClient.post('/belege/dj-pdf-backfill').then((r) => r.data);

@@ -49,3 +49,8 @@ backend/test-pdf*.ts
 
 # Dokumente-Spiegel (persönliche Dateien — Quelle der Wahrheit liegt in ~/.local/share)
 Dokumente/
+
+# Belege-Spiegel (persönliche Dateien — Quelle der Wahrheit liegt in ~/.local/share)
+# Root-verankert (/Belege/) — sonst kollidiert es case-insensitiv (macOS) mit
+# frontend/src/pages/belege/ und backend/src/routes/belege*.
+/Belege/

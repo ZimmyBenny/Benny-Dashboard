@@ -28,6 +28,8 @@ import {
   fetchTaxCategories,
   createTaxCategory,
   triggerDbBackup,
+  rebuildBelegeMirror,
+  backfillDjPdfs,
   type Area,
   type TaxCategory,
 } from '../../api/belege.api';
@@ -51,9 +53,14 @@ export function BelegeSettingsPage() {
   const [savedFlash, setSavedFlash] = useState(false);
   const [backupResult, setBackupResult] = useState<string | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
+  const [mirrorInput, setMirrorInput] = useState('');
+  const [backfillResult, setBackfillResult] = useState<number | null>(null);
 
   useEffect(() => {
-    if (settings) setForm(settings);
+    if (settings) {
+      setForm(settings);
+      setMirrorInput(settings.belege_mirror_path ?? '');
+    }
   }, [settings]);
 
   const updateMut = useMutation({
@@ -87,6 +94,17 @@ export function BelegeSettingsPage() {
       setBackupError((err as Error).message ?? 'Backup fehlgeschlagen');
       setBackupResult(null);
     },
+  });
+  const mirrorSettingsMut = useMutation({
+    mutationFn: updateBelegeSettings,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['belege-settings'] }),
+  });
+  const rebuildMirrorMut = useMutation({
+    mutationFn: rebuildBelegeMirror,
+  });
+  const backfillMut = useMutation({
+    mutationFn: backfillDjPdfs,
+    onSuccess: (data) => setBackfillResult(data.generated),
   });
 
   if (settingsLoading || !settings) {
@@ -390,6 +408,52 @@ export function BelegeSettingsPage() {
                 }}
               >
                 Fehler: {backupError}
+              </span>
+            )}
+          </div>
+        </Section>
+
+        {/* Finder-Spiegel */}
+        <Section title="Finder-Spiegel">
+          <p style={{ ...textMuted, marginTop: 0, marginBottom: '0.75rem' }}>
+            Spiegelt alle Beleg-Dateien menschenlesbar nach Bereich/Jahr in einen
+            Finder-Ordner (Quelle der Wahrheit bleibt der App-Speicher). Leer =
+            Spiegel aus, nicht gesetzt = Standard-Projektordner „Belege".
+          </p>
+          <SettingRow label="Spiegel-Pfad (leer = Spiegel aus)">
+            <input
+              value={mirrorInput}
+              onChange={(e) => setMirrorInput(e.target.value)}
+              onBlur={() => mirrorSettingsMut.mutate({ belege_mirror_path: mirrorInput })}
+              placeholder="<Projektordner>/Belege"
+              style={inputStyle}
+            />
+          </SettingRow>
+          <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => rebuildMirrorMut.mutate()}
+              disabled={rebuildMirrorMut.isPending}
+              style={secondaryBtnStyle(rebuildMirrorMut.isPending)}
+            >
+              {rebuildMirrorMut.isPending ? 'Spiegel wird aufgebaut …' : 'Spiegel neu aufbauen'}
+            </button>
+            {rebuildMirrorMut.isSuccess && (
+              <span style={{ color: 'var(--color-secondary)', fontSize: '0.85rem', fontFamily: 'var(--font-body)' }}>
+                ✓ Spiegel aufgebaut
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => backfillMut.mutate()}
+              disabled={backfillMut.isPending}
+              style={secondaryBtnStyle(backfillMut.isPending)}
+            >
+              {backfillMut.isPending ? 'PDFs werden nachgetragen …' : 'DJ-PDFs nachtragen'}
+            </button>
+            {backfillResult !== null && (
+              <span style={{ color: 'var(--color-secondary)', fontSize: '0.85rem', fontFamily: 'var(--font-body)' }}>
+                ✓ {backfillResult} PDFs erzeugt
               </span>
             )}
           </div>
