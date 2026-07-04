@@ -267,17 +267,56 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
       <div className="flex flex-col gap-6">
         {/* Header */}
         <div className="flex items-center justify-between gap-4">
-          <h1
-            style={{
-              fontFamily: 'var(--font-headline)',
-              fontSize: '1.5rem',
-              fontWeight: 700,
-              color: 'var(--color-on-surface)',
-              margin: 0,
-            }}
-          >
-            {title}
-          </h1>
+          <div className="flex items-center gap-3">
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: '0.625rem',
+                background: 'var(--color-surface-container-high)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <span
+                className="material-symbols-outlined"
+                style={{ color: 'var(--color-primary)', fontSize: 32 }}
+              >
+                storage
+              </span>
+            </div>
+            <div>
+              <h1
+                style={{
+                  fontFamily: 'var(--font-headline)',
+                  fontWeight: 800,
+                  fontSize: '1.75rem',
+                  color: 'var(--color-on-surface)',
+                  margin: 0,
+                  lineHeight: 1.1,
+                }}
+              >
+                {title}
+              </h1>
+              <p
+                style={{
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '0.875rem',
+                  color: 'var(--color-on-surface-variant)',
+                  marginTop: '0.25rem',
+                  margin: '0.25rem 0 0 0',
+                }}
+              >
+                Verwalte deine Dateien und Ordner (Budget:{' '}
+                {budgetMb >= 1024
+                  ? `${(budgetMb / 1024).toFixed(budgetMb % 1024 === 0 ? 0 : 1)} GB`
+                  : `${budgetMb} MB`}
+                )
+              </p>
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             <input
               ref={fileInputRef}
@@ -290,17 +329,22 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                 e.target.value = '';
               }}
             />
-            {effectiveFolderId !== null && (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="px-3 py-1.5 rounded-md text-sm font-semibold flex items-center gap-1.5"
-                style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>upload</span>
-                Dateien hochladen
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={effectiveFolderId === null}
+              title={effectiveFolderId === null ? 'Wähle zuerst einen Ordner oder Bereich' : undefined}
+              className="px-3 py-1.5 rounded-md text-sm font-semibold flex items-center gap-1.5"
+              style={{
+                background: 'var(--color-primary)',
+                color: 'var(--color-on-primary)',
+                opacity: effectiveFolderId === null ? 0.5 : 1,
+                cursor: effectiveFolderId === null ? 'not-allowed' : 'pointer',
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>upload</span>
+              Dateien hochladen
+            </button>
             <button
               type="button"
               onClick={() => setSettingsOpen((v) => !v)}
@@ -369,12 +413,24 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-semibold" style={{ color: 'var(--color-on-surface)' }}>Speicher-Nutzung</span>
-            <span className="text-sm" style={{ color: overBudget ? 'var(--color-error)' : 'var(--color-on-surface-variant)' }}>
-              {usedMb.toFixed(usedMb < 10 ? 1 : 0)} MB / {budgetMb >= 1024 ? `${(budgetMb / 1024).toFixed(1)} GB` : `${budgetMb} MB`} ({percent.toFixed(0)}%)
+            <span
+              style={{
+                padding: '0.25rem 0.75rem',
+                borderRadius: 9999,
+                background: overBudget
+                  ? 'color-mix(in srgb, var(--color-error) 20%, transparent)'
+                  : 'var(--color-surface-container-high)',
+                color: overBudget ? 'var(--color-error)' : 'var(--color-on-surface)',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {usedMb.toFixed(usedMb < 10 ? 1 : 0)} MB / {budgetMb >= 1024 ? `${(budgetMb / 1024).toFixed(1)} GB` : `${budgetMb} MB`}
             </span>
           </div>
           <div
-            className="w-full rounded-full overflow-hidden"
+            className="w-full rounded-full overflow-hidden mt-2"
             style={{ height: 8, background: 'var(--color-surface-container-low)' }}
           >
             <div
@@ -386,6 +442,16 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
               }}
             />
           </div>
+          <p
+            style={{
+              fontSize: '0.75rem',
+              color: overBudget ? 'var(--color-error)' : 'var(--color-on-surface-variant)',
+              marginTop: '0.5rem',
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            {percent.toFixed(0)}% verwendet · {formatBytes(Math.max(0, usage ? usage.budgetMb * 1024 * 1024 - usage.usedBytes : 0))} verfügbar
+          </p>
         </div>
 
         {/* Breadcrumb */}
@@ -402,6 +468,9 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                 Zurück
               </button>
             )}
+            <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'var(--color-on-surface-variant)' }}>
+              folder
+            </span>
             {!areaSlug && (
               <button
                 type="button"
