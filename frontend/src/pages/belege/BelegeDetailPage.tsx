@@ -268,7 +268,7 @@ export function BelegeDetailPage() {
                   fontWeight: 800,
                   fontSize: '2.25rem',
                   letterSpacing: '-0.02em',
-                  color: 'var(--color-primary)',
+                  color: 'var(--color-on-surface)',
                   margin: 0,
                   lineHeight: 1.1,
                 }}
@@ -699,7 +699,8 @@ export function BelegeDetailPage() {
 
               <Section title="Aktionen">
                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  {r.status !== 'bezahlt' && r.status !== 'storniert' && (
+                  {/* Fahrten (km-Pauschale) sind keine bezahlbaren Rechnungen -> kein "Als bezahlt markieren" */}
+                  {r.status !== 'bezahlt' && r.status !== 'storniert' && r.type !== 'fahrt' && (
                     !showPaidConfirm ? (
                       <button
                         type="button"

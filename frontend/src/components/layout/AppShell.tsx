@@ -76,7 +76,7 @@ export function AppShell() {
           data-surface-theme={
             ['/dokumente', '/tasks', '/arbeitsmappe', '/zeiterfassung', '/contacts', '/calendar', '/belege'].some((p) =>
               location.pathname.startsWith(p),
-            )
+            ) || location.pathname.includes('/dokumente') // auch die Bereichs-Dokumente (/dj/dokumente, /amazon/dokumente, /finances/dokumente)
               ? 'graphite'
               : undefined
           }
