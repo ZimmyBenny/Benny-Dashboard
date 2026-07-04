@@ -25,7 +25,7 @@ function deleteImageFromDisk(filename: string | null | undefined) {
 
 // ── Typen ──
 interface TopicRow { id: number; product_id: number; sort_order: number; title: string; is_expanded: number; created_at: number; updated_at: number; }
-interface CardRow { id: number; topic_id: number; sort_order: number; title: string | null; body: string; created_at: number; updated_at: number; }
+interface CardRow { id: number; topic_id: number; sort_order: number; title: string | null; body: string; is_global: number; created_at: number; updated_at: number; }
 interface LinkRow { id: number; card_id: number; sort_order: number; url: string; label: string | null; created_at: number; }
 interface ImageRow { id: number; card_id: number; sort_order: number; file_path: string; original_name: string | null; mime: string | null; created_at: number; }
 
@@ -142,6 +142,7 @@ router.patch('/products/:id/research/cards/:cardId', (req: Request, res: Respons
   const sets: string[] = []; const vals: unknown[] = [];
   if ('title' in (req.body ?? {})) { const t = req.body.title; sets.push('title = ?'); vals.push(t == null ? null : String(t).slice(0, MAX_TITLE)); }
   if (typeof req.body?.body === 'string') { sets.push('body = ?'); vals.push(req.body.body.slice(0, MAX_BODY)); }
+  if (req.body?.is_global === 0 || req.body?.is_global === 1) { sets.push('is_global = ?'); vals.push(req.body.is_global); }
   if (sets.length === 0) { res.status(400).json({ error: 'nichts zu aktualisieren' }); return; }
   sets.push('updated_at = unixepoch()');
   db.prepare(`UPDATE amazon_research_cards SET ${sets.join(', ')} WHERE id = ?`).run(...vals, cardId);
@@ -242,6 +243,28 @@ router.post('/products/:id/research/cards/:cardId/images/reorder', (req: Request
   const upd = db.prepare(`UPDATE amazon_research_card_images SET sort_order = ? WHERE id = ? AND card_id = ?`);
   db.transaction(() => { order.forEach((iid: number, idx: number) => upd.run(idx + 1, iid, cardId)); })();
   res.status(204).end();
+});
+
+// ── GET: alle global markierten Karten produktuebergreifend ──
+// Ergibt /api/amazon/research/global (Router unter /api/amazon gemountet).
+// Rein lesend — kein Backup noetig.
+interface GlobalCardRow extends CardRow { product_id: number; product_name: string; topic_title: string; }
+router.get('/research/global', (_req: Request, res: Response) => {
+  const cards = db.prepare(`
+    SELECT c.*, p.id AS product_id, p.name AS product_name, t.title AS topic_title
+    FROM amazon_research_cards c
+    JOIN amazon_research_topics t ON t.id = c.topic_id
+    JOIN amazon_products p ON p.id = t.product_id
+    WHERE c.is_global = 1
+    ORDER BY p.name COLLATE NOCASE, t.sort_order, t.id, c.sort_order, c.id`).all() as GlobalCardRow[];
+  const linksStmt = db.prepare(`SELECT * FROM amazon_research_card_links WHERE card_id = ? ORDER BY sort_order, id`);
+  const imagesStmt = db.prepare(`SELECT * FROM amazon_research_card_images WHERE card_id = ? ORDER BY sort_order, id`);
+  const out = cards.map(c => ({
+    ...c,
+    links: linksStmt.all(c.id) as LinkRow[],
+    images: imagesStmt.all(c.id) as ImageRow[],
+  }));
+  res.json({ cards: out });
 });
 
 export default router;
