@@ -394,6 +394,119 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
 
   const title = areaSlug ? `Dokumente — ${AREA_LABELS[areaSlug] ?? areaSlug}` : 'Dokumente';
 
+  // Suchfeld + Trefferliste als gemeinsame Bausteine — auf der virtuellen
+  // Wurzel UND in Ordner-Ansichten gerendert (User-Wunsch: global suchen).
+  const searchBar = (
+    <div
+      className="flex items-center gap-2 px-3 py-2 rounded-lg mb-1"
+      style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline-variant)' }}
+    >
+      <span className="material-symbols-outlined" style={{ fontSize: 20, color: 'var(--color-on-surface-variant)' }}>search</span>
+      <input
+        type="text"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        placeholder="Dokumente durchsuchen…"
+        className="flex-1 bg-transparent text-sm outline-hidden"
+        style={{ color: 'var(--color-on-surface)' }}
+      />
+      {searchQuery && (
+        <button
+          type="button"
+          onClick={() => setSearchQuery('')}
+          className="p-1 rounded"
+          aria-label="Suche leeren"
+          style={{ color: 'var(--color-on-surface-variant)' }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
+        </button>
+      )}
+    </div>
+  );
+
+  const searchResultsView = (
+    <div className="flex flex-col gap-1">
+      {searchResults && searchResults.folders.length === 0 && searchResults.files.length === 0 ? (
+        <p className="text-center py-8 text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
+          Keine Treffer für „{debouncedQuery}"
+        </p>
+      ) : (
+        <>
+          {searchResults && searchResults.folders.length > 0 && (
+            <div className="flex flex-col gap-0.5 mb-2">
+              <span
+                className="text-xs font-semibold uppercase px-2"
+                style={{ color: 'var(--color-on-surface-variant)', letterSpacing: '0.05em' }}
+              >
+                Ordner
+              </span>
+              {searchResults.folders.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => navigateFromSearch(f.id)}
+                  className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-white/[0.03] text-left w-full"
+                >
+                  <span className="material-symbols-outlined" style={{ color: 'var(--color-primary)' }}>folder</span>
+                  <span className="flex flex-col">
+                    <span style={{ color: 'var(--color-on-surface)' }}>{f.name}</span>
+                    {f.path.length > 0 && (
+                      <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
+                        {f.path.join(' › ')}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+          {searchResults && searchResults.files.length > 0 && (
+            <div className="flex flex-col gap-0.5">
+              <span
+                className="text-xs font-semibold uppercase px-2"
+                style={{ color: 'var(--color-on-surface-variant)', letterSpacing: '0.05em' }}
+              >
+                Dateien
+              </span>
+              {searchResults.files.map((file) => (
+                <button
+                  key={file.id}
+                  type="button"
+                  onClick={() =>
+                    handlePreview({
+                      id: file.id,
+                      folder_id: file.folder_id,
+                      filename: file.filename,
+                      size_bytes: file.size_bytes,
+                      mime_type: file.mime_type,
+                      created_at: file.created_at,
+                    })
+                  }
+                  className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-white/[0.03] text-left w-full"
+                >
+                  <span
+                    className="material-symbols-outlined"
+                    style={{ color: 'var(--color-on-surface-variant)' }}
+                  >
+                    {mimeIcon(file.mime_type)}
+                  </span>
+                  <span className="flex flex-col">
+                    <span style={{ color: 'var(--color-on-surface)' }}>{file.filename}</span>
+                    {file.path.length > 0 && (
+                      <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
+                        {file.path.join(' › ')}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+
   const usedMb = usage ? usage.usedBytes / (1024 * 1024) : 0;
   const budgetMb = usage?.budgetMb ?? 1024;
   const percent = budgetMb > 0 ? (usedMb / budgetMb) * 100 : 0;
@@ -662,19 +775,21 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                   Neuer Ordner
                 </button>
               </div>
-              {areaRoots.map((root) => (
-                <button
-                  key={root.id}
-                  type="button"
-                  onClick={() => navigateTo(root.id)}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-left"
-                  style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline-variant)' }}
-                >
-                  <span className="material-symbols-outlined" style={{ color: 'var(--color-primary)' }}>folder</span>
-                  <span className="flex-1" style={{ color: 'var(--color-on-surface)' }}>{root.name}</span>
-                  <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{root.file_count} Dateien</span>
-                </button>
-              ))}
+              {searchBar}
+              {searchActive
+                ? searchResultsView
+                : areaRoots.map((root) => (
+                    <button
+                      key={root.id}
+                      type="button"
+                      onClick={() => navigateTo(root.id)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-left"
+                      style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline-variant)' }}
+                    >
+                      <span className="material-symbols-outlined" style={{ color: 'var(--color-primary)' }}>folder</span>
+                      <span className="flex-1" style={{ color: 'var(--color-on-surface)' }}>{root.name}</span>
+                    </button>
+                  ))}
             </div>
           ) : (
             <>
@@ -704,119 +819,9 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                 </button>
               </div>
 
-              <div
-                className="flex items-center gap-2 px-3 py-2 rounded-lg mb-1"
-                style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline-variant)' }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: 20, color: 'var(--color-on-surface-variant)' }}>search</span>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Dokumente durchsuchen…"
-                  className="flex-1 bg-transparent text-sm outline-hidden"
-                  style={{ color: 'var(--color-on-surface)' }}
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="p-1 rounded"
-                    aria-label="Suche leeren"
-                    style={{ color: 'var(--color-on-surface-variant)' }}
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
-                  </button>
-                )}
-              </div>
+              {searchBar}
 
-              {searchActive && (
-                <div className="flex flex-col gap-1">
-                  {searchResults &&
-                  searchResults.folders.length === 0 &&
-                  searchResults.files.length === 0 ? (
-                    <p
-                      className="text-center py-8 text-sm"
-                      style={{ color: 'var(--color-on-surface-variant)' }}
-                    >
-                      Keine Treffer für „{debouncedQuery}"
-                    </p>
-                  ) : (
-                    <>
-                      {searchResults && searchResults.folders.length > 0 && (
-                        <div className="flex flex-col gap-0.5 mb-2">
-                          <span
-                            className="text-xs font-semibold uppercase px-2"
-                            style={{ color: 'var(--color-on-surface-variant)', letterSpacing: '0.05em' }}
-                          >
-                            Ordner
-                          </span>
-                          {searchResults.folders.map((f) => (
-                            <button
-                              key={f.id}
-                              type="button"
-                              onClick={() => navigateFromSearch(f.id)}
-                              className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-white/[0.03] text-left w-full"
-                            >
-                              <span className="material-symbols-outlined" style={{ color: 'var(--color-primary)' }}>folder</span>
-                              <span className="flex flex-col">
-                                <span style={{ color: 'var(--color-on-surface)' }}>{f.name}</span>
-                                {f.path.length > 0 && (
-                                  <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
-                                    {f.path.join(' › ')}
-                                  </span>
-                                )}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      {searchResults && searchResults.files.length > 0 && (
-                        <div className="flex flex-col gap-0.5">
-                          <span
-                            className="text-xs font-semibold uppercase px-2"
-                            style={{ color: 'var(--color-on-surface-variant)', letterSpacing: '0.05em' }}
-                          >
-                            Dateien
-                          </span>
-                          {searchResults.files.map((file) => (
-                            <button
-                              key={file.id}
-                              type="button"
-                              onClick={() =>
-                                handlePreview({
-                                  id: file.id,
-                                  folder_id: file.folder_id,
-                                  filename: file.filename,
-                                  size_bytes: file.size_bytes,
-                                  mime_type: file.mime_type,
-                                  created_at: file.created_at,
-                                })
-                              }
-                              className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-white/[0.03] text-left w-full"
-                            >
-                              <span
-                                className="material-symbols-outlined"
-                                style={{ color: 'var(--color-on-surface-variant)' }}
-                              >
-                                {mimeIcon(file.mime_type)}
-                              </span>
-                              <span className="flex flex-col">
-                                <span style={{ color: 'var(--color-on-surface)' }}>{file.filename}</span>
-                                {file.path.length > 0 && (
-                                  <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
-                                    {file.path.join(' › ')}
-                                  </span>
-                                )}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
+              {searchActive && searchResultsView}
 
               {!searchActive && uploading.length > 0 && (
                 <div className="flex flex-col gap-1 mb-1">
