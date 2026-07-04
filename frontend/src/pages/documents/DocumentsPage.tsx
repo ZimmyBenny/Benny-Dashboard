@@ -15,6 +15,7 @@ import { useDropzone } from 'react-dropzone';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { FilePreviewModal, useFilePreview } from '../../components/amazon/FilePreviewModal';
 import { MoveModal } from '../../components/documents/MoveModal';
+import { CreateFolderModal } from '../../components/documents/CreateFolderModal';
 import {
   fetchDocTree,
   fetchFolderContents,
@@ -110,7 +111,6 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
   const [renamingId, setRenamingId] = useState<{ kind: 'folder' | 'file'; id: number } | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [moveTarget, setMoveTarget] = useState<{ kind: 'folder' | 'file'; id: number } | null>(null);
@@ -513,7 +513,18 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
 
           {isVirtualRoot ? (
             <div className="flex flex-col gap-2">
-              <span className="text-sm font-semibold mb-1" style={{ color: 'var(--color-on-surface)' }}>Bereiche</span>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-semibold" style={{ color: 'var(--color-on-surface)' }}>Bereiche</span>
+                <button
+                  type="button"
+                  onClick={() => setNewFolderOpen(true)}
+                  className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5"
+                  style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>create_new_folder</span>
+                  Neuer Ordner
+                </button>
+              </div>
               {areaRoots.map((root) => (
                 <button
                   key={root.id}
@@ -547,10 +558,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                 </span>
                 <button
                   type="button"
-                  onClick={() => {
-                    setNewFolderOpen(true);
-                    setNewFolderName('');
-                  }}
+                  onClick={() => setNewFolderOpen(true)}
                   className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5"
                   style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}
                 >
@@ -558,26 +566,6 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                   Neuer Ordner
                 </button>
               </div>
-
-              {newFolderOpen && (
-                <input
-                  autoFocus
-                  value={newFolderName}
-                  onChange={(e) => setNewFolderName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && newFolderName.trim() && effectiveFolderId !== null) {
-                      createFolderMut.mutate({ parentId: effectiveFolderId, name: newFolderName.trim() });
-                      setNewFolderOpen(false);
-                    } else if (e.key === 'Escape') {
-                      setNewFolderOpen(false);
-                    }
-                  }}
-                  onBlur={() => setNewFolderOpen(false)}
-                  placeholder="Ordnername…"
-                  className="px-3 py-2 rounded-md text-sm"
-                  style={{ background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface)', border: '1px solid var(--color-primary)' }}
-                />
-              )}
 
               {uploading.length > 0 && (
                 <div className="flex flex-col gap-1 mb-1">
@@ -790,6 +778,19 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
           }
           setMoveTarget(null);
         }}
+      />
+
+      <CreateFolderModal
+        open={newFolderOpen}
+        requireAreaPick={effectiveFolderId === null}
+        areaOptions={areaRoots.map((r) => ({ id: r.id, name: r.name }))}
+        fixedParentId={effectiveFolderId}
+        onCreate={(parentId, name) => {
+          createFolderMut.mutate({ parentId, name });
+          // Bugfix: auf der virtuellen Wurzel in den gewaehlten Bereich navigieren, damit der neue Ordner sichtbar ist
+          if (effectiveFolderId === null) navigateTo(parentId);
+        }}
+        onClose={() => setNewFolderOpen(false)}
       />
 
       <FilePreviewModal preview={preview} onClose={closePreview} />
