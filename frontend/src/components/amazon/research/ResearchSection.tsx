@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { type ResearchScope } from '../../../api/amazon.api';
 import { useResearchTopics, useCreateTopic } from '../../../hooks/amazon/useResearch';
 import { useSectionExpanded } from '../../../hooks/amazon/useSectionExpanded';
 import { ResearchTopicBlock } from './ResearchTopicBlock';
@@ -6,10 +7,10 @@ import { SectionHeader } from '../SectionHeader';
 
 const ACCENT = '#38bdf8'; // sky — eigene Akzentfarbe für Recherche
 
-export function ResearchSection({ productId }: { productId: number }) {
-  const { data: topics, isLoading, isError, refetch } = useResearchTopics(productId);
-  const createTopic = useCreateTopic(productId);
-  const { expanded, toggle } = useSectionExpanded(productId, 'research', false);
+export function ResearchSection({ scope, defaultOpen = false }: { scope: ResearchScope; defaultOpen?: boolean }) {
+  const { data: topics, isLoading, isError, refetch } = useResearchTopics(scope);
+  const createTopic = useCreateTopic(scope);
+  const { expanded, toggle } = useSectionExpanded(scope, 'research', defaultOpen);
   const [newTitle, setNewTitle] = useState('');
 
   function addTopic() {
@@ -40,7 +41,7 @@ export function ResearchSection({ productId }: { productId: number }) {
             <button type="button" onClick={() => refetch()} className="self-start px-3 py-1.5 rounded-md text-sm"
               style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}>Erneut laden</button>
           )}
-          {topics?.map(t => <ResearchTopicBlock key={t.id} productId={productId} topic={t} />)}
+          {topics?.map(t => <ResearchTopicBlock key={t.id} scope={scope} topic={t} />)}
           <div className="flex items-center gap-2">
             <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Neues Thema (z.B. Patente, Zertifikate, Keywords) …"
               onKeyDown={(e) => { if (e.key === 'Enter') addTopic(); }} autoComplete="off"

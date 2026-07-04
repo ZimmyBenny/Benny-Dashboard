@@ -620,61 +620,71 @@ export interface ResearchTopic { id: number; product_id: number; sort_order: num
 // Globale Recherche-Karte (produktuebergreifend, mit Herkunfts-Kontext)
 export interface GlobalResearchCard extends ResearchCard { product_id: number; product_name: string; topic_title: string; }
 
-export async function fetchResearchTopics(productId: number): Promise<ResearchTopic[]> {
-  const r = await apiClient.get<{ topics: ResearchTopic[] }>(`/amazon/products/${productId}/research/topics`);
-  return r.data.topics;
-}
-export async function createResearchTopic(productId: number, title: string): Promise<ResearchTopic> {
-  const r = await apiClient.post<{ topic: ResearchTopic }>(`/amazon/products/${productId}/research/topics`, { title });
-  return r.data.topic;
-}
-export async function updateResearchTopic(productId: number, topicId: number, patch: Partial<{ title: string; is_expanded: 0 | 1 }>): Promise<ResearchTopic> {
-  const r = await apiClient.patch<{ topic: ResearchTopic }>(`/amazon/products/${productId}/research/topics/${topicId}`, patch);
-  return r.data.topic;
-}
-export async function deleteResearchTopic(productId: number, topicId: number): Promise<void> {
-  await apiClient.delete(`/amazon/products/${productId}/research/topics/${topicId}`);
-}
-export async function reorderResearchTopics(productId: number, order: number[]): Promise<void> {
-  await apiClient.post(`/amazon/products/${productId}/research/topics/reorder`, { order });
+// Scope einer Recherche: konkretes Produkt (number) ODER globaler Bereich ('global').
+export type ResearchScope = number | 'global';
+
+// Baut den Basis-Pfad je Scope:
+//   number   -> /amazon/products/<id>/research   (Produkt-Recherche, unveraendert)
+//   'global' -> /amazon/research/global          (produktunabhaengige Recherche)
+function researchBase(scope: ResearchScope): string {
+  return scope === 'global' ? '/amazon/research/global' : `/amazon/products/${scope}/research`;
 }
 
-export async function createResearchCard(productId: number, topicId: number): Promise<ResearchCard> {
-  const r = await apiClient.post<{ card: ResearchCard }>(`/amazon/products/${productId}/research/topics/${topicId}/cards`, {});
+export async function fetchResearchTopics(scope: ResearchScope): Promise<ResearchTopic[]> {
+  const r = await apiClient.get<{ topics: ResearchTopic[] }>(`${researchBase(scope)}/topics`);
+  return r.data.topics;
+}
+export async function createResearchTopic(scope: ResearchScope, title: string): Promise<ResearchTopic> {
+  const r = await apiClient.post<{ topic: ResearchTopic }>(`${researchBase(scope)}/topics`, { title });
+  return r.data.topic;
+}
+export async function updateResearchTopic(scope: ResearchScope, topicId: number, patch: Partial<{ title: string; is_expanded: 0 | 1 }>): Promise<ResearchTopic> {
+  const r = await apiClient.patch<{ topic: ResearchTopic }>(`${researchBase(scope)}/topics/${topicId}`, patch);
+  return r.data.topic;
+}
+export async function deleteResearchTopic(scope: ResearchScope, topicId: number): Promise<void> {
+  await apiClient.delete(`${researchBase(scope)}/topics/${topicId}`);
+}
+export async function reorderResearchTopics(scope: ResearchScope, order: number[]): Promise<void> {
+  await apiClient.post(`${researchBase(scope)}/topics/reorder`, { order });
+}
+
+export async function createResearchCard(scope: ResearchScope, topicId: number): Promise<ResearchCard> {
+  const r = await apiClient.post<{ card: ResearchCard }>(`${researchBase(scope)}/topics/${topicId}/cards`, {});
   return r.data.card;
 }
-export async function updateResearchCard(productId: number, cardId: number, patch: Partial<{ title: string | null; body: string; is_global: 0 | 1 }>): Promise<ResearchCard> {
-  const r = await apiClient.patch<{ card: ResearchCard }>(`/amazon/products/${productId}/research/cards/${cardId}`, patch);
+export async function updateResearchCard(scope: ResearchScope, cardId: number, patch: Partial<{ title: string | null; body: string; is_global: 0 | 1 }>): Promise<ResearchCard> {
+  const r = await apiClient.patch<{ card: ResearchCard }>(`${researchBase(scope)}/cards/${cardId}`, patch);
   return r.data.card;
 }
 export async function fetchGlobalResearch(): Promise<GlobalResearchCard[]> {
-  const r = await apiClient.get<{ cards: GlobalResearchCard[] }>(`/amazon/research/global`);
+  const r = await apiClient.get<{ cards: GlobalResearchCard[] }>(`/amazon/research/global/promoted`);
   return r.data.cards;
 }
-export async function deleteResearchCard(productId: number, cardId: number): Promise<void> {
-  await apiClient.delete(`/amazon/products/${productId}/research/cards/${cardId}`);
+export async function deleteResearchCard(scope: ResearchScope, cardId: number): Promise<void> {
+  await apiClient.delete(`${researchBase(scope)}/cards/${cardId}`);
 }
-export async function reorderResearchCards(productId: number, topicId: number, order: number[]): Promise<void> {
-  await apiClient.post(`/amazon/products/${productId}/research/topics/${topicId}/cards/reorder`, { order });
+export async function reorderResearchCards(scope: ResearchScope, topicId: number, order: number[]): Promise<void> {
+  await apiClient.post(`${researchBase(scope)}/topics/${topicId}/cards/reorder`, { order });
 }
 
-export async function createResearchLink(productId: number, cardId: number, url: string, label: string | null): Promise<ResearchLink> {
-  const r = await apiClient.post<{ link: ResearchLink }>(`/amazon/products/${productId}/research/cards/${cardId}/links`, { url, label });
+export async function createResearchLink(scope: ResearchScope, cardId: number, url: string, label: string | null): Promise<ResearchLink> {
+  const r = await apiClient.post<{ link: ResearchLink }>(`${researchBase(scope)}/cards/${cardId}/links`, { url, label });
   return r.data.link;
 }
-export async function deleteResearchLink(productId: number, linkId: number): Promise<void> {
-  await apiClient.delete(`/amazon/products/${productId}/research/links/${linkId}`);
+export async function deleteResearchLink(scope: ResearchScope, linkId: number): Promise<void> {
+  await apiClient.delete(`${researchBase(scope)}/links/${linkId}`);
 }
 
-export async function uploadResearchImage(productId: number, cardId: number, file: File): Promise<ResearchImage> {
+export async function uploadResearchImage(scope: ResearchScope, cardId: number, file: File): Promise<ResearchImage> {
   const fd = new FormData(); fd.append('file', file);
-  return ((await apiClient.post(`/amazon/products/${productId}/research/cards/${cardId}/images`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })).data as { image: ResearchImage }).image;
+  return ((await apiClient.post(`${researchBase(scope)}/cards/${cardId}/images`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })).data as { image: ResearchImage }).image;
 }
-export async function deleteResearchImage(productId: number, imageId: number): Promise<void> {
-  await apiClient.delete(`/amazon/products/${productId}/research/images/${imageId}`);
+export async function deleteResearchImage(scope: ResearchScope, imageId: number): Promise<void> {
+  await apiClient.delete(`${researchBase(scope)}/images/${imageId}`);
 }
-export async function getResearchImageObjectUrl(productId: number, imageId: number): Promise<string> {
-  const r = await apiClient.get(`/amazon/products/${productId}/research/images/${imageId}`, { responseType: 'blob' });
+export async function getResearchImageObjectUrl(scope: ResearchScope, imageId: number): Promise<string> {
+  const r = await apiClient.get(`${researchBase(scope)}/images/${imageId}`, { responseType: 'blob' });
   return URL.createObjectURL(r.data as Blob);
 }
 

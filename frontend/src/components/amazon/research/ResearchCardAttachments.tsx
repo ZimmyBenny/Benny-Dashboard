@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getResearchImageObjectUrl, type ResearchImage } from '../../../api/amazon.api';
+import { getResearchImageObjectUrl, type ResearchImage, type ResearchScope } from '../../../api/amazon.api';
 import { useUploadImage, useDeleteImage } from '../../../hooks/amazon/useResearch';
 
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -19,13 +19,13 @@ function fileIcon(att: ResearchImage): string {
 }
 
 // Bild-Vorschau (88x88), Objekt-URL mit Cleanup
-function ImageThumb({ productId, att, onDelete }: { productId: number; att: ResearchImage; onDelete: () => void }) {
+function ImageThumb({ scope, att, onDelete }: { scope: ResearchScope; att: ResearchImage; onDelete: () => void }) {
   const [src, setSrc] = useState<string | null>(null);
   useEffect(() => {
     let revoked = false; let url: string | null = null;
-    getResearchImageObjectUrl(productId, att.id).then(u => { if (revoked) { URL.revokeObjectURL(u); return; } url = u; setSrc(u); }).catch(() => setSrc(null));
+    getResearchImageObjectUrl(scope, att.id).then(u => { if (revoked) { URL.revokeObjectURL(u); return; } url = u; setSrc(u); }).catch(() => setSrc(null));
     return () => { revoked = true; if (url) URL.revokeObjectURL(url); };
-  }, [productId, att.id]);
+  }, [scope, att.id]);
   return (
     <div className="relative group" style={{ width: 88, height: 88 }}>
       {src
@@ -40,9 +40,9 @@ function ImageThumb({ productId, att, onDelete }: { productId: number; att: Rese
   );
 }
 
-export function ResearchCardAttachments({ productId, cardId, attachments }: { productId: number; cardId: number; attachments: ResearchImage[] }) {
-  const upload = useUploadImage(productId);
-  const del = useDeleteImage(productId);
+export function ResearchCardAttachments({ scope, cardId, attachments }: { scope: ResearchScope; cardId: number; attachments: ResearchImage[] }) {
+  const upload = useUploadImage(scope);
+  const del = useDeleteImage(scope);
   const fileInput = useRef<HTMLInputElement | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -62,7 +62,7 @@ export function ResearchCardAttachments({ productId, cardId, attachments }: { pr
 
   async function download(att: ResearchImage) {
     try {
-      const url = await getResearchImageObjectUrl(productId, att.id);
+      const url = await getResearchImageObjectUrl(scope, att.id);
       const a = document.createElement('a');
       a.href = url; a.download = att.original_name ?? 'datei';
       document.body.appendChild(a); a.click(); a.remove();
@@ -98,7 +98,7 @@ export function ResearchCardAttachments({ productId, cardId, attachments }: { pr
 
       {/* Bild-Vorschauen + Hinzufügen-Button */}
       <div className="flex flex-wrap gap-2 items-center">
-        {images.map(att => <ImageThumb key={att.id} productId={productId} att={att} onDelete={() => del.mutate(att.id)} />)}
+        {images.map(att => <ImageThumb key={att.id} scope={scope} att={att} onDelete={() => del.mutate(att.id)} />)}
         <button type="button" onClick={() => fileInput.current?.click()}
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => { e.preventDefault(); pickMany(e.dataTransfer.files); }}

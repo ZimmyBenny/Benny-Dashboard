@@ -227,7 +227,7 @@ export function AmazonProductDetailPage() {
               if (id === 'sourcing') return <SourcingSection productId={product.id} />;
               if (id === 'usp') return <UspSection productId={product.id} productName={product.name} />;
               if (id === 'manufacturers') return <ManufacturersSection productId={product.id} />;
-              if (id === 'research') return <ResearchSection productId={product.id} />;
+              if (id === 'research') return <ResearchSection scope={product.id} />;
               return <ChecklistSection productId={product.id} />;
             },
           }))}

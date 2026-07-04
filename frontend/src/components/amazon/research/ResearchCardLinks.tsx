@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { type ResearchLink } from '../../../api/amazon.api';
+import { type ResearchLink, type ResearchScope } from '../../../api/amazon.api';
 import { useCreateLink, useDeleteLink } from '../../../hooks/amazon/useResearch';
 
 const INPUT_STYLE: React.CSSProperties = {
   background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)',
 };
 
-export function ResearchCardLinks({ productId, cardId, links }: { productId: number; cardId: number; links: ResearchLink[] }) {
-  const create = useCreateLink(productId);
-  const del = useDeleteLink(productId);
+export function ResearchCardLinks({ scope, cardId, links }: { scope: ResearchScope; cardId: number; links: ResearchLink[] }) {
+  const create = useCreateLink(scope);
+  const del = useDeleteLink(scope);
   const [url, setUrl] = useState('');
   const [label, setLabel] = useState('');
 

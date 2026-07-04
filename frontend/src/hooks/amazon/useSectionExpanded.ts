@@ -9,7 +9,7 @@ import { useCallback, useState } from 'react';
  * @param sectionKey  eindeutiger Schlüssel der Sektion (z.B. 'manufacturers', 'research')
  * @param defaultOpen Start-Zustand, wenn noch nichts gespeichert ist
  */
-export function useSectionExpanded(productId: number, sectionKey: string, defaultOpen: boolean) {
+export function useSectionExpanded(productId: number | string, sectionKey: string, defaultOpen: boolean) {
   const storageKey = `amazon.${sectionKey}.expanded.${productId}`;
   const [expanded, setExpanded] = useState<boolean>(() => {
     try {

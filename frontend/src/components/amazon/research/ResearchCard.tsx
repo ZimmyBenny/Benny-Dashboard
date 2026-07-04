@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { type ResearchCard as Card } from '../../../api/amazon.api';
+import { type ResearchCard as Card, type ResearchScope } from '../../../api/amazon.api';
 import { useUpdateCard, useDeleteCard, useUploadImage } from '../../../hooks/amazon/useResearch';
 import { ResearchCardLinks } from './ResearchCardLinks';
 import { ResearchCardAttachments } from './ResearchCardAttachments';
@@ -9,12 +9,12 @@ const INPUT_STYLE: React.CSSProperties = {
 };
 const MAX_BYTES = 20 * 1024 * 1024;
 
-export function ResearchCard({ productId, card, dragHandleProps }: {
-  productId: number; card: Card; dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
+export function ResearchCard({ scope, card, dragHandleProps }: {
+  scope: ResearchScope; card: Card; dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
 }) {
-  const update = useUpdateCard(productId);
-  const del = useDeleteCard(productId);
-  const upload = useUploadImage(productId);
+  const update = useUpdateCard(scope);
+  const del = useDeleteCard(scope);
+  const upload = useUploadImage(scope);
   const [body, setBody] = useState(card.body);
   useEffect(() => { setBody(card.body); }, [card.body]);
 
@@ -59,17 +59,19 @@ export function ResearchCard({ productId, card, dragHandleProps }: {
           <textarea value={body} onChange={(e) => setBody(e.target.value)} onBlur={saveBody}
             placeholder={'Notiz, Bulletpoints, Keywords …\n• …'} rows={3}
             className="w-full px-2 py-1 rounded text-sm resize-y" style={INPUT_STYLE} />
-          <ResearchCardLinks productId={productId} cardId={card.id} links={card.links} />
-          <ResearchCardAttachments productId={productId} cardId={card.id} attachments={card.images} />
+          <ResearchCardLinks scope={scope} cardId={card.id} links={card.links} />
+          <ResearchCardAttachments scope={scope} cardId={card.id} attachments={card.images} />
         </div>
         <div className="flex items-center gap-0.5 flex-shrink-0">
-          <button type="button" onClick={toggleGlobal}
-            aria-label={isGlobal ? 'Global sichtbar' : 'Global schalten'}
-            title={isGlobal ? 'Global sichtbar — erscheint auf „Recherche & Wissen"' : 'Global schalten — auch auf „Recherche & Wissen" zeigen'}
-            className="p-1 rounded hover:bg-white/5"
-            style={{ color: isGlobal ? 'var(--color-primary)' : 'var(--color-on-surface-variant)', opacity: isGlobal ? 1 : 0.6 }}>
-            <span className="material-symbols-outlined" style={{ fontSize: 18, fontVariationSettings: isGlobal ? "'FILL' 1" : "'FILL' 0" }}>language</span>
-          </button>
+          {scope !== 'global' && (
+            <button type="button" onClick={toggleGlobal}
+              aria-label={isGlobal ? 'Global sichtbar' : 'Global schalten'}
+              title={isGlobal ? 'Global sichtbar — erscheint auf „Recherche & Wissen"' : 'Global schalten — auch auf „Recherche & Wissen" zeigen'}
+              className="p-1 rounded hover:bg-white/5"
+              style={{ color: isGlobal ? 'var(--color-primary)' : 'var(--color-on-surface-variant)', opacity: isGlobal ? 1 : 0.6 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 18, fontVariationSettings: isGlobal ? "'FILL' 1" : "'FILL' 0" }}>language</span>
+            </button>
+          )}
           <button type="button" onClick={() => { if (confirm('Diese Karte wirklich löschen?')) del.mutate(card.id); }}
             aria-label="Karte löschen" className="p-1 rounded hover:bg-white/5" style={{ color: '#fca5a5' }}>
             <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete</span>

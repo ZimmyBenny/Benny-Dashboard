@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { type ResearchTopic } from '../../../api/amazon.api';
+import { type ResearchTopic, type ResearchScope } from '../../../api/amazon.api';
 import { useUpdateTopic, useDeleteTopic, useCreateCard, useReorderCards } from '../../../hooks/amazon/useResearch';
 import { ResearchCard } from './ResearchCard';
 
@@ -7,11 +7,11 @@ const INPUT_STYLE: React.CSSProperties = {
   background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)',
 };
 
-export function ResearchTopicBlock({ productId, topic }: { productId: number; topic: ResearchTopic }) {
-  const update = useUpdateTopic(productId);
-  const del = useDeleteTopic(productId);
-  const createCard = useCreateCard(productId);
-  const reorder = useReorderCards(productId);
+export function ResearchTopicBlock({ scope, topic }: { scope: ResearchScope; topic: ResearchTopic }) {
+  const update = useUpdateTopic(scope);
+  const del = useDeleteTopic(scope);
+  const createCard = useCreateCard(scope);
+  const reorder = useReorderCards(scope);
   const [title, setTitle] = useState(topic.title);
   const expanded = topic.is_expanded === 1;
 
@@ -68,7 +68,7 @@ export function ResearchTopicBlock({ productId, topic }: { productId: number; to
       {expanded && (
         <div className="px-3 pb-3 flex flex-col gap-2">
           {ordered.map((c, idx) => (
-            <ResearchCard key={c.id} productId={productId} card={c}
+            <ResearchCard key={c.id} scope={scope} card={c}
               dragHandleProps={{ onPointerDown: (e) => down(idx, e), onPointerEnter: () => enter(idx), onPointerUp: up }} />
           ))}
           <button type="button" onClick={() => createCard.mutate(topic.id)}
