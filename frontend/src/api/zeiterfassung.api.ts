@@ -14,6 +14,8 @@ export interface Project {
   hourly_rate: number | null;
   color: string | null;
   created_at: string;
+  /** Anzahl zugeordneter Zeiteinträge (für Lösch-Confirm) */
+  entry_count?: number;
 }
 
 export interface TimeEntry {
@@ -46,6 +48,12 @@ export const fetchProjects = () =>
 
 export const createProject = (data: { name: string; client_id?: number | null; hourly_rate?: number | null }) =>
   apiClient.post<Project>('/projects', data).then((r) => r.data);
+
+export const updateProject = (id: number, name: string) =>
+  apiClient.patch<Project>(`/projects/${id}`, { name }).then((r) => r.data);
+
+export const deleteProject = (id: number) =>
+  apiClient.delete<{ ok: boolean; entriesKept: number }>(`/projects/${id}`).then((r) => r.data);
 
 // Time entries
 export const fetchTimeEntries = (filters?: {

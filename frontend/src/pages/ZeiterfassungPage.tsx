@@ -4,6 +4,7 @@ import { useTimerStore } from '../store/timerStore';
 import {
   fetchProjects, fetchTimeEntries,
   createProject, createTimeEntry, updateTimeEntry, deleteTimeEntry,
+  updateProject, deleteProject,
   type Project, type TimeEntry,
 } from '../api/zeiterfassung.api';
 import { fetchContacts, type Contact } from '../api/contacts.api';
@@ -406,12 +407,46 @@ interface EntryListProps {
   filterContact: number | '';
   setFilterProject: (v: number | '') => void;
   setFilterContact: (v: number | '') => void;
+  /** Nach Umbenennen/Löschen eines Projekts: Daten neu laden */
+  onProjectsChanged: () => void;
 }
 
 function EntryList({
   entries, projects, onEdit, onDelete, onQuickStart,
   filterProject, filterContact, setFilterProject, setFilterContact,
+  onProjectsChanged,
 }: EntryListProps) {
+  const [manageOpen, setManageOpen] = useState(false);
+  const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
+  const [editingName, setEditingName] = useState('');
+
+  async function commitRename(p: Project) {
+    const name = editingName.trim();
+    setEditingProjectId(null);
+    if (!name || name === p.name) return;
+    try {
+      await updateProject(p.id, name);
+      onProjectsChanged();
+    } catch {
+      alert('Umbenennen fehlgeschlagen');
+    }
+  }
+
+  async function handleDeleteProject(p: Project) {
+    const n = p.entry_count ?? 0;
+    const msg =
+      n > 0
+        ? `Projekt „${p.name}" wirklich löschen? ${n} ${n === 1 ? 'Eintrag behält seine Zeiten' : 'Einträge behalten ihre Zeiten'} und ${n === 1 ? 'verliert' : 'verlieren'} nur die Projekt-Zuordnung.`
+        : `Projekt „${p.name}" wirklich löschen?`;
+    if (!window.confirm(msg)) return;
+    try {
+      await deleteProject(p.id);
+      if (filterProject === p.id) setFilterProject('');
+      onProjectsChanged();
+    } catch {
+      alert('Löschen fehlgeschlagen');
+    }
+  }
   // Unique Kontakte aus Einträgen für das Filter-Dropdown
   const contactOptions = Array.from(
     new Map(
@@ -462,7 +497,83 @@ function EntryList({
             Filter zurücksetzen
           </button>
         )}
+        {projects.length > 0 && (
+          <button
+            onClick={() => setManageOpen((v) => !v)}
+            style={{
+              padding: '0.625rem 0.875rem', borderRadius: '0.5rem', cursor: 'pointer',
+              background: manageOpen ? 'color-mix(in srgb, var(--color-primary) 12%, transparent)' : 'transparent',
+              color: manageOpen ? 'var(--color-primary)' : 'var(--color-outline)',
+              border: '1px solid var(--color-outline-variant)', fontSize: '0.8rem',
+              fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: '0.35rem',
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>tune</span>
+            Projekte verwalten
+          </button>
+        )}
       </div>
+
+      {/* Projekt-Verwaltung: umbenennen + löschen (Einträge behalten ihre Zeiten) */}
+      {manageOpen && (
+        <div
+          style={{
+            marginBottom: '1rem', padding: '0.75rem', borderRadius: '0.75rem',
+            background: 'var(--color-surface-container-low)',
+            border: '1px solid var(--color-outline-variant)',
+            display: 'flex', flexDirection: 'column', gap: '0.25rem',
+          }}
+        >
+          {projects.map((p) => (
+            <div
+              key={p.id}
+              className="group"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.35rem 0.5rem', borderRadius: '0.5rem' }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'var(--color-on-surface-variant)' }}>folder_special</span>
+              {editingProjectId === p.id ? (
+                <input
+                  autoFocus
+                  value={editingName}
+                  onChange={(e) => setEditingName(e.target.value)}
+                  onBlur={() => commitRename(p)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') commitRename(p);
+                    if (e.key === 'Escape') setEditingProjectId(null);
+                  }}
+                  style={{
+                    flex: 1, background: 'transparent', outline: 'none',
+                    border: '1px solid var(--color-primary)', borderRadius: 6,
+                    padding: '2px 6px', color: 'var(--color-on-surface)',
+                    fontFamily: 'var(--font-body)', fontSize: '0.85rem',
+                  }}
+                />
+              ) : (
+                <span style={{ flex: 1, color: 'var(--color-on-surface)', fontFamily: 'var(--font-body)', fontSize: '0.85rem' }}>
+                  {p.name}
+                  <span style={{ color: 'var(--color-outline)', fontSize: '0.7rem', marginLeft: '0.5rem' }}>
+                    {(p.entry_count ?? 0)} {(p.entry_count ?? 0) === 1 ? 'Eintrag' : 'Einträge'}
+                  </span>
+                </span>
+              )}
+              <button
+                onClick={() => { setEditingProjectId(p.id); setEditingName(p.name); }}
+                title="Umbenennen"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'var(--color-on-surface-variant)' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>edit</span>
+              </button>
+              <button
+                onClick={() => handleDeleteProject(p)}
+                title="Löschen"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'var(--color-error)' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {filtered.length === 0 ? (
         <div style={{
@@ -1006,6 +1117,7 @@ export function ZeiterfassungPage() {
             filterContact={filterContact}
             setFilterProject={setFilterProject}
             setFilterContact={setFilterContact}
+            onProjectsChanged={loadAll}
           />
         )}
       </div>
