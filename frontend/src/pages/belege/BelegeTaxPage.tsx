@@ -195,7 +195,7 @@ export function BelegeTaxPage() {
                       color: 'var(--color-on-surface-variant)',
                     }}
                   >
-                    Keine Belege fuer dieses Jahr.
+                    Keine Belege für dieses Jahr.
                   </td>
                 </tr>
               )}

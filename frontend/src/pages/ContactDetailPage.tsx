@@ -178,7 +178,7 @@ export function ContactDetailPage() {
     const name = contact.contact_kind === 'organization'
       ? contact.organization_name
       : `${contact.first_name ?? ''} ${contact.last_name ?? ''}`.trim();
-    if (!window.confirm(`Kontakt "${name}" wirklich loeschen? Diese Aktion kann nicht rueckgaengig gemacht werden.`)) return;
+    if (!window.confirm(`Kontakt "${name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return;
     await deleteContact(contact.id);
     navigate('/contacts');
   }
@@ -224,7 +224,7 @@ export function ContactDetailPage() {
 
   async function handleDeleteNote(note: ContactNote) {
     if (!contact) return;
-    if (!window.confirm('Notiz wirklich loeschen?')) return;
+    if (!window.confirm('Notiz wirklich löschen?')) return;
     await deleteNote(contact.id, note.id);
     void load();
   }

@@ -175,7 +175,7 @@ export function BrandNameTable({ productId, candidates, onExportPdf }: Props) {
               <button
                 type="button"
                 onClick={() => setSearch('')}
-                aria-label="Suche zuruecksetzen"
+                aria-label="Suche zurücksetzen"
                 className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-white/10"
                 style={{ color: 'var(--color-on-surface-variant)' }}
               >

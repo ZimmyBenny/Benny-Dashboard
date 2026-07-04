@@ -100,7 +100,7 @@ export function BelegeDetailPage() {
     },
     onError: (err: unknown) => {
       const e = err as { response?: { status?: number; data?: { error?: string } }; message?: string };
-      const msg = e?.response?.data?.error ?? e?.message ?? 'Loeschen fehlgeschlagen';
+      const msg = e?.response?.data?.error ?? e?.message ?? 'Löschen fehlgeschlagen';
       window.alert(msg);
     },
   });

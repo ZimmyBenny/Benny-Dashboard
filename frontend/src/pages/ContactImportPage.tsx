@@ -394,7 +394,7 @@ export function ContactImportPage() {
                 fontFamily: 'var(--font-body)', fontSize: '0.875rem',
               }}
             >
-              Andere Datei waehlen
+              Andere Datei wählen
             </button>
           </div>
         </div>
