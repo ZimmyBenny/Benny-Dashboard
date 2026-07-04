@@ -5,6 +5,8 @@ import { nextNumber } from '../services/dj.number.service';
 import { gobdGuardInvoice } from '../middleware/dj.gobd.middleware';
 import { todayLocal, addDaysLocal } from '../lib/dates';
 import { mirrorInvoiceToReceipts } from '../services/djSyncService';
+import { generateInvoicePreviewPdf } from '../services/dj.pdf.service';
+import { attachDjPdf } from '../lib/belegeMirror';
 
 const router = Router();
 
@@ -163,7 +165,7 @@ router.patch('/:id', gobdGuardInvoice, (req, res) => {
 });
 
 // POST /api/dj/invoices/:id/finalize — GoBD: Nummer vergeben, readonly
-router.post('/:id/finalize', (req, res) => {
+router.post('/:id/finalize', async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id)) { res.status(400).json({ error: 'Ungültige ID' }); return; }
 
@@ -181,12 +183,23 @@ router.post('/:id/finalize', (req, res) => {
 
   const number = txn();
   logAudit(req, 'invoice', id, 'finalize', existing, { number });
-  mirrorInvoiceToReceipts(id, req);
+  const receiptId = mirrorInvoiceToReceipts(id, req);
+
+  // PDF-Anhang best-effort — darf die Finalisierung nie scheitern lassen.
+  try {
+    if (receiptId) {
+      const buf = await generateInvoicePreviewPdf(id);
+      attachDjPdf(receiptId, id, buf, `${number}.pdf`);
+    }
+  } catch (err) {
+    console.warn(`[dj:invoice] PDF-Anhang bei finalize(${id}) fehlgeschlagen:`, (err as Error).message);
+  }
+
   res.json(loadInvoice(id));
 });
 
 // POST /api/dj/invoices/:id/cancel — Stornorechnung erstellen
-router.post('/:id/cancel', (req, res) => {
+router.post('/:id/cancel', async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id)) { res.status(400).json({ error: 'Ungültige ID' }); return; }
 
@@ -249,7 +262,20 @@ router.post('/:id/cancel', (req, res) => {
   // Reihenfolge wichtig: Original-Mirror zuerst (status='storniert'),
   // dann Storno-Mirror (corrects_receipt_id zeigt auf den Original-Mirror).
   mirrorInvoiceToReceipts(id, req);
-  mirrorInvoiceToReceipts(cancelId, req);
+  const cancelReceiptId = mirrorInvoiceToReceipts(cancelId, req);
+
+  // Storno-PDF best-effort am Storno-Mirror anhaengen (Original hat sein PDF
+  // bereits beim Finalisieren erhalten).
+  try {
+    if (cancelReceiptId) {
+      const cancelNumberRow = db.prepare('SELECT number FROM dj_invoices WHERE id = ?').get(cancelId) as { number: string | null } | undefined;
+      const buf = await generateInvoicePreviewPdf(cancelId);
+      attachDjPdf(cancelReceiptId, cancelId, buf, `${cancelNumberRow?.number ?? `RE-${cancelId}`}.pdf`);
+    }
+  } catch (err) {
+    console.warn(`[dj:invoice] Storno-PDF-Anhang bei cancel(${id}) fehlgeschlagen:`, (err as Error).message);
+  }
+
   res.status(201).json(loadInvoice(cancelId));
 });
 

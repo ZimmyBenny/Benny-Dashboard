@@ -673,6 +673,450 @@ export async function generateQuotePreviewPdf(quoteId: number): Promise<Buffer> 
   });
 }
 
+// ── Rechnungs-PDF (echt, kein Platzhalter) ────────────────────────────────────
+
+interface InvoiceRow {
+  id: number;
+  number: string | null;
+  customer_id: number;
+  event_id: number | null;
+  subject: string | null;
+  status: string;
+  invoice_date: string;
+  due_date: string | null;
+  header_text: string | null;
+  footer_text: string | null;
+  subtotal_net: number;
+  tax_total: number;
+  total_gross: number;
+  is_cancellation: number;
+}
+
+interface InvoiceItem {
+  position: number;
+  description: string;
+  quantity: number;
+  unit: string;
+  price_net: number;
+  tax_rate: number;
+  discount_pct: number;
+  total_net: number;
+}
+
+/**
+ * Rendert das echte Rechnungs-PDF fuer eine dj_invoice (Finalisieren/Stornieren/Backfill).
+ * Port vom Quote-Renderer (generateQuotePreviewPdf) nach expliziter Port-Liste
+ * (Plan quick-260704-m69, Task 2) — Rechnungs-Schema hat WENIGER Felder als Quotes:
+ * KEINE discount_value/discount_type/discount_description, notes/internal_notes,
+ * is_optional/optional_*, reference_number. Diese werden hier NICHT referenziert.
+ */
+export async function generateInvoicePreviewPdf(invoiceId: number): Promise<Buffer> {
+  // --- Daten laden ---
+  const invoice = db.prepare(
+    'SELECT * FROM dj_invoices WHERE id = ?'
+  ).get(invoiceId) as InvoiceRow | undefined;
+  if (!invoice) throw new Error(`Rechnung ${invoiceId} nicht gefunden`);
+
+  const items = db.prepare(
+    'SELECT * FROM dj_invoice_items WHERE invoice_id = ? ORDER BY position'
+  ).all(invoiceId) as InvoiceItem[];
+
+  const contact = db.prepare(
+    'SELECT id, contact_kind, salutation, first_name, last_name, organization_name, customer_number FROM contacts WHERE id = ?'
+  ).get(invoice.customer_id) as ContactRow | undefined;
+
+  let address: AddressRow | undefined = db.prepare(
+    'SELECT street, postal_code, city, country FROM contact_addresses WHERE contact_id = ? AND is_primary = 1 LIMIT 1'
+  ).get(invoice.customer_id) as AddressRow | undefined;
+  if (!address) {
+    address = db.prepare(
+      'SELECT street, postal_code, city, country FROM contact_addresses WHERE contact_id = ? LIMIT 1'
+    ).get(invoice.customer_id) as AddressRow | undefined;
+  }
+
+  const settingsRow = db.prepare(
+    "SELECT value FROM dj_settings WHERE key = 'company'"
+  ).get() as { value: string } | undefined;
+  const rawCompany = settingsRow ? (JSON.parse(settingsRow.value) as Record<string, unknown>) : null;
+  const company: CompanySettings = rawCompany
+    ? ({
+        ...rawCompany,
+        address: String(rawCompany.address ?? (rawCompany as Record<string, unknown>).street ?? ''),
+        bank: rawCompany.bank ?? { name: String(rawCompany.bank_name ?? ''), iban: String(rawCompany.iban ?? ''), bic: String(rawCompany.bic ?? ''), holder: '' },
+      } as CompanySettings)
+    : {
+        name: 'Benjamin Zimmermann',
+        company: 'Dein Event DJ | Benjamin Zimmermann',
+        address: 'Mittelweg 10',
+        zip: '93426',
+        city: 'Roding',
+        country: 'Deutschland',
+        phone: '01711493222',
+        email: 'Benjamin.Z@gmx.de',
+        website: 'www.dein-event-dj.com',
+        tax_number: '21129292323',
+        vat_id: null,
+        is_vat_liable: true,
+        vat_rate: 19.0,
+        bank: { name: 'Raiffeisenbank', iban: 'DE59753900000005302552', bic: 'GENODEF1NEW', holder: 'Benjamin Zimmermann' },
+      };
+
+  let event: EventRow | undefined;
+  if (invoice.event_id) {
+    event = db.prepare(
+      'SELECT title, event_date FROM dj_events WHERE id = ?'
+    ).get(invoice.event_id) as EventRow | undefined;
+  }
+
+  const isCancellation = invoice.is_cancellation === 1;
+
+  // --- PDF erstellen ---
+  return new Promise<Buffer>((resolve, reject) => {
+    const titleText = invoice.subject?.trim()
+      ? invoice.subject.trim()
+      : isCancellation
+        ? `Stornorechnung Nr. ${invoice.number ?? 'Entwurf'}`
+        : invoice.number
+          ? `Rechnung Nr. ${invoice.number}`
+          : 'Rechnung (Entwurf)';
+
+    const doc = new PDFDocument({
+      size: 'A4',
+      margins: { top: 71, bottom: 120, left: 71, right: 57 },
+      autoFirstPage: true,
+      bufferPages: true,
+      info: {
+        Title: isCancellation
+          ? `Stornorechnung ${invoice.number ?? invoiceId}`
+          : invoice.number
+            ? `Rechnung ${invoice.number}`
+            : 'Rechnung (Entwurf)',
+        Author: company.name,
+      },
+    });
+
+    const chunks: Buffer[] = [];
+    doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    const marginLeft = 71;
+    const marginRight = 57;
+    const pageWidth = doc.page.width;
+    const usableWidth = pageWidth - marginLeft - marginRight;
+
+    // --- Logo (oben rechts, ueber der Absenderzeile) ---
+    const logoRow = db.prepare("SELECT value FROM dj_settings WHERE key = 'logo_path'").get() as { value: string } | undefined;
+    const absLogoPath = logoRow?.value ? path.join(process.cwd(), logoRow.value) : null;
+    const logoUsable = absLogoPath && fs.existsSync(absLogoPath) && path.extname(absLogoPath).toLowerCase() !== '.svg';
+    const renderLogo = () => {
+      if (!logoUsable || !absLogoPath) return;
+      try {
+        doc.image(absLogoPath, pageWidth - marginRight - 170, 30, { fit: [170, 80], align: 'right' });
+      } catch {
+        // Logo nicht renderbar — graceful skip
+      }
+    };
+    renderLogo(); // Seite 1 — Folgeseiten via bufferedPageRange-Loop am Ende
+
+    // --- Absenderzeile ---
+    const senderText = `${company.name} · ${company.address} · ${company.zip} ${company.city}`;
+    doc.font('Helvetica').fontSize(8).fillColor('#666666')
+      .text(senderText, marginLeft, 100, { width: usableWidth * 0.58, lineBreak: false });
+    const senderBottom = 115;
+    doc.moveTo(marginLeft, senderBottom)
+      .lineTo(pageWidth - marginRight, senderBottom)
+      .lineWidth(0.5)
+      .strokeColor('#999999')
+      .stroke();
+
+    // --- Empfänger-Block (links) & Meta-Block (rechts) ---
+    const recipientStartY = senderBottom + 20;
+    const metaX = marginLeft + usableWidth * 0.55;
+    const metaWidth = usableWidth * 0.45;
+
+    const recipientLines: string[] = [];
+    if (contact) {
+      if (contact.contact_kind === 'organization') {
+        recipientLines.push(contact.organization_name ?? '');
+      } else {
+        const nameParts = [contact.salutation, contact.first_name, contact.last_name].filter(Boolean);
+        recipientLines.push(nameParts.join(' '));
+        if (contact.organization_name) recipientLines.push(contact.organization_name);
+      }
+    }
+    if (address) {
+      if (address.street) recipientLines.push(address.street);
+      if (address.postal_code || address.city) {
+        recipientLines.push(`${address.postal_code ?? ''} ${address.city ?? ''}`.trim());
+      }
+      if (address.country && address.country !== 'Deutschland') {
+        recipientLines.push(address.country);
+      }
+    }
+
+    doc.font('Helvetica').fontSize(11).fillColor('#000000');
+    let recipientY = recipientStartY;
+    for (const line of recipientLines) {
+      doc.text(line, marginLeft, recipientY, { width: metaX - marginLeft - 20 });
+      recipientY = doc.y;
+    }
+
+    // Meta-Block rendern (Rechnungs-Spezifika: Rechnungs-Nr./Rechnungsdatum/Faellig bis)
+    const metaLabelWidth = 85;
+    const metaValueWidth = metaWidth - metaLabelWidth;
+    let metaY = recipientStartY;
+
+    const invoiceDisplayNumber = invoice.number ?? 'Entwurf';
+
+    const metaRows: Array<[string, string]> = [
+      ['Rechnungs-Nr.:', invoiceDisplayNumber],
+      ['Rechnungsdatum:', formatDateDE(invoice.invoice_date)],
+      ['Fällig bis:', formatDateDE(invoice.due_date)],
+    ];
+    // Referenz: nur event.title-Fallback (Rechnungen haben kein reference_number-Feld)
+    if (event?.title) metaRows.push(['Referenz:', event.title]);
+    if (contact?.customer_number) metaRows.push(['Kundennummer:', contact.customer_number]);
+    metaRows.push(['Ansprechpartner:', 'Benjamin Zimmermann']);
+
+    doc.font('Helvetica').fontSize(10).fillColor('#000000');
+    for (const [label, value] of metaRows) {
+      doc.text(label, metaX, metaY, { width: metaLabelWidth, continued: false });
+      doc.text(value, metaX + metaLabelWidth, metaY, { width: metaValueWidth, align: 'right' });
+      metaY = doc.y;
+    }
+
+    // --- Titelzeile ---
+    const blockBottom = Math.max(recipientY, metaY);
+    const titleY = blockBottom + 70;
+
+    doc.font('Helvetica-Bold').fontSize(16).fillColor('#000000')
+      .text(titleText, marginLeft, titleY, { width: usableWidth });
+
+    // --- Kopftext ---
+    let currentY = doc.y + 35;
+    if (invoice.header_text) {
+      const placeholderVars: Record<string, string> = {
+        vorname: contact?.first_name ?? '',
+        nachname: contact?.last_name ?? '',
+        anrede: contact?.salutation ?? '',
+        eventdatum: event?.event_date ? formatDateDE(event.event_date) : '',
+      };
+      const headerText = replacePlaceholders(invoice.header_text, placeholderVars);
+      doc.font('Helvetica').fontSize(9).fillColor('#000000')
+        .text(headerText, marginLeft, currentY, { width: usableWidth, lineGap: 3 });
+      currentY = doc.y + 30;
+    }
+
+    // --- Positionstabelle (mit Rabatt-Spalte — dj_invoice_items.discount_pct existiert) ---
+    const colWidths = [
+      usableWidth * 0.05,   // Pos
+      usableWidth * 0.42,   // Beschreibung
+      usableWidth * 0.10,   // Menge
+      usableWidth * 0.16,   // Einzelpreis
+      usableWidth * 0.09,   // Rabatt
+      usableWidth * 0.18,   // Gesamt
+    ];
+    const colX: number[] = [];
+    let cx = marginLeft;
+    for (const w of colWidths) {
+      colX.push(cx);
+      cx += w;
+    }
+
+    const rowHeight = 18;
+    const headerY = currentY;
+
+    doc.save()
+      .rect(marginLeft, headerY, usableWidth, rowHeight)
+      .fillColor('#F0F0F0')
+      .fill()
+      .restore();
+
+    const headers = ['Pos.', 'Beschreibung', 'Menge', 'Einzelpreis', 'Rabatt', 'Gesamt'];
+    const headerAligns: Array<'center' | 'left' | 'right'> = ['center', 'left', 'right', 'right', 'right', 'right'];
+
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('#000000');
+    for (let i = 0; i < headers.length; i++) {
+      doc.text(headers[i], colX[i] + 3, headerY + 5, {
+        width: colWidths[i] - 6,
+        align: headerAligns[i],
+        lineBreak: false,
+      });
+    }
+
+    let dataY = headerY + rowHeight;
+    const dataAligns: Array<'center' | 'left' | 'right'> = ['center', 'left', 'right', 'right', 'right', 'right'];
+
+    for (let idx = 0; idx < items.length; idx++) {
+      const item = items[idx];
+
+      const fullDesc = item.description ?? '';
+      const firstNewline = fullDesc.indexOf('\n');
+      const descTitle = firstNewline >= 0 ? fullDesc.slice(0, firstNewline) : fullDesc;
+      const descBody = firstNewline >= 0 ? fullDesc.slice(firstNewline + 1).trim() : '';
+      const descColWidth = colWidths[1] - 6;
+
+      doc.font('Helvetica-Bold').fontSize(10);
+      const titleHeight = doc.heightOfString(descTitle || ' ', { width: descColWidth, lineGap: 1 });
+      doc.font('Helvetica').fontSize(10);
+      const bodyHeight = descBody
+        ? doc.heightOfString(descBody, { width: descColWidth, lineGap: 1 })
+        : 0;
+      const blankLineHeight = descBody ? 6 : 0;
+      const descHeight = titleHeight + blankLineHeight + bodyHeight;
+      const dynamicRowHeight = Math.max(rowHeight, descHeight + 8);
+
+      if (dataY + dynamicRowHeight > doc.page.height - 120) {
+        doc.addPage();
+        dataY = 130;
+        doc.save()
+          .rect(marginLeft, dataY, usableWidth, rowHeight)
+          .fillColor('#F0F0F0')
+          .fill()
+          .restore();
+        doc.font('Helvetica-Bold').fontSize(9).fillColor('#000000');
+        for (let i = 0; i < headers.length; i++) {
+          doc.text(headers[i], colX[i] + 3, dataY + 5, {
+            width: colWidths[i] - 6,
+            align: headerAligns[i],
+            lineBreak: false,
+          });
+        }
+        dataY += rowHeight;
+      }
+
+      doc.save()
+        .moveTo(marginLeft, dataY)
+        .lineTo(pageWidth - marginRight, dataY)
+        .lineWidth(0.5)
+        .strokeColor('#CCCCCC')
+        .stroke()
+        .restore();
+
+      doc.font('Helvetica').fontSize(10).fillColor('#000000');
+      const discountCell = item.discount_pct && item.discount_pct > 0
+        ? `${new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 }).format(item.discount_pct)} %`
+        : '';
+
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('#000000')
+        .text(descTitle, colX[1] + 3, dataY + 4, {
+          width: descColWidth,
+          align: 'left',
+          lineBreak: true,
+          lineGap: 1,
+        });
+      if (descBody) {
+        doc.font('Helvetica').fontSize(10).fillColor('#000000')
+          .text(descBody, colX[1] + 3, dataY + 4 + titleHeight + blankLineHeight, {
+            width: descColWidth,
+            align: 'left',
+            lineBreak: true,
+            lineGap: 1,
+          });
+      }
+
+      // Keine optionalen Positionen bei Rechnungen — Pos-Nr. immer normal, keine Klammerung.
+      const cells = [
+        { idx: 0, value: String(item.position) },
+        { idx: 2, value: new Intl.NumberFormat('de-DE').format(item.quantity) },
+        { idx: 3, value: formatEur(item.price_net) },
+        { idx: 4, value: discountCell },
+        { idx: 5, value: formatEur(item.total_net) },
+      ];
+      doc.font('Helvetica').fontSize(10).fillColor('#000000');
+      for (const cell of cells) {
+        doc.text(cell.value, colX[cell.idx] + 3, dataY + 4, {
+          width: colWidths[cell.idx] - 6,
+          align: dataAligns[cell.idx],
+          lineBreak: false,
+        });
+      }
+      dataY += dynamicRowHeight;
+    }
+
+    doc.save()
+      .moveTo(marginLeft, dataY)
+      .lineTo(pageWidth - marginRight, dataY)
+      .lineWidth(0.5)
+      .strokeColor('#CCCCCC')
+      .stroke()
+      .restore();
+
+    // --- Summen-Block: direkt aus subtotal_net/tax_total/total_gross (keine Rabatt-Skalierung) ---
+    let sumY = dataY + 14;
+    const sumLabelX = marginLeft + usableWidth * 0.48;
+    const sumValueX = marginLeft + usableWidth * 0.78;
+    const sumValueWidth = pageWidth - marginRight - sumValueX;
+
+    // MwSt nach Steuersatz gruppieren (aus den Items, ohne Rabatt-Skalierungs-Ratio —
+    // Rechnungen haben keinen Gesamtrabatt-Block).
+    const taxGroups: Map<number, number> = new Map();
+    for (const item of items) {
+      const tax = item.total_net * (item.tax_rate / 100);
+      taxGroups.set(item.tax_rate, (taxGroups.get(item.tax_rate) ?? 0) + tax);
+    }
+
+    doc.font('Helvetica').fontSize(10).fillColor('#000000');
+
+    doc.text('Nettosumme:', sumLabelX, sumY, { width: sumValueX - sumLabelX - 6, align: 'left' });
+    doc.text(formatEur(invoice.subtotal_net), sumValueX, sumY, { width: sumValueWidth, align: 'right' });
+    sumY = doc.y + 2;
+
+    for (const [rate, taxAmt] of taxGroups) {
+      doc.text(`Umsatzsteuer ${rate} %:`, sumLabelX, sumY, { width: sumValueX - sumLabelX - 6, align: 'left' });
+      doc.text(formatEur(taxAmt), sumValueX, sumY, { width: sumValueWidth, align: 'right' });
+      sumY = doc.y + 2;
+    }
+
+    doc.save()
+      .moveTo(sumLabelX, sumY + 2)
+      .lineTo(pageWidth - marginRight, sumY + 2)
+      .lineWidth(0.5)
+      .strokeColor('#000000')
+      .stroke()
+      .restore();
+    sumY += 8;
+
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#000000');
+    doc.text('Rechnungssumme brutto:', sumLabelX, sumY, { width: sumValueX - sumLabelX - 6, align: 'left' });
+    doc.text(formatEur(invoice.total_gross), sumValueX, sumY, { width: sumValueWidth, align: 'right' });
+
+    // --- Fußtext ---
+    // footer_text: '' -> kein Fusstext; null/undefined -> sinnvoller Default; sonst eigener Text.
+    let footerTextY = doc.y + 20;
+    let footerContent: string;
+    if (invoice.footer_text === null || invoice.footer_text === undefined) {
+      const defaultFooterRow = db.prepare("SELECT value FROM dj_settings WHERE key = 'default_footer_text_invoice'").get() as { value: string } | undefined;
+      footerContent = defaultFooterRow?.value ?? 'Vielen Dank für Ihr Vertrauen.';
+    } else {
+      footerContent = invoice.footer_text;
+    }
+
+    if (footerContent) {
+      doc.font('Helvetica').fontSize(10).fillColor('#000000')
+        .text(footerContent, marginLeft, footerTextY, { width: usableWidth, lineGap: 4 });
+    }
+
+    // --- Mit freundlichen Gruessen ---
+    const signatureY = doc.y + 18;
+    doc.font('Helvetica').fontSize(10).fillColor('#000000')
+      .text('Mit freundlichen Grüßen', marginLeft, signatureY, { width: usableWidth, lineBreak: false });
+    doc.text('Benjamin Zimmermann', marginLeft, doc.y + 2, { width: usableWidth, lineBreak: false });
+
+    // Footer + Logo rueckwirkend auf alle gebufferten Seiten setzen
+    const { count } = doc.bufferedPageRange();
+    for (let i = 0; i < count; i++) {
+      doc.switchToPage(i);
+      if (i > 0) renderLogo();
+      renderFooter(doc, i + 1, count);
+    }
+
+    doc.flushPages();
+    doc.end();
+  });
+}
+
 // ── Platzhalter für Phase 2 ───────────────────────────────────────────────────
 
 export async function generateInvoicePdf(_invoiceId: number, number: string): Promise<{ path: string; hash: string }> {
