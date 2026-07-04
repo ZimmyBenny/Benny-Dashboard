@@ -39,8 +39,9 @@ function ImageThumb({ productId, att }: { productId: number; att: ResearchImage 
 }
 
 function GlobalCard({ card }: { card: GlobalResearchCard }) {
-  const images = card.images.filter(isImage);
-  const files = card.images.filter(a => !isImage(a));
+  const atts = card.images ?? [];
+  const images = atts.filter(isImage);
+  const files = atts.filter(a => !isImage(a));
 
   async function download(att: ResearchImage) {
     try {
@@ -74,9 +75,9 @@ function GlobalCard({ card }: { card: GlobalResearchCard }) {
       )}
 
       {/* Links */}
-      {card.links.length > 0 && (
+      {(card.links?.length ?? 0) > 0 && (
         <div className="mt-2 flex flex-col gap-1.5">
-          {card.links.map(l => (
+          {(card.links ?? []).map(l => (
             <div key={l.id} className="flex items-center gap-2 text-sm">
               <span className="material-symbols-outlined" style={{ fontSize: 16, color: 'var(--color-on-surface-variant)' }}>link</span>
               <a href={l.url} target="_blank" rel="noopener noreferrer" className="truncate"
