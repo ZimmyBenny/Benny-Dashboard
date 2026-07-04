@@ -61,7 +61,7 @@ export function BelegeTaxPage() {
     return (
       <PageWrapper>
         <Container>
-          <Header title="STEUER" subtitle="UStVA-Übersicht" />
+          <Header title="Steuer" subtitle="UStVA-Übersicht" />
           <div
             style={{
               background: 'var(--color-surface-variant)',
@@ -99,7 +99,7 @@ export function BelegeTaxPage() {
     <PageWrapper>
       <Container>
         <Header
-          title="STEUER"
+          title="Steuer"
           subtitle={`UStVA · ${PERIOD_LABEL[data.period]} · ${year}`}
           right={
             <YearPicker
@@ -238,7 +238,7 @@ export function BelegeTaxPage() {
             background: 'var(--color-surface-variant)',
             borderRadius: '0.75rem',
             padding: '1rem 1.25rem',
-            marginTop: '2rem',
+            marginTop: '3.5rem',
           }}
         >
           <p
@@ -359,7 +359,7 @@ function Header({
             fontWeight: 800,
             fontSize: '3rem',
             letterSpacing: '-0.02em',
-            color: 'var(--color-primary)',
+            color: 'var(--color-on-surface)',
             margin: 0,
             lineHeight: 1.1,
           }}
