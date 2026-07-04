@@ -68,7 +68,12 @@ export function AppShell() {
       <Sidebar />
       <div className="flex flex-col flex-1 min-w-0" style={{ position: 'relative', zIndex: 1 }}>
         <Header />
-        <main className="flex flex-col flex-1 min-h-0 overflow-hidden" style={{ position: 'relative' }}>
+        <main
+          className="flex flex-col flex-1 min-h-0 overflow-hidden"
+          style={{ position: 'relative' }}
+          // Graphit-Look (neutrale Grau-Flächen) vorerst nur im Dokumente-Reiter — User-Wunsch 2026-07-04
+          data-surface-theme={location.pathname.startsWith('/dokumente') ? 'graphite' : undefined}
+        >
           {/* Dezentes Hintergrund-Raster — global auf allen Seiten (Schärfe-Pass) */}
           <SharpGridBackground />
           <div className="flex flex-col flex-1 min-h-0" style={{ position: 'relative', zIndex: 1 }}>

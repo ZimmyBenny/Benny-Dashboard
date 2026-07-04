@@ -540,3 +540,21 @@ input[type=number]::-webkit-outer-spin-button {
 input[type=number] {
   -moz-appearance: textfield;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   GRAPHIT-LOOK — neutrale Grau-Flächen statt Nachtblau (Referenz-Portal).
+   Vorerst NUR im Dokumente-Reiter aktiv (User-Wunsch 2026-07-04, AppShell
+   setzt data-surface-theme auf /dokumente). Akzentfarben (primary/secondary)
+   bleiben unverändert Blau/Grün. Globaler Rollout ggf. später.
+   ═══════════════════════════════════════════════════════════════════ */
+[data-surface-theme="graphite"] {
+  --color-background:                #101114;
+  --color-surface:                   #101114;
+  --color-surface-container-lowest:  #0b0c0e;
+  --color-surface-container-low:     #15171b;
+  --color-surface-container:         #1a1c21;
+  --color-surface-container-high:    #1f2227;
+  --color-surface-container-highest: #24272d;
+  --color-outline-variant:           #33363d;
+  background: var(--color-background);
+}
