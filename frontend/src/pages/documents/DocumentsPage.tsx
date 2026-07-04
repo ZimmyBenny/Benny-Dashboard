@@ -617,9 +617,10 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
               onClick={() => fileInputRef.current?.click()}
               className="px-3 py-1.5 rounded-md text-sm font-semibold flex items-center gap-1.5"
               style={{
-                background: 'var(--color-primary)',
+                background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
                 color: 'var(--color-on-primary)',
                 cursor: 'pointer',
+                boxShadow: '0 0 16px rgba(148,170,255,0.3)',
               }}
             >
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>upload</span>
@@ -799,7 +800,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                   type="button"
                   onClick={() => setNewFolderOpen(true)}
                   className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5"
-                  style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}
+                  style={{ background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))', color: 'var(--color-on-primary)' }}
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: 16 }}>create_new_folder</span>
                   Neuer Ordner
@@ -842,7 +843,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                   type="button"
                   onClick={() => setNewFolderOpen(true)}
                   className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5"
-                  style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}
+                  style={{ background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))', color: 'var(--color-on-primary)' }}
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: 16 }}>create_new_folder</span>
                   Neuer Ordner
@@ -1019,7 +1020,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                         type="button"
                         onClick={() => setBulkMoveOpen(true)}
                         className="px-3 py-1.5 rounded-md text-sm font-semibold"
-                        style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}
+                        style={{ background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))', color: 'var(--color-on-primary)' }}
                       >
                         Verschieben
                       </button>

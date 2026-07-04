@@ -207,7 +207,7 @@ export function CreateFolderModal({
             onClick={submit}
             className="px-3 py-1.5 rounded-md text-sm"
             style={{
-              background: 'var(--color-primary)',
+              background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
               color: 'var(--color-on-primary)',
               fontWeight: 700,
               opacity: canSubmit ? 1 : 0.5,

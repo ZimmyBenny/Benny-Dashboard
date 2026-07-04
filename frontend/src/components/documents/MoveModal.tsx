@@ -184,7 +184,7 @@ export function MoveModal({ open, tree, excludeId, title, onSelect, onClose }: M
             }}
             className="px-3 py-1.5 rounded-md text-sm font-semibold"
             style={{
-              background: selectedId === null ? 'var(--color-surface-container)' : 'var(--color-primary)',
+              background: selectedId === null ? 'var(--color-surface-container)' : 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
               color: selectedId === null ? 'var(--color-on-surface-variant)' : 'var(--color-on-primary)',
               cursor: selectedId === null ? 'not-allowed' : 'pointer',
               opacity: selectedId === null ? 0.6 : 1,
