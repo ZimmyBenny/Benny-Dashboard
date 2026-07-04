@@ -173,7 +173,7 @@ function EntryPanel({
 
   return (
     <div style={{
-      background: 'rgba(25,37,64,0.6)',
+      background: 'color-mix(in srgb, var(--color-surface-container-low) 60%, transparent)',
       backdropFilter: 'blur(20px)',
       WebkitBackdropFilter: 'blur(20px)',
       border: '1px solid rgba(255,255,255,0.08)',
@@ -485,7 +485,7 @@ function EntryList({
               style={{
                 display: 'flex', alignItems: 'center', gap: '1rem',
                 padding: '0.875rem 1rem',
-                background: 'rgba(25,37,64,0.4)',
+                background: 'color-mix(in srgb, var(--color-surface-container-low) 40%, transparent)',
                 backdropFilter: 'blur(12px)',
                 WebkitBackdropFilter: 'blur(12px)',
                 border: '1px solid rgba(255,255,255,0.06)',
@@ -740,7 +740,7 @@ export function ZeiterfassungPage() {
     <PageWrapper>
       {/* ── Timer-Karte ─────────────────────────────────────── */}
       <div style={{
-        background: 'rgba(25,37,64,0.5)',
+        background: 'color-mix(in srgb, var(--color-surface-container-low) 50%, transparent)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
         border: '1px solid rgba(255,255,255,0.06)',
@@ -1012,7 +1012,7 @@ export function ZeiterfassungPage() {
 
       {/* ── Export-Panel ─────────────────────────────────────── */}
       <div style={{
-        background: 'rgba(25,37,64,0.6)',
+        background: 'color-mix(in srgb, var(--color-surface-container-low) 60%, transparent)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
         border: '1px solid rgba(255,255,255,0.08)',
