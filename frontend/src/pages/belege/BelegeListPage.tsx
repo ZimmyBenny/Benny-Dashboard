@@ -624,7 +624,7 @@ function ReceiptRow({
       onMouseLeave={() => setHovered(false)}
       style={{
         display: 'grid',
-        gridTemplateColumns: '110px 1fr 140px 120px 100px 130px',
+        gridTemplateColumns: '110px 1fr 140px 100px 120px 100px 130px',
         gap: '0.75rem',
         padding: '0.75rem 1.25rem',
         borderTop: isFirst ? 'none' : '1px solid rgba(148,170,255,0.08)',
