@@ -685,6 +685,15 @@ router.post('/dj-pdf-backfill', async (_req, res) => {
   res.json({ ok: true, generated: r.generated });
 });
 
+/** Primaerer Bereichsname je Beleg (is_primary zuerst) — fuer die Bereich-Spalte der Liste. */
+const PRIMARY_AREA_SUBQUERY = `(
+  SELECT a2.name FROM receipt_area_links ral2
+  JOIN areas a2 ON a2.id = ral2.area_id
+  WHERE ral2.receipt_id = r.id
+  ORDER BY ral2.is_primary DESC, a2.name ASC
+  LIMIT 1
+) AS primary_area`;
+
 /**
  * GET /api/belege?area=DJ&status=offen&type=eingangsrechnung&from=YYYY-MM-DD&to=YYYY-MM-DD&search=...
  *
@@ -727,7 +736,7 @@ router.get('/', (req, res) => {
   if (area) {
     // Area-Filter: JOIN ueber receipt_area_links + areas
     sql = `
-      SELECT DISTINCT r.* FROM receipts r
+      SELECT DISTINCT r.*, ${PRIMARY_AREA_SUBQUERY} FROM receipts r
       INNER JOIN receipt_area_links ral ON ral.receipt_id = r.id
       INNER JOIN areas a ON a.id = ral.area_id
       WHERE a.name = ? ${where.length ? 'AND ' + where.join(' AND ') : ''}
@@ -737,7 +746,7 @@ router.get('/', (req, res) => {
     params.unshift(area);
   } else {
     sql = `
-      SELECT r.* FROM receipts r
+      SELECT r.*, ${PRIMARY_AREA_SUBQUERY} FROM receipts r
       ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
       ORDER BY r.receipt_date DESC, r.id DESC
       LIMIT 500

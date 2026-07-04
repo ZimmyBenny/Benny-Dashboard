@@ -492,7 +492,7 @@ export function ReceiptsTable({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '110px 1fr 140px 120px 100px 130px',
+            gridTemplateColumns: '110px 1fr 140px 100px 120px 100px 130px',
             gap: '0.75rem',
             padding: '0.75rem 1.25rem',
             borderBottom: '1px solid rgba(148,170,255,0.15)',
@@ -503,6 +503,7 @@ export function ReceiptsTable({
             'Datum',
             'Lieferant',
             'Belegnr',
+            'Bereich',
             showDueDate ? 'Fällig' : 'Brutto',
             showDueDate ? 'Brutto' : 'USt',
             'Status',
@@ -672,6 +673,32 @@ function ReceiptRow({
         }}
       >
         {r.supplier_invoice_number || r.receipt_number || '–'}
+      </span>
+      <span>
+        {r.primary_area ? (
+          <span
+            style={{
+              display: 'inline-block',
+              fontFamily: 'var(--font-body)',
+              fontSize: '0.72rem',
+              fontWeight: 600,
+              color: 'var(--color-primary)',
+              background: 'color-mix(in srgb, var(--color-primary) 12%, transparent)',
+              border: '1px solid color-mix(in srgb, var(--color-primary) 30%, transparent)',
+              borderRadius: '999px',
+              padding: '0.15rem 0.6rem',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              maxWidth: '100%',
+            }}
+            title={r.primary_area}
+          >
+            {r.primary_area}
+          </span>
+        ) : (
+          <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.85rem' }}>–</span>
+        )}
       </span>
       {showDueDate ? (
         <>

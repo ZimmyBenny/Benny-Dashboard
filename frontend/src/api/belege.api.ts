@@ -42,6 +42,8 @@ export interface ReceiptListItem {
   contract_id: number | null;
   title: string | null;
   notes: string | null;
+  /** Primärer Bereichsname (z. B. „DJ", „Amazon FBA") — null wenn keinem Bereich zugeordnet. */
+  primary_area: string | null;
 }
 
 /** Detail-Response inkl. Joins (files / area_links / ocr_results / audit_log). */
