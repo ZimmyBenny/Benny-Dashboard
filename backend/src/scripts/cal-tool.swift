@@ -318,21 +318,46 @@ func runDelete(subArgs: [String]) {
     errorExit("delete requires --event-id ID")
   }
 
+  // Zugriff auf Events UND Reminder anfordern: die ID kann zu einer Erinnerung
+  // (EKReminder) statt einem Event gehoeren (z.B. Items aus Erinnerungs-Listen).
   requestAccess { granted in
     guard granted else { errorExit("EventKit access denied") }
 
-    guard let event = store.event(withIdentifier: eventId) else {
-      errorExit("Event not found: \(eventId)")
-    }
+    requestReminderAccess { _ in
+      // calendarItem(withIdentifier:) findet Reminder (und Items, deren
+      // calendarItemIdentifier gespeichert wurde) OHNE den Crash, den
+      // event(withIdentifier:) bei Reminder-IDs ausloest
+      // (NSUnknownKeyException: key isAllDay auf EKReminder).
+      if let item = store.calendarItem(withIdentifier: eventId) {
+        do {
+          if let ev = item as? EKEvent {
+            try store.remove(ev, span: .thisEvent, commit: true)
+          } else if let rem = item as? EKReminder {
+            try store.remove(rem, commit: true)
+          } else {
+            errorExit("Unsupported calendar item type: \(eventId)")
+          }
+        } catch {
+          errorExit("Failed to delete item: \(error.localizedDescription)")
+        }
+        jsonOutput(["ok": true])
+        CFRunLoopStop(CFRunLoopGetMain())
+        return
+      }
 
-    do {
-      try store.remove(event, span: .thisEvent, commit: true)
-    } catch {
-      errorExit("Failed to delete event: \(error.localizedDescription)")
+      // Normalfall: regulaeres Event (gespeichert per eventIdentifier, den
+      // calendarItem(withIdentifier:) nicht aufloest).
+      guard let event = store.event(withIdentifier: eventId) else {
+        errorExit("Event not found: \(eventId)")
+      }
+      do {
+        try store.remove(event, span: .thisEvent, commit: true)
+      } catch {
+        errorExit("Failed to delete event: \(error.localizedDescription)")
+      }
+      jsonOutput(["ok": true])
+      CFRunLoopStop(CFRunLoopGetMain())
     }
-
-    jsonOutput(["ok": true])
-    CFRunLoopStop(CFRunLoopGetMain())
   }
   CFRunLoopRun()
 }
