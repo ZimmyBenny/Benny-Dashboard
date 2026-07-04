@@ -531,6 +531,20 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
           ) : (
             <>
               <div className="flex items-center justify-between mb-1">
+                <span
+                  style={{
+                    fontFamily: 'var(--font-headline)',
+                    fontWeight: 700,
+                    fontSize: '1.125rem',
+                    color: 'var(--color-on-surface)',
+                  }}
+                >
+                  {breadcrumb.length > 0
+                    ? breadcrumb[breadcrumb.length - 1].name
+                    : areaSlug
+                      ? AREA_LABELS[areaSlug]
+                      : 'Alle Dokumente'}
+                </span>
                 <button
                   type="button"
                   onClick={() => {
@@ -538,7 +552,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                     setNewFolderName('');
                   }}
                   className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5"
-                  style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}
+                  style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: 16 }}>create_new_folder</span>
                   Neuer Ordner
@@ -576,18 +590,27 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
               )}
 
               {contents && contents.folders.length === 0 && contents.files.length === 0 && (
-                <div className="flex flex-col items-center justify-center gap-3 py-10">
-                  <span className="material-symbols-outlined" style={{ fontSize: 40, color: 'var(--color-on-surface-variant)' }}>
-                    folder_open
+                <div className="flex flex-col items-center justify-center gap-3 py-12">
+                  <span
+                    className="material-symbols-outlined"
+                    style={{ fontSize: 48, color: 'var(--color-on-surface-variant)', opacity: 0.4 }}
+                  >
+                    storage
                   </span>
-                  <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
-                    Dieser Ordner ist leer.
+                  <p style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--color-on-surface)', margin: 0 }}>
+                    Keine Inhalte
+                  </p>
+                  <p
+                    className="text-center"
+                    style={{ fontSize: '0.875rem', color: 'var(--color-on-surface-variant)', margin: 0 }}
+                  >
+                    Erstelle einen Ordner oder lade Dateien hoch um zu beginnen
                   </p>
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="px-3 py-1.5 rounded-md text-sm font-semibold"
-                    style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}
+                    style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}
                   >
                     Dateien hochladen
                   </button>
