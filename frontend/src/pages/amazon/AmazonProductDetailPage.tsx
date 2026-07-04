@@ -20,6 +20,7 @@ import { useDetailSectionOrder, type DetailSectionId } from '../../hooks/amazon/
 import { UspSection } from '../../components/amazon/usp/UspSection';
 import { ManufacturersSection } from '../../components/amazon/manufacturers/ManufacturersSection';
 import { ResearchSection } from '../../components/amazon/research/ResearchSection';
+import { FolderDocumentsSection } from '../../components/amazon/FolderDocumentsSection';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -233,6 +234,9 @@ export function AmazonProductDetailPage() {
           }))}
           onReorder={moveSection}
         />
+      </div>
+      <div className="mt-4">
+        <FolderDocumentsSection productId={product.id} />
       </div>
       <div className="mt-4">
         <AutosaveIndicator />

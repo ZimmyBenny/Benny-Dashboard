@@ -267,6 +267,18 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
     setSearchQuery('');
   }
 
+  // Deep-Link von FolderDocumentsSection (Amazon-Produktseite): einmalig zum
+  // uebergebenen Ordner springen und den History-State danach bereinigen,
+  // damit ein spaeteres Zurueck nicht erneut springt.
+  useEffect(() => {
+    const st = location.state as { folderId?: number } | null;
+    if (st?.folderId != null) {
+      navigateTo(st.folderId);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
+
   function goBack() {
     if (effectiveFolderId === null) return;
     const current = tree.find((f) => f.id === effectiveFolderId);
