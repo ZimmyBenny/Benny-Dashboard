@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { PageWrapper } from '../components/layout/PageWrapper';
 import {
   fetchEvents, fetchCalendars, createEvent, updateEvent, deleteEvent, forceSync, updateCalendarVisibility,
   type CalendarEvent, type Calendar, type CreateEventPayload,
 } from '../api/calendar.api';
-import { isoDateLocal } from '../lib/dates';
+import { isoDateLocal, parseLocalDate } from '../lib/dates';
 
 // ── Konstanten ─────────────────────────────────────────────────────────────────
 
@@ -1000,6 +1001,21 @@ export function CalendarPage() {
   const [error, setError]         = useState<string | null>(null);
 
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
+  // Deep-Link: ?date=YYYY-MM-DD → direkt zu diesem Tag springen + Tages-Slideover oeffnen
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const dateParam = searchParams.get('date');
+    if (!dateParam) return;
+    const target = parseLocalDate(dateParam);
+    if (Number.isNaN(target.getTime())) return;
+    setYear(target.getFullYear());
+    setMonth(target.getMonth());
+    setViewDate(target);
+    setSelectedDate(target);
+    // nur beim ersten Laden anwenden
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Kalender einmalig laden
   useEffect(() => {

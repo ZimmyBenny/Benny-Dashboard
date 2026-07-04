@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { getAmazonAppointments, type AmazonAppointment } from '../../api/amazon.api';
+import { isoDateLocal } from '../../lib/dates';
 
 /**
  * AmazonAppointments — anstehende Termine aus Amazon-Kalendern (z.B. "Amazon FBA"),
@@ -85,7 +86,7 @@ export function AmazonAppointments() {
           {items.map((a) => (
             <button
               key={a.id}
-              onClick={() => navigate('/calendar')}
+              onClick={() => navigate('/calendar?date=' + isoDateLocal(new Date(a.start_at)))}
               style={{
                 textAlign: 'left', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: '0.75rem',
