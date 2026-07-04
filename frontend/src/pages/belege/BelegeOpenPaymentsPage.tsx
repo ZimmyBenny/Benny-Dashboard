@@ -72,12 +72,12 @@ export function BelegeOpenPaymentsPage() {
                 fontWeight: 800,
                 fontSize: '3rem',
                 letterSpacing: '-0.02em',
-                color: 'var(--color-primary)',
+                color: 'var(--color-on-surface)',
                 margin: 0,
                 lineHeight: 1.1,
               }}
             >
-              OFFENE ZAHLUNGEN
+              Offene Zahlungen
             </h1>
             <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.9rem', margin: '0.5rem 0 0', fontFamily: 'var(--font-body)' }}>
               Sortiert nach Fälligkeit. Überfällige Belege werden rot markiert.

@@ -91,12 +91,12 @@ export function BelegeExportPage() {
                 fontWeight: 800,
                 fontSize: '3rem',
                 letterSpacing: '-0.02em',
-                color: 'var(--color-primary)',
+                color: 'var(--color-on-surface)',
                 margin: 0,
                 lineHeight: 1.1,
               }}
             >
-              EXPORT
+              Export
             </h1>
             <p
               style={{

@@ -62,12 +62,12 @@ export function BelegeReviewPage() {
                 fontWeight: 800,
                 fontSize: '3rem',
                 letterSpacing: '-0.02em',
-                color: 'var(--color-primary)',
+                color: 'var(--color-on-surface)',
                 margin: 0,
                 lineHeight: 1.1,
               }}
             >
-              ZU PRÜFEN
+              Zu prüfen
             </h1>
             <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.9rem', margin: '0.5rem 0 0', fontFamily: 'var(--font-body)' }}>
               Belege mit fehlenden Pflichtfeldern oder OCR-Ergebnis zur Review.

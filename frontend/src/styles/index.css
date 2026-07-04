@@ -550,6 +550,7 @@ input[type=number] {
 [data-surface-theme="graphite"] {
   --color-background:                #101114;
   --color-surface:                   #101114;
+  --color-surface-variant:           #1f2227;
   --color-surface-container-lowest:  #0b0c0e;
   --color-surface-container-low:     #15171b;
   --color-surface-container:         #1a1c21;
