@@ -15,6 +15,7 @@
  *  - POST   /api/dokumente/mirror-rebuild      Spiegel neu aufbauen
  *  - GET/PATCH /api/dokumente/settings         Modul-Settings
  *  - GET    /api/dokumente/search              Ordner-/Datei-Suche (optional area_slug)
+ *  - GET    /api/dokumente/folders/by-product/:productId  Mit Amazon-Produkt verknuepfte Ordner
  */
 import apiClient from './client';
 
@@ -26,6 +27,8 @@ export interface DocFolder {
   area_slug: string | null;
   created_at: string;
   file_count: number;
+  product_id?: number | null;
+  product_name?: string | null;
 }
 
 export interface DocFile {
@@ -61,7 +64,7 @@ export const createFolder = (parent_id: number, name: string): Promise<DocFolder
 
 export const updateFolder = (
   id: number,
-  data: { name?: string; parent_id?: number },
+  data: { name?: string; parent_id?: number; product_id?: number | null },
 ): Promise<DocFolder> => apiClient.patch(`/dokumente/folders/${id}`, data).then((r) => r.data);
 
 export const deleteFolder = (
@@ -133,3 +136,13 @@ export const searchDocuments = (q: string, areaSlug?: string): Promise<DocSearch
   apiClient
     .get('/dokumente/search', { params: { q, ...(areaSlug ? { area_slug: areaSlug } : {}) } })
     .then((r) => r.data);
+
+export interface DocFolderByProduct {
+  id: number;
+  name: string;
+  area_slug: string | null;
+  path: string[];
+}
+
+export const fetchFoldersByProduct = (productId: number): Promise<DocFolderByProduct[]> =>
+  apiClient.get(`/dokumente/folders/by-product/${productId}`).then((r) => r.data);

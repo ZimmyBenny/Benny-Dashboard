@@ -10,12 +10,15 @@
  * Siehe docs/superpowers/specs/2026-07-04-dokumente-modul-design.md
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useDropzone, type FileWithPath } from 'react-dropzone';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { FilePreviewModal, useFilePreview } from '../../components/amazon/FilePreviewModal';
 import { MoveModal } from '../../components/documents/MoveModal';
 import { CreateFolderModal } from '../../components/documents/CreateFolderModal';
+import { LinkProductModal } from '../../components/documents/LinkProductModal';
+import { FolderRowMenu } from '../../components/documents/FolderRowMenu';
 import {
   fetchDocTree,
   fetchFolderContents,
@@ -127,6 +130,8 @@ function countFolderContents(
 
 export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const location = useLocation();
   const { preview, open: openPreview, close: closePreview } = useFilePreview();
 
   const { data: tree = [] } = useQuery({ queryKey: ['dokumente', 'tree'], queryFn: fetchDocTree });
@@ -147,6 +152,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
   const [selectedFileIds, setSelectedFileIds] = useState<Set<number>>(new Set());
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
   const [bulkMoveProgress, setBulkMoveProgress] = useState<string | null>(null);
+  const [linkFolderId, setLinkFolderId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Effektiver aktueller Ordner: bei areaSlug fix auf den Bereichs-Root falls noch nicht navigiert
@@ -201,8 +207,13 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
     onSuccess: invalidateAll,
   });
   const updateFolderMut = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: { name?: string; parent_id?: number } }) =>
-      updateFolder(id, data),
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: number;
+      data: { name?: string; parent_id?: number; product_id?: number | null };
+    }) => updateFolder(id, data),
     onSuccess: invalidateAll,
   });
   const deleteFolderMut = useMutation({
@@ -885,56 +896,56 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                       <button
                         type="button"
                         onClick={() => navigateTo(folder.id)}
-                        className="flex items-center gap-2 flex-1 text-left"
+                        className="flex items-center gap-2 flex-1 text-left min-w-0"
                       >
                         <span className="material-symbols-outlined" style={{ color: 'var(--color-primary)' }}>folder</span>
                         <span style={{ color: 'var(--color-on-surface)' }}>{folder.name}</span>
                         <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{folder.file_count} Dateien</span>
+                        {folder.product_id != null && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/amazon/entwicklung/products/${folder.product_id}`);
+                            }}
+                            className="text-xs px-2 py-0.5 rounded-full truncate max-w-[10rem]"
+                            style={{
+                              background: 'var(--color-surface-container)',
+                              color: 'var(--color-primary)',
+                              cursor: 'pointer',
+                            }}
+                            title={folder.product_name ?? undefined}
+                          >
+                            {folder.product_name}
+                          </span>
+                        )}
                       </button>
                       {!folder.is_area_root && (
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            type="button"
-                            title="Umbenennen"
-                            onClick={() => {
-                              setRenamingId({ kind: 'folder', id: folder.id });
-                              setRenameValue(folder.name);
-                            }}
-                            className="p-1 rounded hover:bg-white/5"
-                            style={{ color: 'var(--color-on-surface-variant)' }}
-                          >
-                            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>edit</span>
-                          </button>
-                          <button
-                            type="button"
-                            title="Verschieben"
-                            onClick={() => setMoveTarget({ kind: 'folder', id: folder.id })}
-                            className="p-1 rounded hover:bg-white/5"
-                            style={{ color: 'var(--color-on-surface-variant)' }}
-                          >
-                            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>drive_file_move</span>
-                          </button>
-                          <button
-                            type="button"
-                            title="Löschen"
-                            onClick={() => {
-                              const counts = countFolderContents(tree, folder.id);
-                              if (
-                                confirm(
-                                  counts.folders > 1
-                                    ? `Ordner „${folder.name}" enthält ${counts.files} Dateien in ${counts.folders} Ordnern. Wirklich löschen?`
-                                    : `Ordner „${folder.name}" enthält ${counts.files} Dateien. Wirklich löschen?`,
-                                )
-                              ) {
-                                deleteFolderMut.mutate(folder.id);
-                              }
-                            }}
-                            className="p-1 rounded hover:bg-white/5"
-                            style={{ color: 'var(--color-error)' }}
-                          >
-                            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete</span>
-                          </button>
-                        </div>
+                        <FolderRowMenu
+                          folder={folder}
+                          onRename={() => {
+                            setRenamingId({ kind: 'folder', id: folder.id });
+                            setRenameValue(folder.name);
+                          }}
+                          onLinkProduct={() => setLinkFolderId(folder.id)}
+                          onUnlinkProduct={() =>
+                            updateFolderMut.mutate({ id: folder.id, data: { product_id: null } })
+                          }
+                          onMove={() => setMoveTarget({ kind: 'folder', id: folder.id })}
+                          onDelete={() => {
+                            const counts = countFolderContents(tree, folder.id);
+                            if (
+                              confirm(
+                                counts.folders > 1
+                                  ? `Ordner „${folder.name}" enthält ${counts.files} Dateien in ${counts.folders} Ordnern. Wirklich löschen?`
+                                  : `Ordner „${folder.name}" enthält ${counts.files} Dateien. Wirklich löschen?`,
+                              )
+                            ) {
+                              deleteFolderMut.mutate(folder.id);
+                            }
+                          }}
+                        />
                       )}
                     </>
                   )}
@@ -1148,6 +1159,17 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
         onSelect={(targetFolderId) => {
           handleBulkMove(targetFolderId);
         }}
+      />
+
+      <LinkProductModal
+        open={linkFolderId !== null}
+        onSelect={(productId) => {
+          if (linkFolderId !== null) {
+            updateFolderMut.mutate({ id: linkFolderId, data: { product_id: productId } });
+          }
+          setLinkFolderId(null);
+        }}
+        onClose={() => setLinkFolderId(null)}
       />
 
       <CreateFolderModal
