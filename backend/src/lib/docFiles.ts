@@ -132,6 +132,52 @@ export function fileFsName(dbFilename: string): string {
 }
 
 /**
+ * Minimal-Bereinigung fuer Spiegel-Namen: Original-Schreibweise (Grossschreibung,
+ * Umlaute, Leerzeichen) bleibt erhalten — nur echte Verbotszeichen werden ersetzt.
+ * Fuer den Finder-Spiegel gedacht; der App-Speicher nutzt weiter sanitizeForFilename.
+ */
+function mirrorSafeName(name: string, fallback: string): string {
+  const cleaned = name
+    .replace(/[/\\:*?"<>|\x00-\x1f]/g, '_')
+    .replace(/^\.+/, '_') // keine versteckten Namen / Traversal
+    .trim()
+    .slice(0, 120);
+  return cleaned.length > 0 && cleaned !== '..' ? cleaned : fallback;
+}
+
+/**
+ * Spiegel-Pfad-Segmente eines Ordners: Original-Namen aus der DB
+ * (z. B. "Amazon" statt "amazon"), minimal bereinigt.
+ */
+function folderMirrorSegments(folderId: number): string[] {
+  const segments: string[] = [];
+  let currentId: number | null = folderId;
+  let guard = 0;
+  while (currentId !== null && guard < 100) {
+    guard++;
+    const row = db
+      .prepare(`SELECT id, parent_id, name, area_slug FROM doc_folders WHERE id = ?`)
+      .get(currentId) as FolderRow | undefined;
+    if (!row) break;
+    segments.unshift(mirrorSafeName(row.name, row.area_slug ?? `ordner-${row.id}`));
+    currentId = row.parent_id;
+  }
+  return segments;
+}
+
+/** Relativer Spiegel-Pfad eines Ordners (Original-Schreibweise). */
+export function folderMirrorPath(folderId: number): { relative: string } {
+  return { relative: path.join(...folderMirrorSegments(folderId)) };
+}
+
+/** Spiegel-Dateiname: Original-Basename (Grossschreibung/Umlaute), Extension unveraendert. */
+export function fileMirrorName(dbFilename: string): string {
+  const ext = path.extname(dbFilename);
+  const base = path.basename(dbFilename, ext);
+  return `${mirrorSafeName(base, 'datei')}${ext}`;
+}
+
+/**
  * Fuehrt eine Spiegel-Operation best-effort aus — Fehler werden geloggt,
  * NIE geworfen (Spiegel-Fehler duerfen die Hauptoperation nie scheitern lassen).
  * No-op wenn getMirrorPath() === null (Spiegel AUS).
@@ -147,18 +193,37 @@ export async function syncMirror(fn: (mirrorRoot: string) => Promise<void>): Pro
 }
 
 /**
- * Loescht den Spiegel-Inhalt komplett und kopiert den App-Speicher-Baum frisch.
+ * Loescht den Spiegel-Inhalt komplett und baut ihn frisch aus DB + App-Speicher auf.
+ * Ordner/Dateien erscheinen im Spiegel mit Original-Schreibweise (mirrorSafeName),
+ * waehrend der App-Speicher die sanitisierten Namen behaelt.
  * Repariert manuelle Finder-Eingriffe. Fehler werden geloggt, nie geworfen.
  */
 export async function rebuildMirror(): Promise<void> {
   const mirrorRoot = getMirrorPath();
   if (mirrorRoot === null) return;
   try {
-    const appRoot = getDokumenteRoot();
     await fsp.rm(mirrorRoot, { recursive: true, force: true });
     await fsp.mkdir(mirrorRoot, { recursive: true });
-    if (fs.existsSync(appRoot)) {
-      await fsp.cp(appRoot, mirrorRoot, { recursive: true });
+
+    const folders = db.prepare(`SELECT id FROM doc_folders`).all() as { id: number }[];
+    for (const f of folders) {
+      await fsp.mkdir(path.join(mirrorRoot, folderMirrorPath(f.id).relative), {
+        recursive: true,
+      });
+    }
+
+    const files = db
+      .prepare(`SELECT id, folder_id, filename FROM doc_files`)
+      .all() as { id: number; folder_id: number; filename: string }[];
+    for (const file of files) {
+      const src = path.join(folderFsPath(file.folder_id).absolute, fileFsName(file.filename));
+      if (!fs.existsSync(src)) continue;
+      const dest = path.join(
+        mirrorRoot,
+        folderMirrorPath(file.folder_id).relative,
+        fileMirrorName(file.filename),
+      );
+      await fsp.copyFile(src, dest);
     }
     console.log('[dokumente:mirror] Spiegel neu aufgebaut:', mirrorRoot);
   } catch (err) {

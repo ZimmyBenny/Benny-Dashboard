@@ -27,6 +27,8 @@ import {
   getMirrorPath,
   folderFsPath,
   fileFsName,
+  folderMirrorPath,
+  fileMirrorName,
   syncMirror,
   rebuildMirror,
   moveToTrash,
@@ -189,7 +191,7 @@ router.post('/folders', async (req, res) => {
     const newId = info.lastInsertRowid as number;
 
     await syncMirror(async (mirrorRoot) => {
-      const { relative } = folderFsPath(newId);
+      const { relative } = folderMirrorPath(newId);
       await fsp.mkdir(path.join(mirrorRoot, relative), { recursive: true });
     });
     // App-Speicher-Ordner ebenfalls anlegen
@@ -235,8 +237,9 @@ router.patch('/folders/:id', async (req, res) => {
 
   const { name, parent_id } = (req.body ?? {}) as { name?: string; parent_id?: number };
 
-  // Alter FS-Pfad VOR dem DB-Update ermitteln
+  // Alte Pfade VOR dem DB-Update ermitteln (beide lesen aus der DB)
   const oldPath = folderFsPath(id);
+  const oldMirrorRel = folderMirrorPath(id).relative;
 
   try {
     const tx = db.transaction(() => {
@@ -263,10 +266,10 @@ router.patch('/folders/:id', async (req, res) => {
       }
     }
 
-    // Spiegel best-effort
+    // Spiegel best-effort (Original-Schreibweise)
     await syncMirror(async (mirrorRoot) => {
-      const oldMirror = path.join(mirrorRoot, oldPath.relative);
-      const newMirror = path.join(mirrorRoot, newPath.relative);
+      const oldMirror = path.join(mirrorRoot, oldMirrorRel);
+      const newMirror = path.join(mirrorRoot, folderMirrorPath(id).relative);
       if (oldMirror !== newMirror) {
         await fsp.mkdir(path.dirname(newMirror), { recursive: true });
         if (fs.existsSync(oldMirror)) {
@@ -349,7 +352,8 @@ router.delete('/folders/:id', async (req, res) => {
     }
   }
 
-  const { absolute, relative } = folderFsPath(id);
+  const { absolute } = folderFsPath(id);
+  const mirrorRel = folderMirrorPath(id).relative; // vor dem DELETE erfassen (liest DB)
 
   db.prepare(`DELETE FROM doc_folders WHERE id = ?`).run(id);
 
@@ -364,7 +368,7 @@ router.delete('/folders/:id', async (req, res) => {
 
   // Spiegel best-effort
   await syncMirror(async (mirrorRoot) => {
-    const mirrorAbs = path.join(mirrorRoot, relative);
+    const mirrorAbs = path.join(mirrorRoot, mirrorRel);
     await fsp.rm(mirrorAbs, { recursive: true, force: true });
   });
 
@@ -450,10 +454,10 @@ router.post('/files', upload.array('file', 20), async (req, res) => {
     const newId = info.lastInsertRowid as number;
 
     await syncMirror(async (mirrorRoot) => {
-      const { relative } = folderFsPath(folderId);
+      const { relative } = folderMirrorPath(folderId);
       const mirrorDir = path.join(mirrorRoot, relative);
       await fsp.mkdir(mirrorDir, { recursive: true });
-      await fsp.copyFile(finalPath, path.join(mirrorDir, fsName));
+      await fsp.copyFile(finalPath, path.join(mirrorDir, fileMirrorName(dbFilename)));
     });
 
     created.push({ id: newId, filename: dbFilename });
@@ -507,7 +511,8 @@ router.patch('/files/:id', async (req, res) => {
   const oldFolderAbs = folderFsPath(file.folder_id).absolute;
   const oldFsName = fileFsName(file.filename);
   const oldAbsPath = path.join(oldFolderAbs, oldFsName);
-  const oldRelative = folderFsPath(file.folder_id).relative;
+  const oldMirrorRel = folderMirrorPath(file.folder_id).relative;
+  const oldMirrorName = fileMirrorName(file.filename);
 
   const targetFolderId = folder_id !== undefined ? folder_id : file.folder_id;
   let targetFilename = filename !== undefined ? filename.trim() : file.filename;
@@ -540,7 +545,8 @@ router.patch('/files/:id', async (req, res) => {
   const newFolderAbs = folderFsPath(targetFolderId).absolute;
   const newFsName = fileFsName(targetFilename);
   const newAbsPath = path.join(newFolderAbs, newFsName);
-  const newRelative = folderFsPath(targetFolderId).relative;
+  const newMirrorRel = folderMirrorPath(targetFolderId).relative;
+  const newMirrorName = fileMirrorName(targetFilename);
 
   try {
     await fsp.mkdir(newFolderAbs, { recursive: true });
@@ -552,8 +558,8 @@ router.patch('/files/:id', async (req, res) => {
   }
 
   await syncMirror(async (mirrorRoot) => {
-    const oldMirrorPath = path.join(mirrorRoot, oldRelative, oldFsName);
-    const newMirrorPath = path.join(mirrorRoot, newRelative, newFsName);
+    const oldMirrorPath = path.join(mirrorRoot, oldMirrorRel, oldMirrorName);
+    const newMirrorPath = path.join(mirrorRoot, newMirrorRel, newMirrorName);
     if (oldMirrorPath !== newMirrorPath) {
       await fsp.mkdir(path.dirname(newMirrorPath), { recursive: true });
       if (fs.existsSync(oldMirrorPath)) {
@@ -579,9 +585,11 @@ router.delete('/files/:id', async (req, res) => {
     return;
   }
 
-  const { absolute: folderAbs, relative } = folderFsPath(file.folder_id);
+  const { absolute: folderAbs } = folderFsPath(file.folder_id);
   const fsName = fileFsName(file.filename);
   const absPath = path.join(folderAbs, fsName);
+  const mirrorRel = folderMirrorPath(file.folder_id).relative;
+  const mirrorName = fileMirrorName(file.filename);
 
   db.prepare(`DELETE FROM doc_files WHERE id = ?`).run(id);
 
@@ -594,7 +602,7 @@ router.delete('/files/:id', async (req, res) => {
   }
 
   await syncMirror(async (mirrorRoot) => {
-    const mirrorPath = path.join(mirrorRoot, relative, fsName);
+    const mirrorPath = path.join(mirrorRoot, mirrorRel, mirrorName);
     await fsp.rm(mirrorPath, { force: true });
   });
 
