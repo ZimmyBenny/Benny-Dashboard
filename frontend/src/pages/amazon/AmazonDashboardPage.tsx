@@ -8,6 +8,7 @@ import { AmazonActiveProducts } from '../../components/amazon/AmazonActiveProduc
 import { AmazonOpenTasks } from '../../components/amazon/AmazonOpenTasks';
 import { AmazonNavTiles } from '../../components/amazon/AmazonNavTiles';
 import { AmazonInfoBar } from '../../components/amazon/AmazonInfoBar';
+import { QuickNote } from '../../components/QuickNote';
 
 function SectionDivider({ label }: { label: string }) {
   return (
@@ -123,6 +124,8 @@ export function AmazonDashboardPage() {
       {/* ── Navigation ─────────────────────────────────────── */}
       <SectionDivider label="Bereiche" />
       <AmazonNavTiles />
+
+      <QuickNote />
 
       <NewProductDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
         </div>

@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { PageWrapper } from '../components/layout/PageWrapper';
+import { QuickNote } from '../components/QuickNote';
 import { useTimerStore } from '../store/timerStore';
 import { fetchVisibleQuickLinks, type QuickLink } from '../api/quickLinks.api';
 import { fetchTaskStats, createTask, type TaskStats, type Task } from '../api/tasks.api';
@@ -884,6 +885,8 @@ export function DashboardPage() {
           )}
         </div>
       </div>
+
+      <QuickNote />
       <TaskSlideOver
         isOpen={isNewTaskOpen}
         onClose={() => setIsNewTaskOpen(false)}

@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { PageWrapper } from '../../components/layout/PageWrapper';
+import { QuickNote } from '../../components/QuickNote';
 import { FinanzenStatusKpis } from '../../components/finanzen/FinanzenStatusKpis';
 import { FinanzenOpenTasks } from '../../components/finanzen/FinanzenOpenTasks';
 import { FinanzenNavTiles } from '../../components/finanzen/FinanzenNavTiles';
@@ -66,6 +67,8 @@ export function FinanzenDashboardPage() {
       {/* ── Bereiche ───────────────────────────────────────── */}
       <SectionDivider label="Bereiche" />
       <FinanzenNavTiles />
+
+      <QuickNote />
         </div>
       </div>
     </PageWrapper>

@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { PageWrapper } from '../../components/layout/PageWrapper';
+import { QuickNote } from '../../components/QuickNote';
 import { formatCurrency, formatDate } from '../../lib/format';
 import {
   fetchDjOverview,
@@ -698,6 +699,7 @@ export function DjOverviewPage() {
             )}
           </div>
 
+        <QuickNote />
         </div>{/* /content-wrapper */}
       </div>
       {showNeueAnfrage && (
