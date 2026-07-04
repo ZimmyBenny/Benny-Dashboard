@@ -71,8 +71,13 @@ export function AppShell() {
         <main
           className="flex flex-col flex-1 min-h-0 overflow-hidden"
           style={{ position: 'relative' }}
-          // Graphit-Look (neutrale Grau-Flächen) vorerst nur im Dokumente-Reiter — User-Wunsch 2026-07-04
-          data-surface-theme={location.pathname.startsWith('/dokumente') ? 'graphite' : undefined}
+          // Graphit-Look (neutrale Grau-Flächen) — Testphase: Dokumente + Aufgaben (User-Wunsch 2026-07-04);
+          // globaler Rollout nach Bennys Test-Feedback. Rollback: Tag pre-graphite-aufgaben-20260704-153346
+          data-surface-theme={
+            location.pathname.startsWith('/dokumente') || location.pathname.startsWith('/tasks')
+              ? 'graphite'
+              : undefined
+          }
         >
           {/* Dezentes Hintergrund-Raster — global auf allen Seiten (Schärfe-Pass) */}
           <SharpGridBackground />
