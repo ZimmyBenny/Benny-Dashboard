@@ -83,6 +83,7 @@ export function BelegeListPage() {
     from:   searchParams.get('from')   || undefined,
     to:     searchParams.get('to')     || undefined,
     search: searchParams.get('search') || undefined,
+    steuerrelevant: searchParams.get('steuerrelevant') || undefined,
   };
 
   const { data: items = [], isLoading } = useQuery({
@@ -127,8 +128,9 @@ export function BelegeListPage() {
   const area   = searchParams.get('area') ?? '';
   const from   = searchParams.get('from') ?? '';
   const to     = searchParams.get('to') ?? '';
+  const nurSteuerrelevant = searchParams.get('steuerrelevant') === '1';
 
-  const hasActiveFilters = !!(area || status || type || from || to || searchInput);
+  const hasActiveFilters = !!(area || status || type || from || to || searchInput || nurSteuerrelevant);
 
   return (
     <PageWrapper>
@@ -376,6 +378,27 @@ export function BelegeListPage() {
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
+              <button
+                type="button"
+                onClick={() => setParam('steuerrelevant', nurSteuerrelevant ? undefined : '1')}
+                aria-pressed={nurSteuerrelevant}
+                title="Nur steuerrelevante Belege anzeigen (fürs Finanzamt)"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.4rem',
+                  background: nurSteuerrelevant ? 'var(--color-primary)' : 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(148,170,255,0.15)',
+                  borderRadius: '999px',
+                  color: nurSteuerrelevant ? 'var(--color-on-primary)' : 'var(--color-on-surface-variant)',
+                  padding: '0.5rem 1rem',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>account_balance</span>
+                Nur steuerrelevant
+              </button>
             </div>
 
             {/* Status-Pills */}

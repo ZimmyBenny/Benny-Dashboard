@@ -691,13 +691,17 @@ router.post('/dj-pdf-backfill', async (_req, res) => {
  * Wenn `area` gesetzt ist, wird ueber receipt_area_links gejoined.
  */
 router.get('/', (req, res) => {
-  const { area, status, from, to, type, search } = req.query as Record<string, string | undefined>;
+  const { area, status, from, to, type, search, steuerrelevant } = req.query as Record<string, string | undefined>;
   const where: string[] = [];
   const params: unknown[] = [];
 
   if (status) {
     where.push(`r.status = ?`);
     params.push(status);
+  }
+  if (steuerrelevant === '1' || steuerrelevant === '0') {
+    where.push(`r.steuerrelevant = ?`);
+    params.push(Number(steuerrelevant));
   }
   if (type) {
     where.push(`r.type = ?`);

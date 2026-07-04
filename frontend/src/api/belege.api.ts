@@ -93,6 +93,8 @@ export interface ReceiptFilter {
   from?: string;
   to?: string;
   search?: string;
+  /** '1' = nur steuerrelevante Belege (sonst alle) */
+  steuerrelevant?: string;
 }
 
 /** Aggregat-Werte fuer die Belege-Uebersichts-Page (Plan 04-07). */
