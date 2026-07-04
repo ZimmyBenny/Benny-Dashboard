@@ -14,6 +14,7 @@
  *  - GET    /api/dokumente/usage               Speicher-Nutzung
  *  - POST   /api/dokumente/mirror-rebuild      Spiegel neu aufbauen
  *  - GET/PATCH /api/dokumente/settings         Modul-Settings
+ *  - GET    /api/dokumente/search              Ordner-/Datei-Suche (optional area_slug)
  */
 import apiClient from './client';
 
@@ -106,3 +107,29 @@ export const fetchDocFileBlobUrl = (id: number): Promise<string> =>
   apiClient
     .get(`/dokumente/files/${id}/blob`, { responseType: 'blob' })
     .then((r) => URL.createObjectURL(r.data as Blob));
+
+export interface DocSearchFolder {
+  id: number;
+  name: string;
+  path: string[];
+}
+
+export interface DocSearchFile {
+  id: number;
+  folder_id: number;
+  filename: string;
+  size_bytes: number;
+  mime_type: string | null;
+  created_at: string;
+  path: string[];
+}
+
+export interface DocSearchResult {
+  folders: DocSearchFolder[];
+  files: DocSearchFile[];
+}
+
+export const searchDocuments = (q: string, areaSlug?: string): Promise<DocSearchResult> =>
+  apiClient
+    .get('/dokumente/search', { params: { q, ...(areaSlug ? { area_slug: areaSlug } : {}) } })
+    .then((r) => r.data);

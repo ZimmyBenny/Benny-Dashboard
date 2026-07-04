@@ -15,6 +15,8 @@
  *  - Wurzel-Bereichsordner (is_area_root=1) sind PATCH/DELETE-geschuetzt (403).
  *  - Spiegel-Operationen sind IMMER best-effort (syncMirror) — Fehler duerfen
  *    die Hauptoperation nie scheitern lassen.
+ *  - GET /search: LIKE-Wildcards escaped, area_slug grenzt auf Teilbaum ein,
+ *    LIMIT 50 je Gruppe (Threat T-kgj-01/02/03, siehe PLAN.md threat_model).
  */
 import { Router } from 'express';
 import multer from 'multer';
@@ -129,6 +131,115 @@ router.get('/usage', (_req, res) => {
 router.post('/mirror-rebuild', async (_req, res) => {
   await rebuildMirror();
   res.json({ ok: true });
+});
+
+// ── Suche ────────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/dokumente/search — Volltext-Suche ueber Ordner- und Dateinamen.
+ * Query: q (Pflicht, min. 2 Zeichen getrimmt), area_slug (optional, grenzt auf
+ * den rekursiven Teilbaum der Bereichs-Wurzel ein). MUSS vor /folders/:id und
+ * /files/:id registriert sein, sonst greift der :id-Parameter-Match zuerst.
+ */
+router.get('/search', (req, res) => {
+  const qRaw = (req.query.q as string | undefined) ?? '';
+  const q = qRaw.trim();
+  const areaSlug = (req.query.area_slug as string | undefined) ?? undefined;
+
+  if (q.length < 2) {
+    res.json({ folders: [], files: [] });
+    return;
+  }
+
+  // Wildcards escapen -> kein LIKE-Wildcard-Injection (Threat T-kgj-01)
+  const like = '%' + q.replace(/[%_\\]/g, (c) => '\\' + c) + '%';
+
+  let allowedIds: number[] | null = null;
+  if (areaSlug) {
+    const root = db
+      .prepare(`SELECT id FROM doc_folders WHERE is_area_root = 1 AND area_slug = ?`)
+      .get(areaSlug) as { id: number } | undefined;
+    if (!root) {
+      res.json({ folders: [], files: [] });
+      return;
+    }
+    const rows = db
+      .prepare(
+        `WITH RECURSIVE sub(id) AS (
+           SELECT id FROM doc_folders WHERE id = ?
+           UNION ALL
+           SELECT f.id FROM doc_folders f JOIN sub ON f.parent_id = sub.id
+         ) SELECT id FROM sub`,
+      )
+      .all(root.id) as Array<{ id: number }>;
+    allowedIds = rows.map((r) => r.id);
+  }
+
+  // Einmalige Map aller Ordner fuer Pfad-Aufloesung (parent-Kette bis zur Wurzel)
+  const allFolders = db
+    .prepare(`SELECT id, parent_id, name, is_area_root FROM doc_folders`)
+    .all() as Array<{ id: number; parent_id: number | null; name: string; is_area_root: number }>;
+  const folderMap = new Map(allFolders.map((f) => [f.id, f]));
+
+  function pathSegments(folderId: number): string[] {
+    // Sammelt Namen von folderId bis zur Wurzel (jeweils inkl. is_area_root-Flag),
+    // dreht danach um und laesst das erste Segment (die Bereichs-Wurzel selbst) weg.
+    const chain: Array<{ name: string; is_area_root: number }> = [];
+    let cursor: number | null = folderId;
+    let guard = 0;
+    while (cursor !== null && guard < 50) {
+      guard++;
+      const f = folderMap.get(cursor);
+      if (!f) break;
+      chain.push({ name: f.name, is_area_root: f.is_area_root });
+      cursor = f.parent_id;
+    }
+    chain.reverse();
+    if (chain.length > 0 && chain[0].is_area_root === 1) {
+      chain.shift();
+    }
+    return chain.map((c) => c.name);
+  }
+
+  let folderSql = `SELECT id, parent_id, name, is_area_root, area_slug, created_at,
+      (SELECT COUNT(*) FROM doc_files WHERE folder_id = doc_folders.id) AS file_count
+    FROM doc_folders
+    WHERE name LIKE ? ESCAPE '\\' COLLATE NOCASE AND is_area_root = 0`;
+  const folderParams: unknown[] = [like];
+  if (allowedIds) {
+    folderSql += ` AND id IN (${allowedIds.map(() => '?').join(',')})`;
+    folderParams.push(...allowedIds);
+  }
+  folderSql += ` ORDER BY name COLLATE NOCASE ASC LIMIT 50`;
+  const folderRows = db.prepare(folderSql).all(...folderParams) as DocFolderRow[];
+
+  let fileSql = `SELECT id, folder_id, filename, size_bytes, mime_type, created_at
+    FROM doc_files
+    WHERE filename LIKE ? ESCAPE '\\' COLLATE NOCASE`;
+  const fileParams: unknown[] = [like];
+  if (allowedIds) {
+    fileSql += ` AND folder_id IN (${allowedIds.map(() => '?').join(',')})`;
+    fileParams.push(...allowedIds);
+  }
+  fileSql += ` ORDER BY filename COLLATE NOCASE ASC LIMIT 50`;
+  const fileRows = db.prepare(fileSql).all(...fileParams) as DocFileRow[];
+
+  res.json({
+    folders: folderRows.map((f) => ({
+      id: f.id,
+      name: f.name,
+      path: f.parent_id !== null ? pathSegments(f.parent_id) : [],
+    })),
+    files: fileRows.map((f) => ({
+      id: f.id,
+      folder_id: f.folder_id,
+      filename: f.filename,
+      size_bytes: f.size_bytes,
+      mime_type: f.mime_type,
+      created_at: f.created_at,
+      path: pathSegments(f.folder_id),
+    })),
+  });
 });
 
 // ── Tree / Folders ───────────────────────────────────────────────────────────
