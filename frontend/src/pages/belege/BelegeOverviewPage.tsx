@@ -186,7 +186,7 @@ export function BelegeOverviewPage() {
               <button
                 onClick={() => navigate('/belege/neu')}
                 style={{
-                  background: 'linear-gradient(135deg, #94aaff 0%, #5cfd80 100%)',
+                  background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
                   color: '#060e20',
                   border: 'none',
                   borderRadius: '0.75rem',
@@ -340,7 +340,7 @@ function ReceiptSection({
         overflow: 'hidden',
         border: '1px solid rgba(148,170,255,0.15)',
         background:
-          'linear-gradient(135deg, rgba(148,170,255,0.04) 0%, rgba(6,14,32,0.6) 60%)',
+          'linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 4%, transparent) 0%, color-mix(in srgb, var(--color-surface-container-low) 60%, transparent) 60%)',
         boxShadow: '0 0 24px rgba(148,170,255,0.04)',
       }}
     >

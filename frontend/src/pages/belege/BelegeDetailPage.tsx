@@ -805,7 +805,7 @@ export function BelegeDetailPage() {
                       }}
                       disabled={freigebenMut.isPending}
                       style={{
-                        background: 'linear-gradient(135deg, #5cfd80 0%, #94aaff 100%)',
+                        background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
                         color: '#060e20',
                         border: 'none',
                         borderRadius: '0.5rem',

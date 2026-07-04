@@ -178,7 +178,7 @@ export function BelegeListPage() {
               type="button"
               onClick={() => navigate('/belege/neu')}
               style={{
-                background: 'linear-gradient(135deg, #94aaff 0%, #5cfd80 100%)',
+                background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
                 color: '#060e20',
                 border: 'none',
                 borderRadius: '0.75rem',
