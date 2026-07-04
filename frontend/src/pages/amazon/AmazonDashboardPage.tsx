@@ -90,7 +90,7 @@ export function AmazonDashboardPage() {
       </div>
 
       {/* ── Offene Aufgaben + Termine (nebeneinander) ──────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem', marginBottom: '1.25rem', alignItems: 'stretch' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '1rem', marginBottom: '1.25rem', alignItems: 'stretch' }}>
         <AmazonOpenTasks />
         <AmazonAppointments />
       </div>
