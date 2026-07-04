@@ -482,7 +482,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                   onClick={() => navigateFromSearch(f.id)}
                   className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-white/[0.03] text-left w-full"
                 >
-                  <span className="material-symbols-outlined" style={{ color: 'var(--color-primary)' }}>folder</span>
+                  <span className="material-symbols-outlined" style={{ color: 'var(--color-primary-dim)' }}>folder</span>
                   <span className="flex flex-col">
                     <span style={{ color: 'var(--color-on-surface)' }}>{f.name}</span>
                     {f.path.length > 0 && (
@@ -568,7 +568,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
               className="material-symbols-outlined"
               style={{ fontSize: '2rem', color: 'var(--color-primary)', flexShrink: 0 }}
             >
-              storage
+              hard_drive
             </span>
             <div style={{ minWidth: 0 }}>
               <h1
@@ -827,7 +827,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                       }}
                       onClick={() => navigateTo(root.id)}
                     >
-                      <span className="material-symbols-outlined" style={{ color: 'var(--color-primary)' }}>folder</span>
+                      <span className="material-symbols-outlined" style={{ color: 'var(--color-primary-dim)' }}>folder</span>
                       {renamingId?.kind === 'folder' && renamingId.id === root.id ? (
                         <input
                           autoFocus
@@ -932,7 +932,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                     className="material-symbols-outlined"
                     style={{ fontSize: 48, color: 'var(--color-on-surface-variant)', opacity: 0.4 }}
                   >
-                    storage
+                    hard_drive
                   </span>
                   <p style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--color-on-surface)', margin: 0 }}>
                     Keine Inhalte
@@ -980,7 +980,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                         onClick={() => navigateTo(folder.id)}
                         className="flex items-center gap-2 flex-1 text-left min-w-0"
                       >
-                        <span className="material-symbols-outlined" style={{ color: 'var(--color-primary)' }}>folder</span>
+                        <span className="material-symbols-outlined" style={{ color: 'var(--color-primary-dim)' }}>folder</span>
                         <span style={{ color: 'var(--color-on-surface)' }}>{folder.name}</span>
                         <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{folder.file_count} Dateien</span>
                         {folder.product_id != null && (
