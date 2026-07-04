@@ -763,3 +763,17 @@ export async function getAmazonDashboard(): Promise<AmazonDashboard> {
   const r = await apiClient.get<AmazonDashboard>('/amazon/dashboard');
   return r.data;
 }
+
+export interface AmazonAppointment {
+  id: number;
+  title: string;
+  start_at: string;
+  end_at: string | null;
+  is_all_day: number;
+  location: string | null;
+  calendar_name: string;
+}
+export async function getAmazonAppointments(): Promise<AmazonAppointment[]> {
+  const r = await apiClient.get<AmazonAppointment[]>('/amazon/appointments');
+  return r.data;
+}

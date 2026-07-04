@@ -77,4 +77,21 @@ router.get('/dashboard', (_req: Request, res: Response) => {
   res.json({ counts, active });
 });
 
+// GET /api/amazon/appointments — rein lesend: naechste Termine aus Amazon-Kalendern
+// (calendar_name enthaelt 'amazon', z.B. "Amazon FBA"), aus den bereits gespiegelten
+// calendar_events. Loest KEINEN Apple-Sync aus (nur DB-Lesen).
+router.get('/appointments', (_req: Request, res: Response) => {
+  const nowIso = new Date().toISOString();
+  const rows = db
+    .prepare(
+      `SELECT id, title, start_at, end_at, is_all_day, location, calendar_name
+         FROM calendar_events
+        WHERE lower(calendar_name) LIKE '%amazon%' AND start_at >= ?
+        ORDER BY start_at ASC
+        LIMIT 6`
+    )
+    .all(nowIso);
+  res.json(rows);
+});
+
 export default router;

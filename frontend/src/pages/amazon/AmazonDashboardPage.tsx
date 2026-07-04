@@ -6,6 +6,7 @@ import { NewProductDialog } from '../../components/amazon/NewProductDialog';
 import { AmazonStatusKpis } from '../../components/amazon/AmazonStatusKpis';
 import { AmazonActiveProducts } from '../../components/amazon/AmazonActiveProducts';
 import { AmazonOpenTasks } from '../../components/amazon/AmazonOpenTasks';
+import { AmazonAppointments } from '../../components/amazon/AmazonAppointments';
 import { AmazonNavTiles } from '../../components/amazon/AmazonNavTiles';
 import { AmazonInfoBar } from '../../components/amazon/AmazonInfoBar';
 import { QuickNote } from '../../components/QuickNote';
@@ -88,9 +89,10 @@ export function AmazonDashboardPage() {
         </button>
       </div>
 
-      {/* ── Offene Aufgaben (Hero-Panel ganz oben) ─────────── */}
-      <div style={{ marginBottom: '1.25rem' }}>
+      {/* ── Offene Aufgaben + Termine (nebeneinander) ──────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem', marginBottom: '1.25rem', alignItems: 'stretch' }}>
         <AmazonOpenTasks />
+        <AmazonAppointments />
       </div>
 
       {/* ── Zeit (DE/China) & EUR/USD-Wechselkurs ──────────── */}
