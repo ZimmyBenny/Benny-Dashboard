@@ -936,37 +936,68 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                 </div>
               ))}
 
-              {!searchActive && selectedFileIds.size > 0 && (
+              {!searchActive && (contents?.files.length ?? 0) > 0 && (
                 <div
                   className="flex items-center justify-between px-3 py-2 rounded-md mb-1"
-                  style={{
-                    background: 'color-mix(in srgb, var(--color-primary) 12%, transparent)',
-                    border: '1px solid var(--color-primary)',
-                  }}
+                  style={
+                    selectedFileIds.size > 0
+                      ? {
+                          background: 'color-mix(in srgb, var(--color-primary) 12%, transparent)',
+                          border: '1px solid var(--color-primary)',
+                        }
+                      : {
+                          background: 'var(--color-surface-container)',
+                          border: '1px solid var(--color-outline-variant)',
+                        }
+                  }
                 >
-                  <span className="text-sm" style={{ color: 'var(--color-on-surface)' }}>
-                    {selectedFileIds.size === 1
-                      ? '1 Datei ausgewählt'
-                      : `${selectedFileIds.size} Dateien ausgewählt`}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setBulkMoveOpen(true)}
-                      className="px-3 py-1.5 rounded-md text-sm font-semibold"
-                      style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}
-                    >
-                      Verschieben
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedFileIds(new Set())}
-                      className="px-3 py-1.5 rounded-md text-sm"
-                      style={{ background: 'transparent', color: 'var(--color-on-surface-variant)' }}
-                    >
-                      Auswahl aufheben
-                    </button>
-                  </div>
+                  <label
+                    className="flex items-center gap-2 text-sm cursor-pointer select-none"
+                    style={{ color: 'var(--color-on-surface)' }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={
+                        (contents?.files.length ?? 0) > 0 &&
+                        contents!.files.every((f) => selectedFileIds.has(f.id))
+                      }
+                      onChange={() => {
+                        const all = contents?.files ?? [];
+                        const allSelected =
+                          all.length > 0 && all.every((f) => selectedFileIds.has(f.id));
+                        setSelectedFileIds(
+                          allSelected ? new Set() : new Set(all.map((f) => f.id)),
+                        );
+                      }}
+                      style={{ accentColor: 'var(--color-primary)', cursor: 'pointer' }}
+                      aria-label="Alle Dateien markieren"
+                    />
+                    {selectedFileIds.size === 0
+                      ? 'Alle markieren'
+                      : selectedFileIds.size === 1
+                        ? '1 Datei ausgewählt'
+                        : `${selectedFileIds.size} Dateien ausgewählt`}
+                  </label>
+                  {selectedFileIds.size > 0 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setBulkMoveOpen(true)}
+                        className="px-3 py-1.5 rounded-md text-sm font-semibold"
+                        style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}
+                      >
+                        Verschieben
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedFileIds(new Set())}
+                        className="px-3 py-1.5 rounded-md text-sm"
+                        style={{ background: 'transparent', color: 'var(--color-on-surface-variant)' }}
+                      >
+                        Auswahl aufheben
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
