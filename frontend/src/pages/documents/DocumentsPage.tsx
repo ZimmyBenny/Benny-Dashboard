@@ -115,6 +115,9 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
   const [renameValue, setRenameValue] = useState('');
   const [moveTarget, setMoveTarget] = useState<{ kind: 'folder' | 'file'; id: number } | null>(null);
   const [uploading, setUploading] = useState<string[]>([]);
+  const [selectedFileIds, setSelectedFileIds] = useState<Set<number>>(new Set());
+  const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
+  const [bulkMoveProgress, setBulkMoveProgress] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Effektiver aktueller Ordner: bei areaSlug fix auf den Bereichs-Root falls noch nicht navigiert
@@ -201,6 +204,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
     setCurrentFolderId(id);
     setNewFolderOpen(false);
     setRenamingId(null);
+    setSelectedFileIds(new Set());
   }
 
   function goBack() {
@@ -251,6 +255,35 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
   async function handlePreview(file: DocFile) {
     const url = await fetchDocFileBlobUrl(file.id);
     openPreview(url, file.mime_type, file.filename);
+  }
+
+  // ── Datei-Mehrfachauswahl + Bulk-Verschieben ─────────────────────────
+
+  function toggleFileSelected(id: number) {
+    setSelectedFileIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleBulkMove(targetFolderId: number) {
+    const ids = Array.from(selectedFileIds);
+    setBulkMoveOpen(false);
+    let succeeded = 0;
+    for (const id of ids) {
+      try {
+        await updateFileMut.mutateAsync({ id, data: { folder_id: targetFolderId } });
+        succeeded++;
+      } catch {
+        // weiterlaufen lassen, am Ende Sammel-Hinweis wenn nicht alle erfolgreich waren
+      }
+    }
+    setSelectedFileIds(new Set());
+    if (succeeded < ids.length) {
+      setBulkMoveProgress(`${succeeded} von ${ids.length} verschoben`);
+    }
   }
 
   // ── Titel ─────────────────────────────────────────────────────────────
@@ -685,8 +718,76 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                 </div>
               ))}
 
+              {selectedFileIds.size > 0 && (
+                <div
+                  className="flex items-center justify-between px-3 py-2 rounded-md mb-1"
+                  style={{
+                    background: 'color-mix(in srgb, var(--color-primary) 12%, transparent)',
+                    border: '1px solid var(--color-primary)',
+                  }}
+                >
+                  <span className="text-sm" style={{ color: 'var(--color-on-surface)' }}>
+                    {selectedFileIds.size === 1
+                      ? '1 Datei ausgewählt'
+                      : `${selectedFileIds.size} Dateien ausgewählt`}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setBulkMoveOpen(true)}
+                      className="px-3 py-1.5 rounded-md text-sm font-semibold"
+                      style={{ background: 'var(--color-primary)', color: 'var(--color-on-primary)' }}
+                    >
+                      Verschieben
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedFileIds(new Set())}
+                      className="px-3 py-1.5 rounded-md text-sm"
+                      style={{ background: 'transparent', color: 'var(--color-on-surface-variant)' }}
+                    >
+                      Auswahl aufheben
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {bulkMoveProgress && (
+                <div className="flex items-center justify-between px-3 py-2 rounded-md mb-1" style={{ background: 'var(--color-surface-container-high)' }}>
+                  <span className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>{bulkMoveProgress}</span>
+                  <button
+                    type="button"
+                    onClick={() => setBulkMoveProgress(null)}
+                    className="p-1 rounded"
+                    style={{ color: 'var(--color-on-surface-variant)' }}
+                    aria-label="Schließen"
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>close</span>
+                  </button>
+                </div>
+              )}
+
               {contents?.files.map((file) => (
-                <div key={file.id} className="group flex items-center gap-2 px-2 py-2 rounded-md hover:bg-white/[0.03]">
+                <div
+                  key={file.id}
+                  className="group flex items-center gap-2 px-2 py-2 rounded-md hover:bg-white/[0.03]"
+                  style={
+                    selectedFileIds.has(file.id)
+                      ? { background: 'color-mix(in srgb, var(--color-primary) 10%, transparent)' }
+                      : undefined
+                  }
+                >
+                  {renamingId?.kind !== 'file' || renamingId.id !== file.id ? (
+                    <input
+                      type="checkbox"
+                      checked={selectedFileIds.has(file.id)}
+                      onChange={() => toggleFileSelected(file.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className={selectedFileIds.size > 0 ? '' : 'opacity-0 group-hover:opacity-100 transition-opacity'}
+                      style={{ accentColor: 'var(--color-primary)', cursor: 'pointer' }}
+                      aria-label={`${file.filename} auswählen`}
+                    />
+                  ) : null}
                   {renamingId?.kind === 'file' && renamingId.id === file.id ? (
                     <input
                       autoFocus
@@ -777,6 +878,21 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
             updateFileMut.mutate({ id: moveTarget.id, data: { folder_id: targetFolderId } });
           }
           setMoveTarget(null);
+        }}
+      />
+
+      <MoveModal
+        open={bulkMoveOpen}
+        tree={tree}
+        excludeId={null}
+        title={
+          selectedFileIds.size === 1
+            ? '1 Datei verschieben'
+            : `${selectedFileIds.size} Dateien verschieben`
+        }
+        onClose={() => setBulkMoveOpen(false)}
+        onSelect={(targetFolderId) => {
+          handleBulkMove(targetFolderId);
         }}
       />
 

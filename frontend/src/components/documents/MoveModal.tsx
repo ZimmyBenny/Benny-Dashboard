@@ -13,11 +13,13 @@ interface MoveModalProps {
   tree: DocFolder[];
   /** Der zu verschiebende Knoten (Ordner) + seine Nachfahren duerfen nicht Ziel sein. Bei Datei-Verschieben: null. */
   excludeId: number | null;
+  /** Optionaler Titel-Override (z. B. "3 Dateien verschieben" beim Bulk-Verschieben). Default: "Verschieben nach…" */
+  title?: string;
   onSelect: (targetFolderId: number) => void;
   onClose: () => void;
 }
 
-export function MoveModal({ open, tree, excludeId, onSelect, onClose }: MoveModalProps) {
+export function MoveModal({ open, tree, excludeId, title, onSelect, onClose }: MoveModalProps) {
   const { onMouseDown, modalStyle, headerStyle } = useDraggableModal();
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
@@ -130,7 +132,7 @@ export function MoveModal({ open, tree, excludeId, onSelect, onClose }: MoveModa
               margin: 0,
             }}
           >
-            Verschieben nach…
+            {title ?? 'Verschieben nach…'}
           </h2>
           <button
             type="button"
