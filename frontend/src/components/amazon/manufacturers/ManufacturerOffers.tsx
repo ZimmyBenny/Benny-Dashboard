@@ -7,6 +7,7 @@ import {
   useDeleteOffer,
   useUploadOfferFile,
   useDeleteOfferFile,
+  eurPreis,
 } from '../../../hooks/amazon/useManufacturers';
 
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -80,9 +81,10 @@ interface OfferRowProps {
   productId: number;
   mId: number;
   offer: ManufacturerOffer;
+  rate: number | null;
 }
 
-function OfferRow({ productId, mId, offer }: OfferRowProps) {
+function OfferRow({ productId, mId, offer, rate }: OfferRowProps) {
   const update = useUpdateOffer(productId);
   const del = useDeleteOffer(productId);
   const uploadFile = useUploadOfferFile(productId);
@@ -152,6 +154,11 @@ function OfferRow({ productId, mId, offer }: OfferRowProps) {
           <option value="USD">USD</option>
           <option value="EUR">EUR</option>
         </select>
+        {(() => {
+          const eur = eurPreis(offer, rate);
+          if (eur === null) return null;
+          return <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>≈ {eur.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>;
+        })()}
         <input
           value={moq}
           onChange={(e) => setMoq(e.target.value)}
@@ -272,15 +279,16 @@ interface Props {
   productId: number;
   mId: number;
   offers: ManufacturerOffer[];
+  rate: number | null;
 }
 
-export function ManufacturerOffers({ productId, mId, offers }: Props) {
+export function ManufacturerOffers({ productId, mId, offers, rate }: Props) {
   const create = useCreateOffer(productId);
   return (
     <div className="mt-3 flex flex-col gap-1.5">
       <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-on-surface-variant)' }}>Angebote</span>
       {offers.map(o => (
-        <OfferRow key={o.id} productId={productId} mId={mId} offer={o} />
+        <OfferRow key={o.id} productId={productId} mId={mId} offer={o} rate={rate} />
       ))}
       <button
         type="button"

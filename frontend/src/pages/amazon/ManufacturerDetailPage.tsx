@@ -98,7 +98,7 @@ export function ManufacturerDetailPage() {
 
       <div className="rounded-xl p-5 flex flex-col gap-5" style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)', borderLeft: `3px solid ${ACCENT}` }}>
         <Stammdaten productId={productId} manufacturer={manufacturer} />
-        <ManufacturerOffers productId={productId} mId={manufacturer.id} offers={manufacturer.offers} />
+        <ManufacturerOffers productId={productId} mId={manufacturer.id} offers={manufacturer.offers} rate={parseRate(data.settings.usd_eur_rate)} />
         <ManufacturerSamples productId={productId} mId={manufacturer.id} samples={manufacturer.samples} rate={parseRate(data.settings.usd_eur_rate)} />
       </div>
 
