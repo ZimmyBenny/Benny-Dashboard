@@ -77,14 +77,57 @@ function OfferFileRow({ productId, mId, oId, file, onDelete }: OfferFileRowProps
   );
 }
 
-interface OfferRowProps {
+const INPUT_STYLE: React.CSSProperties = {
+  background: 'var(--color-surface-container-low)',
+  color: 'var(--color-on-surface)',
+  border: '1px solid rgba(255,255,255,0.08)',
+};
+
+function fmtEur(n: number): string {
+  return n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Datum aus ISO "YYYY-MM-DD" ODER dt. "TT.MM.JJJJ" -> Zeitstempel (ms). Sonst null.
+function parseOfferDate(s: string | null | undefined): number | null {
+  if (!s) return null;
+  const t = s.trim();
+  let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t);
+  if (m) { const d = new Date(+m[1], +m[2] - 1, +m[3]); return isNaN(d.getTime()) ? null : d.getTime(); }
+  m = /^(\d{1,2})\.(\d{1,2})\.(\d{4})/.exec(t);
+  if (m) { const d = new Date(+m[3], +m[2] - 1, +m[1]); return isNaN(d.getTime()) ? null : d.getTime(); }
+  return null;
+}
+
+// Sortier-Schluessel: geparstes Datum (ms) ODER Fallback created_at (auf ms normalisiert).
+function offerSortKey(o: ManufacturerOffer): number {
+  const d = parseOfferDate(o.datum);
+  if (d !== null) return d;
+  return o.created_at < 1e12 ? o.created_at * 1000 : o.created_at;
+}
+
+function isIsoDate(s: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(s);
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1 min-w-0">
+      <span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--color-on-surface-variant)' }}>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+interface OfferCardProps {
   productId: number;
   mId: number;
   offer: ManufacturerOffer;
   rate: number | null;
+  isNewest: boolean;
+  isCheapest: boolean;
 }
 
-function OfferRow({ productId, mId, offer, rate }: OfferRowProps) {
+function OfferCard({ productId, mId, offer, rate, isNewest, isCheapest }: OfferCardProps) {
   const update = useUpdateOffer(productId);
   const del = useDeleteOffer(productId);
   const uploadFile = useUploadOfferFile(productId);
@@ -107,12 +150,6 @@ function OfferRow({ productId, mId, offer, rate }: OfferRowProps) {
   useEffect(() => { setDatum(offer.datum ?? ''); }, [offer.datum]);
   useEffect(() => { setNotiz(offer.notiz ?? ''); }, [offer.notiz]);
 
-  const inputStyle = {
-    background: 'var(--color-surface-container-low)',
-    color: 'var(--color-on-surface)',
-    border: '1px solid rgba(255,255,255,0.08)',
-  };
-
   function handleFilePick(f: File | undefined | null) {
     if (!f) return;
     if (f.size > MAX_BYTES) { setFileError('Datei ist größer als 20 MB.'); return; }
@@ -124,152 +161,155 @@ function OfferRow({ productId, mId, offer, rate }: OfferRowProps) {
     Array.from(fs).forEach(handleFilePick);
   }
 
+  const eur = eurPreis(offer, rate);
+  const isLatest = !!offer.is_latest;
+  // "Neuestes" nur zeigen, wenn nicht ohnehin schon "Aktuellstes"
+  const showNewest = isNewest && !isLatest;
+  const dateInputValue = isIsoDate(datum) ? datum : '';
+
   return (
-    <div className="flex flex-col gap-1.5 py-2 px-2 rounded-md"
-      style={{ background: 'var(--color-surface-container)', border: '1px solid rgba(255,255,255,0.06)' }}>
-      {/* Fields row */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <input
-          value={mengeVariante}
-          onChange={(e) => setMengeVariante(e.target.value)}
-          onBlur={() => { if (mengeVariante !== (offer.menge_variante ?? '')) update.mutate({ mId, oId: offer.id, patch: { menge_variante: mengeVariante } }); }}
-          placeholder="Menge/Variante"
-          className="px-2 py-1 rounded-md text-xs w-28"
-          style={inputStyle}
-        />
-        <input
-          value={preis}
-          onChange={(e) => setPreis(e.target.value)}
-          onBlur={() => { if (preis !== (offer.preis ?? '')) update.mutate({ mId, oId: offer.id, patch: { preis } }); }}
-          placeholder="Preis"
-          className="px-2 py-1 rounded-md text-xs w-24"
-          style={inputStyle}
-        />
-        <select
-          value={offer.currency}
-          onChange={(e) => update.mutate({ mId, oId: offer.id, patch: { currency: e.target.value as 'USD' | 'EUR' } })}
-          className="px-2 py-1 rounded-md text-xs"
-          style={inputStyle}
-        >
-          <option value="USD">USD</option>
-          <option value="EUR">EUR</option>
-        </select>
-        {(() => {
-          const eur = eurPreis(offer, rate);
-          if (eur === null) return null;
-          return <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>≈ {eur.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>;
-        })()}
-        <input
-          value={moq}
-          onChange={(e) => setMoq(e.target.value)}
-          onBlur={() => { if (moq !== (offer.moq ?? '')) update.mutate({ mId, oId: offer.id, patch: { moq } }); }}
-          placeholder="MOQ"
-          className="px-2 py-1 rounded-md text-xs w-20"
-          style={inputStyle}
-        />
-        <input
-          value={lieferzeit}
-          onChange={(e) => setLieferzeit(e.target.value)}
-          onBlur={() => { if (lieferzeit !== (offer.lieferzeit ?? '')) update.mutate({ mId, oId: offer.id, patch: { lieferzeit } }); }}
-          placeholder="Lieferzeit"
-          className="px-2 py-1 rounded-md text-xs w-24"
-          style={inputStyle}
-        />
-        <input
-          value={datum}
-          onChange={(e) => setDatum(e.target.value)}
-          onBlur={() => { if (datum !== (offer.datum ?? '')) update.mutate({ mId, oId: offer.id, patch: { datum } }); }}
-          placeholder="Datum"
-          className="px-2 py-1 rounded-md text-xs w-24"
-          style={inputStyle}
-        />
-        <input
-          value={notiz}
-          onChange={(e) => setNotiz(e.target.value)}
-          onBlur={() => { if (notiz !== (offer.notiz ?? '')) update.mutate({ mId, oId: offer.id, patch: { notiz } }); }}
-          placeholder="Notiz"
-          className="px-2 py-1 rounded-md text-xs flex-1 min-w-28"
-          style={inputStyle}
-        />
-        <button
-          type="button"
-          onClick={() => update.mutate({ mId, oId: offer.id, patch: { is_latest: offer.is_latest ? 0 : 1 } })}
-          className="p-1 rounded-md flex-shrink-0"
-          style={{ color: offer.is_latest ? '#fbbf24' : 'var(--color-on-surface-variant)' }}
-          title={offer.is_latest ? 'Aktuellstes Angebot' : 'Als aktuellstes markieren'}
-          aria-label="Aktuellstes Angebot"
-        >
-          <span className="material-symbols-outlined" style={{ fontSize: 18, fontVariationSettings: offer.is_latest ? "'FILL' 1" : "'FILL' 0" }}>star</span>
-        </button>
-        {confirmDelete ? (
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <span className="text-xs" style={{ color: '#fca5a5' }}>Wirklich löschen?</span>
-            <button
-              type="button"
-              onClick={() => { del.mutate({ mId, oId: offer.id }); setConfirmDelete(false); }}
-              className="px-2 py-1 rounded-md text-xs"
-              style={{ background: '#7f1d1d', color: '#fecaca' }}
-            >
-              Ja
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmDelete(false)}
-              className="px-2 py-1 rounded-md text-xs"
-              style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}
-            >
-              Nein
-            </button>
+    <div className="relative overflow-hidden rounded-xl p-4 flex flex-col gap-3"
+      style={{
+        background: 'var(--color-surface-container)',
+        border: `1px solid ${isLatest ? 'rgba(148,170,255,0.35)' : 'var(--color-outline-variant, rgba(255,255,255,0.08))'}`,
+      }}>
+      {isLatest && (
+        <div className="absolute top-0 left-0 right-0" style={{ height: 3, background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))' }} />
+      )}
+
+      {/* Kopf: EUR-Headline + Badges/Aktionen */}
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="flex flex-col gap-1 min-w-0">
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className="text-2xl font-bold" style={{ fontFamily: 'var(--font-headline)', color: 'var(--color-on-surface)' }}>
+              {eur !== null ? `${fmtEur(eur)} €` : (preis ? `${preis} ${offer.currency}` : '—')}
+            </span>
+            {eur !== null && (
+              <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
+                ({preis || '—'} {offer.currency})
+              </span>
+            )}
           </div>
-        ) : (
+          {/* Original-Preis editierbar */}
+          <div className="flex items-center gap-2">
+            <input
+              value={preis}
+              onChange={(e) => setPreis(e.target.value)}
+              onBlur={() => { if (preis !== (offer.preis ?? '')) update.mutate({ mId, oId: offer.id, patch: { preis } }); }}
+              placeholder="Preis"
+              className="px-2 py-1 rounded-md text-xs w-24"
+              style={INPUT_STYLE}
+            />
+            <select
+              value={offer.currency}
+              onChange={(e) => update.mutate({ mId, oId: offer.id, patch: { currency: e.target.value as 'USD' | 'EUR' } })}
+              className="px-2 py-1 rounded-md text-xs"
+              style={INPUT_STYLE}
+            >
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 flex-wrap justify-end">
+          {isLatest && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide"
+              style={{ background: 'rgba(148,170,255,0.16)', color: 'var(--color-primary)', border: '1px solid rgba(148,170,255,0.35)' }}>
+              Aktuellstes
+            </span>
+          )}
+          {showNewest && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide"
+              style={{ background: 'rgba(148,170,255,0.10)', color: 'var(--color-secondary)', border: '1px solid rgba(148,170,255,0.25)' }}>
+              Neuestes
+            </span>
+          )}
+          {isCheapest && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide"
+              style={{ background: 'rgba(16,185,129,0.16)', color: '#34d399', border: '1px solid rgba(16,185,129,0.45)' }}>
+              Günstigstes
+            </span>
+          )}
           <button
             type="button"
-            onClick={() => setConfirmDelete(true)}
+            onClick={() => update.mutate({ mId, oId: offer.id, patch: { is_latest: offer.is_latest ? 0 : 1 } })}
             className="p-1 rounded-md flex-shrink-0"
-            style={{ color: '#fca5a5' }}
-            aria-label="Angebot löschen"
+            style={{ color: isLatest ? '#fbbf24' : 'var(--color-on-surface-variant)' }}
+            title={isLatest ? 'Aktuellstes Angebot' : 'Als aktuellstes markieren'}
+            aria-label="Aktuellstes Angebot"
           >
-            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
+            <span className="material-symbols-outlined" style={{ fontSize: 18, fontVariationSettings: isLatest ? "'FILL' 1" : "'FILL' 0" }}>star</span>
           </button>
-        )}
+          {confirmDelete ? (
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <span className="text-xs" style={{ color: '#fca5a5' }}>Wirklich löschen?</span>
+              <button type="button" onClick={() => { del.mutate({ mId, oId: offer.id }); setConfirmDelete(false); }} className="px-2 py-1 rounded-md text-xs" style={{ background: '#7f1d1d', color: '#fecaca' }}>Ja</button>
+              <button type="button" onClick={() => setConfirmDelete(false)} className="px-2 py-1 rounded-md text-xs" style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}>Nein</button>
+            </div>
+          ) : (
+            <button type="button" onClick={() => setConfirmDelete(true)} className="p-1 rounded-md flex-shrink-0" style={{ color: '#fca5a5' }} aria-label="Angebot löschen">
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
+            </button>
+          )}
+        </div>
       </div>
-      {/* File area */}
+
+      {/* Beschriftete Felder */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <Field label="Menge/Variante">
+          <input value={mengeVariante} onChange={(e) => setMengeVariante(e.target.value)}
+            onBlur={() => { if (mengeVariante !== (offer.menge_variante ?? '')) update.mutate({ mId, oId: offer.id, patch: { menge_variante: mengeVariante } }); }}
+            placeholder="z.B. 500 Stk / rot" className="px-2 py-1 rounded-md text-xs w-full" style={INPUT_STYLE} />
+        </Field>
+        <Field label="MOQ">
+          <input value={moq} onChange={(e) => setMoq(e.target.value)}
+            onBlur={() => { if (moq !== (offer.moq ?? '')) update.mutate({ mId, oId: offer.id, patch: { moq } }); }}
+            placeholder="Mindestmenge" className="px-2 py-1 rounded-md text-xs w-full" style={INPUT_STYLE} />
+        </Field>
+        <Field label="Lieferzeit">
+          <input value={lieferzeit} onChange={(e) => setLieferzeit(e.target.value)}
+            onBlur={() => { if (lieferzeit !== (offer.lieferzeit ?? '')) update.mutate({ mId, oId: offer.id, patch: { lieferzeit } }); }}
+            placeholder="z.B. 25 Tage" className="px-2 py-1 rounded-md text-xs w-full" style={INPUT_STYLE} />
+        </Field>
+        <Field label="Datum">
+          <input type="date" value={dateInputValue} onChange={(e) => setDatum(e.target.value)}
+            onBlur={() => { if (datum !== (offer.datum ?? '')) update.mutate({ mId, oId: offer.id, patch: { datum } }); }}
+            className="px-2 py-1 rounded-md text-xs w-full" style={INPUT_STYLE} />
+          {datum && !isIsoDate(datum) && (
+            <span className="text-[10px]" style={{ color: 'var(--color-on-surface-variant)' }} title="Alter Freitext — wird beim Setzen eines Datums ersetzt">Alt: {datum}</span>
+          )}
+        </Field>
+      </div>
+
+      <Field label="Notiz">
+        <textarea value={notiz} onChange={(e) => setNotiz(e.target.value)}
+          onBlur={() => { if (notiz !== (offer.notiz ?? '')) update.mutate({ mId, oId: offer.id, patch: { notiz } }); }}
+          placeholder="Notiz zum Angebot …" rows={2} className="px-2 py-1 rounded-md text-xs w-full resize-y" style={INPUT_STYLE} />
+      </Field>
+
+      {/* Dateien */}
       <div className="flex flex-col gap-1"
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => { e.preventDefault(); handleFilesPick(e.dataTransfer.files); }}>
         {offer.files.length > 0 && (
           <div className="flex flex-col gap-1">
             {offer.files.map(f => (
-              <OfferFileRow
-                key={f.id}
-                productId={productId}
-                mId={mId}
-                oId={offer.id}
-                file={f}
-                onDelete={() => deleteFile.mutate({ mId, oId: offer.id, fId: f.id })}
-              />
+              <OfferFileRow key={f.id} productId={productId} mId={mId} oId={offer.id} file={f}
+                onDelete={() => deleteFile.mutate({ mId, oId: offer.id, fId: f.id })} />
             ))}
           </div>
         )}
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => fileInput.current?.click()}
-            title="Klick oder Datei(en) hierher ziehen"
+          <button type="button" onClick={() => fileInput.current?.click()} title="Klick oder Datei(en) hierher ziehen"
             className="self-start px-2 py-1 rounded-md text-xs flex items-center gap-1"
-            style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}
-          >
+            style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}>
             <span className="material-symbols-outlined" style={{ fontSize: 14 }}>upload_file</span>Datei hochladen (oder reinziehen)
           </button>
           {fileError && <span className="text-xs" style={{ color: '#fca5a5' }}>{fileError}</span>}
         </div>
-        <input
-          ref={fileInput}
-          type="file"
-          multiple
-          className="hidden"
-          onChange={(e) => { handleFilesPick(e.target.files); e.target.value = ''; }}
-        />
+        <input ref={fileInput} type="file" multiple className="hidden"
+          onChange={(e) => { handleFilesPick(e.target.files); e.target.value = ''; }} />
       </div>
     </div>
   );
@@ -284,11 +324,27 @@ interface Props {
 
 export function ManufacturerOffers({ productId, mId, offers, rate }: Props) {
   const create = useCreateOffer(productId);
+
+  // Anzeige-Sortierung: neuestes Datum oben (Fallback created_at). Kein Reorder im Backend.
+  const sorted = [...offers].sort((a, b) => offerSortKey(b) - offerSortKey(a));
+  const newestId = sorted.length > 1 ? sorted[0].id : null;
+
+  // Günstigstes nach EUR-Preis (nur wenn mind. 2 Angebote einen EUR-Preis liefern).
+  let cheapestId: number | null = null;
+  let cheapestEur = Infinity;
+  let priced = 0;
+  for (const o of offers) {
+    const e = eurPreis(o, rate);
+    if (e !== null) { priced += 1; if (e < cheapestEur) { cheapestEur = e; cheapestId = o.id; } }
+  }
+  if (priced < 2) cheapestId = null;
+
   return (
-    <div className="mt-3 flex flex-col gap-1.5">
+    <div className="mt-3 flex flex-col gap-2">
       <span className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-on-surface-variant)' }}>Angebote</span>
-      {offers.map(o => (
-        <OfferRow key={o.id} productId={productId} mId={mId} offer={o} rate={rate} />
+      {sorted.map(o => (
+        <OfferCard key={o.id} productId={productId} mId={mId} offer={o} rate={rate}
+          isNewest={o.id === newestId} isCheapest={o.id === cheapestId} />
       ))}
       <button
         type="button"
