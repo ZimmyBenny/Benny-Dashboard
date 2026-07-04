@@ -24,7 +24,7 @@ function deleteImageFromDisk(filename: string | null | undefined) {
 }
 
 // ── Typen ──
-interface TopicRow { id: number; product_id: number; sort_order: number; title: string; is_expanded: number; created_at: number; updated_at: number; }
+interface TopicRow { id: number; product_id: number | null; sort_order: number; title: string; is_expanded: number; created_at: number; updated_at: number; }
 interface CardRow { id: number; topic_id: number; sort_order: number; title: string | null; body: string; is_global: number; created_at: number; updated_at: number; }
 interface LinkRow { id: number; card_id: number; sort_order: number; url: string; label: string | null; created_at: number; }
 interface ImageRow { id: number; card_id: number; sort_order: number; file_path: string; original_name: string | null; mime: string | null; created_at: number; }
@@ -36,31 +36,43 @@ const MAX_BODY = 5000;
 const MAX_URL = 1000;
 const MAX_LABEL = 200;
 
+// Scope = konkretes Produkt (number) ODER global (null).
+// Ownership-Abfragen nutzen `product_id IS ?` — matcht sowohl eine Zahl als auch NULL.
+type Scope = number | null;
+
 function ensureProduct(id: number): boolean {
   return db.prepare(`SELECT 1 FROM amazon_products WHERE id = ?`).get(id) !== undefined;
 }
-function loadTopic(productId: number, topicId: number): TopicRow | undefined {
-  return db.prepare(`SELECT * FROM amazon_research_topics WHERE id = ? AND product_id = ?`).get(topicId, productId) as TopicRow | undefined;
+function loadTopic(scope: Scope, topicId: number): TopicRow | undefined {
+  return db.prepare(`SELECT * FROM amazon_research_topics WHERE id = ? AND product_id IS ?`).get(topicId, scope) as TopicRow | undefined;
 }
-function loadCardForProduct(productId: number, cardId: number): CardRow | undefined {
+function loadCard(scope: Scope, cardId: number): CardRow | undefined {
   return db.prepare(`
     SELECT c.* FROM amazon_research_cards c
     JOIN amazon_research_topics t ON t.id = c.topic_id
-    WHERE c.id = ? AND t.product_id = ?`).get(cardId, productId) as CardRow | undefined;
+    WHERE c.id = ? AND t.product_id IS ?`).get(cardId, scope) as CardRow | undefined;
 }
-function loadImageForProduct(productId: number, imageId: number): ImageRow | undefined {
+function loadImage(scope: Scope, imageId: number): ImageRow | undefined {
   return db.prepare(`
     SELECT im.* FROM amazon_research_card_images im
     JOIN amazon_research_cards c ON c.id = im.card_id
     JOIN amazon_research_topics t ON t.id = c.topic_id
-    WHERE im.id = ? AND t.product_id = ?`).get(imageId, productId) as ImageRow | undefined;
+    WHERE im.id = ? AND t.product_id IS ?`).get(imageId, scope) as ImageRow | undefined;
+}
+function loadLink(scope: Scope, linkId: number): LinkRow | undefined {
+  return db.prepare(`
+    SELECT lk.* FROM amazon_research_card_links lk
+    JOIN amazon_research_cards c ON c.id = lk.card_id
+    JOIN amazon_research_topics t ON t.id = c.topic_id
+    WHERE lk.id = ? AND t.product_id IS ?`).get(linkId, scope) as LinkRow | undefined;
 }
 
-// ── GET: alle Themen verschachtelt ──
-router.get('/products/:id/research/topics', (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
-  const topics = db.prepare(`SELECT * FROM amazon_research_topics WHERE product_id = ? ORDER BY sort_order, id`).all(id) as TopicRow[];
+// ══════════════════════════════════════════════════════════════════
+// Scope-aware Handler-Logik (von Produkt- UND Global-Routen genutzt)
+// ══════════════════════════════════════════════════════════════════
+
+function handleGetTopics(scope: Scope, res: Response) {
+  const topics = db.prepare(`SELECT * FROM amazon_research_topics WHERE product_id IS ? ORDER BY sort_order, id`).all(scope) as TopicRow[];
   const cardsStmt = db.prepare(`SELECT * FROM amazon_research_cards WHERE topic_id = ? ORDER BY sort_order, id`);
   const linksStmt = db.prepare(`SELECT * FROM amazon_research_card_links WHERE card_id = ? ORDER BY sort_order, id`);
   const imagesStmt = db.prepare(`SELECT * FROM amazon_research_card_images WHERE card_id = ? ORDER BY sort_order, id`);
@@ -73,22 +85,18 @@ router.get('/products/:id/research/topics', (req: Request, res: Response) => {
     })),
   }));
   res.json({ topics: out });
-});
+}
 
-// ── Themen CRUD ──
-router.post('/products/:id/research/topics', (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+function handleCreateTopic(scope: Scope, req: Request, res: Response) {
   const title = String(req.body?.title ?? '').slice(0, MAX_TITLE);
-  const maxOrder = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_research_topics WHERE product_id = ?`).get(id) as { m: number }).m;
-  const r = db.prepare(`INSERT INTO amazon_research_topics (product_id, sort_order, title) VALUES (?, ?, ?)`).run(id, maxOrder + 1, title);
+  const maxOrder = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_research_topics WHERE product_id IS ?`).get(scope) as { m: number }).m;
+  const r = db.prepare(`INSERT INTO amazon_research_topics (product_id, sort_order, title) VALUES (?, ?, ?)`).run(scope, maxOrder + 1, title);
   const topic = db.prepare(`SELECT * FROM amazon_research_topics WHERE id = ?`).get(r.lastInsertRowid) as TopicRow;
   res.status(201).json({ topic: { ...topic, cards: [] } });
-});
+}
 
-router.patch('/products/:id/research/topics/:topicId', (req: Request, res: Response) => {
-  const id = Number(req.params.id); const topicId = Number(req.params.topicId);
-  if (![id, topicId].every(Number.isInteger) || !ensureProduct(id) || !loadTopic(id, topicId)) { res.status(404).json({ error: 'not found' }); return; }
+function handlePatchTopic(scope: Scope, topicId: number, req: Request, res: Response) {
+  if (!Number.isInteger(topicId) || !loadTopic(scope, topicId)) { res.status(404).json({ error: 'not found' }); return; }
   const sets: string[] = []; const vals: unknown[] = [];
   if (typeof req.body?.title === 'string') { sets.push('title = ?'); vals.push(req.body.title.slice(0, MAX_TITLE)); }
   if (req.body?.is_expanded === 0 || req.body?.is_expanded === 1) { sets.push('is_expanded = ?'); vals.push(req.body.is_expanded); }
@@ -96,11 +104,10 @@ router.patch('/products/:id/research/topics/:topicId', (req: Request, res: Respo
   sets.push('updated_at = unixepoch()');
   db.prepare(`UPDATE amazon_research_topics SET ${sets.join(', ')} WHERE id = ?`).run(...vals, topicId);
   res.json({ topic: db.prepare(`SELECT * FROM amazon_research_topics WHERE id = ?`).get(topicId) as TopicRow });
-});
+}
 
-router.delete('/products/:id/research/topics/:topicId', (req: Request, res: Response) => {
-  const id = Number(req.params.id); const topicId = Number(req.params.topicId);
-  if (![id, topicId].every(Number.isInteger) || !ensureProduct(id) || !loadTopic(id, topicId)) { res.status(404).json({ error: 'not found' }); return; }
+function handleDeleteTopic(scope: Scope, topicId: number, res: Response) {
+  if (!Number.isInteger(topicId) || !loadTopic(scope, topicId)) { res.status(404).json({ error: 'not found' }); return; }
   const cards = db.prepare(`SELECT id FROM amazon_research_cards WHERE topic_id = ?`).all(topicId) as { id: number }[];
   const delTx = db.transaction(() => {
     for (const c of cards) {
@@ -114,31 +121,26 @@ router.delete('/products/:id/research/topics/:topicId', (req: Request, res: Resp
   });
   delTx();
   res.status(204).end();
-});
+}
 
-router.post('/products/:id/research/topics/reorder', (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+function handleReorderTopics(scope: Scope, req: Request, res: Response) {
   const order = req.body?.order;
   if (!Array.isArray(order)) { res.status(400).json({ error: 'order fehlt' }); return; }
-  const upd = db.prepare(`UPDATE amazon_research_topics SET sort_order = ? WHERE id = ? AND product_id = ?`);
-  db.transaction(() => { order.forEach((tid: number, idx: number) => upd.run(idx + 1, tid, id)); })();
+  const upd = db.prepare(`UPDATE amazon_research_topics SET sort_order = ? WHERE id = ? AND product_id IS ?`);
+  db.transaction(() => { order.forEach((tid: number, idx: number) => upd.run(idx + 1, tid, scope)); })();
   res.status(204).end();
-});
+}
 
-// ── Karten CRUD ──
-router.post('/products/:id/research/topics/:topicId/cards', (req: Request, res: Response) => {
-  const id = Number(req.params.id); const topicId = Number(req.params.topicId);
-  if (![id, topicId].every(Number.isInteger) || !ensureProduct(id) || !loadTopic(id, topicId)) { res.status(404).json({ error: 'not found' }); return; }
+function handleCreateCard(scope: Scope, topicId: number, res: Response) {
+  if (!Number.isInteger(topicId) || !loadTopic(scope, topicId)) { res.status(404).json({ error: 'not found' }); return; }
   const maxOrder = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_research_cards WHERE topic_id = ?`).get(topicId) as { m: number }).m;
   const r = db.prepare(`INSERT INTO amazon_research_cards (topic_id, sort_order, body) VALUES (?, ?, '')`).run(topicId, maxOrder + 1);
   const card = db.prepare(`SELECT * FROM amazon_research_cards WHERE id = ?`).get(r.lastInsertRowid) as CardRow;
   res.status(201).json({ card: { ...card, links: [], images: [] } });
-});
+}
 
-router.patch('/products/:id/research/cards/:cardId', (req: Request, res: Response) => {
-  const id = Number(req.params.id); const cardId = Number(req.params.cardId);
-  if (![id, cardId].every(Number.isInteger) || !ensureProduct(id) || !loadCardForProduct(id, cardId)) { res.status(404).json({ error: 'not found' }); return; }
+function handlePatchCard(scope: Scope, cardId: number, req: Request, res: Response) {
+  if (!Number.isInteger(cardId) || !loadCard(scope, cardId)) { res.status(404).json({ error: 'not found' }); return; }
   const sets: string[] = []; const vals: unknown[] = [];
   if ('title' in (req.body ?? {})) { const t = req.body.title; sets.push('title = ?'); vals.push(t == null ? null : String(t).slice(0, MAX_TITLE)); }
   if (typeof req.body?.body === 'string') { sets.push('body = ?'); vals.push(req.body.body.slice(0, MAX_BODY)); }
@@ -147,11 +149,10 @@ router.patch('/products/:id/research/cards/:cardId', (req: Request, res: Respons
   sets.push('updated_at = unixepoch()');
   db.prepare(`UPDATE amazon_research_cards SET ${sets.join(', ')} WHERE id = ?`).run(...vals, cardId);
   res.json({ card: db.prepare(`SELECT * FROM amazon_research_cards WHERE id = ?`).get(cardId) as CardRow });
-});
+}
 
-router.delete('/products/:id/research/cards/:cardId', (req: Request, res: Response) => {
-  const id = Number(req.params.id); const cardId = Number(req.params.cardId);
-  if (![id, cardId].every(Number.isInteger) || !ensureProduct(id) || !loadCardForProduct(id, cardId)) { res.status(404).json({ error: 'not found' }); return; }
+function handleDeleteCard(scope: Scope, cardId: number, res: Response) {
+  if (!Number.isInteger(cardId) || !loadCard(scope, cardId)) { res.status(404).json({ error: 'not found' }); return; }
   const imgs = db.prepare(`SELECT file_path FROM amazon_research_card_images WHERE card_id = ?`).all(cardId) as { file_path: string }[];
   db.transaction(() => {
     imgs.forEach(im => deleteImageFromDisk(im.file_path));
@@ -160,47 +161,35 @@ router.delete('/products/:id/research/cards/:cardId', (req: Request, res: Respon
     db.prepare(`DELETE FROM amazon_research_cards WHERE id = ?`).run(cardId);
   })();
   res.status(204).end();
-});
+}
 
-router.post('/products/:id/research/topics/:topicId/cards/reorder', (req: Request, res: Response) => {
-  const id = Number(req.params.id); const topicId = Number(req.params.topicId);
-  if (![id, topicId].every(Number.isInteger) || !ensureProduct(id) || !loadTopic(id, topicId)) { res.status(404).json({ error: 'not found' }); return; }
+function handleReorderCards(scope: Scope, topicId: number, req: Request, res: Response) {
+  if (!Number.isInteger(topicId) || !loadTopic(scope, topicId)) { res.status(404).json({ error: 'not found' }); return; }
   const order = req.body?.order;
   if (!Array.isArray(order)) { res.status(400).json({ error: 'order fehlt' }); return; }
   const upd = db.prepare(`UPDATE amazon_research_cards SET sort_order = ? WHERE id = ? AND topic_id = ?`);
   db.transaction(() => { order.forEach((cid: number, idx: number) => upd.run(idx + 1, cid, topicId)); })();
   res.status(204).end();
-});
+}
 
-// ── Links ──
-router.post('/products/:id/research/cards/:cardId/links', (req: Request, res: Response) => {
-  const id = Number(req.params.id); const cardId = Number(req.params.cardId);
-  if (![id, cardId].every(Number.isInteger) || !ensureProduct(id) || !loadCardForProduct(id, cardId)) { res.status(404).json({ error: 'not found' }); return; }
+function handleCreateLink(scope: Scope, cardId: number, req: Request, res: Response) {
+  if (!Number.isInteger(cardId) || !loadCard(scope, cardId)) { res.status(404).json({ error: 'not found' }); return; }
   const url = String(req.body?.url ?? '').slice(0, MAX_URL);
   if (!url) { res.status(400).json({ error: 'url fehlt' }); return; }
   const label = req.body?.label == null ? null : String(req.body.label).slice(0, MAX_LABEL);
   const maxOrder = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_research_card_links WHERE card_id = ?`).get(cardId) as { m: number }).m;
   const r = db.prepare(`INSERT INTO amazon_research_card_links (card_id, sort_order, url, label) VALUES (?, ?, ?, ?)`).run(cardId, maxOrder + 1, url, label);
   res.status(201).json({ link: db.prepare(`SELECT * FROM amazon_research_card_links WHERE id = ?`).get(r.lastInsertRowid) as LinkRow });
-});
+}
 
-router.delete('/products/:id/research/links/:linkId', (req: Request, res: Response) => {
-  const id = Number(req.params.id); const linkId = Number(req.params.linkId);
-  if (![id, linkId].every(Number.isInteger) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
-  const link = db.prepare(`
-    SELECT lk.* FROM amazon_research_card_links lk
-    JOIN amazon_research_cards c ON c.id = lk.card_id
-    JOIN amazon_research_topics t ON t.id = c.topic_id
-    WHERE lk.id = ? AND t.product_id = ?`).get(linkId, id) as LinkRow | undefined;
-  if (!link) { res.status(404).json({ error: 'not found' }); return; }
+function handleDeleteLink(scope: Scope, linkId: number, res: Response) {
+  if (!Number.isInteger(linkId) || !loadLink(scope, linkId)) { res.status(404).json({ error: 'not found' }); return; }
   db.prepare(`DELETE FROM amazon_research_card_links WHERE id = ?`).run(linkId);
   res.status(204).end();
-});
+}
 
-// ── Karten-Bilder ──
-router.post('/products/:id/research/cards/:cardId/images', (req: Request, res: Response) => {
-  const id = Number(req.params.id); const cardId = Number(req.params.cardId);
-  if (![id, cardId].every(Number.isInteger) || !ensureProduct(id) || !loadCardForProduct(id, cardId)) { res.status(404).json({ error: 'not found' }); return; }
+function handleUploadImage(scope: Scope, cardId: number, req: Request, res: Response) {
+  if (!Number.isInteger(cardId) || !loadCard(scope, cardId)) { res.status(404).json({ error: 'not found' }); return; }
   researchImageUpload.single('file')(req, res, (err: unknown) => {
     if (err) { res.status(400).json({ error: err instanceof Error ? err.message : 'upload failed' }); return; }
     const file = (req as Request & { file?: { filename: string; originalname: string; mimetype: string } }).file;
@@ -210,12 +199,11 @@ router.post('/products/:id/research/cards/:cardId/images', (req: Request, res: R
       .run(cardId, maxOrder + 1, file.filename, Buffer.from(file.originalname, 'latin1').toString('utf8').slice(0, 300), file.mimetype.slice(0, 200));
     res.status(201).json({ image: db.prepare(`SELECT * FROM amazon_research_card_images WHERE id = ?`).get(r.lastInsertRowid) as ImageRow });
   });
-});
+}
 
-router.get('/products/:id/research/images/:imageId', (req: Request, res: Response) => {
-  const id = Number(req.params.id); const imageId = Number(req.params.imageId);
-  if (![id, imageId].every(Number.isInteger) || !ensureProduct(id)) { res.status(404).end(); return; }
-  const im = loadImageForProduct(id, imageId);
+function handleGetImage(scope: Scope, imageId: number, res: Response) {
+  if (!Number.isInteger(imageId)) { res.status(404).end(); return; }
+  const im = loadImage(scope, imageId);
   if (!im) { res.status(404).end(); return; }
   const abs = path.resolve(RESEARCH_FILES_DIR, im.file_path);
   if (!abs.startsWith(path.resolve(RESEARCH_FILES_DIR) + path.sep) || !fs.existsSync(abs)) { res.status(404).end(); return; }
@@ -223,33 +211,180 @@ router.get('/products/:id/research/images/:imageId', (req: Request, res: Respons
   const ascii = (im.original_name ?? 'bild').replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '');
   res.setHeader('Content-Disposition', `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(im.original_name ?? 'bild')}`);
   fs.createReadStream(abs).pipe(res);
-});
+}
 
-router.delete('/products/:id/research/images/:imageId', (req: Request, res: Response) => {
-  const id = Number(req.params.id); const imageId = Number(req.params.imageId);
-  if (![id, imageId].every(Number.isInteger) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
-  const im = loadImageForProduct(id, imageId);
+function handleDeleteImage(scope: Scope, imageId: number, res: Response) {
+  if (!Number.isInteger(imageId)) { res.status(404).json({ error: 'not found' }); return; }
+  const im = loadImage(scope, imageId);
   if (!im) { res.status(404).json({ error: 'not found' }); return; }
   db.prepare(`DELETE FROM amazon_research_card_images WHERE id = ?`).run(imageId);
   deleteImageFromDisk(im.file_path);
   res.status(204).end();
-});
+}
 
-router.post('/products/:id/research/cards/:cardId/images/reorder', (req: Request, res: Response) => {
-  const id = Number(req.params.id); const cardId = Number(req.params.cardId);
-  if (![id, cardId].every(Number.isInteger) || !ensureProduct(id) || !loadCardForProduct(id, cardId)) { res.status(404).json({ error: 'not found' }); return; }
+function handleReorderImages(scope: Scope, cardId: number, req: Request, res: Response) {
+  if (!Number.isInteger(cardId) || !loadCard(scope, cardId)) { res.status(404).json({ error: 'not found' }); return; }
   const order = req.body?.order;
   if (!Array.isArray(order)) { res.status(400).json({ error: 'order fehlt' }); return; }
   const upd = db.prepare(`UPDATE amazon_research_card_images SET sort_order = ? WHERE id = ? AND card_id = ?`);
   db.transaction(() => { order.forEach((iid: number, idx: number) => upd.run(idx + 1, iid, cardId)); })();
   res.status(204).end();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Produkt-Routen (Verhalten unveraendert — Scope = konkrete Produkt-ID)
+// ══════════════════════════════════════════════════════════════════
+
+router.get('/products/:id/research/topics', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  handleGetTopics(id, res);
 });
 
-// ── GET: alle global markierten Karten produktuebergreifend ──
-// Ergibt /api/amazon/research/global (Router unter /api/amazon gemountet).
-// Rein lesend — kein Backup noetig.
+router.post('/products/:id/research/topics', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  handleCreateTopic(id, req, res);
+});
+
+router.patch('/products/:id/research/topics/:topicId', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  handlePatchTopic(id, Number(req.params.topicId), req, res);
+});
+
+router.delete('/products/:id/research/topics/:topicId', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  handleDeleteTopic(id, Number(req.params.topicId), res);
+});
+
+router.post('/products/:id/research/topics/reorder', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  handleReorderTopics(id, req, res);
+});
+
+router.post('/products/:id/research/topics/:topicId/cards', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  handleCreateCard(id, Number(req.params.topicId), res);
+});
+
+router.patch('/products/:id/research/cards/:cardId', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  handlePatchCard(id, Number(req.params.cardId), req, res);
+});
+
+router.delete('/products/:id/research/cards/:cardId', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  handleDeleteCard(id, Number(req.params.cardId), res);
+});
+
+router.post('/products/:id/research/topics/:topicId/cards/reorder', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  handleReorderCards(id, Number(req.params.topicId), req, res);
+});
+
+router.post('/products/:id/research/cards/:cardId/links', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  handleCreateLink(id, Number(req.params.cardId), req, res);
+});
+
+router.delete('/products/:id/research/links/:linkId', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  handleDeleteLink(id, Number(req.params.linkId), res);
+});
+
+router.post('/products/:id/research/cards/:cardId/images', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  handleUploadImage(id, Number(req.params.cardId), req, res);
+});
+
+router.get('/products/:id/research/images/:imageId', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).end(); return; }
+  handleGetImage(id, Number(req.params.imageId), res);
+});
+
+router.delete('/products/:id/research/images/:imageId', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  handleDeleteImage(id, Number(req.params.imageId), res);
+});
+
+router.post('/products/:id/research/cards/:cardId/images/reorder', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  handleReorderImages(id, Number(req.params.cardId), req, res);
+});
+
+// ══════════════════════════════════════════════════════════════════
+// Globale Routen (Scope = null -> Themen ohne Produkt, product_id IS NULL)
+// Spiegeln die Produkt-Routen 1:1, arbeiten aber produktunabhaengig.
+// ══════════════════════════════════════════════════════════════════
+
+router.get('/research/global/topics', (_req: Request, res: Response) => {
+  handleGetTopics(null, res);
+});
+router.post('/research/global/topics', (req: Request, res: Response) => {
+  handleCreateTopic(null, req, res);
+});
+router.patch('/research/global/topics/:topicId', (req: Request, res: Response) => {
+  handlePatchTopic(null, Number(req.params.topicId), req, res);
+});
+router.delete('/research/global/topics/:topicId', (req: Request, res: Response) => {
+  handleDeleteTopic(null, Number(req.params.topicId), res);
+});
+router.post('/research/global/topics/reorder', (req: Request, res: Response) => {
+  handleReorderTopics(null, req, res);
+});
+
+router.post('/research/global/topics/:topicId/cards', (req: Request, res: Response) => {
+  handleCreateCard(null, Number(req.params.topicId), res);
+});
+router.patch('/research/global/cards/:cardId', (req: Request, res: Response) => {
+  handlePatchCard(null, Number(req.params.cardId), req, res);
+});
+router.delete('/research/global/cards/:cardId', (req: Request, res: Response) => {
+  handleDeleteCard(null, Number(req.params.cardId), res);
+});
+router.post('/research/global/topics/:topicId/cards/reorder', (req: Request, res: Response) => {
+  handleReorderCards(null, Number(req.params.topicId), req, res);
+});
+
+router.post('/research/global/cards/:cardId/links', (req: Request, res: Response) => {
+  handleCreateLink(null, Number(req.params.cardId), req, res);
+});
+router.delete('/research/global/links/:linkId', (req: Request, res: Response) => {
+  handleDeleteLink(null, Number(req.params.linkId), res);
+});
+
+router.post('/research/global/cards/:cardId/images', (req: Request, res: Response) => {
+  handleUploadImage(null, Number(req.params.cardId), req, res);
+});
+router.get('/research/global/images/:imageId', (req: Request, res: Response) => {
+  handleGetImage(null, Number(req.params.imageId), res);
+});
+router.delete('/research/global/images/:imageId', (req: Request, res: Response) => {
+  handleDeleteImage(null, Number(req.params.imageId), res);
+});
+router.post('/research/global/cards/:cardId/images/reorder', (req: Request, res: Response) => {
+  handleReorderImages(null, Number(req.params.cardId), req, res);
+});
+
+// ── GET: aus Produkten „global" geteilte Karten (is_global=1) ──
+// Nur Karten, die zu einem PRODUKT gehoeren (INNER JOIN products) — globale
+//   Eigen-Themen (product_id IS NULL) sind hier bewusst ausgeschlossen.
+// Ergibt /api/amazon/research/global/promoted. Rein lesend — kein Backup noetig.
 interface GlobalCardRow extends CardRow { product_id: number; product_name: string; topic_title: string; }
-router.get('/research/global', (_req: Request, res: Response) => {
+router.get('/research/global/promoted', (_req: Request, res: Response) => {
   const cards = db.prepare(`
     SELECT c.*, p.id AS product_id, p.name AS product_name, t.title AS topic_title
     FROM amazon_research_cards c
