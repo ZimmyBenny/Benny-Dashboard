@@ -11,7 +11,9 @@ export function AppShell() {
   const theme = useUiStore((state) => state.theme);
   const location = useLocation();
   const isDjModule = location.pathname.startsWith('/dj');
-  const isAmazonModule = location.pathname.startsWith('/amazon');
+  // User-Wunsch: Dokumente in Amazon/DJ-Optik, 2026-07-04 — die virtuelle
+  // Wurzel /dokumente faellt sonst aufs violette Basis-Theme zurueck.
+  const isAmazonModule = location.pathname.startsWith('/amazon') || location.pathname.startsWith('/dokumente');
   const isFinanceModule = location.pathname.startsWith('/finances');
   // Schärfe-Pass app-weit — alle Routen inkl. /belege sind im Schärfe-Scope
 

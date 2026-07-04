@@ -153,6 +153,9 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
   const [bulkMoveProgress, setBulkMoveProgress] = useState<string | null>(null);
   const [linkFolderId, setLinkFolderId] = useState<number | null>(null);
+  // Fix A (User-Wunsch 2026-07-04): Dateien, die auf der virtuellen Wurzel
+  // ausgewaehlt wurden und noch auf einen Ziel-Ordner warten (MoveModal-Picker).
+  const [pendingUploadFiles, setPendingUploadFiles] = useState<File[] | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Effektiver aktueller Ordner: bei areaSlug fix auf den Bereichs-Root falls noch nicht navigiert
@@ -598,21 +601,25 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
               style={{ display: 'none' }}
               onChange={(e) => {
                 const files = Array.from(e.target.files ?? []);
-                handleUpload(files);
                 e.target.value = '';
+                if (files.length === 0) return;
+                // Fix A (User-Wunsch 2026-07-04): Auf der virtuellen Wurzel gibt es
+                // keinen effektiven Ordner — Ziel per MoveModal-Picker erfragen.
+                if (effectiveFolderId === null) {
+                  setPendingUploadFiles(files);
+                } else {
+                  handleUpload(files);
+                }
               }}
             />
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              disabled={effectiveFolderId === null}
-              title={effectiveFolderId === null ? 'Wähle zuerst einen Ordner oder Bereich' : undefined}
               className="px-3 py-1.5 rounded-md text-sm font-semibold flex items-center gap-1.5"
               style={{
                 background: 'var(--color-primary)',
                 color: 'var(--color-on-primary)',
-                opacity: effectiveFolderId === null ? 0.5 : 1,
-                cursor: effectiveFolderId === null ? 'not-allowed' : 'pointer',
+                cursor: 'pointer',
               }}
             >
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>upload</span>
@@ -1170,6 +1177,24 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
         onClose={() => setBulkMoveOpen(false)}
         onSelect={(targetFolderId) => {
           handleBulkMove(targetFolderId);
+        }}
+      />
+
+      <MoveModal
+        open={pendingUploadFiles !== null}
+        tree={tree}
+        excludeId={null}
+        title="Wohin hochladen?"
+        onClose={() => setPendingUploadFiles(null)}
+        onSelect={(targetFolderId) => {
+          const files = pendingUploadFiles;
+          setPendingUploadFiles(null);
+          if (files && files.length > 0) {
+            void uploadMut.mutateAsync({ folderId: targetFolderId, files }).finally(() => {
+              setUploading([]);
+            });
+            setUploading(files.map((f) => f.name));
+          }
         }}
       />
 
