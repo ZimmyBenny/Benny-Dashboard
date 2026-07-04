@@ -46,3 +46,6 @@ Backups/
 
 # Dev-Test-Files
 backend/test-pdf*.ts
+
+# Dokumente-Spiegel (persönliche Dateien — Quelle der Wahrheit liegt in ~/.local/share)
+Dokumente/
