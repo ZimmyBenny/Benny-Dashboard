@@ -63,9 +63,17 @@ export function BelegeListPage() {
 
   // Lokaler State fuer das Suchfeld (wird beim Submit in die URL geschrieben)
   const [searchInput, setSearchInput] = useState(searchParams.get('search') ?? '');
+  // Lokaler State fuer die Datumsfelder: das native type=date-Feld darf beim
+  // Jahr-Tippen NICHT bei jedem Tastendruck ueber die URL neu gerendert werden
+  // (sonst wird das Jahr-Segment staendig zurueckgesetzt -> "2026" wird zu "0006").
+  // Deshalb lokal tippen, erst onBlur in die URL committen.
+  const [fromInput, setFromInput] = useState(searchParams.get('from') ?? '');
+  const [toInput, setToInput] = useState(searchParams.get('to') ?? '');
 
   useEffect(() => {
     setSearchInput(searchParams.get('search') ?? '');
+    setFromInput(searchParams.get('from') ?? '');
+    setToInput(searchParams.get('to') ?? '');
   }, [searchParams]);
 
   const filter: ReceiptFilter = {
@@ -94,7 +102,7 @@ export function BelegeListPage() {
     },
     onError: (err: unknown) => {
       const e = err as { response?: { data?: { error?: string } }; message?: string };
-      window.alert(e?.response?.data?.error ?? e?.message ?? 'Status-Aenderung fehlgeschlagen');
+      window.alert(e?.response?.data?.error ?? e?.message ?? 'Status-Änderung fehlgeschlagen');
     },
   });
 
@@ -258,23 +266,24 @@ export function BelegeListPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                   <input
                     type="date"
-                    value={from}
-                    onChange={(e) => setParam('from', e.target.value || undefined)}
+                    value={fromInput}
+                    onChange={(e) => setFromInput(e.target.value)}
+                    onBlur={() => setParam('from', fromInput || undefined)}
                     aria-label="Datum von"
                     style={{
                       padding: '0.5rem 0.75rem',
-                      background: from ? 'rgba(148,170,255,0.12)' : 'rgba(255,255,255,0.05)',
-                      border: from ? '1px solid rgba(148,170,255,0.4)' : '1px solid rgba(148,170,255,0.15)',
+                      background: fromInput ? 'rgba(148,170,255,0.12)' : 'rgba(255,255,255,0.05)',
+                      border: fromInput ? '1px solid rgba(148,170,255,0.4)' : '1px solid rgba(148,170,255,0.15)',
                       borderRadius: '0.5rem',
                       color: 'var(--color-on-surface)',
                       fontFamily: 'var(--font-body)',
                       fontSize: '0.875rem',
                     }}
                   />
-                  {from && (
+                  {fromInput && (
                     <button
                       type="button"
-                      onClick={() => setParam('from', undefined)}
+                      onClick={() => { setFromInput(''); setParam('from', undefined); }}
                       title="Von-Datum entfernen"
                       aria-label="Von-Datum entfernen"
                       style={{
@@ -294,23 +303,24 @@ export function BelegeListPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                   <input
                     type="date"
-                    value={to}
-                    onChange={(e) => setParam('to', e.target.value || undefined)}
+                    value={toInput}
+                    onChange={(e) => setToInput(e.target.value)}
+                    onBlur={() => setParam('to', toInput || undefined)}
                     aria-label="Datum bis"
                     style={{
                       padding: '0.5rem 0.75rem',
-                      background: to ? 'rgba(148,170,255,0.12)' : 'rgba(255,255,255,0.05)',
-                      border: to ? '1px solid rgba(148,170,255,0.4)' : '1px solid rgba(148,170,255,0.15)',
+                      background: toInput ? 'rgba(148,170,255,0.12)' : 'rgba(255,255,255,0.05)',
+                      border: toInput ? '1px solid rgba(148,170,255,0.4)' : '1px solid rgba(148,170,255,0.15)',
                       borderRadius: '0.5rem',
                       color: 'var(--color-on-surface)',
                       fontFamily: 'var(--font-body)',
                       fontSize: '0.875rem',
                     }}
                   />
-                  {to && (
+                  {toInput && (
                     <button
                       type="button"
-                      onClick={() => setParam('to', undefined)}
+                      onClick={() => { setToInput(''); setParam('to', undefined); }}
                       title="Bis-Datum entfernen"
                       aria-label="Bis-Datum entfernen"
                       style={{
