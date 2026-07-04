@@ -60,7 +60,7 @@ function FieldRow({ field, onSave, onDelete }: { field: MyDataField; onSave: (pa
         placeholder="Wert"
         className="flex-1 px-2 py-1 rounded text-sm focus:outline-hidden"
         style={{
-          background: 'var(--color-surface-container-low)',
+          background: 'rgba(9,19,40,0.35)',
           border: `1px solid ${valFocus ? 'rgba(148,170,255,0.5)' : 'rgba(255,255,255,0.08)'}`,
           color: 'var(--color-on-surface)',
           fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
@@ -91,7 +91,7 @@ function GroupSection({ group, fields, onTitle, onDeleteGroup, onAddField, onSav
   };
   return (
     <section className="rounded-xl p-4 flex flex-col gap-2"
-      style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      style={{ background: 'rgba(9,19,40,0.45)', border: '1px solid rgba(255,255,255,0.06)' }}>
       <div className="flex items-center gap-2 mb-1">
         <input value={title} onChange={(e) => setTitle(e.target.value)} onBlur={() => { if (title !== group.title) onTitle(title); }}
           placeholder="Bereich benennen …"
