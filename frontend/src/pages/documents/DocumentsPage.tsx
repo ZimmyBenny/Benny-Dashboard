@@ -84,6 +84,29 @@ const AREA_LABELS: Record<string, string> = {
   privat: 'Privat',
 };
 
+/** Laufwerk-Icon im Stil des Referenz-Portals (Lucide hard-drive: Strich + zwei Punkte). */
+function HardDriveIcon({ size, color, opacity }: { size: number; color: string; opacity?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ flexShrink: 0, opacity }}
+      aria-hidden
+    >
+      <line x1="22" x2="2" y1="12" y2="12" />
+      <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+      <line x1="6" x2="6.01" y1="16" y2="16" />
+      <line x1="10" x2="10.01" y1="16" y2="16" />
+    </svg>
+  );
+}
+
 /**
  * Stellt eine Ordner-Kette unterhalb von rootId sicher (existierende Ordner
  * werden wiederverwendet, fehlende angelegt) und liefert die Ziel-Ordner-ID.
@@ -564,12 +587,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
         {/* Header — Muster AmazonDashboardPage */}
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3" style={{ minWidth: 0 }}>
-            <span
-              className="material-symbols-outlined"
-              style={{ fontSize: '2rem', color: 'var(--color-primary)', flexShrink: 0 }}
-            >
-              hard_drive
-            </span>
+            <HardDriveIcon size={32} color="var(--color-primary)" />
             <div style={{ minWidth: 0 }}>
               <h1
                 className="display-text"
@@ -578,6 +596,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                   color: 'var(--color-on-surface)',
                   margin: 0,
                   lineHeight: 1.1,
+                  textTransform: 'none', // Referenz-Portal: „Dokumente" statt Versalien
                 }}
               >
                 {title}
@@ -928,12 +947,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
 
               {!searchActive && contents && contents.folders.length === 0 && contents.files.length === 0 && (
                 <div className="flex flex-col items-center justify-center gap-3 py-12">
-                  <span
-                    className="material-symbols-outlined"
-                    style={{ fontSize: 48, color: 'var(--color-on-surface-variant)', opacity: 0.4 }}
-                  >
-                    hard_drive
-                  </span>
+                  <HardDriveIcon size={48} color="var(--color-on-surface-variant)" opacity={0.4} />
                   <p style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--color-on-surface)', margin: 0 }}>
                     Keine Inhalte
                   </p>
