@@ -203,6 +203,71 @@ export function BelegeTaxPage() {
           </table>
         </div>
 
+        {/* Legende — erklaert die UStVA-Kennziffern */}
+        <div
+          style={{
+            background: 'var(--color-surface-variant)',
+            borderRadius: '0.75rem',
+            padding: '1rem 1.25rem',
+            marginBottom: '1.5rem',
+          }}
+        >
+          <p
+            style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: 'var(--color-on-surface-variant)',
+              margin: '0 0 0.6rem',
+            }}
+          >
+            Legende — UStVA-Kennziffern
+          </p>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+              gap: '0.5rem 1.25rem',
+            }}
+          >
+            {[
+              ['KZ 81', 'Netto-Umsätze zu 19 % (steuerpflichtige Einnahmen)'],
+              ['KZ 86', 'Netto-Umsätze zu 7 % (ermäßigter Satz)'],
+              ['KZ 66', 'Vorsteuer — USt aus Eingangsrechnungen, die du dir zurückholst'],
+              ['KZ 84/85', 'Reverse Charge (§13b) — du schuldest die Steuer, z. B. Ausland'],
+              ['KZ 62', 'Einfuhrumsatzsteuer (EUSt) — bei Warenimporten (z. B. Amazon FBA)'],
+              ['Zahllast', 'Vereinnahmte USt minus Vorsteuer = Betrag ans Finanzamt'],
+            ].map(([kz, desc]) => (
+              <div key={kz} style={{ display: 'flex', gap: '0.5rem', alignItems: 'baseline' }}>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-body)',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    color: 'var(--color-primary)',
+                    whiteSpace: 'nowrap',
+                    minWidth: '3.75rem',
+                  }}
+                >
+                  {kz}
+                </span>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-body)',
+                    fontSize: '0.78rem',
+                    color: 'var(--color-on-surface-variant)',
+                    lineHeight: 1.35,
+                  }}
+                >
+                  {desc}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Drilldown */}
         {drillIdx !== null && (
           <section>
