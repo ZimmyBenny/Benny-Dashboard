@@ -540,35 +540,32 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
 
   return (
     <PageWrapper>
-      <div className="flex flex-col gap-6">
-        {/* Header */}
+      {/* Ambient-Glows im Amazon-Dashboard-Stil */}
+      <div aria-hidden style={{
+        position: 'absolute', top: 0, right: 0, width: '500px', height: '500px',
+        background: 'radial-gradient(circle, rgba(148,170,255,0.06) 0%, transparent 60%)',
+        pointerEvents: 'none', zIndex: 0,
+      }} />
+      <div aria-hidden style={{
+        position: 'absolute', bottom: 0, left: '20%', width: '400px', height: '400px',
+        background: 'radial-gradient(circle, rgba(92,253,128,0.04) 0%, transparent 60%)',
+        pointerEvents: 'none', zIndex: 0,
+      }} />
+      <div className="flex flex-col gap-6" style={{ position: 'relative', zIndex: 1 }}>
+        {/* Header — Muster AmazonDashboardPage */}
         <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: '0.625rem',
-                background: 'var(--color-surface-container-high)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
+          <div className="flex items-center gap-3" style={{ minWidth: 0 }}>
+            <span
+              className="material-symbols-outlined"
+              style={{ fontSize: '2rem', color: 'var(--color-primary)', flexShrink: 0 }}
             >
-              <span
-                className="material-symbols-outlined"
-                style={{ color: 'var(--color-primary)', fontSize: 32 }}
-              >
-                storage
-              </span>
-            </div>
-            <div>
+              storage
+            </span>
+            <div style={{ minWidth: 0 }}>
               <h1
+                className="display-text"
                 style={{
-                  fontFamily: 'var(--font-headline)',
-                  fontWeight: 800,
-                  fontSize: '1.75rem',
+                  fontSize: 'clamp(1.4rem, 2.5vw, 2rem)',
                   color: 'var(--color-on-surface)',
                   margin: 0,
                   lineHeight: 1.1,
@@ -579,10 +576,10 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
               <p
                 style={{
                   fontFamily: 'var(--font-body)',
-                  fontSize: '0.875rem',
+                  fontSize: '0.8rem',
                   color: 'var(--color-on-surface-variant)',
-                  marginTop: '0.25rem',
-                  margin: '0.25rem 0 0 0',
+                  margin: 0,
+                  marginTop: '0.2rem',
                 }}
               >
                 Verwalte deine Dateien und Ordner (Budget:{' '}
@@ -615,11 +612,12 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="px-3 py-1.5 rounded-md text-sm font-semibold flex items-center gap-1.5"
+              className="px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1.5"
               style={{
                 background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
                 color: 'var(--color-on-primary)',
                 cursor: 'pointer',
+                letterSpacing: '0.02em',
                 boxShadow: '0 0 16px rgba(148,170,255,0.3)',
               }}
             >
@@ -799,7 +797,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                 <button
                   type="button"
                   onClick={() => setNewFolderOpen(true)}
-                  className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5"
+                  className="px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1.5"
                   style={{ background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))', color: 'var(--color-on-primary)' }}
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: 16 }}>create_new_folder</span>
@@ -842,7 +840,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                 <button
                   type="button"
                   onClick={() => setNewFolderOpen(true)}
-                  className="px-3 py-1.5 rounded-md text-sm flex items-center gap-1.5"
+                  className="px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1.5"
                   style={{ background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))', color: 'var(--color-on-primary)' }}
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: 16 }}>create_new_folder</span>
