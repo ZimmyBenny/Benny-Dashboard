@@ -74,7 +74,7 @@ export function AppShell() {
           // Graphit-Look (neutrale Grau-Flächen) — Testphase vor globalem Rollout (User-Wunsch 2026-07-04).
           // Rollback: Tag pre-graphite-aufgaben-20260704-153346
           data-surface-theme={
-            ['/dokumente', '/tasks', '/arbeitsmappe', '/zeiterfassung', '/contacts', '/calendar'].some((p) =>
+            ['/dokumente', '/tasks', '/arbeitsmappe', '/zeiterfassung', '/contacts', '/calendar', '/belege'].some((p) =>
               location.pathname.startsWith(p),
             )
               ? 'graphite'

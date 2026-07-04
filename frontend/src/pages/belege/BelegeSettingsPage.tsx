@@ -131,7 +131,6 @@ export function BelegeSettingsPage() {
               color: 'var(--color-primary)',
               margin: 0,
               lineHeight: 1.1,
-              textTransform: 'uppercase',
             }}
           >
             EINSTELLUNGEN

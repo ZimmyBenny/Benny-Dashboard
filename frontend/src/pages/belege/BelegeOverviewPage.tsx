@@ -132,7 +132,7 @@ export function BelegeOverviewPage() {
                   lineHeight: 1.1,
                 }}
               >
-                BELEGE
+                Belege
               </h1>
               <p
                 style={{
