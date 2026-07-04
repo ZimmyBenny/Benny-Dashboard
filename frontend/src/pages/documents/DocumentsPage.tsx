@@ -9,7 +9,7 @@
  *
  * Siehe docs/superpowers/specs/2026-07-04-dokumente-modul-design.md
  */
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useDropzone, type FileWithPath } from 'react-dropzone';
 import { PageWrapper } from '../../components/layout/PageWrapper';
@@ -30,6 +30,7 @@ import {
   fetchDocSettings,
   updateDocSettings,
   fetchDocFileBlobUrl,
+  searchDocuments,
   type DocFolder,
   type DocFile,
 } from '../../api/documents.api';
@@ -159,6 +160,21 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
     enabled: effectiveFolderId !== null,
   });
 
+  // ── Suche ─────────────────────────────────────────────────────────────
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(searchQuery.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+  const searchActive = debouncedQuery.length >= 2;
+
+  const { data: searchResults } = useQuery({
+    queryKey: ['dokumente', 'search', areaSlug ?? null, debouncedQuery],
+    queryFn: () => searchDocuments(debouncedQuery, areaSlug),
+    enabled: searchActive,
+  });
+
   const { data: settings } = useQuery({
     queryKey: ['dokumente', 'settings'],
     queryFn: fetchDocSettings,
@@ -233,6 +249,11 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
     setNewFolderOpen(false);
     setRenamingId(null);
     setSelectedFileIds(new Set());
+  }
+
+  function navigateFromSearch(id: number) {
+    navigateTo(id);
+    setSearchQuery('');
   }
 
   function goBack() {
@@ -683,7 +704,121 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                 </button>
               </div>
 
-              {uploading.length > 0 && (
+              <div
+                className="flex items-center gap-2 px-3 py-2 rounded-lg mb-1"
+                style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline-variant)' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 20, color: 'var(--color-on-surface-variant)' }}>search</span>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Dokumente durchsuchen…"
+                  className="flex-1 bg-transparent text-sm outline-hidden"
+                  style={{ color: 'var(--color-on-surface)' }}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="p-1 rounded"
+                    aria-label="Suche leeren"
+                    style={{ color: 'var(--color-on-surface-variant)' }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
+                  </button>
+                )}
+              </div>
+
+              {searchActive && (
+                <div className="flex flex-col gap-1">
+                  {searchResults &&
+                  searchResults.folders.length === 0 &&
+                  searchResults.files.length === 0 ? (
+                    <p
+                      className="text-center py-8 text-sm"
+                      style={{ color: 'var(--color-on-surface-variant)' }}
+                    >
+                      Keine Treffer für „{debouncedQuery}"
+                    </p>
+                  ) : (
+                    <>
+                      {searchResults && searchResults.folders.length > 0 && (
+                        <div className="flex flex-col gap-0.5 mb-2">
+                          <span
+                            className="text-xs font-semibold uppercase px-2"
+                            style={{ color: 'var(--color-on-surface-variant)', letterSpacing: '0.05em' }}
+                          >
+                            Ordner
+                          </span>
+                          {searchResults.folders.map((f) => (
+                            <button
+                              key={f.id}
+                              type="button"
+                              onClick={() => navigateFromSearch(f.id)}
+                              className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-white/[0.03] text-left w-full"
+                            >
+                              <span className="material-symbols-outlined" style={{ color: 'var(--color-primary)' }}>folder</span>
+                              <span className="flex flex-col">
+                                <span style={{ color: 'var(--color-on-surface)' }}>{f.name}</span>
+                                {f.path.length > 0 && (
+                                  <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
+                                    {f.path.join(' › ')}
+                                  </span>
+                                )}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {searchResults && searchResults.files.length > 0 && (
+                        <div className="flex flex-col gap-0.5">
+                          <span
+                            className="text-xs font-semibold uppercase px-2"
+                            style={{ color: 'var(--color-on-surface-variant)', letterSpacing: '0.05em' }}
+                          >
+                            Dateien
+                          </span>
+                          {searchResults.files.map((file) => (
+                            <button
+                              key={file.id}
+                              type="button"
+                              onClick={() =>
+                                handlePreview({
+                                  id: file.id,
+                                  folder_id: file.folder_id,
+                                  filename: file.filename,
+                                  size_bytes: file.size_bytes,
+                                  mime_type: file.mime_type,
+                                  created_at: file.created_at,
+                                })
+                              }
+                              className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-white/[0.03] text-left w-full"
+                            >
+                              <span
+                                className="material-symbols-outlined"
+                                style={{ color: 'var(--color-on-surface-variant)' }}
+                              >
+                                {mimeIcon(file.mime_type)}
+                              </span>
+                              <span className="flex flex-col">
+                                <span style={{ color: 'var(--color-on-surface)' }}>{file.filename}</span>
+                                {file.path.length > 0 && (
+                                  <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
+                                    {file.path.join(' › ')}
+                                  </span>
+                                )}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {!searchActive && uploading.length > 0 && (
                 <div className="flex flex-col gap-1 mb-1">
                   {uploading.map((name) => (
                     <span key={name} className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
@@ -693,7 +828,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                 </div>
               )}
 
-              {contents && contents.folders.length === 0 && contents.files.length === 0 && (
+              {!searchActive && contents && contents.folders.length === 0 && contents.files.length === 0 && (
                 <div className="flex flex-col items-center justify-center gap-3 py-12">
                   <span
                     className="material-symbols-outlined"
@@ -721,7 +856,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                 </div>
               )}
 
-              {contents?.folders.map((folder) => (
+              {!searchActive && contents?.folders.map((folder) => (
                 <div key={folder.id} className="group flex items-center gap-2 px-2 py-2 rounded-md hover:bg-white/[0.03]">
                   {renamingId?.kind === 'folder' && renamingId.id === folder.id ? (
                     <input
@@ -801,7 +936,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                 </div>
               ))}
 
-              {selectedFileIds.size > 0 && (
+              {!searchActive && selectedFileIds.size > 0 && (
                 <div
                   className="flex items-center justify-between px-3 py-2 rounded-md mb-1"
                   style={{
@@ -835,7 +970,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                 </div>
               )}
 
-              {bulkMoveProgress && (
+              {!searchActive && bulkMoveProgress && (
                 <div className="flex items-center justify-between px-3 py-2 rounded-md mb-1" style={{ background: 'var(--color-surface-container-high)' }}>
                   <span className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>{bulkMoveProgress}</span>
                   <button
@@ -850,7 +985,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                 </div>
               )}
 
-              {contents?.files.map((file) => (
+              {!searchActive && contents?.files.map((file) => (
                 <div
                   key={file.id}
                   className="group flex items-center gap-2 px-2 py-2 rounded-md hover:bg-white/[0.03]"
