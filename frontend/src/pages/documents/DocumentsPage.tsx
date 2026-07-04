@@ -11,7 +11,7 @@
  */
 import { useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { useDropzone } from 'react-dropzone';
+import { useDropzone, type FileWithPath } from 'react-dropzone';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { FilePreviewModal, useFilePreview } from '../../components/amazon/FilePreviewModal';
 import { MoveModal } from '../../components/documents/MoveModal';
@@ -79,6 +79,34 @@ const AREA_LABELS: Record<string, string> = {
   finanzen: 'Finanzen',
   privat: 'Privat',
 };
+
+/**
+ * Stellt eine Ordner-Kette unterhalb von rootId sicher (existierende Ordner
+ * werden wiederverwendet, fehlende angelegt) und liefert die Ziel-Ordner-ID.
+ * Der Cache verhindert wiederholte Lookups bei vielen Dateien desselben Drops.
+ */
+async function ensureFolderPath(
+  rootId: number,
+  segments: string[],
+  cache: Map<string, number>,
+): Promise<number> {
+  let current = rootId;
+  let key = '';
+  for (const seg of segments) {
+    key = key ? `${key}/${seg}` : seg;
+    const cached = cache.get(key);
+    if (cached !== undefined) {
+      current = cached;
+      continue;
+    }
+    const contents = await fetchFolderContents(current);
+    const existing = contents.folders.find((f) => f.name === seg);
+    const nextId = existing ? existing.id : (await createFolder(current, seg)).id;
+    cache.set(key, nextId);
+    current = nextId;
+  }
+  return current;
+}
 
 /** Zählt Dateien und Ordner rekursiv über den flachen Baum (inkl. des Ordners selbst). */
 function countFolderContents(
@@ -243,11 +271,66 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
     }
   }
 
+  /**
+   * Drop-Handler: unterstützt auch ganze Ordner aus dem Finder.
+   * react-dropzone traversiert Verzeichnisse und liefert Dateien mit
+   * relativem `path` (z. B. "/Ordnername/Unterordner/datei.pdf") —
+   * daraus wird die Ordner-Struktur mit Original-Namen nachgebaut.
+   */
+  async function handleDrop(dropped: FileWithPath[]) {
+    if (dropped.length === 0) return;
+    if (effectiveFolderId === null) {
+      alert('Bitte zuerst einen Bereich öffnen (Amazon, DJ, Finanzen oder Privat) — dann Dateien oder Ordner hineinziehen.');
+      return;
+    }
+    const rejected = dropped.filter((f) => {
+      const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase();
+      return BLOCKED_EXTENSIONS.includes(ext);
+    });
+    if (rejected.length > 0) {
+      alert(`Nicht erlaubter Dateityp: ${rejected.map((f) => f.name).join(', ')}`);
+    }
+    const accepted = dropped.filter((f) => !rejected.includes(f));
+    if (accepted.length === 0) return;
+
+    // Nach Ordner-Pfad gruppieren (leerer Pfad = direkt in den aktuellen Ordner)
+    const groups = new Map<string, File[]>();
+    for (const f of accepted) {
+      const raw = (f.path ?? f.name).replace(/^\.?\//, '');
+      const parts = raw.split('/').filter(Boolean);
+      const dir = parts.slice(0, -1).join('/');
+      const list = groups.get(dir) ?? [];
+      list.push(f);
+      groups.set(dir, list);
+    }
+
+    setUploading(accepted.map((f) => f.name));
+    const folderCache = new Map<string, number>();
+    let failed = 0;
+    try {
+      for (const [dir, groupFiles] of groups) {
+        try {
+          const targetId = dir
+            ? await ensureFolderPath(effectiveFolderId, dir.split('/'), folderCache)
+            : effectiveFolderId;
+          await uploadMut.mutateAsync({ folderId: targetId, files: groupFiles });
+        } catch {
+          failed += groupFiles.length;
+        }
+      }
+    } finally {
+      setUploading([]);
+      invalidateAll();
+    }
+    if (failed > 0) {
+      alert(`${accepted.length - failed} von ${accepted.length} Dateien hochgeladen — ${failed} fehlgeschlagen.`);
+    }
+  }
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop: handleUpload,
+    onDrop: handleDrop,
     multiple: true,
     noClick: true,
-    disabled: effectiveFolderId === null,
   });
 
   // ── Preview ───────────────────────────────────────────────────────────
