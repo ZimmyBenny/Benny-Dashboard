@@ -43,7 +43,7 @@ export function useCreateCard(productId: number) {
 }
 export function useUpdateCard(productId: number) {
   const inv = useInvalidate(productId);
-  return useMutation({ mutationFn: (v: { cardId: number; patch: Partial<{ title: string | null; body: string }> }) => updateResearchCard(productId, v.cardId, v.patch), onSettled: inv });
+  return useMutation({ mutationFn: (v: { cardId: number; patch: Partial<{ title: string | null; body: string; is_global: 0 | 1 }> }) => updateResearchCard(productId, v.cardId, v.patch), onSettled: inv });
 }
 export function useDeleteCard(productId: number) {
   const inv = useInvalidate(productId);

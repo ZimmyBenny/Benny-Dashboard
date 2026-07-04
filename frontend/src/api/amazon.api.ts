@@ -614,8 +614,11 @@ export async function deleteSamplePhoto(productId: number, mId: number, sId: num
 // ── Recherche & Wissen ──
 export interface ResearchLink { id: number; card_id: number; sort_order: number; url: string; label: string | null; }
 export interface ResearchImage { id: number; card_id: number; sort_order: number; file_path: string; original_name: string | null; mime: string | null; }
-export interface ResearchCard { id: number; topic_id: number; sort_order: number; title: string | null; body: string; links: ResearchLink[]; images: ResearchImage[]; }
+export interface ResearchCard { id: number; topic_id: number; sort_order: number; title: string | null; body: string; is_global: number; links: ResearchLink[]; images: ResearchImage[]; }
 export interface ResearchTopic { id: number; product_id: number; sort_order: number; title: string; is_expanded: number; cards: ResearchCard[]; }
+
+// Globale Recherche-Karte (produktuebergreifend, mit Herkunfts-Kontext)
+export interface GlobalResearchCard extends ResearchCard { product_id: number; product_name: string; topic_title: string; }
 
 export async function fetchResearchTopics(productId: number): Promise<ResearchTopic[]> {
   const r = await apiClient.get<{ topics: ResearchTopic[] }>(`/amazon/products/${productId}/research/topics`);
@@ -640,9 +643,13 @@ export async function createResearchCard(productId: number, topicId: number): Pr
   const r = await apiClient.post<{ card: ResearchCard }>(`/amazon/products/${productId}/research/topics/${topicId}/cards`, {});
   return r.data.card;
 }
-export async function updateResearchCard(productId: number, cardId: number, patch: Partial<{ title: string | null; body: string }>): Promise<ResearchCard> {
+export async function updateResearchCard(productId: number, cardId: number, patch: Partial<{ title: string | null; body: string; is_global: 0 | 1 }>): Promise<ResearchCard> {
   const r = await apiClient.patch<{ card: ResearchCard }>(`/amazon/products/${productId}/research/cards/${cardId}`, patch);
   return r.data.card;
+}
+export async function fetchGlobalResearch(): Promise<GlobalResearchCard[]> {
+  const r = await apiClient.get<{ cards: GlobalResearchCard[] }>(`/amazon/research/global`);
+  return r.data.cards;
 }
 export async function deleteResearchCard(productId: number, cardId: number): Promise<void> {
   await apiClient.delete(`/amazon/products/${productId}/research/cards/${cardId}`);

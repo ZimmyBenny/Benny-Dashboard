@@ -23,6 +23,11 @@ export function ResearchCard({ productId, card, dragHandleProps }: {
     update.mutate({ cardId: card.id, patch: { body } });
   }
 
+  const isGlobal = card.is_global === 1;
+  function toggleGlobal() {
+    update.mutate({ cardId: card.id, patch: { is_global: isGlobal ? 0 : 1 } });
+  }
+
   // Cmd+V irgendwo in der Karte: Datei/Bild aus der Zwischenablage anhängen
   // (Text-Einfügen in die Notiz bleibt unberührt — wir greifen nur bei Datei-Items ein)
   function onPasteCard(e: React.ClipboardEvent) {
@@ -57,10 +62,19 @@ export function ResearchCard({ productId, card, dragHandleProps }: {
           <ResearchCardLinks productId={productId} cardId={card.id} links={card.links} />
           <ResearchCardAttachments productId={productId} cardId={card.id} attachments={card.images} />
         </div>
-        <button type="button" onClick={() => { if (confirm('Diese Karte wirklich löschen?')) del.mutate(card.id); }}
-          aria-label="Karte löschen" className="p-1 rounded hover:bg-white/5" style={{ color: '#fca5a5' }}>
-          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete</span>
-        </button>
+        <div className="flex items-center gap-0.5 flex-shrink-0">
+          <button type="button" onClick={toggleGlobal}
+            aria-label={isGlobal ? 'Global sichtbar' : 'Global schalten'}
+            title={isGlobal ? 'Global sichtbar — erscheint auf „Recherche & Wissen"' : 'Global schalten — auch auf „Recherche & Wissen" zeigen'}
+            className="p-1 rounded hover:bg-white/5"
+            style={{ color: isGlobal ? 'var(--color-primary)' : 'var(--color-on-surface-variant)', opacity: isGlobal ? 1 : 0.6 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 18, fontVariationSettings: isGlobal ? "'FILL' 1" : "'FILL' 0" }}>language</span>
+          </button>
+          <button type="button" onClick={() => { if (confirm('Diese Karte wirklich löschen?')) del.mutate(card.id); }}
+            aria-label="Karte löschen" className="p-1 rounded hover:bg-white/5" style={{ color: '#fca5a5' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete</span>
+          </button>
+        </div>
       </div>
     </div>
   );
