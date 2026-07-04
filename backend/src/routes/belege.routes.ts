@@ -33,6 +33,7 @@ import { taskAutomationService } from '../services/taskAutomationService';
 import { aggregateForUstva, type UstvaPeriod } from '../services/taxCalcService';
 import { logAudit } from '../services/audit.service';
 import { createBackup } from '../db/backup';
+import * as belegeMirror from '../lib/belegeMirror';
 import uploadRouter from './belege.upload.routes';
 import type { Receipt } from '../types/receipt';
 import type { AuthenticatedRequest } from '../middleware/auth';
@@ -347,6 +348,7 @@ router.get('/export-csv', (req, res) => {
  *  - mileage_rate_default_per_km, mileage_rate_above_20km_per_km
  *  - belege_storage_path
  *  - reverse_charge_enabled
+ *  - belege_mirror_path (Finder-Spiegel-Pfad, siehe lib/belegeMirror.ts)
  *
  * MUSS vor `/:id` stehen.
  */
@@ -362,6 +364,7 @@ router.get('/settings', (_req, res) => {
     'mileage_rate_above_20km_per_km',
     'belege_storage_path',
     'reverse_charge_enabled',
+    'belege_mirror_path',
   ];
   const result: Record<string, string> = {};
   for (const k of keys) {
@@ -651,6 +654,35 @@ router.post('/db-backup', (_req, res) => {
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }
+});
+
+/**
+ * POST /api/belege/mirror-rebuild
+ *
+ * Leert den Finder-Spiegel (Belege/) und baut ihn komplett aus DB + App-Speicher
+ * neu auf (deckt auch Bereichs-Umbenennungen ab). Best-effort — scheitert nie
+ * hart, siehe belegeMirror.rebuildMirror.
+ *
+ * MUSS vor `/:id` stehen.
+ */
+router.post('/mirror-rebuild', (_req, res) => {
+  belegeMirror.rebuildMirror();
+  res.json({ ok: true });
+});
+
+/**
+ * POST /api/belege/dj-pdf-backfill
+ *
+ * Einmaliger Backfill: erzeugt PDFs fuer alle bereits finalisierten DJ-Rechnungen,
+ * deren gespiegelter Beleg noch keine Datei hat (CLAUDE.md-Regel: Backup vor
+ * Massen-Insert via createBackup).
+ *
+ * MUSS vor `/:id` stehen.
+ */
+router.post('/dj-pdf-backfill', async (_req, res) => {
+  createBackup('dj-pdf-backfill');
+  const r = await belegeMirror.backfillDjPdfs();
+  res.json({ ok: true, generated: r.generated });
 });
 
 /**
@@ -1002,6 +1034,7 @@ router.post('/:id/korrektur', (req, res) => {
   });
 
   const created = db.prepare(`SELECT * FROM receipts WHERE id = ?`).get(newId);
+  belegeMirror.syncReceipt(newId);
   res.status(201).json(created);
 });
 
@@ -1138,6 +1171,7 @@ router.patch('/:id', (req, res) => {
       );
     }
 
+    belegeMirror.syncReceipt(id);
     res.json(updated);
   } catch (err) {
     const msg = (err as Error).message ?? '';
@@ -1239,6 +1273,7 @@ router.post('/:id/areas', (req, res) => {
     );
   }
 
+  belegeMirror.syncReceipt(id);
   res.status(204).end();
 });
 
@@ -1257,6 +1292,7 @@ router.post('/:id/freigeben', (req, res) => {
   const actor = authReq.user?.username ?? 'unknown';
   try {
     const r = receiptService.freigeben(req as Request, id, actor);
+    belegeMirror.syncReceipt(id);
     res.json(r);
   } catch (err) {
     const msg = (err as Error).message ?? '';
@@ -1299,8 +1335,8 @@ router.delete('/:id', (req, res) => {
     return;
   }
   const filePaths = db
-    .prepare(`SELECT storage_path FROM receipt_files WHERE receipt_id = ?`)
-    .all(id) as Array<{ storage_path: string }>;
+    .prepare(`SELECT storage_path, mirror_path FROM receipt_files WHERE receipt_id = ?`)
+    .all(id) as Array<{ storage_path: string; mirror_path: string | null }>;
   logAudit(req, 'receipt', id, 'delete');
   db.prepare(`DELETE FROM receipts WHERE id = ?`).run(id);
   for (const { storage_path } of filePaths) {
@@ -1312,6 +1348,7 @@ router.delete('/:id', (req, res) => {
       console.warn(`[belege:delete] storage cleanup failed for ${storage_path}:`, (err as Error).message);
     }
   }
+  belegeMirror.removeMirrorPaths(filePaths.map((f) => f.mirror_path).filter((p): p is string => !!p));
   res.status(204).end();
 });
 

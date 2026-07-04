@@ -33,6 +33,7 @@ import { receiptService } from '../services/receiptService';
 import { ocrService } from '../services/ocrService';
 import { receiptParserService } from '../services/receiptParserService';
 import { duplicateCheckService } from '../services/duplicateCheckService';
+import { syncReceipt } from '../lib/belegeMirror';
 import type { Request } from 'express';
 
 interface KvRow {
@@ -148,6 +149,9 @@ router.post('/upload', upload.array('file', 20), async (req, res, next) => {
         VALUES (?, ?, ?, ?, ?, ?)
       `,
       ).run(receipt.id, file.originalname, finalPath, sha, file.mimetype, file.size);
+
+      // 5b. Finder-Spiegel best-effort aktualisieren (nie blockierend)
+      syncReceipt(receipt.id);
 
       // 6. Background-OCR (per setImmediate, blockiert Response nicht)
       const reqRef = req as Request;
