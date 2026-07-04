@@ -16,6 +16,16 @@ import { logAudit } from '../services/audit.service';
  */
 const router = Router();
 
+/** Normalisiert einen area_slug gegen die areas-Tabelle; leer/unbekannt/archiviert → 'dj'. */
+function normalizeAreaSlug(raw: unknown): string {
+  const slug = typeof raw === 'string' ? raw.trim() : '';
+  if (!slug) return 'dj';
+  const hit = db
+    .prepare(`SELECT 1 FROM areas WHERE slug = ? AND archived = 0 LIMIT 1`)
+    .get(slug);
+  return hit ? slug : 'dj';
+}
+
 router.get('/', (_req, res) => {
   res.json(
     db.prepare(`SELECT * FROM trips ORDER BY expense_date DESC, id DESC`).all(),
@@ -46,6 +56,7 @@ router.post('/', (req, res) => {
     linked_event_id,
     expense_date,
     notes,
+    area_slug,
   } = req.body as Record<string, unknown>;
 
   if (!expense_date) {
@@ -56,13 +67,14 @@ router.post('/', (req, res) => {
   const distance = Number(distance_km) || 0;
   const ratePerKm = Number(rate_per_km_cents) || 30;
   const amount = distance * ratePerKm;
+  const areaSlug = normalizeAreaSlug(area_slug);
 
   const result = db
     .prepare(
       `INSERT INTO trips
          (start_location, end_location, distance_km, purpose,
-          rate_per_km_cents, amount_cents, linked_event_id, expense_date, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          rate_per_km_cents, amount_cents, linked_event_id, expense_date, notes, area_slug)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       start_location ?? null,
@@ -74,6 +86,7 @@ router.post('/', (req, res) => {
       linked_event_id ?? null,
       expense_date,
       notes ?? null,
+      areaSlug,
     );
   const id = Number(result.lastInsertRowid);
 
@@ -108,11 +121,13 @@ router.patch('/:id', (req, res) => {
     linked_event_id,
     expense_date,
     notes,
+    area_slug,
   } = req.body as Record<string, unknown>;
 
   const distance = distance_km !== undefined ? Number(distance_km) : null;
   const ratePerKm =
     rate_per_km_cents !== undefined ? Number(rate_per_km_cents) : null;
+  const areaSlug = area_slug !== undefined ? normalizeAreaSlug(area_slug) : null;
 
   db.prepare(
     `UPDATE trips SET
@@ -124,6 +139,7 @@ router.patch('/:id', (req, res) => {
        linked_event_id = COALESCE(?, linked_event_id),
        expense_date = COALESCE(?, expense_date),
        notes = COALESCE(?, notes),
+       area_slug = COALESCE(?, area_slug),
        updated_at = datetime('now')
      WHERE id = ?`,
   ).run(
@@ -135,6 +151,7 @@ router.patch('/:id', (req, res) => {
     linked_event_id ?? null,
     expense_date ?? null,
     notes ?? null,
+    areaSlug,
     id,
   );
 

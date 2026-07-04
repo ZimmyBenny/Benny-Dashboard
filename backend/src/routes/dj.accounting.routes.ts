@@ -231,7 +231,8 @@ router.get('/trips', (req, res) => {
       t.purpose                         AS purpose,
       (t.amount_cents / 100.0)          AS reimbursement_amount,
       (t.rate_per_km_cents / 100.0)     AS mileage_rate,
-      0                                 AS meal_allowance
+      0                                 AS meal_allowance,
+      t.area_slug                       AS area_slug
     FROM trips t
     LEFT JOIN dj_events e ON e.id = t.linked_event_id
     WHERE strftime('%Y', t.expense_date) = ?

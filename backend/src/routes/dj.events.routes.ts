@@ -280,8 +280,8 @@ router.patch('/:id/vorgespraech', async (req, res) => {
       const tripResult = db.prepare(`
         INSERT INTO trips
           (expense_date, distance_km, rate_per_km_cents, amount_cents,
-           purpose, linked_event_id, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+           purpose, linked_event_id, notes, area_slug)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         dateStr,
         kmRound,
@@ -290,6 +290,7 @@ router.patch('/:id/vorgespraech', async (req, res) => {
         `Fahrt Vorgespräch – ${eventTitle}`,
         id,
         `${kmRound} km × 0,30 €`,
+        'dj',
       );
       const tripId = Number(tripResult.lastInsertRowid);
       logAudit(req, 'trip', tripId, 'create', undefined, {

@@ -10,7 +10,7 @@ import type { Request } from 'express';
  * - Idempotent: existing-Lookup via source='dj_trip_sync' AND linked_trip_id.
  * - Receipt: type='fahrt', vat_rate=0, vat_amount_cents=0, tax_category='Fahrtkosten',
  *   input_tax_deductible=0 (Reisekosten-Pauschale, keine Vorsteuer).
- * - Area-Link: DJ.
+ * - Area-Link: folgt trip.area_slug (Fallback 'dj' bei unbekanntem/leerem Slug).
  */
 
 interface Trip {
@@ -24,13 +24,19 @@ interface Trip {
   linked_event_id: number | null;
   expense_date: string;
   notes: string | null;
+  area_slug: string;
 }
 
-function getDjAreaId(): number | null {
-  const r = db.prepare(`SELECT id FROM areas WHERE slug = 'dj' LIMIT 1`).get() as
-    | { id: number }
-    | undefined;
-  return r?.id ?? null;
+/** Loest eine areas.slug auf eine area_id auf; unbekannter/leerer Slug faellt auf 'dj' zurueck. */
+function resolveAreaId(slug: string): number | null {
+  const bySlug = db
+    .prepare(`SELECT id FROM areas WHERE slug = ? LIMIT 1`)
+    .get(slug || 'dj') as { id: number } | undefined;
+  if (bySlug) return bySlug.id;
+  const fallback = db
+    .prepare(`SELECT id FROM areas WHERE slug = 'dj' LIMIT 1`)
+    .get() as { id: number } | undefined;
+  return fallback?.id ?? null;
 }
 
 function getFahrtkostenCategoryId(): number | null {
@@ -57,7 +63,7 @@ export function mirrorTripToReceipts(
   if (!trip) return null;
 
   const taxCatId = getFahrtkostenCategoryId();
-  const areaId = getDjAreaId();
+  const areaId = resolveAreaId(trip.area_slug || 'dj');
   const supplier =
     trip.start_location && trip.end_location
       ? `Fahrt: ${trip.start_location} → ${trip.end_location}`
@@ -119,8 +125,12 @@ export function mirrorTripToReceipts(
   }
 
   if (areaId) {
+    // Einzige geaenderte Stelle ggue. der Alt-Version: Bei einem Bereichswechsel
+    // (PATCH auf einen anderen area_slug) muss der bisherige Primary-Link entfernt
+    // werden, sonst bleibt ein veralteter DJ-Link neben dem neuen Bereich haengen.
+    db.prepare(`DELETE FROM receipt_area_links WHERE receipt_id = ?`).run(receiptId);
     db.prepare(
-      `INSERT OR IGNORE INTO receipt_area_links (receipt_id, area_id, is_primary, share_percent)
+      `INSERT INTO receipt_area_links (receipt_id, area_id, is_primary, share_percent)
        VALUES (?, ?, 1, 100)`,
     ).run(receiptId, areaId);
   }
