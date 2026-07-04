@@ -232,13 +232,13 @@ export function BelegeTaxPage() {
           </section>
         )}
 
-        {/* Legende — erklaert die UStVA-Kennziffern (am Seitenende) */}
+        {/* Legende — erklaert die UStVA-Kennziffern (am Seitenende verankert) */}
         <div
           style={{
             background: 'var(--color-surface-variant)',
             borderRadius: '0.75rem',
             padding: '1rem 1.25rem',
-            marginTop: '3.5rem',
+            marginTop: 'auto',
           }}
         >
           <p
@@ -311,6 +311,9 @@ function Container({ children }: { children: React.ReactNode }) {
         margin: '0 auto',
         padding: '2.5rem 2rem',
         position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100%',
       }}
     >
       <div
@@ -327,7 +330,7 @@ function Container({ children }: { children: React.ReactNode }) {
           zIndex: 0,
         }}
       />
-      <div style={{ position: 'relative', zIndex: 1 }}>{children}</div>
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1 }}>{children}</div>
     </div>
   );
 }
