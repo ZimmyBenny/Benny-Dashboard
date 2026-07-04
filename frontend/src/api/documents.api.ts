@@ -59,7 +59,7 @@ export const fetchFolderContents = (
 ): Promise<{ folders: DocFolder[]; files: DocFile[] }> =>
   apiClient.get(`/dokumente/folders/${id}`).then((r) => r.data);
 
-export const createFolder = (parent_id: number, name: string): Promise<DocFolder> =>
+export const createFolder = (parent_id: number | null, name: string): Promise<DocFolder> =>
   apiClient.post('/dokumente/folders', { parent_id, name }).then((r) => r.data);
 
 export const updateFolder = (

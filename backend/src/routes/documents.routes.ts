@@ -350,21 +350,33 @@ router.get('/folders/:id', (req, res) => {
 
 /** POST /api/dokumente/folders — Ordner anlegen. Body: { parent_id, name }. */
 router.post('/folders', async (req, res) => {
-  const { parent_id, name } = (req.body ?? {}) as { parent_id?: number; name?: string };
-  if (parent_id === undefined || parent_id === null) {
-    res.status(403).json({ error: 'Wurzel-Anlage ist nicht erlaubt' });
-    return;
-  }
+  const { parent_id, name } = (req.body ?? {}) as { parent_id?: number | null; name?: string };
   const trimmedName = (name ?? '').trim();
   if (trimmedName.length === 0) {
     res.status(400).json({ error: 'Name darf nicht leer sein' });
     return;
   }
 
+  // parent_id null/undefined = neuer Bereich auf oberster Ebene (User-Wunsch 2026-07-04,
+  // ersetzt die urspruengliche 403-Ablehnung). is_area_root bleibt 0 -> selbst angelegte
+  // Bereiche sind umbenenn-/loeschbar, nur die 4 geseedeten sind geschuetzt.
+  // Expliziter Duplikat-Check noetig: UNIQUE(parent_id, name) greift nicht bei NULL
+  // (SQLite behandelt NULL != NULL).
+  const parentIdOrNull = parent_id ?? null;
+  if (parentIdOrNull === null) {
+    const dup = db
+      .prepare(`SELECT id FROM doc_folders WHERE parent_id IS NULL AND name = ?`)
+      .get(trimmedName);
+    if (dup) {
+      res.status(409).json({ error: 'Ein Bereich mit diesem Namen existiert bereits' });
+      return;
+    }
+  }
+
   try {
     const info = db
       .prepare(`INSERT INTO doc_folders (parent_id, name) VALUES (?, ?)`)
-      .run(parent_id, trimmedName);
+      .run(parentIdOrNull, trimmedName);
     const newId = info.lastInsertRowid as number;
 
     await syncMirror(async (mirrorRoot) => {

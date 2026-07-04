@@ -206,7 +206,8 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
   }
 
   const createFolderMut = useMutation({
-    mutationFn: ({ parentId, name }: { parentId: number; name: string }) => createFolder(parentId, name),
+    mutationFn: ({ parentId, name }: { parentId: number | null; name: string }) =>
+      createFolder(parentId, name),
     onSuccess: invalidateAll,
   });
   const updateFolderMut = useMutation({
@@ -296,6 +297,14 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
 
   // Wurzel-Bereichsordner fuer virtuelle Startseite (/dokumente ohne areaSlug)
   const areaRoots = useMemo(() => tree.filter((f) => f.is_area_root === 1), [tree]);
+  // Alle Wurzel-Ordner: feste Bereiche zuerst, danach selbst angelegte Bereiche (alphabetisch)
+  const rootFolders = useMemo(
+    () =>
+      tree
+        .filter((f) => f.parent_id === null)
+        .sort((a, b) => b.is_area_root - a.is_area_root || a.name.localeCompare(b.name, 'de')),
+    [tree],
+  );
 
   // ── Upload ────────────────────────────────────────────────────────────
 
@@ -807,17 +816,72 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
               {searchBar}
               {searchActive
                 ? searchResultsView
-                : areaRoots.map((root) => (
-                    <button
+                : rootFolders.map((root) => (
+                    <div
                       key={root.id}
-                      type="button"
+                      className="group flex items-center gap-3 px-3 py-2.5 rounded-lg"
+                      style={{
+                        background: 'var(--color-surface-container-low)',
+                        border: '1px solid var(--color-outline-variant)',
+                        cursor: 'pointer',
+                      }}
                       onClick={() => navigateTo(root.id)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-left"
-                      style={{ background: 'var(--color-surface-container-low)', border: '1px solid var(--color-outline-variant)' }}
                     >
                       <span className="material-symbols-outlined" style={{ color: 'var(--color-primary)' }}>folder</span>
-                      <span className="flex-1" style={{ color: 'var(--color-on-surface)' }}>{root.name}</span>
-                    </button>
+                      {renamingId?.kind === 'folder' && renamingId.id === root.id ? (
+                        <input
+                          autoFocus
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && renameValue.trim()) {
+                              updateFolderMut.mutate({ id: root.id, data: { name: renameValue.trim() } });
+                              setRenamingId(null);
+                            }
+                            if (e.key === 'Escape') setRenamingId(null);
+                          }}
+                          className="flex-1 bg-transparent text-sm outline-hidden"
+                          style={{
+                            color: 'var(--color-on-surface)',
+                            border: '1px solid var(--color-primary)',
+                            borderRadius: 6,
+                            padding: '2px 6px',
+                          }}
+                        />
+                      ) : (
+                        <span className="flex-1" style={{ color: 'var(--color-on-surface)' }}>{root.name}</span>
+                      )}
+                      {/* Selbst angelegte Bereiche sind umbenenn-/löschbar — die 4 festen nicht */}
+                      {root.is_area_root === 0 && (
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <FolderRowMenu
+                            folder={root}
+                            onRename={() => {
+                              setRenamingId({ kind: 'folder', id: root.id });
+                              setRenameValue(root.name);
+                            }}
+                            onLinkProduct={() => setLinkFolderId(root.id)}
+                            onUnlinkProduct={() =>
+                              updateFolderMut.mutate({ id: root.id, data: { product_id: null } })
+                            }
+                            onMove={() => setMoveTarget({ kind: 'folder', id: root.id })}
+                            onDelete={() => {
+                              const counts = countFolderContents(tree, root.id);
+                              if (
+                                confirm(
+                                  counts.folders > 1
+                                    ? `Bereich „${root.name}" enthält ${counts.files} Dateien in ${counts.folders} Ordnern. Wirklich löschen?`
+                                    : `Bereich „${root.name}" enthält ${counts.files} Dateien. Wirklich löschen?`,
+                                )
+                              ) {
+                                deleteFolderMut.mutate(root.id);
+                              }
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
                   ))}
             </div>
           ) : (

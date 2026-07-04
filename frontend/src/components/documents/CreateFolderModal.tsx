@@ -21,10 +21,13 @@ interface CreateFolderModalProps {
   areaOptions: AreaOption[];
   /** Fester Parent-Ordner (nur relevant wenn !requireAreaPick) */
   fixedParentId: number | null;
-  /** parentId = gewaehlte Bereichs-Wurzel (bei requireAreaPick) ODER aktueller Ordner */
-  onCreate: (parentId: number, name: string) => void;
+  /** parentId = gewaehlte Bereichs-Wurzel, aktueller Ordner ODER null = neuer Bereich auf oberster Ebene */
+  onCreate: (parentId: number | null, name: string) => void;
   onClose: () => void;
 }
+
+/** Sentinel-Wert im Dropdown fuer „neuen Bereich auf oberster Ebene anlegen". */
+const NEW_ROOT = '__root__';
 
 export function CreateFolderModal({
   open,
@@ -36,7 +39,7 @@ export function CreateFolderModal({
 }: CreateFolderModalProps) {
   const { onMouseDown, modalStyle, headerStyle } = useDraggableModal();
   const [name, setName] = useState('');
-  const [selectedAreaId, setSelectedAreaId] = useState<number | null>(null);
+  const [selectedAreaId, setSelectedAreaId] = useState<number | typeof NEW_ROOT | null>(null);
   const [focused, setFocused] = useState(false);
 
   useEffect(() => {
@@ -61,7 +64,11 @@ export function CreateFolderModal({
 
   function submit() {
     if (!canSubmit) return;
-    const parentId = requireAreaPick ? selectedAreaId! : fixedParentId!;
+    const parentId = requireAreaPick
+      ? selectedAreaId === NEW_ROOT
+        ? null // neuer Bereich auf oberster Ebene
+        : (selectedAreaId as number)
+      : fixedParentId!;
     onCreate(parentId, name.trim());
     onClose();
   }
@@ -143,7 +150,15 @@ export function CreateFolderModal({
               <label style={{ fontSize: '0.8rem', color: 'var(--color-on-surface-variant)' }}>Bereich</label>
               <select
                 value={selectedAreaId ?? ''}
-                onChange={(e) => setSelectedAreaId(e.target.value === '' ? null : Number(e.target.value))}
+                onChange={(e) =>
+                  setSelectedAreaId(
+                    e.target.value === ''
+                      ? null
+                      : e.target.value === NEW_ROOT
+                        ? NEW_ROOT
+                        : Number(e.target.value),
+                  )
+                }
                 style={{
                   background: 'var(--color-surface-container-low)',
                   border: '1px solid var(--color-outline-variant)',
@@ -160,6 +175,7 @@ export function CreateFolderModal({
                 {areaOptions.map((o) => (
                   <option key={o.id} value={o.id}>{o.name}</option>
                 ))}
+                <option value={NEW_ROOT}>➕ Als neuen Bereich anlegen (oberste Ebene)</option>
               </select>
             </div>
           )}
