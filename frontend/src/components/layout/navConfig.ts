@@ -28,6 +28,7 @@ export const navItems: NavItem[] = [
     { path: '/amazon/entwicklung',             label: 'Entwicklung',  icon: 'settings' },
     { path: '/amazon/entwicklung/checkliste',  label: 'Checkliste',   icon: 'checklist' },
     { path: '/amazon/entwicklung/markenname',  label: 'Markenname',   icon: 'label' },
+    { path: '/amazon/recherche-wissen',        label: 'Recherche & Wissen', icon: 'menu_book' },
     { path: '/amazon/meine-daten',             label: 'Meine Daten',  icon: 'lock' },
   ]},
   { path: '/finances', label: 'Finanzen', icon: 'account_balance_wallet', subItems: [
@@ -79,6 +80,7 @@ export const pageNames: Record<string, string> = {
   '/amazon/entwicklung':              'Entwicklung',
   '/amazon/entwicklung/checkliste':   'Checkliste',
   '/amazon/entwicklung/markenname':   'Markenname',
+  '/amazon/recherche-wissen':         'Recherche & Wissen',
   '/amazon/meine-daten':              'Meine Daten',
   '/contacts':        'Kontakte',
   '/haushalt': 'Haushalt',
