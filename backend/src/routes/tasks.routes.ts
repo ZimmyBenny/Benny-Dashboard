@@ -71,8 +71,8 @@ router.get('/stats', (_req, res) => {
       COALESCE(SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END), 0)   AS in_progress_count,
       COALESCE(SUM(CASE WHEN status = 'waiting' THEN 1 ELSE 0 END), 0)        AS waiting_count,
       COALESCE(SUM(CASE WHEN status = 'done' AND updated_at >= date('now', '-7 days') THEN 1 ELSE 0 END), 0) AS done_this_week,
-      COALESCE(SUM(CASE WHEN due_date < date('now') AND status != 'done' THEN 1 ELSE 0 END), 0) AS overdue_count,
-      COALESCE(SUM(CASE WHEN due_date >= date('now', 'weekday 0', '-7 days') AND due_date <= date('now', 'weekday 0', '+0 days') AND status != 'done' THEN 1 ELSE 0 END), 0) AS due_this_week
+      COALESCE(SUM(CASE WHEN due_date < date('now') AND status NOT IN ('done','archived') THEN 1 ELSE 0 END), 0) AS overdue_count,
+      COALESCE(SUM(CASE WHEN due_date >= date('now', 'weekday 0', '-7 days') AND due_date <= date('now', 'weekday 0', '+0 days') AND status NOT IN ('done','archived') THEN 1 ELSE 0 END), 0) AS due_this_week
     FROM tasks
   `).get();
   res.json(stats);

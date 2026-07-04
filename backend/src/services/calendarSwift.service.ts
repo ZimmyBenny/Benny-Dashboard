@@ -367,9 +367,10 @@ export async function backgroundSync(): Promise<void> {
   try {
     const now = new Date();
 
-    // Aktueller Monat +/- 1 Monat
+    // Fenster: aktueller Monat -1 bis +12 Monate (damit auch Fern-Termine +
+    // deren Loeschungen gepflegt werden — sonst haengen weit entfernte Events als Karteileichen).
     const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const nextMonthEnd = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+    const nextMonthEnd = new Date(now.getFullYear(), now.getMonth() + 12, 0);
 
     const from = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, '0')}-01`;
     const to   = `${nextMonthEnd.getFullYear()}-${String(nextMonthEnd.getMonth() + 1).padStart(2, '0')}-${String(nextMonthEnd.getDate()).padStart(2, '0')}`;
