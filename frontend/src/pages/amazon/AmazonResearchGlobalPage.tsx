@@ -117,7 +117,7 @@ function GlobalCard({ card }: { card: GlobalResearchCard }) {
 
 export function AmazonResearchGlobalPage() {
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['amazon', 'research', 'global'],
+    queryKey: ['amazon', 'research', 'global', 'promoted'],
     queryFn: fetchGlobalResearch,
   });
 
