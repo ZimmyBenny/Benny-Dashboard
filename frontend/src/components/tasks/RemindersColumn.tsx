@@ -135,7 +135,7 @@ export function RemindersColumn() {
       flexDirection: 'column',
       minWidth: '280px',
       flex: 1,
-      background: 'rgba(25,37,64,0.4)',
+      background: 'color-mix(in srgb, var(--color-surface-container-low) 60%, transparent)',
       border: '1px solid rgba(255,255,255,0.06)',
       borderRadius: '0.875rem',
       overflow: 'hidden',
