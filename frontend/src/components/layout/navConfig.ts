@@ -23,6 +23,7 @@ export const navItems: NavItem[] = [
     { path: '/dj/trips',        label: 'Fahrten',            icon: 'directions_car' },
     { path: '/dj/accounting',   label: 'Buchhaltung',        icon: 'account_balance' },
     { path: '/dj/settings',     label: 'DJ Einstellungen',   icon: 'tune' },
+    { path: '/dj/dokumente',    label: 'Dokumente',          icon: 'folder_open' },
   ]},
   { path: '/amazon', label: 'Amazon', icon: 'shopping_cart', subItems: [
     { path: '/amazon/entwicklung',             label: 'Entwicklung',  icon: 'settings' },
@@ -30,11 +31,13 @@ export const navItems: NavItem[] = [
     { path: '/amazon/entwicklung/markenname',  label: 'Markenname',   icon: 'label' },
     { path: '/amazon/recherche-wissen',        label: 'Recherche & Wissen', icon: 'menu_book' },
     { path: '/amazon/meine-daten',             label: 'Meine Daten',  icon: 'lock' },
+    { path: '/amazon/dokumente',                label: 'Dokumente',    icon: 'folder_open' },
   ]},
   { path: '/finances', label: 'Finanzen', icon: 'account_balance_wallet', subItems: [
     { path: '/finances/bewertungen',       label: 'Bewertungen',      icon: 'reviews' },
     { path: '/finances/steuer-checkliste', label: 'Steuer-Checkliste', icon: 'checklist' },
     { path: '/haushalt',                   label: 'Haushalt',         icon: 'family_restroom' },
+    { path: '/finances/dokumente',          label: 'Dokumente',        icon: 'folder_open' },
   ]},
   { path: '/contracts',       label: 'Verträge & Fristen', icon: 'description' },
   { path: '/belege', label: 'Belege', icon: 'receipt_long', subItems: [
@@ -47,6 +50,7 @@ export const navItems: NavItem[] = [
     { path: '/belege/export',         label: 'Export',            icon: 'download' },
     { path: '/belege/einstellungen',  label: 'Einstellungen',     icon: 'tune' },
   ]},
+  { path: '/dokumente',       label: 'Dokumente',         icon: 'folder_open' },
   { path: '/ki-agenten',      label: 'KI Agenten',        icon: 'smart_toy' },
 ];
 
@@ -93,6 +97,10 @@ export const pageNames: Record<string, string> = {
   '/belege/steuer':         'Steuer',
   '/belege/export':         'Export',
   '/belege/einstellungen':  'Belege Einstellungen',
+  '/dokumente':             'Dokumente',
+  '/amazon/dokumente':      'Dokumente',
+  '/dj/dokumente':          'Dokumente',
+  '/finances/dokumente':    'Dokumente',
   '/ki-agenten':      'KI Agenten',
   '/settings':        'Einstellungen',
 };

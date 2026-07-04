@@ -47,6 +47,7 @@ import { BelegeTaxPage } from '../pages/belege/BelegeTaxPage';
 import { BelegeExportPage } from '../pages/belege/BelegeExportPage';
 import { BelegeSettingsPage } from '../pages/belege/BelegeSettingsPage';
 import { BelegeDetailPage } from '../pages/belege/BelegeDetailPage';
+import { DocumentsPage } from '../pages/documents/DocumentsPage';
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -108,6 +109,11 @@ export const router = createBrowserRouter([
           { path: '/belege/einstellungen',  element: <BelegeSettingsPage /> },
           // /belege/:id MUSS NACH allen spezifischen Sub-Routes stehen
           { path: '/belege/:id',            element: <BelegeDetailPage /> },
+          // Dokumente-Modul: eine Seite, 4 Routen (areaSlug-Prop)
+          { path: '/dokumente',        element: <DocumentsPage /> },
+          { path: '/amazon/dokumente', element: <DocumentsPage areaSlug="amazon" /> },
+          { path: '/dj/dokumente',     element: <DocumentsPage areaSlug="dj" /> },
+          { path: '/finances/dokumente', element: <DocumentsPage areaSlug="finanzen" /> },
         ],
       },
     ],
