@@ -62,17 +62,18 @@ function SidebarNavLink({
         style={({ isActive }) => ({
           padding: collapsed ? '0.5rem' : isIndented ? '0.375rem 0.75rem 0.375rem 1.25rem' : '0.5rem 0.75rem',
           justifyContent: collapsed ? 'center' : undefined,
-          color: isActive
-            ? 'var(--color-primary)'
-            : hovered
+          color: isActive || hovered
             ? 'var(--color-on-surface)'
             : 'var(--color-on-surface-variant)',
+          border: isActive
+            ? '1px solid color-mix(in srgb, var(--color-primary) 45%, transparent)'
+            : '1px solid transparent',
           backgroundColor: isActive
-            ? 'var(--color-surface-container-high)'
+            ? 'color-mix(in srgb, var(--color-primary) 14%, transparent)'
             : hovered
             ? 'rgba(255,255,255,0.07)'
             : 'transparent',
-          boxShadow: isActive ? 'inset 3px 0 0 var(--color-primary)' : 'none',
+          boxShadow: isActive ? '0 0 16px color-mix(in srgb, var(--color-primary) 22%, transparent)' : 'none',
         })}
       >
         <span
@@ -268,12 +269,17 @@ export function Sidebar() {
       className="flex flex-col h-screen flex-shrink-0 overflow-hidden transition-[width] duration-150 ease-out"
       style={{
         width: collapsed ? '52px' : '240px',
-        backgroundColor: '#0a0a0f',
+        // Navy wie der Content + feines Raster (wie Referenz), statt Fast-Schwarz
+        backgroundColor: 'var(--color-background)',
+        backgroundImage:
+          'repeating-linear-gradient(0deg, var(--sharp-grid-line) 0px, var(--sharp-grid-line) 1px, transparent 1px, transparent 44px), ' +
+          'repeating-linear-gradient(90deg, var(--sharp-grid-line) 0px, var(--sharp-grid-line) 1px, transparent 1px, transparent 44px)',
+        backgroundSize: '44px 44px',
         borderRight: '1px solid rgba(255,255,255,0.07)',
         boxShadow: '2px 0 16px rgba(0,0,0,0.6)',
         // Sidebar-Text weisser (scoped, global unveraendert)
-        '--color-on-surface': '#f4f6fc',
-        '--color-on-surface-variant': '#c8cee1',
+        '--color-on-surface': '#ffffff',
+        '--color-on-surface-variant': '#d9dfee',
       }}
     >
       {/* Brand mark */}
