@@ -1,10 +1,15 @@
 /**
- * SteuerCsvPreviewModal — Vorschau einer Steuerberater-CSV als Tabelle.
+ * SteuerCsvPreviewModal — generisches Vorschau-Modal für eine CSV als Tabelle.
  *
- * Lädt die Export-Route (GET /api/belege/export/:type.csv?year=) READ-ONLY als
- * Text (BOM entfernt), parst den Semikolon-CSV quote-aware zu Zeilen/Zellen und
- * rendert sie als Tabelle — ohne Datei-Download. Ein „Herunterladen"-Button im
- * Modal speichert dieselbe CSV über den bestehenden Blob-Download.
+ * Lädt einen CSV-Text READ-ONLY über die injizierte `fetchText`-Funktion (BOM
+ * bereits entfernt), parst den Semikolon-CSV quote-aware zu Zeilen/Zellen und
+ * rendert sie als Tabelle — ohne Datei-Download. Ein optionaler „Herunterladen"-
+ * Button (nur wenn `onDownload` gesetzt) speichert dieselbe CSV.
+ *
+ * Summen werden spaltenbasiert erkannt: enthält der Header 'Typ' UND 'Brutto (EUR)',
+ * wird nach Aus-/Eingangsrechnungen gesplittet; sonst wird 'Betrag (EUR)' summiert.
+ * So funktioniert das Modal für den gefilterten Belege-Export UND die drei
+ * Steuerberater-Exporte ohne type-Prop.
  *
  * Verschiebbar über den bestehenden useDraggableModal-Hook (am Header greifen).
  * Backdrop OHNE onClick — Klick außerhalb schließt das Modal NICHT (Projekt-Regel:
@@ -13,13 +18,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useDraggableModal } from '../../hooks/useDraggableModal';
-import { downloadSteuerCsv, fetchSteuerCsvText, type SteuerCsvType } from '../../api/belege.api';
-
-const TYPE_LABEL: Record<SteuerCsvType, string> = {
-  fahrten: 'Fahrten',
-  abwesenheitspauschalen: 'Abwesenheitspauschalen',
-  belege: 'Belege/Rechnungen',
-};
 
 /**
  * Quote-aware CSV-Parser (Semikolon-getrennt, deutsches Format).
@@ -108,19 +106,20 @@ function formatEuro(n: number): string {
 }
 
 interface Props {
-  type: SteuerCsvType;
-  year: number;
+  title: string;
+  fetchText: () => Promise<string>;
+  onDownload?: () => Promise<void>;
   onClose: () => void;
 }
 
-export function SteuerCsvPreviewModal({ type, year, onClose }: Props) {
+export function SteuerCsvPreviewModal({ title, fetchText, onDownload, onClose }: Props) {
   const { onMouseDown, modalStyle, headerStyle } = useDraggableModal();
   const [downloadBusy, setDownloadBusy] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['steuer-csv-preview', type, year],
-    queryFn: () => fetchSteuerCsvText(type, year),
+    queryKey: ['csv-preview', title],
+    queryFn: fetchText,
   });
 
   const rows = useMemo(() => (data ? parseCsv(data) : []), [data]);
@@ -128,13 +127,17 @@ export function SteuerCsvPreviewModal({ type, year, onClose }: Props) {
   const bodyRows = rows.slice(1);
   const dataRows = Math.max(0, rows.length - 1);
 
-  /** Summen je Vorschau — Belege getrennt nach Aus-/Eingangsrechnungen, sonst Gesamtsumme "Betrag (EUR)". */
+  /**
+   * Summen je Vorschau — spaltenbasiert erkannt:
+   *  - Header mit 'Typ' UND 'Brutto (EUR)' → Split nach Aus-/Eingangsrechnungen (Belege-Format).
+   *  - sonst 'Betrag (EUR)' vorhanden → Gesamtsumme.
+   */
   const summary = useMemo(() => {
     if (bodyRows.length === 0) return null;
     const idx = (name: string) => header.findIndex((h) => h.trim() === name);
-    if (type === 'belege') {
-      const typIdx = idx('Typ');
-      const bruttoIdx = idx('Brutto (EUR)');
+    const typIdx = idx('Typ');
+    const bruttoIdx = idx('Brutto (EUR)');
+    if (typIdx >= 0 && bruttoIdx >= 0) {
       let einnahmen = 0;
       let ausgaben = 0;
       for (const r of bodyRows) {
@@ -146,16 +149,18 @@ export function SteuerCsvPreviewModal({ type, year, onClose }: Props) {
       return { kind: 'belege' as const, einnahmen, ausgaben };
     }
     const betragIdx = idx('Betrag (EUR)');
+    if (betragIdx < 0) return null;
     let total = 0;
     for (const r of bodyRows) total += parseEuroCell(r[betragIdx]);
     return { kind: 'einzel' as const, total };
-  }, [type, header, bodyRows]);
+  }, [header, bodyRows]);
 
   async function handleDownload() {
+    if (!onDownload) return;
     setDownloadBusy(true);
     setDownloadError(null);
     try {
-      await downloadSteuerCsv(type, year);
+      await onDownload();
     } catch (e) {
       setDownloadError((e as Error).message ?? 'Download fehlgeschlagen');
     } finally {
@@ -210,7 +215,7 @@ export function SteuerCsvPreviewModal({ type, year, onClose }: Props) {
               margin: 0,
             }}
           >
-            Vorschau · {TYPE_LABEL[type]} · {year}
+            {title}
           </h2>
           <button
             type="button"
@@ -242,7 +247,7 @@ export function SteuerCsvPreviewModal({ type, year, onClose }: Props) {
             </p>
           ) : dataRows === 0 ? (
             <p style={{ color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)' }}>
-              Keine Daten für {year}.
+              Keine Daten vorhanden.
             </p>
           ) : (
             <>
@@ -372,33 +377,35 @@ export function SteuerCsvPreviewModal({ type, year, onClose }: Props) {
           >
             Schließen
           </button>
-          <button
-            type="button"
-            onClick={handleDownload}
-            disabled={downloadBusy}
-            style={{
-              background: downloadBusy
-                ? 'rgba(148,170,255,0.4)'
-                : 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
-              color: '#060e20',
-              border: 'none',
-              borderRadius: '0.75rem',
-              padding: '0.55rem 1.1rem',
-              fontFamily: 'Manrope, sans-serif',
-              fontSize: '0.85rem',
-              fontWeight: 700,
-              cursor: downloadBusy ? 'default' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.375rem',
-              boxShadow: downloadBusy ? 'none' : '0 0 16px rgba(148,170,255,0.3)',
-            }}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
-              download
-            </span>
-            {downloadBusy ? 'Lädt …' : 'Herunterladen'}
-          </button>
+          {onDownload && (
+            <button
+              type="button"
+              onClick={handleDownload}
+              disabled={downloadBusy}
+              style={{
+                background: downloadBusy
+                  ? 'rgba(148,170,255,0.4)'
+                  : 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+                color: '#060e20',
+                border: 'none',
+                borderRadius: '0.75rem',
+                padding: '0.55rem 1.1rem',
+                fontFamily: 'Manrope, sans-serif',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                cursor: downloadBusy ? 'default' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.375rem',
+                boxShadow: downloadBusy ? 'none' : '0 0 16px rgba(148,170,255,0.3)',
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+                download
+              </span>
+              {downloadBusy ? 'Lädt …' : 'Herunterladen'}
+            </button>
+          )}
         </div>
       </div>
     </>

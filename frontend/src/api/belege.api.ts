@@ -358,6 +358,24 @@ export async function fetchSteuerCsvText(type: SteuerCsvType, year: number): Pro
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text; // BOM strippen
 }
 
+/** Laedt die gefilterte Export-CSV (Export-Seite) als reinen Text — BOM (﻿) gestrippt. */
+export async function fetchBelegeExportCsvText(filter: {
+  year?: string;
+  area?: string;
+  taxCatId?: string;
+}): Promise<string> {
+  const params = new URLSearchParams();
+  if (filter.year) params.set('year', filter.year);
+  if (filter.area) params.set('area', filter.area);
+  if (filter.taxCatId) params.set('tax_category_id', filter.taxCatId);
+  const response = await apiClient.get(`/belege/export-csv?${params.toString()}`, {
+    responseType: 'text',
+    transformResponse: [(d) => d],
+  });
+  const text = String(response.data ?? '');
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text; // BOM strippen
+}
+
 // ── Finder-Spiegel (Plan quick-260704-m69) ────────────────────────────────
 
 /** POST /api/belege/mirror-rebuild — Finder-Spiegel komplett neu aufbauen. */

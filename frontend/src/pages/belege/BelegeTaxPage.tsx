@@ -20,7 +20,13 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { PageWrapper } from '../../components/layout/PageWrapper';
-import { fetchUstva, fetchUstvaDrill, downloadSteuerCsv, type SteuerCsvType } from '../../api/belege.api';
+import {
+  fetchUstva,
+  fetchUstvaDrill,
+  downloadSteuerCsv,
+  fetchSteuerCsvText,
+  type SteuerCsvType,
+} from '../../api/belege.api';
 import { ReceiptsTable } from './BelegeListPage';
 import { SteuerCsvPreviewModal } from '../../components/belege/SteuerCsvPreviewModal';
 import { formatCurrencyFromCents } from '../../lib/format';
@@ -29,6 +35,12 @@ const PERIOD_LABEL: Record<'jahr' | 'quartal' | 'monat', string> = {
   jahr: 'Jahr',
   quartal: 'Quartal',
   monat: 'Monat',
+};
+
+const TYPE_LABEL_TAX: Record<SteuerCsvType, string> = {
+  fahrten: 'Fahrten',
+  abwesenheitspauschalen: 'Abwesenheitspauschalen',
+  belege: 'Belege/Rechnungen',
 };
 
 export function BelegeTaxPage() {
@@ -165,8 +177,9 @@ export function BelegeTaxPage() {
   // Modal — in beiden Return-Zweigen einbindbar (rendert per position:fixed über allem).
   const previewModal = previewType && (
     <SteuerCsvPreviewModal
-      type={previewType}
-      year={year}
+      title={`Vorschau · ${TYPE_LABEL_TAX[previewType]} · ${year}`}
+      fetchText={() => fetchSteuerCsvText(previewType, year)}
+      onDownload={() => downloadSteuerCsv(previewType, year)}
       onClose={() => setPreviewType(null)}
     />
   );
