@@ -236,13 +236,13 @@ router.get('/ustva-drill', (req, res) => {
   const rows = db
     .prepare(
       `
-      SELECT * FROM receipts
-      WHERE steuerrelevant = 1
-        AND status IN ('bezahlt','teilbezahlt')
-        AND payment_date IS NOT NULL
-        AND strftime('%Y', payment_date) = ?
-        AND strftime('%m', payment_date) IN (${placeholders})
-      ORDER BY payment_date DESC, id DESC
+      SELECT r.*, ${PRIMARY_AREA_SUBQUERY} FROM receipts r
+      WHERE r.steuerrelevant = 1
+        AND r.status IN ('bezahlt','teilbezahlt')
+        AND r.payment_date IS NOT NULL
+        AND strftime('%Y', r.payment_date) = ?
+        AND strftime('%m', r.payment_date) IN (${placeholders})
+      ORDER BY r.payment_date DESC, r.id DESC
     `,
     )
     .all(String(year), ...months);
