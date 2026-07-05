@@ -69,6 +69,14 @@ export function BelegeDetailPage() {
     },
   });
 
+  // Prüf-Liste (noch nicht freigegebene Belege) für Vor/Zurück im Detail — gleicher
+  // Query-Key wie die Zu-prüfen-Seite, wird also aus dem Cache geteilt.
+  const { data: reviewList = [] } = useQuery({
+    queryKey: ['belege', 'review', 'pending'],
+    queryFn: () => fetchReceipts({ pending: '1' }),
+    staleTime: 30_000,
+  });
+
   const updateMut = useMutation({
     mutationFn: (data: Partial<ReceiptDetail>) => updateReceipt(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['belege', id] }),
@@ -296,6 +304,56 @@ export function BelegeDetailPage() {
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              {(() => {
+                const idx = reviewList.findIndex((b) => b.id === r.id);
+                if (idx < 0 || reviewList.length < 2) return null;
+                const prev = idx > 0 ? reviewList[idx - 1] : null;
+                const next = idx < reviewList.length - 1 ? reviewList[idx + 1] : null;
+                const btnStyle = (enabled: boolean) => ({
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(148,170,255,0.25)',
+                  borderRadius: '0.5rem',
+                  padding: '0.3rem',
+                  color: 'var(--color-on-surface)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  cursor: enabled ? 'pointer' : 'default',
+                  opacity: enabled ? 1 : 0.35,
+                });
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    <button
+                      type="button"
+                      disabled={!prev}
+                      title="Vorheriger Beleg (zu prüfen)"
+                      onClick={() => prev && navigate(`/belege/${prev.id}`)}
+                      style={btnStyle(!!prev)}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>chevron_left</span>
+                    </button>
+                    <span
+                      style={{
+                        fontSize: '0.78rem',
+                        color: 'var(--color-on-surface-variant)',
+                        fontFamily: 'var(--font-body)',
+                        minWidth: '3.25rem',
+                        textAlign: 'center',
+                      }}
+                    >
+                      {idx + 1} / {reviewList.length}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={!next}
+                      title="Nächster Beleg (zu prüfen)"
+                      onClick={() => next && navigate(`/belege/${next.id}`)}
+                      style={btnStyle(!!next)}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>chevron_right</span>
+                    </button>
+                  </div>
+                );
+              })()}
               <StatusBadge status={r.status as never} />
               {isLocked && (
                 <span
