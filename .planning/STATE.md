@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 05-04-PLAN.md
-last_updated: "2026-05-26T19:26:36.696Z"
+stopped_at: "quick-260705-q7o: Task 1+2 fertig, wartet auf Live-Check (Task 3)"
+last_updated: "2026-07-05T17:14:27.985Z"
 progress:
   total_phases: 5
   completed_phases: 5
@@ -41,7 +41,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 
 [█████████░] 86% — 24/28 plans complete
 
-**Stopped at:** Completed 05-04-PLAN.md
+**Stopped at:** quick-260705-q7o: Task 1+2 fertig, wartet auf Live-Check (Task 3)
 
 ## Decisions Made
 
@@ -186,9 +186,10 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 | 260518-uxi | DJ-Angebot: Optionale Positionen (sevDesk-Stil) — Toggle "Optional", "Opt." statt Pos-Nr im PDF, separate "Summe optionaler Positionen brutto" | 2026-05-18 | e9de663 | [260518-uxi-dj-quote-optionale-positionen-sevdesk-st](.planning/quick/260518-uxi-dj-quote-optionale-positionen-sevdesk-st/) |
 | 260628-mat | Steuer-Checkliste: Aus Vorlage abgleichen (sync-year) — additiver Jahres-Abgleich, nur Fehlendes ergänzen, Dateien/Notizen/Haken bleiben erhalten | 2026-06-28 | 17a541f | [260628-mat-steuer-checkliste-aus-vorlage-abgleichen](.planning/quick/260628-mat-steuer-checkliste-aus-vorlage-abgleichen/) |
 | 260628-ogt | Tabellen-Vorschau (.xlsx/.xls/.csv) im FilePreviewModal — SpreadsheetPreview mit SheetJS, Reiter-Wechsel, Lade-/Fehlerzustand, isSpreadsheet vor isText | 2026-06-28 | 8c968c5 | [260628-ogt-tabellen-vorschau-xlsx-xls-csv-im-filepr](.planning/quick/260628-ogt-tabellen-vorschau-xlsx-xls-csv-im-filepr/) |
+| 260705-fh0 | Fahrten-Verknüpfung (validated, 5/5): Migration 100 (trips.reference), Referenz auto (RE bevorzugt, AN Fallback) + manuelles Feld, tripSyncService setzt supplier_invoice_number des Fahrt-Belegs (Freigabe-Guard verhindert GoBD-500), „Fahrt erfassen"-Dialog auf Dj-Angebot, DjTripsPage Referenz-Spalte/Feld, Bereich-Löschen DELETE /areas/:id mit Link-Guard (409+count). HINWEIS: Zwischenzeitlich viele weitere 260702–260705-Quick-Tasks (Dokumente-Modul, Belege-Spiegel, Graphit-Look, Fahrten-Bereich) — siehe git log / Memory | 2026-07-05 | 83f8251 | [260705-fh0-fahrten-verknuepfung-fahrt-aus-angebot-a](.planning/quick/260705-fh0-fahrten-verknuepfung-fahrt-aus-angebot-a/) |
 
 ---
-*State initialized: 2026-04-07 | Last activity: 2026-06-28 - Completed quick task 260628-ogt: Tabellen-Vorschau xlsx/xls/csv im FilePreviewModal*
+*State initialized: 2026-04-07 | Last activity: 2026-07-05 - Completed quick task 260705-fh0: Fahrten-Verknüpfung (Referenz + Bereich-Löschen)*
 | 2026-04-10 | fast | TaskCard onClick → SlideOver fix (PointerSensor distance constraint) | ✅ |
 | 2026-04-10 | fast | TaskSlideOver Backdrop-Klick schließt Panel nicht mehr | ✅ |
 | 2026-04-10 | 260410-v3q | Status-Notiz beim Drag (DragPrompt + DB-Migration + KanbanBoard-Pause) | ✅ |
