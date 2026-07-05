@@ -326,6 +326,26 @@ export const triggerDbBackup = (): Promise<{ ok: true; path: string }> =>
 export const deleteReceipt = (id: number): Promise<void> =>
   apiClient.delete(`/belege/${id}`).then(() => undefined);
 
+// ── Steuerberater-CSV-Export (Plan quick-260705-s0o) ──────────────────────
+
+export type SteuerCsvType = 'fahrten' | 'abwesenheitspauschalen' | 'belege';
+
+/** Lädt eine der drei Steuerberater-CSVs (authentifizierter Blob-Download, JWT im Header). */
+export async function downloadSteuerCsv(type: SteuerCsvType, year: number): Promise<void> {
+  const response = await apiClient.get(`/belege/export/${type}.csv`, {
+    params: { year },
+    responseType: 'blob',
+  });
+  const objUrl = window.URL.createObjectURL(response.data as Blob);
+  const a = document.createElement('a');
+  a.href = objUrl;
+  a.download = `${type}-${year}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(objUrl);
+}
+
 // ── Finder-Spiegel (Plan quick-260704-m69) ────────────────────────────────
 
 /** POST /api/belege/mirror-rebuild — Finder-Spiegel komplett neu aufbauen. */
