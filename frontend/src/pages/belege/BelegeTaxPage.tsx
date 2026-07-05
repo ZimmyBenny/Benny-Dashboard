@@ -20,27 +20,14 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageWrapper } from '../../components/layout/PageWrapper';
-import {
-  fetchUstva,
-  fetchUstvaDrill,
-  downloadSteuerCsv,
-  fetchSteuerCsvText,
-  type SteuerCsvType,
-} from '../../api/belege.api';
+import { fetchUstva, fetchUstvaDrill } from '../../api/belege.api';
 import { ReceiptsTable } from './BelegeListPage';
-import { SteuerCsvPreviewModal } from '../../components/belege/SteuerCsvPreviewModal';
 import { formatCurrencyFromCents } from '../../lib/format';
 
 const PERIOD_LABEL: Record<'jahr' | 'quartal' | 'monat', string> = {
   jahr: 'Jahr',
   quartal: 'Quartal',
   monat: 'Monat',
-};
-
-const TYPE_LABEL_TAX: Record<SteuerCsvType, string> = {
-  fahrten: 'Fahrten',
-  abwesenheitspauschalen: 'Abwesenheitspauschalen',
-  belege: 'Belege/Rechnungen',
 };
 
 export function BelegeTaxPage() {
@@ -55,21 +42,6 @@ export function BelegeTaxPage() {
     setSearchParams(next, { replace: true });
   };
   const [drillIdx, setDrillIdx] = useState<number | null>(null);
-  const [csvBusy, setCsvBusy] = useState<SteuerCsvType | null>(null);
-  const [csvError, setCsvError] = useState<string | null>(null);
-  const [previewType, setPreviewType] = useState<SteuerCsvType | null>(null);
-
-  async function handleCsv(type: SteuerCsvType) {
-    setCsvBusy(type);
-    setCsvError(null);
-    try {
-      await downloadSteuerCsv(type, year);
-    } catch (e) {
-      setCsvError((e as Error).message ?? 'Export fehlgeschlagen');
-    } finally {
-      setCsvBusy(null);
-    }
-  }
 
   const { data, isLoading } = useQuery({
     queryKey: ['ustva', year],
@@ -81,116 +53,6 @@ export function BelegeTaxPage() {
     queryFn: () => fetchUstvaDrill(year, drillIdx ?? 0),
     enabled: drillIdx !== null,
   });
-
-  // Export-Sektion — jahres-/datenbasiert und vom UStVA-Modus unabhängig.
-  // Als Konstante ausgelagert, damit sie in BEIDEN Return-Zweigen ('keine' + Haupt) erscheint.
-  const exportSection = (
-    <div
-      style={{
-        background: 'var(--color-surface-variant)',
-        borderRadius: '0.75rem',
-        padding: '1.25rem 1.5rem',
-        marginBottom: '1.5rem',
-      }}
-    >
-      <h2
-        style={{
-          fontFamily: 'Manrope, sans-serif',
-          fontSize: '1.25rem',
-          fontWeight: 700,
-          color: 'var(--color-on-surface)',
-          margin: '0 0 0.75rem',
-        }}
-      >
-        Export für Steuerberater · {year}
-      </h2>
-      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-        {(
-          [
-            ['fahrten', 'Fahrten'],
-            ['abwesenheitspauschalen', 'Abwesenheitspauschalen'],
-            ['belege', 'Belege/Rechnungen'],
-          ] as [SteuerCsvType, string][]
-        ).map(([type, label]) => {
-          const busy = csvBusy === type;
-          return (
-            <div key={type} style={{ display: 'flex', gap: '0.375rem' }}>
-              <button
-                type="button"
-                onClick={() => handleCsv(type)}
-                disabled={busy}
-                style={{
-                  background: busy
-                    ? 'rgba(148,170,255,0.4)'
-                    : 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
-                  color: '#060e20',
-                  border: 'none',
-                  borderRadius: '0.75rem',
-                  padding: '0.625rem 1.25rem',
-                  fontSize: '0.875rem',
-                  fontFamily: 'Manrope, sans-serif',
-                  fontWeight: 700,
-                  cursor: busy ? 'default' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.375rem',
-                  boxShadow: busy ? 'none' : '0 0 16px rgba(148,170,255,0.3)',
-                }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
-                  download
-                </span>
-                {busy ? 'Lädt …' : label}
-              </button>
-              <button
-                type="button"
-                onClick={() => setPreviewType(type)}
-                aria-label={`Vorschau ${label}`}
-                style={{
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(148,170,255,0.25)',
-                  borderRadius: '0.75rem',
-                  padding: '0.625rem 1rem',
-                  fontSize: '0.875rem',
-                  fontFamily: 'Manrope, sans-serif',
-                  fontWeight: 700,
-                  color: 'var(--color-on-surface)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.375rem',
-                }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
-                  visibility
-                </span>
-                Vorschau
-              </button>
-            </div>
-          );
-        })}
-      </div>
-      {csvError && (
-        <p style={{ ...textMuted, color: 'var(--color-error)', marginTop: '0.75rem' }}>
-          {csvError}
-        </p>
-      )}
-      <p style={{ ...textMuted, fontSize: '0.78rem', marginTop: '0.75rem', marginBottom: 0 }}>
-        Drei getrennte CSVs pro Jahr (Semikolon-getrennt, Excel-kompatibel). Grundwerte und
-        Sätze sind separat aufgeführt — editierbar für den Steuerberater.
-      </p>
-    </div>
-  );
-
-  // Modal — in beiden Return-Zweigen einbindbar (rendert per position:fixed über allem).
-  const previewModal = previewType && (
-    <SteuerCsvPreviewModal
-      title={`Vorschau · ${TYPE_LABEL_TAX[previewType]} · ${year}`}
-      fetchText={() => fetchSteuerCsvText(previewType, year)}
-      onDownload={() => downloadSteuerCsv(previewType, year)}
-      onClose={() => setPreviewType(null)}
-    />
-  );
 
   if (isLoading || !data) {
     return (
@@ -236,9 +98,6 @@ export function BelegeTaxPage() {
               kannst du das ausgeschaltet lassen.
             </p>
           </div>
-
-          {exportSection}
-          {previewModal}
         </Container>
       </PageWrapper>
     );
@@ -352,9 +211,6 @@ export function BelegeTaxPage() {
           </table>
         </div>
 
-        {/* Export für Steuerberater — drei getrennte CSVs pro Jahr (ausgelagert) */}
-        {exportSection}
-
         {/* Drilldown */}
         {drillIdx !== null && (
           <section>
@@ -448,8 +304,6 @@ export function BelegeTaxPage() {
             ))}
           </div>
         </div>
-
-        {previewModal}
       </Container>
     </PageWrapper>
   );
