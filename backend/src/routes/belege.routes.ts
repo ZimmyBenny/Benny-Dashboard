@@ -933,6 +933,116 @@ router.post('/mirror-rebuild', (_req, res) => {
 });
 
 /**
+ * POST /api/belege/manual
+ *
+ * Legt einen Beleg OHNE Datei an (Eigenbeleg / Bar-Quittung / verlorener Beleg).
+ * Es gibt sonst KEINEN fileless-create-Endpoint — /upload braucht eine Datei,
+ * /:id/korrektur braucht ein Original. Netto/USt werden aus Brutto+Satz vom
+ * receiptService (recomputeAmounts) abgeleitet — hier NUR gross+rate schicken.
+ *
+ * Body: { type, receipt_date, supplier_name?, supplier_invoice_number?,
+ *         amount_gross_cents, vat_rate?, area_id?, steuerrelevant?, notes? }
+ *
+ * KEIN createBackup — EINZELnes create (CLAUDE.md: Backup nur bei Bulk).
+ * receiptService.create schreibt bereits einen audit_log-Eintrag.
+ *
+ * MUSS vor `/:id` stehen — sonst matched Express `/:id` mit id="manual" (NaN → 400).
+ */
+router.post('/manual', (req, res) => {
+  const {
+    type,
+    receipt_date,
+    supplier_name,
+    supplier_invoice_number,
+    amount_gross_cents,
+    vat_rate,
+    area_id,
+    steuerrelevant,
+    notes,
+  } = (req.body ?? {}) as {
+    type?: string;
+    receipt_date?: string;
+    supplier_name?: string;
+    supplier_invoice_number?: string;
+    amount_gross_cents?: number;
+    vat_rate?: number;
+    area_id?: number | null;
+    steuerrelevant?: boolean | number;
+    notes?: string;
+  };
+
+  // Nur manuell erlaubte Typen (KEIN 'fahrt' — Fahrten kommen aus dem Trip-Sync).
+  const allowedTypes = ['eingangsrechnung', 'ausgangsrechnung', 'quittung', 'sonstiges'];
+  if (!type || !allowedTypes.includes(type)) {
+    res.status(400).json({ error: 'Ungültiger Belegtyp.' });
+    return;
+  }
+  if (typeof receipt_date !== 'string' || !receipt_date.trim()) {
+    res.status(400).json({ error: 'Datum ist Pflicht.' });
+    return;
+  }
+  const grossCents = Number(amount_gross_cents);
+  if (!Number.isFinite(grossCents) || grossCents < 0) {
+    res.status(400).json({ error: 'Betrag ist ungültig.' });
+    return;
+  }
+  // vat_rate auf erlaubte Sätze erzwingen; Default 19.
+  const rateNum = Number(vat_rate);
+  const rate = [0, 7, 19].includes(rateNum) ? rateNum : 19;
+
+  // Bereich (optional) — wenn gesetzt, muss die Area existieren.
+  let areaIdNum: number | null = null;
+  if (area_id !== undefined && area_id !== null && String(area_id) !== '') {
+    areaIdNum = Number(area_id);
+    if (!Number.isFinite(areaIdNum)) {
+      res.status(400).json({ error: 'Bereich ist ungültig.' });
+      return;
+    }
+    const area = db.prepare(`SELECT id FROM areas WHERE id = ?`).get(areaIdNum);
+    if (!area) {
+      res.status(404).json({ error: 'Bereich nicht gefunden.' });
+      return;
+    }
+  }
+
+  const trimOrNull = (v: unknown): string | null => {
+    const s = typeof v === 'string' ? v.trim() : '';
+    return s ? s : null;
+  };
+
+  const created = receiptService.create(req, {
+    type: type as
+      | 'eingangsrechnung'
+      | 'ausgangsrechnung'
+      | 'quittung'
+      | 'sonstiges',
+    receipt_date: receipt_date.trim(),
+    supplier_name: trimOrNull(supplier_name),
+    supplier_invoice_number: trimOrNull(supplier_invoice_number),
+    amount_gross_cents: grossCents,
+    vat_rate: rate,
+    steuerrelevant: steuerrelevant === false || steuerrelevant === 0 ? 0 : 1,
+    status: 'zu_pruefen',
+    source: 'manual_upload',
+    created_via: 'manual_form',
+    notes: trimOrNull(notes),
+  });
+
+  // Bereich verknuepfen (is_primary=1) — receiptService.create legt keine Links an.
+  if (areaIdNum !== null) {
+    db.prepare(
+      `INSERT INTO receipt_area_links (receipt_id, area_id, is_primary, share_percent)
+       VALUES (?, ?, 1, 100)`,
+    ).run(created.id, areaIdNum);
+  }
+
+  // Finder-Spiegel best-effort (fileless → irrelevant, aber harmlos wie andere Routen).
+  belegeMirror.syncReceipt(created.id);
+
+  res.status(201).json(created);
+});
+
+/**
  * POST /api/belege/dj-pdf-backfill
  *
  * Einmaliger Backfill: erzeugt PDFs fuer alle bereits finalisierten DJ-Rechnungen,
