@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { useDraggableModal } from '../../hooks/useDraggableModal';
-import { fetchDjTrips, createDjTrip, deleteDjTrip, DjTrip } from '../../api/dj.api';
+import { fetchDjTrips, createDjTrip, updateDjTrip, deleteDjTrip, DjTrip } from '../../api/dj.api';
 import { fetchAreas } from '../../api/belege.api';
 import { formatCurrency, formatDate, formatKm } from '../../lib/format';
+import { todayLocal } from '../../lib/dates';
 
 const DISCLAIMER =
   'Diese Auflistung dient ausschließlich als Orientierungshilfe für die eigene Buchhaltung und ersetzt keine Steuerberatung. Kilometerpauschale (0,30 €/km) und Verpflegungsmehraufwand sind steuerrechtlich relevant — bitte mit dem Steuerberater abstimmen.';
@@ -23,7 +24,7 @@ interface TripForm {
 }
 
 const EMPTY_FORM: TripForm = {
-  expense_date: '',
+  expense_date: todayLocal(),
   start_location: '',
   end_location: '',
   distance_km: '',
@@ -69,6 +70,8 @@ export function DjTripsPage() {
   const [form, setForm] = useState<TripForm>(EMPTY_FORM);
   const [formError, setFormError] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<DjTrip | null>(null);
+  const [editTarget, setEditTarget] = useState<DjTrip | null>(null);
+  const [duplicating, setDuplicating] = useState(false);
 
   const queryClient = useQueryClient();
   const { onMouseDown, modalStyle, headerStyle } = useDraggableModal();
@@ -88,18 +91,34 @@ export function DjTripsPage() {
     return areas.find(a => a.slug === slug)?.name ?? slug;
   }
 
-  const totalKm = trips.reduce((s, t) => s + (t.distance_km ?? 0), 0);
+  // Rundreise-Summe (Hin+Rück) für Anzeige — distance_km ist einfache Strecke.
+  const totalKmRoundtrip = trips.reduce((s, t) => s + (t.distance_km ?? 0) * 2, 0);
   const totalReimbursement = trips.reduce((s, t) => s + t.reimbursement_amount, 0);
   const totalMeal = trips.reduce((s, t) => s + t.meal_allowance, 0);
   const reimbursement = (parseFloat(form.distance_km) || 0) * (parseFloat(form.rate_per_km) || 0);
+
+  function closeModal() {
+    setOpen(false);
+    setForm(EMPTY_FORM);
+    setFormError('');
+    setEditTarget(null);
+    setDuplicating(false);
+  }
 
   const createMutation = useMutation({
     mutationFn: createDjTrip,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dj-trips'] });
-      setOpen(false);
-      setForm(EMPTY_FORM);
-      setFormError('');
+      closeModal();
+    },
+  });
+
+  const editMutation = useMutation({
+    mutationFn: (payload: Parameters<typeof updateDjTrip>[1]) =>
+      updateDjTrip(editTarget!.id as number, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dj-trips'] });
+      closeModal();
     },
   });
 
@@ -113,29 +132,68 @@ export function DjTripsPage() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { setOpen(false); setForm(EMPTY_FORM); setFormError(''); }
+      if (e.key === 'Escape') closeModal();
     };
     if (open) window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [open]);
 
+  // Bearbeiten: nur echte trips-Rows (id != null) und NICHT über Beleg freigegeben.
+  function openEdit(t: DjTrip) {
+    if (t.id === null || t.freigegeben_at) return;
+    setEditTarget(t);
+    setDuplicating(false);
+    setForm({
+      expense_date: t.date || todayLocal(),
+      start_location: t.start_location ?? '',
+      end_location: t.end_location ?? '',
+      distance_km: String(t.distance_km ?? ''),
+      purpose: t.purpose ?? '',
+      rate_per_km: String(t.mileage_rate ?? 0.30),
+      area_slug: t.area_slug ?? 'dj',
+      reference: t.reference ?? '',
+    });
+    setFormError('');
+    setOpen(true);
+  }
+
+  // Duplizieren: für JEDE Fahrt erlaubt (auch event-basiert) — legt neue manuelle Fahrt an.
+  function openDuplicate(t: DjTrip) {
+    setEditTarget(null);
+    setDuplicating(true);
+    setForm({
+      expense_date: t.date || todayLocal(),
+      start_location: t.start_location ?? '',
+      end_location: t.end_location ?? '',
+      distance_km: String(t.distance_km ?? ''),
+      purpose: t.purpose ?? '',
+      rate_per_km: String(t.mileage_rate ?? 0.30),
+      area_slug: t.area_slug ?? 'dj',
+      reference: t.reference ?? '',
+    });
+    setFormError('');
+    setOpen(true);
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.expense_date || !form.start_location || !form.end_location || !form.distance_km || !form.purpose) {
-      setFormError('Bitte alle Felder ausfüllen.');
-      return;
-    }
-    setFormError('');
-    createMutation.mutate({
-      expense_date: form.expense_date,
+    // Keine Pflichtfeld-Validierung mehr — Speichern klappt auch unvollständig.
+    // Leeres Datum → heute (einziges Backend-Pflichtfeld).
+    const payload = {
+      expense_date: form.expense_date || todayLocal(),
       start_location: form.start_location,
       end_location: form.end_location,
-      distance_km: parseFloat(form.distance_km),
+      distance_km: parseFloat(form.distance_km) || 0,
       purpose: form.purpose,
       rate_per_km: parseFloat(form.rate_per_km) || 0.30,
       area_slug: form.area_slug,
       reference: form.reference.trim() || undefined,
-    });
+    };
+    if (editTarget) {
+      editMutation.mutate(payload);
+    } else {
+      createMutation.mutate(payload);
+    }
   }
 
   function field(key: keyof TripForm, value: string) {
@@ -199,7 +257,7 @@ export function DjTripsPage() {
           {/* KPI Tiles */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
             <KpiTile label="FAHRTEN GESAMT" value={String(trips.length)} />
-            <KpiTile label="GEFAHRENE KM (HIN + RÜCK)" value={formatKm(totalKm)} accent="#94aaff"
+            <KpiTile label="GEFAHRENE KM (HIN + RÜCK)" value={formatKm(totalKmRoundtrip)} accent="#94aaff"
               sub={`${trips.filter(t => !t.distance_km).length} Fahrten ohne Distanzangabe`}
             />
             <KpiTile label="ABSETZBARER WERT" value={formatCurrency(totalReimbursement)} accent="#5cfd80" />
@@ -294,21 +352,59 @@ export function DjTripsPage() {
                         {t.reimbursement_amount > 0 ? formatCurrency(t.reimbursement_amount) : '–'}
                       </td>
                       <td style={{ padding: '0.75rem 1rem' }}>
-                        {t.source === 'manual' && t.id !== null && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          {t.freigegeben_at ? (
+                            <span
+                              className="material-symbols-outlined"
+                              title="Über Beleg freigegeben — gesperrt"
+                              style={{ fontSize: '17px', color: 'var(--color-on-surface-variant)', opacity: 0.7 }}
+                            >lock</span>
+                          ) : (
+                            t.id !== null && (
+                              <>
+                                <button
+                                  onClick={() => openEdit(t)}
+                                  title="Fahrt bearbeiten"
+                                  style={{
+                                    background: 'none', border: 'none', cursor: 'pointer',
+                                    color: 'var(--color-primary)', padding: '0.25rem', borderRadius: '0.25rem', display: 'flex', alignItems: 'center',
+                                    opacity: 0.6, transition: 'opacity 0.15s',
+                                  }}
+                                  onMouseEnter={e => ((e.currentTarget as HTMLElement).style.opacity = '1')}
+                                  onMouseLeave={e => ((e.currentTarget as HTMLElement).style.opacity = '0.6')}
+                                >
+                                  <span className="material-symbols-outlined" style={{ fontSize: '17px' }}>edit</span>
+                                </button>
+                                <button
+                                  onClick={() => setDeleteTarget(t)}
+                                  title="Fahrt löschen"
+                                  style={{
+                                    background: 'none', border: 'none', cursor: 'pointer',
+                                    color: 'var(--color-error)', padding: '0.25rem', borderRadius: '0.25rem', display: 'flex', alignItems: 'center',
+                                    opacity: 0.6, transition: 'opacity 0.15s',
+                                  }}
+                                  onMouseEnter={e => ((e.currentTarget as HTMLElement).style.opacity = '1')}
+                                  onMouseLeave={e => ((e.currentTarget as HTMLElement).style.opacity = '0.6')}
+                                >
+                                  <span className="material-symbols-outlined" style={{ fontSize: '17px' }}>delete</span>
+                                </button>
+                              </>
+                            )
+                          )}
                           <button
-                            onClick={() => setDeleteTarget(t)}
-                            title="Fahrt löschen"
+                            onClick={() => openDuplicate(t)}
+                            title="Fahrt duplizieren"
                             style={{
                               background: 'none', border: 'none', cursor: 'pointer',
-                              color: 'var(--color-error)', padding: '0.25rem', borderRadius: '0.25rem', display: 'flex', alignItems: 'center',
+                              color: 'var(--color-on-surface-variant)', padding: '0.25rem', borderRadius: '0.25rem', display: 'flex', alignItems: 'center',
                               opacity: 0.6, transition: 'opacity 0.15s',
                             }}
                             onMouseEnter={e => ((e.currentTarget as HTMLElement).style.opacity = '1')}
                             onMouseLeave={e => ((e.currentTarget as HTMLElement).style.opacity = '0.6')}
                           >
-                            <span className="material-symbols-outlined" style={{ fontSize: '17px' }}>delete</span>
+                            <span className="material-symbols-outlined" style={{ fontSize: '17px' }}>content_copy</span>
                           </button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -321,7 +417,7 @@ export function DjTripsPage() {
                         Summe gefahrene Kilometer (Hin + Rück)
                       </td>
                       <td style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-primary)', fontWeight: 700 }}>
-                        {formatKm(totalKm)}
+                        {formatKm(totalKmRoundtrip)}
                       </td>
                       <td style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: '#5cfd80', fontWeight: 700 }}>
                         {formatCurrency(totalReimbursement)}
@@ -349,7 +445,7 @@ export function DjTripsPage() {
                   Kilometerpauschale absetzbar
                 </p>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', margin: 0 }}>
-                  {formatKm(totalKm)} × 0,30 €/km (Schätzung, nur Fahrten mit bekannter Entfernung)
+                  {formatKm(totalKmRoundtrip)} × 0,30 €/km (Schätzung, nur Fahrten mit bekannter Entfernung)
                 </p>
               </div>
               <p style={{ fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '1.75rem', color: '#5cfd80', margin: 0 }}>
@@ -365,7 +461,7 @@ export function DjTripsPage() {
       {open && (
         <>
           <div
-            onClick={() => { setOpen(false); setForm(EMPTY_FORM); setFormError(''); }}
+            onClick={closeModal}
             style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 40 }}
           />
           <div
@@ -389,11 +485,11 @@ export function DjTripsPage() {
               }}
             >
               <h2 style={{ fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '1.1rem', color: 'var(--color-on-surface)', margin: 0 }}>
-                Neue Fahrt
+                {editTarget ? 'Fahrt bearbeiten' : (duplicating ? 'Fahrt duplizieren' : 'Neue Fahrt')}
               </h2>
               <button
                 onMouseDown={e => e.stopPropagation()}
-                onClick={() => { setOpen(false); setForm(EMPTY_FORM); setFormError(''); }}
+                onClick={closeModal}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-on-surface-variant)', padding: '0.25rem' }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span>
@@ -456,7 +552,7 @@ export function DjTripsPage() {
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', paddingTop: '0.25rem' }}>
                 <button
                   type="button"
-                  onClick={() => { setOpen(false); setForm(EMPTY_FORM); setFormError(''); }}
+                  onClick={closeModal}
                   style={{
                     background: 'none', border: '1px solid rgba(255,255,255,0.12)',
                     borderRadius: '0.5rem', padding: '0.5rem 1rem',
@@ -465,13 +561,18 @@ export function DjTripsPage() {
                 >
                   Abbrechen
                 </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending}
-                  style={{ ...gradientBtn, opacity: createMutation.isPending ? 0.7 : 1, cursor: createMutation.isPending ? 'not-allowed' : 'pointer' }}
-                >
-                  {createMutation.isPending ? 'Speichern…' : 'Speichern'}
-                </button>
+                {(() => {
+                  const pending = createMutation.isPending || editMutation.isPending;
+                  return (
+                    <button
+                      type="submit"
+                      disabled={pending}
+                      style={{ ...gradientBtn, opacity: pending ? 0.7 : 1, cursor: pending ? 'not-allowed' : 'pointer' }}
+                    >
+                      {pending ? 'Speichern…' : (editTarget ? 'Speichern' : 'Anlegen')}
+                    </button>
+                  );
+                })()}
               </div>
             </form>
           </div>

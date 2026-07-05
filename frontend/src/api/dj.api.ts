@@ -217,6 +217,7 @@ export interface DjTrip {
   meal_allowance: number;
   area_slug: string | null;
   reference: string | null;
+  freigegeben_at: string | null;  // gesetzt = über Beleg freigegeben/GoBD-gesperrt
 }
 
 export interface DjOverview {
@@ -373,6 +374,30 @@ export const createDjTrip = (data: {
     area_slug: data.area_slug,
     ...(data.reference?.trim() ? { reference: data.reference.trim() } : {}),
     ...(data.linked_event_id !== undefined ? { linked_event_id: data.linked_event_id } : {}),
+  }).then(r => r.data);
+
+// Fahrt bearbeiten — PATCH /trips/:id (gleiche Payload-Form wie createDjTrip).
+// reference NUR bei nicht-leer senden — sonst wuerde ein leeres Feld die gesetzte/
+// abgeleitete Referenz auf NULL setzen (Backend ueberschreibt bei !== undefined).
+export const updateDjTrip = (id: number, data: {
+  expense_date: string;
+  start_location: string;
+  end_location: string;
+  distance_km: number;
+  purpose: string;
+  rate_per_km: number;
+  area_slug: string;
+  reference?: string;
+}): Promise<{ id: number }> =>
+  apiClient.patch(`/trips/${id}`, {
+    expense_date: data.expense_date,
+    start_location: data.start_location,
+    end_location: data.end_location,
+    distance_km: Math.round(data.distance_km),
+    purpose: data.purpose,
+    rate_per_km_cents: Math.round(data.rate_per_km * 100),
+    area_slug: data.area_slug,
+    ...(data.reference?.trim() ? { reference: data.reference.trim() } : {}),
   }).then(r => r.data);
 
 // Fahrt loeschen — ersetzt frueheres deleteDjExpense (Plan 04-11)
