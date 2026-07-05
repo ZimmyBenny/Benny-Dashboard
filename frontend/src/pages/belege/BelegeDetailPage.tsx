@@ -653,6 +653,34 @@ export function BelegeDetailPage() {
                 </div>
               </Section>
 
+              {/* Abwesenheitspauschale (read-only, Plan quick-260705-u2c) — nur bei Fahrt-Belegen */}
+              {r.type === 'fahrt' && (() => {
+                const hours = abwesenheitsStunden(r.trip_departure_time, r.trip_return_time);
+                const cents = r.trip_meal_allowance_cents ?? 0;
+                const hatAbwesenheit =
+                  !!(r.trip_departure_time && r.trip_return_time) || cents > 0;
+                return (
+                  <Section title="Abwesenheitspauschale">
+                    {hatAbwesenheit ? (
+                      <>
+                        <Field label="Abfahrt" value={r.trip_departure_time ?? '–'} disabled />
+                        <Field label="Rückkehr" value={r.trip_return_time ?? '–'} disabled />
+                        <Field
+                          label="Abwesenheitsdauer"
+                          value={hours !== null ? `${hours.toLocaleString('de-DE', { maximumFractionDigits: 1 })} Std` : '–'}
+                          disabled
+                        />
+                        <Field label="Pauschale" value={formatCurrencyFromCents(cents)} disabled />
+                      </>
+                    ) : (
+                      <p style={{ fontSize: '0.8rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', margin: '0.25rem 0' }}>
+                        Keine Abwesenheitspauschale erfasst. Sie kann bei der Fahrt im Fahrten-Modul eingetragen werden.
+                      </p>
+                    )}
+                  </Section>
+                );
+              })()}
+
               <Section title="Notizen">
                 <NotesField initialValue={r.notes ?? ''} onSave={onChangeNotes} />
               </Section>
@@ -952,6 +980,25 @@ export function BelegeDetailPage() {
       )}
     </PageWrapper>
   );
+}
+
+/** Abwesenheitsdauer in Std aus "HH:MM"-Zeiten (Folgetag-Logik wie Backend). Null bei ungültig/leer. */
+function abwesenheitsStunden(dep?: string | null, ret?: string | null): number | null {
+  const parse = (v?: string | null): number | null => {
+    if (!v) return null;
+    const m = /^(\d{1,2}):(\d{2})$/.exec(v.trim());
+    if (!m) return null;
+    const h = Number(m[1]);
+    const min = Number(m[2]);
+    if (h > 23 || min > 59) return null;
+    return h * 60 + min;
+  };
+  const d = parse(dep);
+  const r = parse(ret);
+  if (d === null || r === null) return null;
+  let dur = r - d;
+  if (dur <= 0) dur += 24 * 60; // Nacht-Gig -> Folgetag
+  return dur / 60;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
