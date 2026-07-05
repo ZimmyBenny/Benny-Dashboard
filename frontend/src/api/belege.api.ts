@@ -346,6 +346,18 @@ export async function downloadSteuerCsv(type: SteuerCsvType, year: number): Prom
   window.URL.revokeObjectURL(objUrl);
 }
 
+/** Lädt eine Steuerberater-CSV als reinen Text (für die Vorschau) — BOM (﻿) am Anfang entfernt. */
+export async function fetchSteuerCsvText(type: SteuerCsvType, year: number): Promise<string> {
+  const response = await apiClient.get(`/belege/export/${type}.csv`, {
+    params: { year },
+    responseType: 'text',
+    // responseType 'text' liefert bereits einen String; Axios parst text/csv nicht als JSON.
+    transformResponse: [(d) => d],
+  });
+  const text = String(response.data ?? '');
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text; // BOM strippen
+}
+
 // ── Finder-Spiegel (Plan quick-260704-m69) ────────────────────────────────
 
 /** POST /api/belege/mirror-rebuild — Finder-Spiegel komplett neu aufbauen. */
