@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { PrivateRoute } from './PrivateRoute';
 import { AppShell } from '../components/layout/AppShell';
 import { LoginPage } from '../pages/LoginPage';
@@ -74,7 +74,8 @@ export const router = createBrowserRouter([
           { path: '/dj/invoices/:id',     element: <DjInvoiceDetailPage /> },
           { path: '/dj/customers',        element: <DjCustomersPage /> },
           { path: '/dj/services',         element: <DjServicesPage /> },
-          { path: '/dj/trips',            element: <DjTripsPage /> },
+          // Fahrten sind nach /belege/fahrten umgezogen — alte URL weiterleiten
+          { path: '/dj/trips',            element: <Navigate to="/belege/fahrten" replace /> },
           { path: '/dj/accounting',       element: <DjAccountingPage /> },
           { path: '/dj/settings',         element: <DjSettingsPage /> },
           { path: '/finances',       element: <FinanzenDashboardPage /> },
@@ -102,6 +103,7 @@ export const router = createBrowserRouter([
           { path: '/belege',                element: <BelegeOverviewPage /> },
           { path: '/belege/alle',           element: <BelegeListPage /> },
           { path: '/belege/neu',            element: <BelegeUploadPage /> },
+          { path: '/belege/fahrten',        element: <DjTripsPage /> },
           { path: '/belege/offen',          element: <BelegeOpenPaymentsPage /> },
           { path: '/belege/zu-pruefen',     element: <BelegeReviewPage /> },
           { path: '/belege/steuer',         element: <BelegeTaxPage /> },

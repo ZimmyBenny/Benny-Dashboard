@@ -45,10 +45,10 @@ const inputStyle: React.CSSProperties = {
 };
 
 const gradientBtn: React.CSSProperties = {
-  background: 'linear-gradient(135deg, #94aaff 0%, #5cfd80 100%)',
-  color: '#060e20',
+  background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+  color: 'var(--color-on-primary)',
   border: 'none',
-  borderRadius: '0.5rem',
+  borderRadius: '999px',
   padding: '0.5rem 1.25rem',
   fontFamily: 'var(--font-body)',
   fontWeight: 700,
@@ -165,7 +165,7 @@ export function DjTripsPage() {
                 Fahrten
               </h1>
               <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.875rem', margin: '0.5rem 0 0' }}>
-                Alle Fahrten zum Event und zum Vorgespräch — Hin- und Rückweg.
+                Fahrten je Bereich (DJ, Privat, Amazon …) — Hin- und Rückweg, als Beleg gespiegelt.
               </p>
             </div>
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
@@ -366,7 +366,7 @@ export function DjTripsPage() {
             data-draggable-modal
             style={{
               position: 'fixed', top: 80, right: 32, width: '420px',
-              background: 'rgb(14, 20, 40)',
+              background: 'var(--color-surface-container-high)',
               border: '1px solid rgba(148,170,255,0.25)',
               borderRadius: '0.75rem',
               boxShadow: '0 8px 40px rgba(0,0,0,0.5), 0 0 60px rgba(148,170,255,0.05)',
@@ -474,7 +474,7 @@ export function DjTripsPage() {
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 60 }} />
           <div style={{
             position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-            background: '#1a1b2e',
+            background: 'var(--color-surface-container-high)',
             border: '1px solid rgba(255,80,80,0.35)',
             borderRadius: '0.75rem', padding: '1.5rem', width: '360px',
             zIndex: 70, boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
