@@ -101,6 +101,8 @@ export interface ReceiptFilter {
   search?: string;
   /** '1' = nur steuerrelevante Belege (sonst alle) */
   steuerrelevant?: string;
+  /** '1' = „Zu prüfen"-Modus: alle noch nicht freigegebenen, nicht beiseitegelegten Belege (schließt status aus). */
+  pending?: string;
 }
 
 /** Aggregat-Werte fuer die Belege-Uebersichts-Page (Plan 04-07). */

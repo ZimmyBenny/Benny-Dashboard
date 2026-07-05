@@ -1,11 +1,12 @@
 /**
  * BelegeReviewPage — /belege/zu-pruefen (Phase 04 Plan 08).
  *
- * Listet Belege mit status='zu_pruefen' (fehlende Pflichtfelder, OCR-Review,
- * Lieferant unklar etc.). Zeigt zusaetzlich Belege mit status='ocr_pending',
- * damit der User OCR-Lauf-Status verfolgen kann.
+ * Zeigt ALLE noch nicht freigegebenen, nicht beiseitegelegten Belege
+ * (pending-Modus: freigegeben_at IS NULL AND status NOT IN
+ * archiviert/nicht_relevant/storniert) — unabhaengig vom Zahl-Status.
+ * OCR-pending-Belege sind darin enthalten (freigegeben_at ist NULL), es wird
+ * nur solange gepollt, wie welche in Verarbeitung sind.
  */
-import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { PageWrapper } from '../../components/layout/PageWrapper';
@@ -15,25 +16,17 @@ import { ReceiptsTable } from './BelegeListPage';
 export function BelegeReviewPage() {
   const navigate = useNavigate();
 
-  const { data: zuPruefen = [], isLoading: l1 } = useQuery({
-    queryKey: ['belege', 'review', 'zu_pruefen'],
-    queryFn: () => fetchReceipts({ status: 'zu_pruefen' }),
-  });
-  const { data: ocrPending = [], isLoading: l2 } = useQuery({
-    queryKey: ['belege', 'review', 'ocr_pending'],
-    queryFn: () => fetchReceipts({ status: 'ocr_pending' }),
-    // OCR laeuft im Hintergrund — kurzes Refetch-Intervall, solange welche da sind
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ['belege', 'review', 'pending'],
+    queryFn: () => fetchReceipts({ pending: '1' }),
+    // Poll nur solange OCR laeuft (Belege mit status 'ocr_pending' in der Menge)
     refetchInterval: (query) => {
       const data = query.state.data as ReceiptListItem[] | undefined;
-      return data && data.length > 0 ? 3000 : false;
+      return data && data.some((r) => r.status === 'ocr_pending') ? 3000 : false;
     },
   });
-  const isLoading = l1 || l2;
 
-  const items: ReceiptListItem[] = useMemo(() => {
-    // OCR-pending zuerst (User sieht laufende Verarbeitung), dann zu_pruefen
-    return [...ocrPending, ...zuPruefen];
-  }, [zuPruefen, ocrPending]);
+  const ocrPendingCount = items.filter((r) => r.status === 'ocr_pending').length;
 
   return (
     <PageWrapper>
@@ -70,8 +63,8 @@ export function BelegeReviewPage() {
               Zu prüfen
             </h1>
             <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.9rem', margin: '0.5rem 0 0', fontFamily: 'var(--font-body)' }}>
-              Belege mit fehlenden Pflichtfeldern oder OCR-Ergebnis zur Review.
-              {ocrPending.length > 0 && ` ${ocrPending.length} Beleg(e) werden gerade per OCR ausgewertet.`}
+              Noch nicht freigegebene Belege — unabhängig vom Zahl-Status.
+              {ocrPendingCount > 0 && ` ${ocrPendingCount} Beleg(e) werden gerade per OCR ausgewertet.`}
             </p>
           </div>
 

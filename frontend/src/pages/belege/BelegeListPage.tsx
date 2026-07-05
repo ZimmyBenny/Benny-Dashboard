@@ -77,14 +77,17 @@ export function BelegeListPage() {
     setToInput(searchParams.get('to') ?? '');
   }, [searchParams]);
 
+  // „Zu prüfen"-Modus (pending) schließt status aus — dann keinen status mitschicken.
+  const pendingActive = searchParams.get('pending') === '1';
   const filter: ReceiptFilter = {
     area:   searchParams.get('area')   || undefined,
-    status: searchParams.get('status') || undefined,
+    status: pendingActive ? undefined : (searchParams.get('status') || undefined),
     type:   searchParams.get('type')   || undefined,
     from:   searchParams.get('from')   || undefined,
     to:     searchParams.get('to')     || undefined,
     search: searchParams.get('search') || undefined,
     steuerrelevant: searchParams.get('steuerrelevant') || undefined,
+    pending: pendingActive ? '1' : undefined,
   };
 
   const { data: items = [], isLoading } = useQuery({
@@ -475,12 +478,28 @@ export function BelegeListPage() {
             {/* Status-Pills */}
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               {STATUS_TABS.map((tab) => {
-                const active = status === tab.value;
+                // „Zu prüfen" ist jetzt der pending-Modus (freigegeben_at IS NULL …),
+                // nicht mehr status='zu_pruefen'. Die anderen Chips bleiben status-basiert.
+                const isPendingTab = tab.value === 'zu_pruefen';
+                const active = isPendingTab
+                  ? pendingActive
+                  : (!pendingActive && status === tab.value);
                 return (
                   <button
                     key={tab.value || 'all'}
                     type="button"
-                    onClick={() => setParam('status', tab.value || undefined)}
+                    onClick={() => {
+                      const next = new URLSearchParams(searchParams);
+                      if (isPendingTab) {
+                        next.set('pending', '1');
+                        next.delete('status'); // pending und status schließen sich aus
+                      } else {
+                        next.delete('pending'); // andere Chips verlassen den pending-Modus
+                        if (tab.value) next.set('status', tab.value);
+                        else next.delete('status');
+                      }
+                      setSearchParams(next, { replace: true });
+                    }}
                     style={{
                       background: active ? 'var(--color-primary)' : 'rgba(255,255,255,0.04)',
                       border: '1px solid rgba(148,170,255,0.15)',
