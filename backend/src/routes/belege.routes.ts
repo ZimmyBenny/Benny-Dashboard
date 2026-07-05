@@ -252,14 +252,18 @@ router.get('/ustva-drill', (req, res) => {
 /**
  * GET /api/belege/export-csv?year=2026&area=DJ&tax_category_id=3
  *
- * CSV-Export der Belege mit optionalen Filtern (Jahr, Bereich, Kategorie).
+ * CSV-Export der Belege mit optionalen Filtern (Jahr, Bereich, Kategorie) im
+ * deutschen Euro-Format (Semikolon-getrennt, Komma-Dezimal, UTF-8 mit BOM,
+ * echte Umlaute). Enthaelt ALLE Beleg-Typen (inkl. fahrt/quittung/spesen/
+ * sonstiges) mit lesbarem Typ-Label — der Nutzer filtert selbst ueber
+ * Bereich/Kategorie. Spalten identisch zum Steuerberater-`belege`-Export.
  * Antwort:
  *  - Content-Type: text/csv; charset=utf-8
  *  - Content-Disposition: attachment; filename="belege-<year>.csv"
  *  - BOM (﻿) als erstes Byte → Excel erkennt UTF-8 korrekt
  *
  * SQL-Injection-Schutz: Alle WHERE-Werte gehen ueber Placeholder; year wird per
- * strftime verglichen (kein String-Concat).
+ * strftime verglichen (kein String-Concat). Reine Lese-Operation → KEIN Backup.
  *
  * MUSS vor `/:id` stehen — sonst matched `/:id` mit id="export-csv".
  */
@@ -279,10 +283,22 @@ router.get('/export-csv', (req, res) => {
     }
   }
 
+  // Gezieltes SELECT (keine *_cents/id-Rohspalten) + inline PRIMARY-AREA-Subquery
+  // — identisch zum Steuerberater-`belege`-Zweig, aber OHNE `type IN (...)` (alle Typen).
+  const selectFields = `
+    r.receipt_date, r.type, r.supplier_name,
+    COALESCE(r.receipt_number, r.supplier_invoice_number) AS beleg_nr,
+    r.amount_net_cents, r.vat_amount_cents, r.amount_gross_cents, r.vat_rate, r.status,
+    (SELECT a2.name FROM receipt_area_links ral2
+       JOIN areas a2 ON a2.id = ral2.area_id
+       WHERE ral2.receipt_id = r.id
+       ORDER BY ral2.is_primary DESC, a2.name ASC LIMIT 1) AS primary_area
+  `;
+
   let sql: string;
   if (area) {
     sql = `
-      SELECT DISTINCT r.* FROM receipts r
+      SELECT DISTINCT ${selectFields} FROM receipts r
       INNER JOIN receipt_area_links ral ON ral.receipt_id = r.id
       INNER JOIN areas a ON a.id = ral.area_id
       WHERE a.name = ? ${where.length ? 'AND ' + where.join(' AND ') : ''}
@@ -291,53 +307,73 @@ router.get('/export-csv', (req, res) => {
     params.unshift(area);
   } else {
     sql = `
-      SELECT r.* FROM receipts r
+      SELECT ${selectFields} FROM receipts r
       ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
       ORDER BY r.receipt_date, r.id
     `;
   }
-  const rows = db.prepare(sql).all(...params) as Array<Record<string, unknown>>;
+  const rows = db.prepare(sql).all(...params) as Array<{
+    receipt_date: string;
+    type: string;
+    supplier_name: string | null;
+    beleg_nr: string | null;
+    amount_net_cents: number | null;
+    vat_amount_cents: number | null;
+    amount_gross_cents: number | null;
+    vat_rate: number | null;
+    status: string | null;
+    primary_area: string | null;
+  }>;
+
+  // Deutsches Typ-Label (echte Umlaute) — alle 7 Enum-Werte, Fallback = Rohwert.
+  const typLabel = (t: string): string =>
+    t === 'ausgangsrechnung'
+      ? 'Ausgangsrechnung'
+      : t === 'eingangsrechnung'
+      ? 'Eingangsrechnung'
+      : t === 'fahrt'
+      ? 'Fahrt'
+      : t === 'beleg'
+      ? 'Beleg'
+      : t === 'quittung'
+      ? 'Quittung'
+      : t === 'spesen'
+      ? 'Spesen'
+      : t === 'sonstiges'
+      ? 'Sonstiges'
+      : t;
 
   const headers = [
-    'id',
-    'type',
-    'receipt_date',
-    'due_date',
-    'payment_date',
-    'supplier_name',
-    'supplier_invoice_number',
-    'amount_gross_cents',
-    'amount_net_cents',
-    'vat_rate',
-    'vat_amount_cents',
-    'status',
-    'tax_category',
-    'reverse_charge',
-    'steuerrelevant',
+    'Datum',
+    'Typ',
+    'Lieferant/Kunde',
+    'Beleg-/Rechnungsnr',
+    'Netto (EUR)',
+    'USt (EUR)',
+    'Brutto (EUR)',
+    'Steuersatz (%)',
+    'Bereich',
+    'Status',
   ];
-
-  function csvCell(v: unknown): string {
-    if (v === null || v === undefined) return '';
-    let s = String(v);
-    // CSV-Quoting: Bei ;, \n, \r, " -> in "..." wrappen, " als "" escapen
-    if (/[;\n\r"]/.test(s)) {
-      s = `"${s.replace(/"/g, '""')}"`;
-    }
-    return s;
-  }
-
-  const csv = [
-    headers.join(';'),
-    ...rows.map((r) => headers.map((h) => csvCell(r[h])).join(';')),
-  ].join('\r\n');
+  const csvRows = rows.map((r) => [
+    r.receipt_date,
+    typLabel(r.type),
+    r.supplier_name ?? '',
+    r.beleg_nr ?? '',
+    eurFromCents(r.amount_net_cents),
+    eurFromCents(r.vat_amount_cents),
+    eurFromCents(r.amount_gross_cents),
+    String(r.vat_rate ?? 0),
+    r.primary_area ?? '',
+    r.status ?? '',
+  ]);
 
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader(
     'Content-Disposition',
     `attachment; filename="belege-${year || 'all'}.csv"`,
   );
-  // BOM (﻿) damit Excel die Datei als UTF-8 erkennt
-  res.send('﻿' + csv);
+  res.send(buildCsv(headers, csvRows)); // buildCsv stellt das BOM voran
 });
 
 /**
