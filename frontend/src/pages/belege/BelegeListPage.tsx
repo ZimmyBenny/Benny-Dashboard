@@ -14,7 +14,7 @@
  * Exportiert ReceiptsTable als wiederverwendbare Sub-Komponente fuer
  * BelegeOpenPaymentsPage und BelegeReviewPage.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageWrapper } from '../../components/layout/PageWrapper';
@@ -69,6 +69,8 @@ export function BelegeListPage() {
   // Deshalb lokal tippen, erst onBlur in die URL committen.
   const [fromInput, setFromInput] = useState(searchParams.get('from') ?? '');
   const [toInput, setToInput] = useState(searchParams.get('to') ?? '');
+  // Summenleiste: Brutto/Netto-Umschalter (Default Brutto)
+  const [amountMode, setAmountMode] = useState<'brutto' | 'netto'>('brutto');
 
   useEffect(() => {
     setSearchInput(searchParams.get('search') ?? '');
@@ -90,6 +92,24 @@ export function BelegeListPage() {
     queryKey: ['belege', 'list', filter],
     queryFn: () => fetchReceipts(filter),
   });
+
+  // Summen client-seitig aus dem bereits gefilterten items-Array berechnen.
+  // Signiert: negative Storno-Betraege rechnen automatisch gegen (kein Math.abs).
+  const totals = useMemo(() => {
+    const pick = (i: ReceiptListItem) =>
+      (amountMode === 'brutto' ? i.amount_gross_cents : i.amount_net_cents) ?? 0;
+    let einnahmen = 0;
+    let ausgaben = 0;
+    let fahrten = 0;
+    for (const i of items) {
+      if (i.type === 'ausgangsrechnung') einnahmen += pick(i);
+      else if (i.type === 'eingangsrechnung') ausgaben += pick(i);
+      else if (i.type === 'fahrt') fahrten += pick(i);
+    }
+    const saldo = einnahmen - ausgaben - fahrten;
+    return { einnahmen, ausgaben, fahrten, saldo };
+  }, [items, amountMode]);
+  const isCapped = items.length >= 500;
 
   const qc = useQueryClient();
   const markPaidMut = useMutation({
@@ -430,6 +450,101 @@ export function BelegeListPage() {
             </div>
           </div>
 
+          {/* Summenleiste — filter-abhaengig aus dem geladenen items-Array */}
+          <div style={{ marginBottom: '1.25rem' }}>
+            <div
+              style={{
+                display: 'flex',
+                gap: '0.75rem',
+                flexWrap: 'wrap',
+                alignItems: 'stretch',
+              }}
+            >
+              <SummenChip
+                label="Einnahmen"
+                value={totals.einnahmen}
+                color="var(--color-secondary)"
+              />
+              <SummenChip
+                label="Ausgaben"
+                value={totals.ausgaben}
+                color="var(--color-error)"
+              />
+              <SummenChip
+                label="Fahrten"
+                value={totals.fahrten}
+                color="var(--color-on-surface-variant)"
+              />
+              <SummenChip
+                label="Saldo"
+                value={totals.saldo}
+                color={totals.saldo >= 0 ? 'var(--color-secondary)' : 'var(--color-error)'}
+                highlighted
+              />
+
+              {/* Brutto/Netto-Toggle rechtsbuendig */}
+              <div
+                style={{
+                  marginLeft: 'auto',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                }}
+              >
+                {(['brutto', 'netto'] as const).map((mode) => {
+                  const active = amountMode === mode;
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setAmountMode(mode)}
+                      aria-pressed={active}
+                      style={{
+                        background: active ? 'var(--color-primary)' : 'rgba(255,255,255,0.04)',
+                        border: '1px solid rgba(148,170,255,0.15)',
+                        borderRadius: '999px',
+                        color: active ? 'var(--color-on-primary)' : 'var(--color-on-surface-variant)',
+                        padding: '0.4rem 1rem',
+                        cursor: 'pointer',
+                        fontFamily: 'var(--font-body)',
+                        fontSize: '0.8rem',
+                        fontWeight: active ? 600 : 500,
+                        transition: 'all 120ms',
+                      }}
+                    >
+                      {mode === 'brutto' ? 'Brutto' : 'Netto'}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <p
+              style={{
+                fontSize: '0.7rem',
+                color: 'var(--color-on-surface-variant)',
+                fontFamily: 'var(--font-body)',
+                marginTop: '0.35rem',
+                marginBottom: 0,
+              }}
+            >
+              Abwesenheitspauschalen zählen nicht als Beleg — sie stehen auf der Fahrten-Seite und im CSV-Export.
+            </p>
+            {isCapped && (
+              <p
+                style={{
+                  fontSize: '0.7rem',
+                  color: 'var(--color-on-surface-variant)',
+                  fontFamily: 'var(--font-body)',
+                  marginTop: '0.2rem',
+                  marginBottom: 0,
+                }}
+              >
+                Summe evtl. gedeckelt (500 Treffer).
+              </p>
+            )}
+          </div>
+
           {/* Tabelle */}
           <ReceiptsTable
             items={items}
@@ -455,6 +570,58 @@ const selectStyle: React.CSSProperties = {
   cursor: 'pointer',
   outline: 'none',
 };
+
+/** Kachel der Summenleiste im Stil der Filterleiste (Graphit/Electric-Noir). */
+function SummenChip({
+  label,
+  value,
+  color,
+  highlighted = false,
+}: {
+  label: string;
+  value: number;
+  color: string;
+  highlighted?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        background: 'var(--color-surface-variant)',
+        borderRadius: '0.75rem',
+        padding: '0.75rem 1.1rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.25rem',
+        minWidth: '120px',
+        border: highlighted
+          ? '1px solid color-mix(in srgb, var(--color-primary) 30%, transparent)'
+          : '1px solid transparent',
+      }}
+    >
+      <span
+        style={{
+          fontSize: '0.65rem',
+          letterSpacing: '0.05em',
+          textTransform: 'uppercase',
+          color: 'var(--color-on-surface-variant)',
+          fontFamily: 'var(--font-body)',
+        }}
+      >
+        {label}
+      </span>
+      <span
+        style={{
+          fontFamily: 'Manrope',
+          fontWeight: 700,
+          fontSize: '1.05rem',
+          color,
+        }}
+      >
+        {formatCurrencyFromCents(value)}
+      </span>
+    </div>
+  );
+}
 
 interface ReceiptsTableProps {
   items: ReceiptListItem[];
