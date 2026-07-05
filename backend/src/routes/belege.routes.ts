@@ -1484,10 +1484,10 @@ router.get('/:id', (req, res) => {
   const trip = receipt.linked_trip_id
     ? (db
         .prepare(
-          `SELECT departure_time, return_time, meal_allowance_cents FROM trips WHERE id = ?`,
+          `SELECT departure_time, return_time, meal_allowance_cents, distance_km, rate_per_km_cents FROM trips WHERE id = ?`,
         )
         .get(receipt.linked_trip_id) as
-        | { departure_time: string | null; return_time: string | null; meal_allowance_cents: number }
+        | { departure_time: string | null; return_time: string | null; meal_allowance_cents: number; distance_km: number | null; rate_per_km_cents: number | null }
         | undefined) ?? null
     : null;
 
@@ -1501,6 +1501,8 @@ router.get('/:id', (req, res) => {
     trip_departure_time: trip?.departure_time ?? null,
     trip_return_time: trip?.return_time ?? null,
     trip_meal_allowance_cents: trip?.meal_allowance_cents ?? null,
+    trip_distance_km: trip?.distance_km ?? null,
+    trip_rate_per_km_cents: trip?.rate_per_km_cents ?? null,
   });
 });
 
