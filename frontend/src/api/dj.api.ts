@@ -215,6 +215,8 @@ export interface DjTrip {
   reimbursement_amount: number;
   mileage_rate: number;
   meal_allowance: number;
+  departure_time: string | null;
+  return_time: string | null;
   area_slug: string | null;
   reference: string | null;
   freigegeben_at: string | null;  // gesetzt = über Beleg freigegeben/GoBD-gesperrt
@@ -363,6 +365,8 @@ export const createDjTrip = (data: {
   area_slug: string;
   reference?: string;
   linked_event_id?: number;
+  departure_time?: string;
+  return_time?: string;
 }): Promise<{ id: number }> =>
   apiClient.post('/trips', {
     expense_date: data.expense_date,
@@ -374,6 +378,8 @@ export const createDjTrip = (data: {
     area_slug: data.area_slug,
     ...(data.reference?.trim() ? { reference: data.reference.trim() } : {}),
     ...(data.linked_event_id !== undefined ? { linked_event_id: data.linked_event_id } : {}),
+    ...(data.departure_time ? { departure_time: data.departure_time } : {}),
+    ...(data.return_time ? { return_time: data.return_time } : {}),
   }).then(r => r.data);
 
 // Fahrt bearbeiten — PATCH /trips/:id (gleiche Payload-Form wie createDjTrip).
@@ -388,6 +394,8 @@ export const updateDjTrip = (id: number, data: {
   rate_per_km: number;
   area_slug: string;
   reference?: string;
+  departure_time?: string;
+  return_time?: string;
 }): Promise<{ id: number }> =>
   apiClient.patch(`/trips/${id}`, {
     expense_date: data.expense_date,
@@ -398,6 +406,10 @@ export const updateDjTrip = (id: number, data: {
     rate_per_km_cents: Math.round(data.rate_per_km * 100),
     area_slug: data.area_slug,
     ...(data.reference?.trim() ? { reference: data.reference.trim() } : {}),
+    // Beim Bearbeiten IMMER senden — leerer String loescht die Pauschale
+    // (Backend interpretiert '' als null, setzt meal_allowance_cents=0).
+    departure_time: data.departure_time ?? '',
+    return_time: data.return_time ?? '',
   }).then(r => r.data);
 
 // Fahrt loeschen — ersetzt frueheres deleteDjExpense (Plan 04-11)

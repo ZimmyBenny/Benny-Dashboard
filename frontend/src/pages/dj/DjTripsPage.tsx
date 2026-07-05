@@ -21,6 +21,9 @@ interface TripForm {
   rate_per_km: string;
   area_slug: string;
   reference: string;
+  enable_meal: boolean;
+  departure_time: string;
+  return_time: string;
 }
 
 const EMPTY_FORM: TripForm = {
@@ -32,7 +35,40 @@ const EMPTY_FORM: TripForm = {
   rate_per_km: '0.30',
   area_slug: 'dj',
   reference: '',
+  enable_meal: false,
+  departure_time: '',
+  return_time: '',
 };
+
+// Standardsätze nur für die Live-Vorschau im Formular (Blob-Werte liegen im
+// Frontend nicht vor). Verbindliche Berechnung erfolgt serverseitig.
+const MEAL_RATE_8H_PREVIEW = 14;
+const MEAL_RATE_24H_PREVIEW = 28;
+
+/** Abwesenheitsdauer in Stunden aus HH:MM-Zeiten (Folgetag-Logik wie Backend). */
+function previewMealHours(departure: string, ret: string): number | null {
+  const parse = (v: string): number | null => {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(v.trim());
+    if (!m) return null;
+    const h = Number(m[1]);
+    const min = Number(m[2]);
+    if (h > 23 || min > 59) return null;
+    return h * 60 + min;
+  };
+  const dep = parse(departure);
+  const r = parse(ret);
+  if (dep === null || r === null) return null;
+  let duration = r - dep;
+  if (duration <= 0) duration += 24 * 60; // Nacht-Gig -> Folgetag
+  return duration / 60;
+}
+
+/** Vorschau-Pauschale (EUR) aus Stundenzahl — nur Anzeige. */
+function previewMealAmount(hours: number): number {
+  if (hours >= 24) return MEAL_RATE_24H_PREVIEW;
+  if (hours >= 8) return MEAL_RATE_8H_PREVIEW;
+  return 0;
+}
 
 const inputStyle: React.CSSProperties = {
   background: 'rgba(255,255,255,0.06)',
@@ -152,6 +188,9 @@ export function DjTripsPage() {
       rate_per_km: String(t.mileage_rate ?? 0.30),
       area_slug: t.area_slug ?? 'dj',
       reference: t.reference ?? '',
+      enable_meal: !!(t.departure_time || t.return_time),
+      departure_time: t.departure_time ?? '',
+      return_time: t.return_time ?? '',
     });
     setFormError('');
     setOpen(true);
@@ -170,6 +209,9 @@ export function DjTripsPage() {
       rate_per_km: String(t.mileage_rate ?? 0.30),
       area_slug: t.area_slug ?? 'dj',
       reference: t.reference ?? '',
+      enable_meal: !!(t.departure_time || t.return_time),
+      departure_time: t.departure_time ?? '',
+      return_time: t.return_time ?? '',
     });
     setFormError('');
     setOpen(true);
@@ -179,7 +221,7 @@ export function DjTripsPage() {
     e.preventDefault();
     // Keine Pflichtfeld-Validierung mehr — Speichern klappt auch unvollständig.
     // Leeres Datum → heute (einziges Backend-Pflichtfeld).
-    const payload = {
+    const base = {
       expense_date: form.expense_date || todayLocal(),
       start_location: form.start_location,
       end_location: form.end_location,
@@ -190,9 +232,20 @@ export function DjTripsPage() {
       reference: form.reference.trim() || undefined,
     };
     if (editTarget) {
-      editMutation.mutate(payload);
+      // EDIT: Zeiten IMMER senden (leer wenn Schalter aus) → löscht zuvor gesetzte Pauschale.
+      editMutation.mutate({
+        ...base,
+        departure_time: form.enable_meal ? form.departure_time : '',
+        return_time: form.enable_meal ? form.return_time : '',
+      });
     } else {
-      createMutation.mutate(payload);
+      // CREATE: Zeiten nur mitsenden wenn Schalter an.
+      createMutation.mutate({
+        ...base,
+        ...(form.enable_meal
+          ? { departure_time: form.departure_time, return_time: form.return_time }
+          : {}),
+      });
     }
   }
 
@@ -293,7 +346,7 @@ export function DjTripsPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: 'rgba(255,255,255,0.04)' }}>
-                    {['Datum', 'Veranstaltung', 'Eventart', 'Bereich', 'Referenz', 'Einfache Strecke', 'Von', 'Nach', 'Gesamt (H+R)', 'Absetzbarer Wert', ''].map(h => (
+                    {['Datum', 'Veranstaltung', 'Eventart', 'Bereich', 'Referenz', 'Einfache Strecke', 'Von', 'Nach', 'Gesamt (H+R)', 'Absetzbarer Wert', 'Pauschale', ''].map(h => (
                       <th key={h} style={{
                         padding: '0.75rem 1rem', textAlign: 'left',
                         fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.7rem',
@@ -315,7 +368,9 @@ export function DjTripsPage() {
                         {formatDate(t.date)}
                       </td>
                       <td style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface)', fontWeight: 500 }}>
-                        {t.event_name ?? <span style={{ color: 'var(--color-on-surface-variant)', fontStyle: 'italic' }}>Manuelle Fahrt</span>}
+                        {t.event_name ?? (t.purpose?.trim()
+                          ? t.purpose
+                          : <span style={{ color: 'var(--color-on-surface-variant)', fontStyle: 'italic' }}>Manuelle Fahrt</span>)}
                       </td>
                       <td style={{ padding: '0.75rem 1rem' }}>
                         {t.purpose ? (
@@ -350,6 +405,9 @@ export function DjTripsPage() {
                       </td>
                       <td style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: '#5cfd80', whiteSpace: 'nowrap', fontWeight: 700 }}>
                         {t.reimbursement_amount > 0 ? formatCurrency(t.reimbursement_amount) : '–'}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: '#94aaff', whiteSpace: 'nowrap', fontWeight: 700 }}>
+                        {t.meal_allowance > 0 ? formatCurrency(t.meal_allowance) : '–'}
                       </td>
                       <td style={{ padding: '0.75rem 1rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
@@ -421,6 +479,9 @@ export function DjTripsPage() {
                       </td>
                       <td style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: '#5cfd80', fontWeight: 700 }}>
                         {formatCurrency(totalReimbursement)}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: '#94aaff', fontWeight: 700 }}>
+                        {totalMeal > 0 ? formatCurrency(totalMeal) : ''}
                       </td>
                       <td />
                     </tr>
@@ -525,6 +586,59 @@ export function DjTripsPage() {
                 <span style={{ fontFamily: 'var(--font-headline)', fontSize: '1.1rem', fontWeight: 700, color: '#5cfd80' }}>
                   {formatCurrency(reimbursement * 2)}
                 </span>
+              </div>
+
+              {/* Abwesenheitspauschale (Verpflegungsmehraufwand) — optional */}
+              <div style={{
+                border: '1px solid rgba(148,170,255,0.15)',
+                borderRadius: '0.5rem',
+                padding: '0.75rem 1rem',
+                display: 'flex', flexDirection: 'column', gap: '0.75rem',
+              }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={form.enable_meal}
+                    onChange={e => setForm(f => ({ ...f, enable_meal: e.target.checked }))}
+                    style={{ width: '1rem', height: '1rem', accentColor: 'var(--color-primary)', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--color-on-surface)', fontWeight: 600 }}>
+                    Abwesenheitspauschale erfassen
+                  </span>
+                </label>
+
+                {form.enable_meal && (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                      <FormField label="Abfahrt">
+                        <input type="time" value={form.departure_time} onChange={e => field('departure_time', e.target.value)} style={inputStyle} />
+                      </FormField>
+                      <FormField label="Rückkehr">
+                        <input type="time" value={form.return_time} onChange={e => field('return_time', e.target.value)} style={inputStyle} />
+                      </FormField>
+                    </div>
+
+                    {/* Live-Vorschau (nur wenn beide Zeiten gesetzt) — verbindlicher Wert serverseitig */}
+                    {(() => {
+                      const hours = form.departure_time && form.return_time
+                        ? previewMealHours(form.departure_time, form.return_time)
+                        : null;
+                      if (hours === null) return null;
+                      const amount = previewMealAmount(hours);
+                      return (
+                        <div style={{
+                          background: 'rgba(148,170,255,0.06)', border: '1px solid rgba(148,170,255,0.15)',
+                          borderRadius: '0.5rem', padding: '0.625rem 0.875rem',
+                          fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)',
+                        }}>
+                          Abwesenheit: {hours.toFixed(1).replace('.', ',')} Std → Pauschale:{' '}
+                          <span style={{ color: '#94aaff', fontWeight: 700 }}>{formatCurrency(amount)}</span>
+                          {' '}(Standardsätze; verbindlicher Wert nach Speichern)
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
               </div>
 
               <FormField label="Bereich">
