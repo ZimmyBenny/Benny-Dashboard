@@ -18,7 +18,7 @@
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import {
   fetchUstva,
@@ -45,7 +45,15 @@ const TYPE_LABEL_TAX: Record<SteuerCsvType, string> = {
 
 export function BelegeTaxPage() {
   const navigate = useNavigate();
-  const [year, setYear] = useState(new Date().getFullYear());
+  // Jahr in der URL persistieren, damit es beim Zurueck-Navigieren (navigate(-1))
+  // erhalten bleibt statt auf das aktuelle Jahr zurueckzuspringen.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const year = Number(searchParams.get('year')) || new Date().getFullYear();
+  const setYear = (y: number) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('year', String(y));
+    setSearchParams(next, { replace: true });
+  };
   const [drillIdx, setDrillIdx] = useState<number | null>(null);
   const [csvBusy, setCsvBusy] = useState<SteuerCsvType | null>(null);
   const [csvError, setCsvError] = useState<string | null>(null);
