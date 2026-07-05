@@ -16,7 +16,7 @@
  *
  * Datenquelle: GET /api/belege/ustva + /api/belege/ustva-drill (Plan 04-10).
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageWrapper } from '../../components/layout/PageWrapper';
@@ -43,7 +43,9 @@ export function BelegeTaxPage() {
   // Jahr in der URL persistieren, damit es beim Zurueck-Navigieren (navigate(-1))
   // erhalten bleibt statt auf das aktuelle Jahr zurueckzuspringen.
   const [searchParams, setSearchParams] = useSearchParams();
-  const year = Number(searchParams.get('year')) || new Date().getFullYear();
+  const yearParam = Number(searchParams.get('year'));
+  const year =
+    yearParam >= 2000 && yearParam <= 2100 ? yearParam : new Date().getFullYear();
   const setYear = (y: number) => {
     const next = new URLSearchParams(searchParams);
     next.set('year', String(y));
@@ -449,13 +451,29 @@ function YearPicker({
   year: number;
   onChange: (year: number) => void;
 }) {
+  // Lokaler Eingabe-State: erst bei Verlassen/Enter committen. Sonst loest jeder
+  // Tastendruck ein Neuladen aus, die Loading-Ansicht haengt das Feld ab und man
+  // kann das Jahr nicht am Stueck eintippen.
+  const [local, setLocal] = useState(String(year));
+  useEffect(() => {
+    setLocal(String(year));
+  }, [year]);
+  function commit() {
+    const next = parseInt(local, 10);
+    if (Number.isFinite(next) && next >= 2000 && next <= 2100) onChange(next);
+    else setLocal(String(year));
+  }
   return (
     <input
       type="number"
-      value={year}
-      onChange={(e) => {
-        const next = parseInt(e.target.value, 10);
-        if (Number.isFinite(next)) onChange(next);
+      value={local}
+      onChange={(e) => setLocal(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          commit();
+          (e.target as HTMLInputElement).blur();
+        }
       }}
       aria-label="Jahr"
       style={{
