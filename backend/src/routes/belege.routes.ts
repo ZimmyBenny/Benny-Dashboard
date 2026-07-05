@@ -34,6 +34,7 @@ import { aggregateForUstva, type UstvaPeriod } from '../services/taxCalcService'
 import { logAudit } from '../services/audit.service';
 import { createBackup } from '../db/backup';
 import * as belegeMirror from '../lib/belegeMirror';
+import { eurFromCents, hoursDecimal, plainDecimal, buildCsv } from '../lib/csvExport';
 import uploadRouter from './belege.upload.routes';
 import type { Receipt } from '../types/receipt';
 import type { AuthenticatedRequest } from '../middleware/auth';
@@ -337,6 +338,199 @@ router.get('/export-csv', (req, res) => {
   );
   // BOM (﻿) damit Excel die Datei als UTF-8 erkennt
   res.send('﻿' + csv);
+});
+
+/**
+ * GET /api/belege/export/:type.csv?year=2026
+ *
+ * Steuerberater-freundliche CSV-Exporte im deutschen Format (Semikolon-getrennt,
+ * Komma-Dezimal, UTF-8 mit BOM, echte Umlaute). Reine Lese-Operation → KEIN Backup.
+ *
+ * type ∈ {'fahrten','abwesenheitspauschalen','belege'}:
+ *  - fahrten                → alle trips des Jahres, mit Grundwerten (km einfach, €/km, km Hin+Rück) + Betrag
+ *  - abwesenheitspauschalen → trips mit meal_allowance_cents > 0, mit Abwesenheit (Std) + angewandtem Satz + Betrag
+ *  - belege                 → receipts (nur Aus-/Eingangsrechnungen — Fahrt-Belege werden NICHT gedoppelt)
+ *
+ * MUSS vor `/:id` stehen (sonst matched Express `/:id` mit id="export").
+ */
+router.get('/export/:type.csv', (req, res) => {
+  const type = req.params.type;
+  const year = parseInt(String(req.query.year), 10);
+  if (!Number.isFinite(year)) {
+    return res.status(400).json({ error: 'Ungültiges oder fehlendes Jahr.' });
+  }
+  const yearStr = String(year);
+
+  let headers: string[];
+  let rows: string[][];
+  let filename: string;
+
+  if (type === 'fahrten') {
+    // CSV 1 — FAHRTEN: Grundwerte + Sätze getrennt sichtbar, Betrag ist bereits Rundreise.
+    const trips = db
+      .prepare(
+        `SELECT t.expense_date, COALESCE(a.name, t.area_slug) AS bereich,
+           COALESCE(t.reference,
+             (SELECT number FROM dj_invoices WHERE event_id=t.linked_event_id AND number IS NOT NULL AND is_cancellation=0 ORDER BY id DESC LIMIT 1),
+             (SELECT number FROM dj_quotes   WHERE event_id=t.linked_event_id AND number IS NOT NULL ORDER BY id DESC LIMIT 1)
+           ) AS referenz,
+           t.start_location, t.end_location, t.distance_km, t.rate_per_km_cents, t.amount_cents
+         FROM trips t
+         LEFT JOIN areas a ON a.slug = t.area_slug
+         WHERE strftime('%Y', t.expense_date) = ?
+         ORDER BY t.expense_date, t.id`,
+      )
+      .all(yearStr) as Array<{
+      expense_date: string;
+      bereich: string | null;
+      referenz: string | null;
+      start_location: string | null;
+      end_location: string | null;
+      distance_km: number | null;
+      rate_per_km_cents: number | null;
+      amount_cents: number | null;
+    }>;
+
+    headers = ['Datum', 'Bereich', 'Referenz', 'Von', 'Nach', 'km (einfach)', '€/km', 'km (Hin+Rück)', 'Betrag (EUR)'];
+    rows = trips.map((t) => [
+      t.expense_date,
+      t.bereich ?? '',
+      t.referenz ?? '',
+      t.start_location ?? '',
+      t.end_location ?? '',
+      String(t.distance_km ?? 0),
+      plainDecimal((t.rate_per_km_cents ?? 0) / 100, 2),
+      String((t.distance_km ?? 0) * 2),
+      eurFromCents(t.amount_cents),
+    ]);
+    filename = `fahrten-${year}.csv`;
+  } else if (type === 'abwesenheitspauschalen') {
+    // CSV 2 — ABWESENHEITSPAUSCHALEN: nur trips mit gespeicherter Pauschale.
+    const trips = db
+      .prepare(
+        `SELECT t.expense_date, COALESCE(e.title, t.purpose) AS anlass,
+           t.departure_time, t.return_time, t.meal_allowance_cents
+         FROM trips t
+         LEFT JOIN dj_events e ON e.id = t.linked_event_id
+         WHERE t.meal_allowance_cents > 0 AND strftime('%Y', t.expense_date) = ?
+         ORDER BY t.expense_date, t.id`,
+      )
+      .all(yearStr) as Array<{
+      expense_date: string;
+      anlass: string | null;
+      departure_time: string | null;
+      return_time: string | null;
+      meal_allowance_cents: number | null;
+    }>;
+
+    // Sätze EINMALIG aus dj_settings 'tax' lesen (KEINE 14/28-Hardcodes) — so bleibt die
+    // Spalte „Satz (EUR)" konsistent zum gespeicherten „Betrag", auch wenn Benny die Sätze
+    // in den DJ-Steuer-Einstellungen ändert. Fallback 14/28 nur wenn das Feld fehlt.
+    // (Verbindliche Betrags-Berechnung erfolgt beim Erfassen via computeMealAllowanceCents.)
+    const taxRow = db.prepare("SELECT value FROM dj_settings WHERE key = 'tax'").get() as
+      | { value: string }
+      | undefined;
+    const tax = taxRow ? JSON.parse(taxRow.value) : {};
+    const rate8 = Number(tax?.meal_allowance_8h) || 14;
+    const rate24 = Number(tax?.meal_allowance_24h) || 28;
+
+    // "HH:MM" → Minuten seit Mitternacht; ungültig/fehlend → null.
+    const toMinutes = (hhmm: string | null): number | null => {
+      if (!hhmm) return null;
+      const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
+      if (!m) return null;
+      return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+    };
+
+    headers = ['Datum', 'Anlass', 'Abfahrt', 'Rückkehr', 'Abwesenheit (Std)', 'Satz (EUR)', 'Betrag (EUR)'];
+    rows = trips.map((t) => {
+      const dep = toMinutes(t.departure_time);
+      const ret = toMinutes(t.return_time);
+      let hours = 0;
+      if (dep !== null && ret !== null) {
+        let durationMin = ret - dep;
+        if (durationMin <= 0) durationMin += 24 * 60; // Folgetag-Logik (analog mealAllowance.ts)
+        hours = durationMin / 60;
+      }
+      const satz = hours >= 24 ? rate24 : hours >= 8 ? rate8 : 0;
+      return [
+        t.expense_date,
+        t.anlass ?? '',
+        t.departure_time ?? '',
+        t.return_time ?? '',
+        hoursDecimal(hours),
+        plainDecimal(satz, 2),
+        eurFromCents(t.meal_allowance_cents),
+      ];
+    });
+    filename = `abwesenheitspauschalen-${year}.csv`;
+  } else if (type === 'belege') {
+    // CSV 3 — BELEGE/RECHNUNGEN: nur Aus-/Eingangsrechnungen, damit Fahrt-Belege NICHT
+    // doppelt auftauchen (die stecken in der Fahrten-CSV). Netto/USt/Brutto getrennt.
+    // PRIMARY_AREA_SUBQUERY hier inline dupliziert — die Modul-Konstante steht weiter
+    // unten im File (nach dieser Route), daher nicht referenzierbar.
+    const receipts = db
+      .prepare(
+        `SELECT r.receipt_date, r.type, r.supplier_name,
+           COALESCE(r.receipt_number, r.supplier_invoice_number) AS beleg_nr,
+           r.amount_net_cents, r.vat_amount_cents, r.amount_gross_cents, r.vat_rate, r.status,
+           (SELECT a2.name FROM receipt_area_links ral2
+              JOIN areas a2 ON a2.id = ral2.area_id
+              WHERE ral2.receipt_id = r.id
+              ORDER BY ral2.is_primary DESC, a2.name ASC LIMIT 1) AS primary_area
+         FROM receipts r
+         WHERE r.type IN ('ausgangsrechnung','eingangsrechnung')
+           AND strftime('%Y', r.receipt_date) = ?
+         ORDER BY r.receipt_date, r.id`,
+      )
+      .all(yearStr) as Array<{
+      receipt_date: string;
+      type: string;
+      supplier_name: string | null;
+      beleg_nr: string | null;
+      amount_net_cents: number | null;
+      vat_amount_cents: number | null;
+      amount_gross_cents: number | null;
+      vat_rate: number | null;
+      status: string | null;
+      primary_area: string | null;
+    }>;
+
+    const typLabel = (t: string): string =>
+      t === 'ausgangsrechnung' ? 'Ausgangsrechnung' : t === 'eingangsrechnung' ? 'Eingangsrechnung' : t;
+
+    headers = [
+      'Datum',
+      'Typ',
+      'Lieferant/Kunde',
+      'Beleg-/Rechnungsnr',
+      'Netto (EUR)',
+      'USt (EUR)',
+      'Brutto (EUR)',
+      'Steuersatz (%)',
+      'Bereich',
+      'Status',
+    ];
+    rows = receipts.map((r) => [
+      r.receipt_date,
+      typLabel(r.type),
+      r.supplier_name ?? '',
+      r.beleg_nr ?? '',
+      eurFromCents(r.amount_net_cents),
+      eurFromCents(r.vat_amount_cents),
+      eurFromCents(r.amount_gross_cents),
+      String(r.vat_rate ?? 0),
+      r.primary_area ?? '',
+      r.status ?? '',
+    ]);
+    filename = `belege-${year}.csv`;
+  } else {
+    return res.status(400).json({ error: 'Unbekannter Export-Typ.' });
+  }
+
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send(buildCsv(headers, rows)); // buildCsv stellt das BOM voran
 });
 
 /**
