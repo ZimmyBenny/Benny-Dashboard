@@ -29,6 +29,7 @@ import { BelegLightbox } from '../../components/belege/BelegLightbox';
 import { AuditTrail } from '../../components/belege/AuditTrail';
 import {
   fetchReceipt,
+  fetchReceipts,
   updateReceipt,
   freigebenReceipt,
   deleteReceipt,
@@ -75,9 +76,24 @@ export function BelegeDetailPage() {
 
   const freigebenMut = useMutation({
     mutationFn: () => freigebenReceipt(id),
-    onSuccess: () => {
+    onSuccess: async () => {
       qc.invalidateQueries({ queryKey: ['belege', id] });
       qc.invalidateQueries({ queryKey: ['belege'] });
+      // Fluessiger Pruef-Durchlauf: nach dem Freigeben automatisch zum naechsten
+      // noch offenen Beleg springen (frische pending-Liste, aktuelle id defensiv
+      // ausschliessen gegen Cache-Timing). Kein offener mehr -> zurueck zur Liste.
+      try {
+        const pending = await fetchReceipts({ pending: '1' });
+        const next = pending.find((b) => b.id !== id);
+        if (next) {
+          navigate(`/belege/${next.id}`);
+        } else {
+          navigate('/belege/zu-pruefen');
+        }
+      } catch {
+        // Liste konnte nicht geladen werden — zurueck zur Uebersicht statt haengen
+        navigate('/belege/zu-pruefen');
+      }
     },
   });
 
