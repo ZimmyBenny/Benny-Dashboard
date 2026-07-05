@@ -295,6 +295,10 @@ export const updateArea = (
 ): Promise<Area> =>
   apiClient.patch(`/belege/areas/${id}`, data).then((r) => r.data);
 
+/** DELETE /api/belege/areas/:id — Bereich loeschen (409 mit count wenn verknuepfte Belege vorhanden). */
+export const deleteArea = (id: number): Promise<{ ok: boolean }> =>
+  apiClient.delete(`/belege/areas/${id}`).then((r) => r.data);
+
 /** POST /api/belege/tax-categories — neue Steuer-Kategorie erstellen. */
 export const createTaxCategory = (data: {
   name: string;

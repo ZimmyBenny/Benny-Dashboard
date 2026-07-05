@@ -25,6 +25,7 @@ import {
   fetchAreas,
   createArea,
   updateArea,
+  deleteArea,
   fetchTaxCategories,
   createTaxCategory,
   triggerDbBackup,
@@ -79,6 +80,18 @@ export function BelegeSettingsPage() {
     mutationFn: ({ id, data }: { id: number; data: Partial<Area> }) =>
       updateArea(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['areas'] }),
+  });
+  const deleteAreaMut = useMutation({
+    mutationFn: deleteArea,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['areas'] }),
+    onError: (err: unknown) => {
+      const count = (err as { response?: { data?: { count?: number } } })?.response?.data?.count;
+      if (typeof count === 'number') {
+        window.alert(`Bereich kann nicht gelöscht werden — ${count} verknüpfte Belege.`);
+      } else {
+        window.alert('Bereich konnte nicht gelöscht werden.');
+      }
+    },
   });
   const createTcMut = useMutation({
     mutationFn: createTaxCategory,
@@ -324,6 +337,11 @@ export function BelegeSettingsPage() {
                 key={a.id}
                 area={a}
                 onUpdate={(data) => updateAreaMut.mutate({ id: a.id, data })}
+                onDelete={() => {
+                  if (window.confirm(`Bereich „${a.name}" wirklich löschen?`)) {
+                    deleteAreaMut.mutate(a.id);
+                  }
+                }}
               />
             ))}
             {areas.length === 0 && (
@@ -560,9 +578,11 @@ function SettingRow({
 function AreaRow({
   area,
   onUpdate,
+  onDelete,
 }: {
   area: Area;
   onUpdate: (data: Partial<Area>) => void;
+  onDelete: () => void;
 }) {
   const [name, setName] = useState(area.name);
   const [color, setColor] = useState(area.color);
@@ -615,6 +635,23 @@ function AreaRow({
         }}
       >
         {area.archived ? 'Reaktivieren' : 'Archivieren'}
+      </button>
+      <button
+        type="button"
+        onClick={onDelete}
+        title="Bereich löschen"
+        style={{
+          padding: '0.5rem',
+          background: 'transparent',
+          border: '1px solid rgba(255,110,132,0.3)',
+          borderRadius: '0.5rem',
+          color: 'var(--color-error)',
+          display: 'flex',
+          alignItems: 'center',
+          cursor: 'pointer',
+        }}
+      >
+        <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>delete</span>
       </button>
     </li>
   );

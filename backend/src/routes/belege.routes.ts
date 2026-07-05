@@ -507,6 +507,38 @@ router.patch('/areas/:id', (req, res) => {
 });
 
 /**
+ * DELETE /api/belege/areas/:id
+ *
+ * Loescht einen Bereich — mit Link-Guard: Ist der Bereich noch mit Belegen
+ * verknuepft (receipt_area_links), wird das Loeschen mit 409 + Anzahl geblockt.
+ * areas hat kein Schutz-/is_default-Flag, daher genuegt der Link-Guard.
+ *
+ * MUSS vor `/:id` stehen.
+ */
+router.delete('/areas/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: 'Ungueltige id' });
+    return;
+  }
+  const existing = db.prepare(`SELECT * FROM areas WHERE id = ?`).get(id);
+  if (!existing) {
+    res.status(404).json({ error: 'Bereich nicht gefunden' });
+    return;
+  }
+  const { c } = db
+    .prepare(`SELECT COUNT(*) AS c FROM receipt_area_links WHERE area_id = ?`)
+    .get(id) as { c: number };
+  if (c > 0) {
+    res.status(409).json({ error: 'Bereich hat verknuepfte Belege', count: c });
+    return;
+  }
+  db.prepare(`DELETE FROM areas WHERE id = ?`).run(id);
+  logAudit(req, 'area', id, 'delete', existing, undefined);
+  res.status(200).json({ ok: true });
+});
+
+/**
  * POST /api/belege/tax-categories
  *
  * Erstellt eine neue Steuer-Kategorie. Body: { name, kind, default_vat_rate?, default_input_tax_deductible? }.
