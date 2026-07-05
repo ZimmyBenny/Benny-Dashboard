@@ -232,7 +232,16 @@ router.get('/trips', (req, res) => {
       (t.amount_cents / 100.0)          AS reimbursement_amount,
       (t.rate_per_km_cents / 100.0)     AS mileage_rate,
       0                                 AS meal_allowance,
-      t.area_slug                       AS area_slug
+      t.area_slug                       AS area_slug,
+      COALESCE(
+        t.reference,
+        (SELECT number FROM dj_invoices
+           WHERE event_id = t.linked_event_id AND number IS NOT NULL AND is_cancellation = 0
+           ORDER BY id DESC LIMIT 1),
+        (SELECT number FROM dj_quotes
+           WHERE event_id = t.linked_event_id AND number IS NOT NULL
+           ORDER BY id DESC LIMIT 1)
+      )                                 AS reference
     FROM trips t
     LEFT JOIN dj_events e ON e.id = t.linked_event_id
     WHERE strftime('%Y', t.expense_date) = ?

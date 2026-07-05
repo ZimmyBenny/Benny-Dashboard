@@ -57,6 +57,7 @@ router.post('/', (req, res) => {
     expense_date,
     notes,
     area_slug,
+    reference,
   } = req.body as Record<string, unknown>;
 
   if (!expense_date) {
@@ -68,13 +69,15 @@ router.post('/', (req, res) => {
   const ratePerKm = Number(rate_per_km_cents) || 30;
   const amount = distance * ratePerKm;
   const areaSlug = normalizeAreaSlug(area_slug);
+  const referenceValue =
+    typeof reference === 'string' && reference.trim() ? reference.trim() : null;
 
   const result = db
     .prepare(
       `INSERT INTO trips
          (start_location, end_location, distance_km, purpose,
-          rate_per_km_cents, amount_cents, linked_event_id, expense_date, notes, area_slug)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          rate_per_km_cents, amount_cents, linked_event_id, expense_date, notes, area_slug, reference)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       start_location ?? null,
@@ -87,6 +90,7 @@ router.post('/', (req, res) => {
       expense_date,
       notes ?? null,
       areaSlug,
+      referenceValue,
     );
   const id = Number(result.lastInsertRowid);
 
@@ -122,6 +126,7 @@ router.patch('/:id', (req, res) => {
     expense_date,
     notes,
     area_slug,
+    reference,
   } = req.body as Record<string, unknown>;
 
   const distance = distance_km !== undefined ? Number(distance_km) : null;
@@ -154,6 +159,16 @@ router.patch('/:id', (req, res) => {
     areaSlug,
     id,
   );
+
+  // reference wird per direkter Zuweisung gesetzt (kein COALESCE) — so laesst
+  // sich eine gesetzte Referenz auch wieder leeren (undefined = unveraendert lassen).
+  if (reference !== undefined) {
+    const referenceValue = String(reference).trim() || null;
+    db.prepare(`UPDATE trips SET reference = ? WHERE id = ?`).run(
+      referenceValue,
+      id,
+    );
+  }
 
   // Recompute amount_cents wenn distance_km oder rate_per_km_cents geändert wurden
   db.prepare(

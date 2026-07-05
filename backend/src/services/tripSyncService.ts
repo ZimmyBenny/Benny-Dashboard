@@ -25,6 +25,40 @@ interface Trip {
   expense_date: string;
   notes: string | null;
   area_slug: string;
+  reference: string | null;
+}
+
+/**
+ * Leitet die Referenz fuer den gespiegelten Fahrt-Beleg ab:
+ * 1. Manuelle trip.reference hat Vorrang (nach trim).
+ * 2. Sonst, falls linked_event_id gesetzt: RE-Nummer der neuesten
+ *    nicht-stornierten Rechnung zu diesem Event.
+ * 3. Fallback: AN-Nummer des neuesten Angebots zu diesem Event.
+ * 4. Sonst null.
+ */
+function deriveReference(trip: Trip): string | null {
+  const manual = trip.reference?.trim();
+  if (manual) return manual;
+
+  if (!trip.linked_event_id) return null;
+
+  const invoice = db
+    .prepare(
+      `SELECT number FROM dj_invoices
+       WHERE event_id = ? AND number IS NOT NULL AND is_cancellation = 0
+       ORDER BY id DESC LIMIT 1`,
+    )
+    .get(trip.linked_event_id) as { number: string } | undefined;
+  if (invoice?.number) return invoice.number;
+
+  const quote = db
+    .prepare(
+      `SELECT number FROM dj_quotes
+       WHERE event_id = ? AND number IS NOT NULL
+       ORDER BY id DESC LIMIT 1`,
+    )
+    .get(trip.linked_event_id) as { number: string } | undefined;
+  return quote?.number ?? null;
 }
 
 /** Loest eine areas.slug auf eine area_id auf; unbekannter/leerer Slug faellt auf 'dj' zurueck. */
@@ -71,16 +105,32 @@ export function mirrorTripToReceipts(
 
   const existing = db
     .prepare(
-      `SELECT id FROM receipts WHERE source = 'dj_trip_sync' AND linked_trip_id = ?`,
+      `SELECT id, freigegeben_at FROM receipts WHERE source = 'dj_trip_sync' AND linked_trip_id = ?`,
     )
-    .get(tripId) as { id: number } | undefined;
+    .get(tripId) as { id: number; freigegeben_at: string | null } | undefined;
+
+  const referenceValue = deriveReference(trip);
 
   let receiptId: number;
   if (existing) {
+    if (existing.freigegeben_at) {
+      // GoBD-Guard: Der Mirror-Beleg wurde bereits freigegeben (freigegeben_at
+      // gesetzt). Ein UPDATE wuerde den Lock-Trigger
+      // trg_receipts_no_update_after_freigabe ausloesen (RAISE ABORT) und da
+      // mirrorTripToReceipts in trips.routes NICHT in try/catch liegt, einen
+      // unhandled 500 erzeugen. Daher: UPDATE + Area-Link-Rewrite komplett
+      // ueberspringen, der freigegebene Beleg bleibt unangetastet.
+      console.warn(
+        `[tripSyncService] Mirror-Beleg ${existing.id} fuer Trip ${tripId} ist bereits freigegeben (freigegeben_at=${existing.freigegeben_at}) — UPDATE uebersprungen.`,
+      );
+      return existing.id;
+    }
+
     db.prepare(
       `UPDATE receipts SET
          supplier_name = ?, receipt_date = ?,
          amount_gross_cents = ?, amount_net_cents = ?, vat_amount_cents = 0,
+         supplier_invoice_number = ?,
          notes = ?, updated_at = datetime('now')
        WHERE id = ?`,
     ).run(
@@ -88,6 +138,7 @@ export function mirrorTripToReceipts(
       trip.expense_date,
       trip.amount_cents,
       trip.amount_cents,
+      referenceValue,
       trip.notes,
       existing.id,
     );
@@ -101,14 +152,14 @@ export function mirrorTripToReceipts(
           amount_gross_cents, amount_net_cents, vat_rate, vat_amount_cents,
           tax_category_id, tax_category, status,
           steuerrelevant, input_tax_deductible, reverse_charge,
-          linked_trip_id, notes, title
+          linked_trip_id, notes, title, supplier_invoice_number
         ) VALUES (
           'fahrt', 'dj_trip_sync', ?,
           ?,
           ?, ?, 0, 0,
           ?, 'Fahrtkosten', 'zu_pruefen',
           1, 0, 0,
-          ?, ?, ?
+          ?, ?, ?, ?
         )`,
       )
       .run(
@@ -120,6 +171,7 @@ export function mirrorTripToReceipts(
         tripId,
         trip.notes,
         `${trip.distance_km} km`,
+        referenceValue,
       );
     receiptId = Number(result.lastInsertRowid);
   }
