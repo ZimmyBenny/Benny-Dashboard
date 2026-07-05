@@ -95,6 +95,18 @@ function parseCsv(text: string): string[][] {
   return rows;
 }
 
+/** Deutsche Betrags-Zelle ("1.234,56" / "-500,00") → number. Leer/ungültig → 0. */
+function parseEuroCell(s: string | undefined): number {
+  if (!s) return 0;
+  const n = parseFloat(s.trim().replace(/\./g, '').replace(',', '.'));
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** number → "7.250,00 €" (deutsches Format). */
+function formatEuro(n: number): string {
+  return n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+}
+
 interface Props {
   type: SteuerCsvType;
   year: number;
@@ -115,6 +127,29 @@ export function SteuerCsvPreviewModal({ type, year, onClose }: Props) {
   const header = rows[0] ?? [];
   const bodyRows = rows.slice(1);
   const dataRows = Math.max(0, rows.length - 1);
+
+  /** Summen je Vorschau — Belege getrennt nach Aus-/Eingangsrechnungen, sonst Gesamtsumme "Betrag (EUR)". */
+  const summary = useMemo(() => {
+    if (bodyRows.length === 0) return null;
+    const idx = (name: string) => header.findIndex((h) => h.trim() === name);
+    if (type === 'belege') {
+      const typIdx = idx('Typ');
+      const bruttoIdx = idx('Brutto (EUR)');
+      let einnahmen = 0;
+      let ausgaben = 0;
+      for (const r of bodyRows) {
+        const t = (r[typIdx] ?? '').trim().toLowerCase();
+        const brutto = parseEuroCell(r[bruttoIdx]);
+        if (t.startsWith('ausgangs')) einnahmen += brutto;
+        else if (t.startsWith('eingangs')) ausgaben += brutto;
+      }
+      return { kind: 'belege' as const, einnahmen, ausgaben };
+    }
+    const betragIdx = idx('Betrag (EUR)');
+    let total = 0;
+    for (const r of bodyRows) total += parseEuroCell(r[betragIdx]);
+    return { kind: 'einzel' as const, total };
+  }, [type, header, bodyRows]);
 
   async function handleDownload() {
     setDownloadBusy(true);
@@ -221,6 +256,26 @@ export function SteuerCsvPreviewModal({ type, year, onClose }: Props) {
               >
                 {dataRows} {dataRows === 1 ? 'Zeile' : 'Zeilen'}
               </p>
+              {summary && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.875rem' }}>
+                  {summary.kind === 'belege' ? (
+                    <>
+                      <SummaryChip
+                        label="Einnahmen (Ausgangsrechnungen)"
+                        value={formatEuro(summary.einnahmen)}
+                        color="#5cfd80"
+                      />
+                      <SummaryChip
+                        label="Ausgaben (Eingangsrechnungen)"
+                        value={formatEuro(summary.ausgaben)}
+                        color="var(--color-error)"
+                      />
+                    </>
+                  ) : (
+                    <SummaryChip label="Summe" value={formatEuro(summary.total)} color="var(--color-primary)" />
+                  )}
+                </div>
+              )}
               <table
                 style={{
                   width: '100%',
@@ -347,5 +402,45 @@ export function SteuerCsvPreviewModal({ type, year, onClose }: Props) {
         </div>
       </div>
     </>
+  );
+}
+
+/** Kleine Summen-Kachel für die Vorschau (Label + Betrag). */
+function SummaryChip({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.125rem',
+        padding: '0.5rem 0.875rem',
+        background: 'rgba(255,255,255,0.03)',
+        border: '1px solid rgba(148,170,255,0.15)',
+        borderRadius: '0.625rem',
+      }}
+    >
+      <span
+        style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: '0.68rem',
+          color: 'var(--color-on-surface-variant)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.04em',
+        }}
+      >
+        {label}
+      </span>
+      <span
+        style={{
+          fontFamily: 'Manrope, sans-serif',
+          fontSize: '1.05rem',
+          fontWeight: 700,
+          color,
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        {value}
+      </span>
+    </div>
   );
 }
