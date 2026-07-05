@@ -290,7 +290,10 @@ router.patch('/:id/vorgespraech', async (req, res) => {
         amountCents,
         `Fahrt Vorgespräch – ${eventTitle}`,
         id,
-        `${kmRound} km × 0,30 €`,
+        // notes bewusst leer: „km × €"-Freitext ist veraltet/irreführend (einfache Strecke,
+        // fest 0,30 €, aktualisiert sich nie). Die Fahrt-Details-Anzeige auf dem Beleg ist
+        // die verlässliche Quelle.
+        null,
         'dj',
       );
       const tripId = Number(tripResult.lastInsertRowid);
