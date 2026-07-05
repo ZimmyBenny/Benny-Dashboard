@@ -142,6 +142,25 @@ export function BelegeListPage() {
     setSearchParams(new URLSearchParams(), { replace: true });
   }
 
+  // Jahresauswahl: setzt Datum von/bis auf das ganze Jahr in EINEM Aufruf
+  // (setParam liest den State pro Aufruf frisch → zwei Aufrufe wuerden sich
+  // gegenseitig ueberschreiben).
+  function selectYear(year: string) {
+    const next = new URLSearchParams(searchParams);
+    if (year) {
+      next.set('from', `${year}-01-01`);
+      next.set('to', `${year}-12-31`);
+      setFromInput(`${year}-01-01`);
+      setToInput(`${year}-12-31`);
+    } else {
+      next.delete('from');
+      next.delete('to');
+      setFromInput('');
+      setToInput('');
+    }
+    setSearchParams(next, { replace: true });
+  }
+
   const status = (searchParams.get('status') as StatusValue) ?? '';
   const type   = (searchParams.get('type')   as TypeValue)   ?? '';
   const area   = searchParams.get('area') ?? '';
@@ -150,6 +169,14 @@ export function BelegeListPage() {
   const nurSteuerrelevant = searchParams.get('steuerrelevant') === '1';
 
   const hasActiveFilters = !!(area || status || type || from || to || searchInput || nurSteuerrelevant);
+
+  // Jahr ist "gewaehlt", wenn von=YYYY-01-01 UND bis=YYYY-12-31 desselben Jahres.
+  const selectedYear =
+    from.endsWith('-01-01') && to.endsWith('-12-31') && from.slice(0, 4) === to.slice(0, 4)
+      ? from.slice(0, 4)
+      : '';
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 6 }, (_, i) => String(currentYear - i));
 
   return (
     <PageWrapper>
@@ -280,6 +307,31 @@ export function BelegeListPage() {
                 </button>
               </div>
 
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                <span style={{ fontSize: '0.65rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                  Jahr
+                </span>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => selectYear(e.target.value)}
+                  aria-label="Jahr wählen"
+                  style={{
+                    padding: '0.5rem 0.75rem',
+                    background: selectedYear ? 'rgba(148,170,255,0.12)' : 'rgba(255,255,255,0.05)',
+                    border: selectedYear ? '1px solid rgba(148,170,255,0.4)' : '1px solid rgba(148,170,255,0.15)',
+                    borderRadius: '0.5rem',
+                    color: 'var(--color-on-surface)',
+                    fontFamily: 'var(--font-body)',
+                    fontSize: '0.875rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="">Jahr wählen …</option>
+                  {yearOptions.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                 <span style={{ fontSize: '0.65rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                   Datum von
