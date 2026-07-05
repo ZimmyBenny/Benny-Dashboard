@@ -1072,11 +1072,18 @@ const PRIMARY_AREA_SUBQUERY = `(
  * Wenn `area` gesetzt ist, wird ueber receipt_area_links gejoined.
  */
 router.get('/', (req, res) => {
-  const { area, status, from, to, type, search, steuerrelevant } = req.query as Record<string, string | undefined>;
+  const { area, status, from, to, type, search, steuerrelevant, pending } = req.query as Record<string, string | undefined>;
   const where: string[] = [];
   const params: unknown[] = [];
 
-  if (status) {
+  if (pending === '1') {
+    // „Zu prüfen"-Modus: alle noch nicht freigegebenen, nicht beiseitegelegten Belege
+    // — unabhängig vom Zahl-Status (offen/teilbezahlt/bezahlt bleiben sichtbar).
+    // Reine Literal-Bedingungen (kein params.push) → SQL-Injection-sicher.
+    // Schließt `status` aus (mutual-exclusive).
+    where.push(`r.freigegeben_at IS NULL`);
+    where.push(`r.status NOT IN ('archiviert','nicht_relevant','storniert')`);
+  } else if (status) {
     where.push(`r.status = ?`);
     params.push(status);
   }
