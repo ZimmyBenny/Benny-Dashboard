@@ -420,6 +420,7 @@ export function BelegeDetailPage() {
                   onChange={(v) => updateMut.mutate({ receipt_date: v })}
                 />
                 <Field
+                  key={`due-${r.due_date ?? ''}`}
                   label="Fällig am"
                   value={r.due_date ?? ''}
                   type="date"
@@ -427,12 +428,53 @@ export function BelegeDetailPage() {
                   onChange={(v) => updateMut.mutate({ due_date: v || null })}
                 />
                 <Field
+                  key={`pay-${r.payment_date ?? ''}`}
                   label="Bezahlt am"
                   value={r.payment_date ?? ''}
                   type="date"
                   disabled={isLocked || r.type === 'fahrt'}
                   onChange={(v) => updateMut.mutate({ payment_date: v || null })}
                 />
+                {!isLocked && r.type !== 'fahrt' && r.receipt_date && (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '140px 1fr',
+                      gap: '0.75rem',
+                      alignItems: 'center',
+                      padding: '0.25rem 0',
+                    }}
+                  >
+                    <span />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateMut.mutate({ due_date: r.receipt_date, payment_date: r.receipt_date })
+                      }
+                      title="Fällig am und Bezahlt am auf das Belegdatum setzen"
+                      style={{
+                        justifySelf: 'start',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.375rem',
+                        background: 'rgba(148,170,255,0.1)',
+                        border: '1px solid rgba(148,170,255,0.25)',
+                        borderRadius: '0.5rem',
+                        padding: '0.35rem 0.7rem',
+                        color: 'var(--color-on-surface)',
+                        fontFamily: 'var(--font-body)',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>
+                        content_copy
+                      </span>
+                      Aus Belegdatum übernehmen
+                    </button>
+                  </div>
+                )}
                 <Field label="Typ" value={r.type} disabled />
                 <Field label="Quelle" value={r.source} disabled />
               </Section>
