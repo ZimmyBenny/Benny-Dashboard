@@ -30,6 +30,14 @@ const PERIOD_LABEL: Record<'jahr' | 'quartal' | 'monat', string> = {
   monat: 'Monat',
 };
 
+// Abgekuerzte Monatsspanne je Quartal (fuer die Zeitraum-Spalte).
+const QUARTER_MONTHS: Record<number, string> = {
+  1: 'Jan–Mär',
+  2: 'Apr–Jun',
+  3: 'Jul–Sep',
+  4: 'Okt–Dez',
+};
+
 export function BelegeTaxPage() {
   const navigate = useNavigate();
   // Jahr in der URL persistieren, damit es beim Zurueck-Navigieren (navigate(-1))
@@ -134,7 +142,6 @@ export function BelegeTaxPage() {
               <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
                 <Th align="left">Zeitraum</Th>
                 <Th align="right">KZ 81 (19% Netto)</Th>
-                <Th align="right">KZ 86 (7% Netto)</Th>
                 <Th align="right">KZ 66 (Vorsteuer)</Th>
                 <Th align="right">KZ 84/85 (RC)</Th>
                 <Th align="right">KZ 62 (EUSt)</Th>
@@ -159,12 +166,15 @@ export function BelegeTaxPage() {
                   >
                     <Td>
                       <strong>{b.label}</strong>
+                      {data.period === 'quartal' && QUARTER_MONTHS[b.period_index] && (
+                        <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.78rem', fontWeight: 400 }}>
+                          {' · '}
+                          {QUARTER_MONTHS[b.period_index]}
+                        </span>
+                      )}
                     </Td>
                     <Td align="right">
                       {formatCurrencyFromCents(b.kz81_umsatz_19_net_cents)}
-                    </Td>
-                    <Td align="right">
-                      {formatCurrencyFromCents(b.kz86_umsatz_7_net_cents)}
                     </Td>
                     <Td align="right">
                       {formatCurrencyFromCents(b.kz66_vorsteuer_cents)}
@@ -196,7 +206,7 @@ export function BelegeTaxPage() {
               {data.buckets.length === 0 && (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={6}
                     style={{
                       padding: '2rem',
                       textAlign: 'center',
@@ -226,7 +236,6 @@ export function BelegeTaxPage() {
                   <tr style={{ borderTop: '2px solid rgba(148,170,255,0.25)', background: 'rgba(148,170,255,0.05)' }}>
                     <Td><strong>Gesamt {year}</strong></Td>
                     <Td align="right"><strong>{formatCurrencyFromCents(t.kz81)}</strong></Td>
-                    <Td align="right"><strong>{formatCurrencyFromCents(t.kz86)}</strong></Td>
                     <Td align="right"><strong>{formatCurrencyFromCents(t.kz66)}</strong></Td>
                     <Td align="right"><strong>{formatCurrencyFromCents(t.kz84)} / {formatCurrencyFromCents(t.kz85)}</strong></Td>
                     <Td align="right"><strong>{formatCurrencyFromCents(t.kz62)}</strong></Td>
