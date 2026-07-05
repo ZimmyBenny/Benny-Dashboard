@@ -55,6 +55,10 @@ export interface ReceiptDetail extends ReceiptListItem {
     cost_interval: string | null;
     reminder_date: string | null;
   } | null;
+  /** Abwesenheitspauschale der verknüpften Fahrt (read-only, quick-260705-u2c). */
+  trip_departure_time?: string | null;
+  trip_return_time?: string | null;
+  trip_meal_allowance_cents?: number | null;
   files: Array<{
     id: number;
     original_filename: string;

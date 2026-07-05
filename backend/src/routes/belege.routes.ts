@@ -1472,7 +1472,29 @@ router.get('/:id', (req, res) => {
         .get(receipt.contract_id) ?? null
     : null;
 
-  res.json({ ...receipt, files, area_links: areaLinks, ocr_results: ocr, audit_log: audit, contract });
+  // Abwesenheitspauschale-Anzeige (read-only, Plan quick-260705-u2c) —
+  // nur nachladen wenn der Beleg mit einer Fahrt verknuepft ist.
+  const trip = receipt.linked_trip_id
+    ? (db
+        .prepare(
+          `SELECT departure_time, return_time, meal_allowance_cents FROM trips WHERE id = ?`,
+        )
+        .get(receipt.linked_trip_id) as
+        | { departure_time: string | null; return_time: string | null; meal_allowance_cents: number }
+        | undefined) ?? null
+    : null;
+
+  res.json({
+    ...receipt,
+    files,
+    area_links: areaLinks,
+    ocr_results: ocr,
+    audit_log: audit,
+    contract,
+    trip_departure_time: trip?.departure_time ?? null,
+    trip_return_time: trip?.return_time ?? null,
+    trip_meal_allowance_cents: trip?.meal_allowance_cents ?? null,
+  });
 });
 
 /**
