@@ -322,7 +322,7 @@ export function DjTripsPage() {
             background: 'rgba(148,170,255,0.06)',
             border: '1px solid rgba(148,170,255,0.12)',
             borderRadius: '0.75rem',
-            padding: '0.75rem 1rem',
+            padding: '0.75rem 0.5rem',
             marginBottom: '1.5rem',
             display: 'flex', gap: '0.625rem', alignItems: 'flex-start',
           }}>
@@ -331,7 +331,7 @@ export function DjTripsPage() {
           </div>
 
           {/* Tabelle */}
-          <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', overflow: 'hidden' }}>
+          <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', overflowX: 'auto', overflowY: 'hidden' }}>
             {isLoading ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-on-surface-variant)' }}>
                 <span className="material-symbols-outlined" style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>hourglass_empty</span>
@@ -348,7 +348,7 @@ export function DjTripsPage() {
                   <tr style={{ background: 'rgba(255,255,255,0.04)' }}>
                     {['Datum', 'Veranstaltung', 'Eventart', 'Bereich', 'Referenz', 'Einfache Strecke', 'Von', 'Nach', 'Gesamt (H+R)', 'Absetzbarer Wert', 'Pauschale', ''].map(h => (
                       <th key={h} style={{
-                        padding: '0.75rem 1rem', textAlign: 'left',
+                        padding: '0.75rem 0.5rem', textAlign: 'left',
                         fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.7rem',
                         color: 'var(--color-on-surface-variant)', letterSpacing: '0.08em',
                         textTransform: 'uppercase', whiteSpace: 'nowrap',
@@ -364,15 +364,15 @@ export function DjTripsPage() {
                       onMouseEnter={e => (e.currentTarget.style.background = 'rgba(148,170,255,0.04)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
-                      <td style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface)', whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '0.75rem 0.5rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface)', whiteSpace: 'nowrap' }}>
                         {formatDate(t.date)}
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface)', fontWeight: 500 }}>
+                      <td style={{ padding: '0.75rem 0.5rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface)', fontWeight: 500 }}>
                         {t.event_name ?? (t.purpose?.trim()
                           ? t.purpose
                           : <span style={{ color: 'var(--color-on-surface-variant)', fontStyle: 'italic' }}>Manuelle Fahrt</span>)}
                       </td>
-                      <td style={{ padding: '0.75rem 1rem' }}>
+                      <td style={{ padding: '0.75rem 0.5rem' }}>
                         {t.purpose ? (
                           <span style={{
                             background: 'rgba(148,170,255,0.15)', color: '#94aaff',
@@ -381,35 +381,35 @@ export function DjTripsPage() {
                           }}>{t.purpose}</span>
                         ) : <span style={{ color: 'var(--color-on-surface-variant)' }}>–</span>}
                       </td>
-                      <td style={{ padding: '0.75rem 1rem' }}>
+                      <td style={{ padding: '0.75rem 0.5rem' }}>
                         <span style={{
                           background: 'rgba(92,253,128,0.15)', color: '#5cfd80',
                           borderRadius: '0.375rem', padding: '0.125rem 0.5rem',
                           fontSize: '0.7rem', fontWeight: 600, whiteSpace: 'nowrap',
                         }}>{areaLabel(t.area_slug)}</span>
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)' }}>
+                      <td style={{ padding: '0.75rem 0.5rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)' }}>
                         {t.reference ?? <span style={{ opacity: 0.5 }}>–</span>}
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)' }}>
+                      <td style={{ padding: '0.75rem 0.5rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)' }}>
                         {t.distance_km ? formatKm(t.distance_km) : <span style={{ fontStyle: 'italic', opacity: 0.5 }}>Unbekannte Entfernung</span>}
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)' }}>
+                      <td style={{ padding: '0.75rem 0.5rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)' }}>
                         {t.start_location ?? '–'}
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)' }}>
+                      <td style={{ padding: '0.75rem 0.5rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)' }}>
                         {t.end_location ?? '–'}
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface)', whiteSpace: 'nowrap', fontWeight: 600 }}>
+                      <td style={{ padding: '0.75rem 0.5rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface)', whiteSpace: 'nowrap', fontWeight: 600 }}>
                         {t.distance_km ? formatKm(t.distance_km * 2) : '–'}
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: '#5cfd80', whiteSpace: 'nowrap', fontWeight: 700 }}>
+                      <td style={{ padding: '0.75rem 0.5rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: '#5cfd80', whiteSpace: 'nowrap', fontWeight: 700 }}>
                         {t.reimbursement_amount > 0 ? formatCurrency(t.reimbursement_amount) : '–'}
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: '#94aaff', whiteSpace: 'nowrap', fontWeight: 700 }}>
+                      <td style={{ padding: '0.75rem 0.5rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: '#94aaff', whiteSpace: 'nowrap', fontWeight: 700 }}>
                         {t.meal_allowance > 0 ? formatCurrency(t.meal_allowance) : '–'}
                       </td>
-                      <td style={{ padding: '0.75rem 1rem' }}>
+                      <td style={{ padding: '0.75rem 0.5rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                           {t.freigegeben_at ? (
                             <span
@@ -471,16 +471,16 @@ export function DjTripsPage() {
                 {trips.length > 0 && (
                   <tfoot>
                     <tr style={{ background: 'rgba(148,170,255,0.05)', borderTop: '1px solid rgba(148,170,255,0.15)' }}>
-                      <td colSpan={8} style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)', fontWeight: 600, textAlign: 'right' }}>
+                      <td colSpan={8} style={{ padding: '0.75rem 0.5rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)', fontWeight: 600, textAlign: 'right' }}>
                         Summe gefahrene Kilometer (Hin + Rück)
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-primary)', fontWeight: 700 }}>
+                      <td style={{ padding: '0.75rem 0.5rem', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-primary)', fontWeight: 700 }}>
                         {formatKm(totalKmRoundtrip)}
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: '#5cfd80', fontWeight: 700 }}>
+                      <td style={{ padding: '0.75rem 0.5rem', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: '#5cfd80', fontWeight: 700 }}>
                         {formatCurrency(totalReimbursement)}
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: '#94aaff', fontWeight: 700 }}>
+                      <td style={{ padding: '0.75rem 0.5rem', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: '#94aaff', fontWeight: 700 }}>
                         {totalMeal > 0 ? formatCurrency(totalMeal) : ''}
                       </td>
                       <td />
@@ -579,7 +579,7 @@ export function DjTripsPage() {
               {/* Live-Erstattung */}
               <div style={{
                 background: 'rgba(92,253,128,0.06)', border: '1px solid rgba(92,253,128,0.15)',
-                borderRadius: '0.5rem', padding: '0.75rem 1rem',
+                borderRadius: '0.5rem', padding: '0.75rem 0.5rem',
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               }}>
                 <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface-variant)' }}>Erstattung (Hin+Rück)</span>
@@ -592,7 +592,7 @@ export function DjTripsPage() {
               <div style={{
                 border: '1px solid rgba(148,170,255,0.15)',
                 borderRadius: '0.5rem',
-                padding: '0.75rem 1rem',
+                padding: '0.75rem 0.5rem',
                 display: 'flex', flexDirection: 'column', gap: '0.75rem',
               }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
