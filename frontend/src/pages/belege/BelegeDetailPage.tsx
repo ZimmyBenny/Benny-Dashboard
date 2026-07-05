@@ -268,7 +268,7 @@ export function BelegeDetailPage() {
             <div>
               <button
                 type="button"
-                onClick={() => navigate('/belege')}
+                onClick={() => navigate('/belege/zu-pruefen')}
                 style={{
                   background: 'none',
                   border: 'none',
