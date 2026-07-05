@@ -63,7 +63,14 @@ export function BelegeReviewPage() {
               Zu prüfen
             </h1>
             <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.9rem', margin: '0.5rem 0 0', fontFamily: 'var(--font-body)' }}>
-              Noch nicht freigegebene Belege — unabhängig vom Zahl-Status.
+              {isLoading ? (
+                'Lädt …'
+              ) : (
+                <>
+                  <strong style={{ color: 'var(--color-on-surface)' }}>{items.length}</strong>{' '}
+                  {items.length === 1 ? 'Beleg' : 'Belege'} noch zu prüfen — noch nicht freigegeben, unabhängig vom Zahl-Status.
+                </>
+              )}
               {ocrPendingCount > 0 && ` ${ocrPendingCount} Beleg(e) werden gerade per OCR ausgewertet.`}
             </p>
           </div>
