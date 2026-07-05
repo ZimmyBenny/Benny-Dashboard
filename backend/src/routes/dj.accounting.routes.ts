@@ -241,7 +241,10 @@ router.get('/trips', (req, res) => {
         (SELECT number FROM dj_quotes
            WHERE event_id = t.linked_event_id AND number IS NOT NULL
            ORDER BY id DESC LIMIT 1)
-      )                                 AS reference
+      )                                 AS reference,
+      (SELECT freigegeben_at FROM receipts
+         WHERE source = 'dj_trip_sync' AND linked_trip_id = t.id
+         ORDER BY id DESC LIMIT 1)      AS freigegeben_at
     FROM trips t
     LEFT JOIN dj_events e ON e.id = t.linked_event_id
     WHERE strftime('%Y', t.expense_date) = ?

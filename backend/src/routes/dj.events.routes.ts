@@ -274,7 +274,8 @@ router.patch('/:id/vorgespraech', async (req, res) => {
     if (km && km > 0) {
       const kmRound = Math.round(km);
       const ratePerKmCents = 30; // 0,30 €/km Default-Pauschale
-      const amountCents = kmRound * ratePerKmCents;
+      // Rundreise (Hin+Rück): kmRound ist einfache Strecke → *2
+      const amountCents = kmRound * 2 * ratePerKmCents;
       const eventTitle = (event.title as string) || `Event #${id}`;
       const dateStr = datum ?? todayLocal();
       const tripResult = db.prepare(`

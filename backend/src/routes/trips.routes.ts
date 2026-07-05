@@ -67,7 +67,8 @@ router.post('/', (req, res) => {
 
   const distance = Number(distance_km) || 0;
   const ratePerKm = Number(rate_per_km_cents) || 30;
-  const amount = distance * ratePerKm;
+  // Rundreise (Hin+Rück): distance_km ist einfache Strecke → *2
+  const amount = distance * 2 * ratePerKm;
   const areaSlug = normalizeAreaSlug(area_slug);
   const referenceValue =
     typeof reference === 'string' && reference.trim() ? reference.trim() : null;
@@ -171,8 +172,9 @@ router.patch('/:id', (req, res) => {
   }
 
   // Recompute amount_cents wenn distance_km oder rate_per_km_cents geändert wurden
+  // Rundreise (Hin+Rück): distance_km ist einfache Strecke → *2
   db.prepare(
-    `UPDATE trips SET amount_cents = distance_km * rate_per_km_cents WHERE id = ?`,
+    `UPDATE trips SET amount_cents = distance_km * 2 * rate_per_km_cents WHERE id = ?`,
   ).run(id);
 
   logAudit(req, 'trip', id, 'update', existing, req.body);
