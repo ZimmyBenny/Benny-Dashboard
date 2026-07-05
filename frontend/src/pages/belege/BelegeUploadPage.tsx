@@ -22,6 +22,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { DropzoneBelege } from '../../components/belege/DropzoneBelege';
+import { ManualReceiptModal } from '../../components/belege/ManualReceiptModal';
 import { OcrConfidenceBadge } from '../../components/belege/OcrConfidenceBadge';
 import { StatusBadge } from '../../components/dj/StatusBadge';
 import {
@@ -65,6 +66,7 @@ export function BelegeUploadPage() {
   >([]);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [rejectMsg, setRejectMsg] = useState<string | null>(null);
+  const [manualOpen, setManualOpen] = useState(false);
 
   const { data: areas = [] } = useQuery({
     queryKey: ['areas'],
@@ -124,6 +126,47 @@ export function BelegeUploadPage() {
           Belege hochladen, OCR-Vorschläge prüfen und speichern. Mehrere Dateien
           gleichzeitig möglich.
         </p>
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            flexWrap: 'wrap',
+            marginBottom: '1.5rem',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setManualOpen(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              padding: '0.55rem 1.1rem',
+              background: 'var(--color-surface-container-high)',
+              border: '1px solid var(--color-outline)',
+              borderRadius: '0.5rem',
+              color: 'var(--color-on-surface)',
+              fontSize: '0.9rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '1.15rem' }}>
+              edit_note
+            </span>
+            Manuell erfassen
+          </button>
+          <span
+            style={{
+              fontSize: '0.85rem',
+              color: 'var(--color-on-surface-variant)',
+            }}
+          >
+            Beleg ohne Datei anlegen (Eigenbeleg)
+          </span>
+        </div>
 
         <DropzoneBelege
           maxSizeMb={25}
@@ -267,6 +310,16 @@ export function BelegeUploadPage() {
           </div>
         )}
       </div>
+
+      <ManualReceiptModal
+        isOpen={manualOpen}
+        onClose={() => setManualOpen(false)}
+        areas={areas}
+        onCreated={(r) => {
+          qc.invalidateQueries({ queryKey: ['belege'] });
+          navigate(`/belege/${r.id}`);
+        }}
+      />
     </PageWrapper>
   );
 }

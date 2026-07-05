@@ -407,12 +407,14 @@ export function BelegeDetailPage() {
                   label="Fällig am"
                   value={r.due_date ?? ''}
                   type="date"
+                  disabled={isLocked || r.type === 'fahrt'}
                   onChange={(v) => updateMut.mutate({ due_date: v || null })}
                 />
                 <Field
                   label="Bezahlt am"
                   value={r.payment_date ?? ''}
                   type="date"
+                  disabled={isLocked || r.type === 'fahrt'}
                   onChange={(v) => updateMut.mutate({ payment_date: v || null })}
                 />
                 <Field label="Typ" value={r.type} disabled />

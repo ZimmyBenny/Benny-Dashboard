@@ -35,7 +35,6 @@ const STATUS_TABS: { label: string; value: StatusValue }[] = [
   { label: 'Alle',          value: '' },
   { label: 'Zu prüfen',     value: 'zu_pruefen' },
   { label: 'Freigegeben',   value: 'freigegeben' },
-  { label: 'OCR läuft',     value: 'ocr_pending' },
   { label: 'Archiviert',    value: 'archiviert' },
   { label: 'Nicht relevant', value: 'nicht_relevant' },
 ];
