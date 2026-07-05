@@ -11,7 +11,7 @@ import { createTask, type Task } from '../api/tasks.api';
  * der den Notiz-Text mit passendem Bereich ins Aufgaben-Formular übernimmt.
  */
 const SCOPE_AREA: Record<string, string> = {
-  amazon: 'Amazon', dj: 'DJ', finanzen: 'Finanzen', start: 'Sonstiges',
+  amazon: 'Amazon', dj: 'DJ', finanzen: 'Finanzen', start: 'Sonstiges', belege: 'Sonstiges',
 };
 
 export function QuickNote({ scope }: { scope: string }) {

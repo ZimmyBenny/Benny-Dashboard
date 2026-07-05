@@ -24,6 +24,7 @@ import { useNavigate } from 'react-router-dom';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { KPICard } from '../../components/dj/KPICard';
 import { StatusBadge } from '../../components/dj/StatusBadge';
+import { QuickNote } from '../../components/QuickNote';
 import {
   fetchOverviewKpis,
   fetchReceipts,
@@ -306,6 +307,9 @@ export function BelegeOverviewPage() {
               onClick={(r) => navigate(`/belege/${r.id}`)}
               showDueDate={true}
             />
+          </div>
+          <div style={{ marginTop: '1.5rem' }}>
+            <QuickNote scope="belege" />
           </div>
         </div>
         {/* /content-wrapper */}
