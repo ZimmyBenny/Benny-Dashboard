@@ -59,6 +59,9 @@ export interface ReceiptDetail extends ReceiptListItem {
   trip_departure_time?: string | null;
   trip_return_time?: string | null;
   trip_meal_allowance_cents?: number | null;
+  /** Kilometer + Satz der verknüpften Fahrt (read-only, quick-260705-uq4). */
+  trip_distance_km?: number | null;
+  trip_rate_per_km_cents?: number | null;
   files: Array<{
     id: number;
     original_filename: string;

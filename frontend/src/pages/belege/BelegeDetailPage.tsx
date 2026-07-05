@@ -669,6 +669,37 @@ export function BelegeDetailPage() {
                 </div>
               </Section>
 
+              {/* Fahrt-Details (read-only, Plan quick-260705-uq4) — nur bei Fahrt-Belegen,
+                  immer live aus der Fahrt/dem Beleg abgeleitet */}
+              {r.type === 'fahrt' && (() => {
+                const einfach = r.trip_distance_km ?? 0;
+                const ratePerKmCents = r.trip_rate_per_km_cents ?? 0;
+                return (
+                  <Section title="Fahrt-Details">
+                    <Field
+                      label="Einfache Strecke"
+                      value={`${einfach.toLocaleString('de-DE', { maximumFractionDigits: 1 })} km`}
+                      disabled
+                    />
+                    <Field
+                      label="Hin+Rück"
+                      value={`${(einfach * 2).toLocaleString('de-DE', { maximumFractionDigits: 1 })} km`}
+                      disabled
+                    />
+                    <Field
+                      label="Satz"
+                      value={`${(ratePerKmCents / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €/km`}
+                      disabled
+                    />
+                    <Field
+                      label="Betrag"
+                      value={formatCurrencyFromCents(r.amount_gross_cents)}
+                      disabled
+                    />
+                  </Section>
+                );
+              })()}
+
               {/* Abwesenheitspauschale (read-only, Plan quick-260705-u2c) — nur bei Fahrt-Belegen */}
               {r.type === 'fahrt' && (() => {
                 const hours = abwesenheitsStunden(r.trip_departure_time, r.trip_return_time);
