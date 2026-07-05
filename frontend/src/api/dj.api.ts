@@ -216,6 +216,7 @@ export interface DjTrip {
   mileage_rate: number;
   meal_allowance: number;
   area_slug: string | null;
+  reference: string | null;
 }
 
 export interface DjOverview {
@@ -359,6 +360,8 @@ export const createDjTrip = (data: {
   purpose: string;
   rate_per_km: number;
   area_slug: string;
+  reference?: string;
+  linked_event_id?: number;
 }): Promise<{ id: number }> =>
   apiClient.post('/trips', {
     expense_date: data.expense_date,
@@ -368,6 +371,8 @@ export const createDjTrip = (data: {
     purpose: data.purpose,
     rate_per_km_cents: Math.round(data.rate_per_km * 100),
     area_slug: data.area_slug,
+    ...(data.reference?.trim() ? { reference: data.reference.trim() } : {}),
+    ...(data.linked_event_id !== undefined ? { linked_event_id: data.linked_event_id } : {}),
   }).then(r => r.data);
 
 // Fahrt loeschen — ersetzt frueheres deleteDjExpense (Plan 04-11)

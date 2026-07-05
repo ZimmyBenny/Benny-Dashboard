@@ -325,7 +325,8 @@ export function DjInvoiceDetailPage() {
         distance_km: km,
         purpose: fahrtZweck,
         rate_per_km: 0.30,
-        reimbursement_amount: Math.round(km * 0.30 * 100) / 100,
+        area_slug: 'dj',
+        linked_event_id: eventId ?? undefined,
       });
       setFahrtDialogOpen(false);
       setFahrtKm('');

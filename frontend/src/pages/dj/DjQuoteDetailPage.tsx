@@ -6,8 +6,9 @@ import {
   fetchDjQuote, fetchDjCustomers, fetchDjEvents, fetchDjServices,
   createDjQuote, updateDjQuote, finalizeDjQuote,
   updateDjQuoteStatus, createDjQuoteRevision,
-  fetchDjDefaultTexts, createDjService,
+  fetchDjDefaultTexts, createDjService, createDjTrip, fetchDjSettingByKey,
   type DjQuote, type DjCustomer, type DjEvent, type DjService,
+  type DjCompanySettings,
 } from '../../api/dj.api';
 import { StatusBadge } from '../../components/dj/StatusBadge';
 import { PdfPreviewModal } from '../../components/dj/PdfPreviewModal';
@@ -397,6 +398,17 @@ export function DjQuoteDetailPage() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
 
+  // Fahrt-Dialog (Fahrt zum verknüpften Event erfassen)
+  const [fahrtDialogOpen, setFahrtDialogOpen] = useState(false);
+  const [fahrtStart, setFahrtStart] = useState('');
+  const [fahrtZiel, setFahrtZiel] = useState('');
+  const [fahrtKm, setFahrtKm] = useState('');
+  const [fahrtDatum, setFahrtDatum] = useState('');
+  const [fahrtZweck, setFahrtZweck] = useState('');
+  const [fahrtReferenz, setFahrtReferenz] = useState('');
+  const [fahrtSaving, setFahrtSaving] = useState(false);
+  const [fahrtError, setFahrtError] = useState<string | null>(null);
+
   // ---------------------------------------------------------------------------
   // Berechnungen (live)
   // ---------------------------------------------------------------------------
@@ -661,6 +673,52 @@ export function DjQuoteDetailPage() {
       setError('Fehler beim Finalisieren. Bitte erneut versuchen.');
     } finally {
       setFinalizing(false);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Fahrt zum verknüpften Event erfassen
+  // ---------------------------------------------------------------------------
+  function openFahrtDialog() {
+    if (!eventId) return;
+    const event = events.find(e => e.id === eventId);
+    const ziel = [event?.venue_zip, event?.venue_city].filter(Boolean).join(' ') || event?.venue_name || '';
+    const datum = event?.event_date ?? todayLocal();
+    const zweck = event?.title || `Angebot ${quote?.number ?? ''}`.trim() || `Event #${eventId}`;
+    setFahrtZiel(ziel);
+    setFahrtDatum(datum);
+    setFahrtZweck(zweck);
+    setFahrtReferenz(quote?.number ?? '');
+    setFahrtError(null);
+    fetchDjSettingByKey<DjCompanySettings>('company')
+      .then(s => setFahrtStart([s.zip, s.city].filter(Boolean).join(' ')))
+      .catch(() => {});
+    setFahrtDialogOpen(true);
+  }
+
+  async function handleFahrtSave() {
+    const km = Math.round(Number(fahrtKm));
+    if (!km || km <= 0) return;
+    setFahrtSaving(true);
+    setFahrtError(null);
+    try {
+      await createDjTrip({
+        expense_date: fahrtDatum,
+        start_location: fahrtStart || 'Heimatort',
+        end_location: fahrtZiel,
+        distance_km: km,
+        purpose: fahrtZweck,
+        rate_per_km: 0.30,
+        area_slug: 'dj',
+        linked_event_id: eventId ?? undefined,
+        reference: fahrtReferenz.trim() || undefined,
+      });
+      setFahrtDialogOpen(false);
+      setFahrtKm('');
+    } catch (err: unknown) {
+      setFahrtError(err instanceof Error ? err.message : 'Fehler beim Speichern');
+    } finally {
+      setFahrtSaving(false);
     }
   }
 
@@ -1772,6 +1830,18 @@ export function DjQuoteDetailPage() {
           <button type="button" style={btnSecondary} onClick={() => navigate('/dj/quotes')}>
             Abbrechen
           </button>
+          {!isNew && (
+            <button
+              type="button"
+              style={{ ...btnSecondary, opacity: eventId ? 1 : 0.5, cursor: eventId ? 'pointer' : 'not-allowed' }}
+              onClick={openFahrtDialog}
+              disabled={!eventId}
+              title={eventId ? 'Fahrt zu diesem Event erfassen' : 'Kein Event verknüpft'}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>directions_car</span>
+              Fahrt erfassen
+            </button>
+          )}
           {!isNew && id && (
             <button
               type="button"
@@ -1818,6 +1888,90 @@ export function DjQuoteDetailPage() {
           onClose={() => { URL.revokeObjectURL(previewUrl); setPreviewUrl(null); }}
           onDownload={() => { void downloadPdf(id!); }}
         />
+      )}
+
+      {/* ── Fahrt-Dialog (Fahrt zum verknüpften Event erfassen) ── */}
+      {fahrtDialogOpen && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10000 }} />
+          <div style={{
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+            width: '420px', background: 'rgb(14,20,40)',
+            border: '1px solid rgba(148,170,255,0.25)', borderRadius: '0.875rem',
+            boxShadow: '0 8px 40px rgba(0,0,0,0.6)', zIndex: 10001, padding: '1.5rem',
+          }}>
+            <h2 style={{ fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '1.1rem', color: 'var(--color-on-surface)', margin: '0 0 0.375rem' }}>
+              Fahrt erfassen
+            </h2>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)', margin: '0 0 1.25rem' }}>
+              Fahrt zum verknüpften Event dieses Angebots erfassen.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                  <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)' }}>Von</span>
+                  <input value={fahrtStart} onChange={e => setFahrtStart(e.target.value)} placeholder="Heimatort" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(148,170,255,0.2)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface)', width: '100%', boxSizing: 'border-box' as const }} />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                  <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)' }}>Nach</span>
+                  <input value={fahrtZiel} onChange={e => setFahrtZiel(e.target.value)} placeholder="Veranstaltungsort" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(148,170,255,0.2)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface)', width: '100%', boxSizing: 'border-box' as const }} />
+                </label>
+              </div>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)' }}>Kilometer (einfache Strecke)</span>
+                <input type="number" min="1" step="1" value={fahrtKm} onChange={e => setFahrtKm(e.target.value)} placeholder="z. B. 45" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(148,170,255,0.2)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface)', width: '100%', boxSizing: 'border-box' as const }} />
+                {fahrtKm && Number(fahrtKm) > 0 && (
+                  <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.78rem', color: 'var(--color-secondary)' }}>
+                    → {(Math.round(Number(fahrtKm)) * 0.30).toFixed(2)} € (0,30 €/km)
+                  </span>
+                )}
+              </label>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)' }}>Zweck</span>
+                <input value={fahrtZweck} onChange={e => setFahrtZweck(e.target.value)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(148,170,255,0.2)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface)', width: '100%', boxSizing: 'border-box' as const }} />
+              </label>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)' }}>Referenz / Beleg-Nr. (optional)</span>
+                <input value={fahrtReferenz} onChange={e => setFahrtReferenz(e.target.value)} placeholder="z. B. Angebotsnummer" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(148,170,255,0.2)', borderRadius: '0.5rem', padding: '0.5rem 0.75rem', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface)', width: '100%', boxSizing: 'border-box' as const }} />
+              </label>
+            </div>
+
+            {fahrtError && (
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: '#ff6b6b', marginTop: '0.75rem', marginBottom: 0 }}>
+                Fehler: {fahrtError}
+              </p>
+            )}
+
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+              <button
+                type="button"
+                onClick={() => setFahrtDialogOpen(false)}
+                style={{ background: 'transparent', border: '1px solid rgba(148,170,255,0.2)', borderRadius: '0.5rem', padding: '0.625rem 1.25rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.875rem', cursor: 'pointer' }}
+              >
+                Abbrechen
+              </button>
+              <button
+                type="button"
+                disabled={!fahrtKm || Number(fahrtKm) <= 0 || fahrtSaving}
+                onClick={() => void handleFahrtSave()}
+                style={{
+                  background: 'linear-gradient(135deg, #94aaff 0%, #5cfd80 100%)',
+                  color: '#060e20', border: 'none', borderRadius: '0.5rem',
+                  padding: '0.625rem 1.25rem', fontFamily: 'var(--font-body)',
+                  fontWeight: 700, fontSize: '0.875rem',
+                  cursor: fahrtKm && Number(fahrtKm) > 0 && !fahrtSaving ? 'pointer' : 'not-allowed',
+                  opacity: fahrtKm && Number(fahrtKm) > 0 && !fahrtSaving ? 1 : 0.4,
+                }}
+              >
+                {fahrtSaving ? 'Speichern…' : 'Fahrt eintragen'}
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </PageWrapper>
   );
