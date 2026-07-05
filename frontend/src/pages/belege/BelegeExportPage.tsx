@@ -10,7 +10,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { PageWrapper } from '../../components/layout/PageWrapper';
-import { fetchAreas, fetchTaxCategories } from '../../api/belege.api';
+import { fetchAreas, fetchTaxCategories, fetchBelegeExportCsvText } from '../../api/belege.api';
+import { SteuerCsvPreviewModal } from '../../components/belege/SteuerCsvPreviewModal';
 import apiClient from '../../api/client';
 
 export function BelegeExportPage() {
@@ -19,6 +20,7 @@ export function BelegeExportPage() {
   const [taxCatId, setTaxCatId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const { data: areas = [] } = useQuery({
     queryKey: ['areas'],
@@ -106,8 +108,9 @@ export function BelegeExportPage() {
                 fontFamily: 'var(--font-body)',
               }}
             >
-              CSV-Export der Belege mit optionalen Filtern. Datei ist
-              UTF-8-codiert mit BOM für direkte Excel-Kompatibilität.
+              CSV-Export der Belege mit optionalen Filtern — im deutschen
+              Euro-Format (Beträge mit Komma, Ä/Ö/Ü korrekt). Direkt in Excel
+              öffenbar.
             </p>
           </div>
 
@@ -207,6 +210,33 @@ export function BelegeExportPage() {
                 </span>
                 {loading ? 'Lade …' : 'CSV herunterladen'}
               </button>
+              <button
+                type="button"
+                onClick={() => setPreviewOpen(true)}
+                disabled={loading}
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(148,170,255,0.25)',
+                  borderRadius: '0.75rem',
+                  padding: '0.625rem 1.25rem',
+                  fontSize: '0.875rem',
+                  fontFamily: 'Manrope, sans-serif',
+                  fontWeight: 700,
+                  color: 'var(--color-on-surface)',
+                  cursor: loading ? 'default' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.375rem',
+                }}
+              >
+                <span
+                  className="material-symbols-outlined"
+                  style={{ fontSize: '18px' }}
+                >
+                  visibility
+                </span>
+                Vorschau
+              </button>
               {error && (
                 <span
                   style={{
@@ -237,15 +267,23 @@ export function BelegeExportPage() {
             <strong style={{ color: 'var(--color-on-surface)' }}>
               Spalten:
             </strong>{' '}
-            id, type, receipt_date, due_date, payment_date, supplier_name,
-            supplier_invoice_number, amount_gross_cents, amount_net_cents,
-            vat_rate, vat_amount_cents, status, tax_category, reverse_charge,
-            steuerrelevant.
+            Datum, Typ, Lieferant/Kunde, Beleg-/Rechnungsnr, Netto (EUR),
+            USt (EUR), Brutto (EUR), Steuersatz (%), Bereich, Status.
             <br />
-            Beträge sind in Cent (Integer). Für Steuerberater bzw. Excel-Import.
+            Beträge im deutschen Euro-Format (Komma-Dezimal) — direkt für
+            Excel bzw. Steuerberater lesbar.
           </div>
         </div>
       </div>
+
+      {previewOpen && (
+        <SteuerCsvPreviewModal
+          title={`Vorschau · Belege · ${year || 'Alle Jahre'}`}
+          fetchText={() => fetchBelegeExportCsvText({ year, area, taxCatId })}
+          onDownload={handleDownload}
+          onClose={() => setPreviewOpen(false)}
+        />
+      )}
     </PageWrapper>
   );
 }
