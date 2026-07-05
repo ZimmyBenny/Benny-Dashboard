@@ -306,7 +306,7 @@ END;
 -- 13. SEED — Areas (3 Bereiche)
 -- ----------------------------------------------------------------------------
 INSERT OR IGNORE INTO areas (name, slug, color, icon, sort_order) VALUES
-  ('Amazon FBA', 'amazon-fba', '#ff9900', 'shopping_cart',          10),
+  ('Amazon',     'amazon-fba', '#ff9900', 'shopping_cart',          10),
   ('DJ',         'dj',         '#94aaff', 'equalizer',              20),
   ('Privat',     'privat',     '#5cfd80', 'home',                   30);
 

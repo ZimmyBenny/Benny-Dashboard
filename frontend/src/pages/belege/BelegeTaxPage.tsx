@@ -323,7 +323,7 @@ export function BelegeTaxPage() {
               ['KZ 86', 'Netto-Umsätze zu 7 % (ermäßigter Satz)'],
               ['KZ 66', 'Vorsteuer — USt aus Eingangsrechnungen, die du dir zurückholst'],
               ['KZ 84/85', 'Reverse Charge (§13b) — du schuldest die Steuer, z. B. Ausland'],
-              ['KZ 62', 'Einfuhrumsatzsteuer (EUSt) — bei Warenimporten (z. B. Amazon FBA)'],
+              ['KZ 62', 'Einfuhrumsatzsteuer (EUSt) — bei Warenimporten (z. B. Amazon)'],
               ['Zahllast', 'Vereinnahmte USt minus Vorsteuer = Betrag ans Finanzamt'],
             ].map(([kz, desc]) => (
               <div key={kz} style={{ display: 'flex', gap: '0.5rem', alignItems: 'baseline' }}>
