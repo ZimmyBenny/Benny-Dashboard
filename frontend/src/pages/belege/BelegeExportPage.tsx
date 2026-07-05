@@ -10,7 +10,14 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { PageWrapper } from '../../components/layout/PageWrapper';
-import { fetchAreas, fetchTaxCategories, fetchBelegeExportCsvText } from '../../api/belege.api';
+import {
+  fetchAreas,
+  fetchTaxCategories,
+  fetchBelegeExportCsvText,
+  downloadSteuerCsv,
+  fetchSteuerCsvText,
+  type SteuerCsvType,
+} from '../../api/belege.api';
 import { SteuerCsvPreviewModal } from '../../components/belege/SteuerCsvPreviewModal';
 import apiClient from '../../api/client';
 
@@ -21,6 +28,9 @@ export function BelegeExportPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [steuerPreviewType, setSteuerPreviewType] = useState<SteuerCsvType | null>(null);
+  const [steuerCsvBusy, setSteuerCsvBusy] = useState<SteuerCsvType | null>(null);
+  const [steuerCsvError, setSteuerCsvError] = useState<string | null>(null);
 
   const { data: areas = [] } = useQuery({
     queryKey: ['areas'],
@@ -30,6 +40,18 @@ export function BelegeExportPage() {
     queryKey: ['tax-categories'],
     queryFn: fetchTaxCategories,
   });
+
+  async function handleSteuerCsv(type: SteuerCsvType) {
+    setSteuerCsvBusy(type);
+    setSteuerCsvError(null);
+    try {
+      await downloadSteuerCsv(type, Number(year));
+    } catch (e) {
+      setSteuerCsvError((e as Error).message ?? 'Export fehlgeschlagen');
+    } finally {
+      setSteuerCsvBusy(null);
+    }
+  }
 
   async function handleDownload() {
     setLoading(true);
@@ -273,6 +295,116 @@ export function BelegeExportPage() {
             Beträge im deutschen Euro-Format (Komma-Dezimal) — direkt für
             Excel bzw. Steuerberater lesbar.
           </div>
+
+          {/* Export für Steuerberater — drei getrennte CSVs pro Jahr */}
+          <div
+            style={{
+              background: 'var(--color-surface-variant)',
+              borderRadius: '0.75rem',
+              padding: '1.25rem 1.5rem',
+              marginTop: '1.5rem',
+            }}
+          >
+            <h2
+              style={{
+                fontFamily: 'Manrope, sans-serif',
+                fontSize: '1.25rem',
+                fontWeight: 700,
+                color: 'var(--color-on-surface)',
+                margin: '0 0 0.75rem',
+              }}
+            >
+              Export für Steuerberater · {year}
+            </h2>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              {(
+                Object.entries(TYPE_LABEL_TAX) as [SteuerCsvType, string][]
+              ).map(([type, label]) => {
+                const busy = steuerCsvBusy === type;
+                return (
+                  <div key={type} style={{ display: 'flex', gap: '0.375rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleSteuerCsv(type)}
+                      disabled={busy}
+                      style={{
+                        background: busy
+                          ? 'rgba(148,170,255,0.4)'
+                          : 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+                        color: '#060e20',
+                        border: 'none',
+                        borderRadius: '0.75rem',
+                        padding: '0.625rem 1.25rem',
+                        fontSize: '0.875rem',
+                        fontFamily: 'Manrope, sans-serif',
+                        fontWeight: 700,
+                        cursor: busy ? 'default' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.375rem',
+                        boxShadow: busy ? 'none' : '0 0 16px rgba(148,170,255,0.3)',
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+                        download
+                      </span>
+                      {busy ? 'Lädt …' : label}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSteuerPreviewType(type)}
+                      aria-label={`Vorschau ${label}`}
+                      style={{
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(148,170,255,0.25)',
+                        borderRadius: '0.75rem',
+                        padding: '0.625rem 1rem',
+                        fontSize: '0.875rem',
+                        fontFamily: 'Manrope, sans-serif',
+                        fontWeight: 700,
+                        color: 'var(--color-on-surface)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.375rem',
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+                        visibility
+                      </span>
+                      Vorschau
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            {steuerCsvError && (
+              <p
+                style={{
+                  color: 'var(--color-error)',
+                  fontSize: '0.85rem',
+                  fontFamily: 'var(--font-body)',
+                  marginTop: '0.75rem',
+                  marginBottom: 0,
+                }}
+              >
+                {steuerCsvError}
+              </p>
+            )}
+            <p
+              style={{
+                color: 'var(--color-on-surface-variant)',
+                fontSize: '0.78rem',
+                fontFamily: 'var(--font-body)',
+                marginTop: '0.75rem',
+                marginBottom: 0,
+              }}
+            >
+              Drei getrennte CSVs pro Jahr (Semikolon-getrennt, Excel-kompatibel).
+              Grundwerte und Sätze sind separat aufgeführt — editierbar für den
+              Steuerberater.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -284,9 +416,24 @@ export function BelegeExportPage() {
           onClose={() => setPreviewOpen(false)}
         />
       )}
+
+      {steuerPreviewType && (
+        <SteuerCsvPreviewModal
+          title={`Vorschau · ${TYPE_LABEL_TAX[steuerPreviewType]} · ${year}`}
+          fetchText={() => fetchSteuerCsvText(steuerPreviewType, Number(year))}
+          onDownload={() => downloadSteuerCsv(steuerPreviewType, Number(year))}
+          onClose={() => setSteuerPreviewType(null)}
+        />
+      )}
     </PageWrapper>
   );
 }
+
+const TYPE_LABEL_TAX: Record<SteuerCsvType, string> = {
+  fahrten: 'Fahrten',
+  abwesenheitspauschalen: 'Abwesenheitspauschalen',
+  belege: 'Belege/Rechnungen',
+};
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
