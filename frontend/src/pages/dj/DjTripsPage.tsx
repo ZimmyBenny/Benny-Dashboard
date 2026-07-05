@@ -137,6 +137,8 @@ export function DjTripsPage() {
 
   function field(key: keyof TripForm, value: string) {
     setForm(f => ({ ...f, [key]: value }));
+    // Veraltete Fehlermeldung sofort ausblenden, sobald der Nutzer korrigiert.
+    if (formError) setFormError('');
   }
 
   return (
