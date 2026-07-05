@@ -208,6 +208,46 @@ export function BelegeTaxPage() {
                 </tr>
               )}
             </tbody>
+            {data.buckets.length > 1 && (() => {
+              const t = data.buckets.reduce(
+                (a, b) => ({
+                  kz81: a.kz81 + b.kz81_umsatz_19_net_cents,
+                  kz86: a.kz86 + b.kz86_umsatz_7_net_cents,
+                  kz66: a.kz66 + b.kz66_vorsteuer_cents,
+                  kz84: a.kz84 + b.kz84_rc_net_cents,
+                  kz85: a.kz85 + b.kz85_rc_vat_cents,
+                  kz62: a.kz62 + b.kz62_eust_cents,
+                  zahllast: a.zahllast + b.zahllast_cents,
+                }),
+                { kz81: 0, kz86: 0, kz66: 0, kz84: 0, kz85: 0, kz62: 0, zahllast: 0 },
+              );
+              return (
+                <tfoot>
+                  <tr style={{ borderTop: '2px solid rgba(148,170,255,0.25)', background: 'rgba(148,170,255,0.05)' }}>
+                    <Td><strong>Gesamt {year}</strong></Td>
+                    <Td align="right"><strong>{formatCurrencyFromCents(t.kz81)}</strong></Td>
+                    <Td align="right"><strong>{formatCurrencyFromCents(t.kz86)}</strong></Td>
+                    <Td align="right"><strong>{formatCurrencyFromCents(t.kz66)}</strong></Td>
+                    <Td align="right"><strong>{formatCurrencyFromCents(t.kz84)} / {formatCurrencyFromCents(t.kz85)}</strong></Td>
+                    <Td align="right"><strong>{formatCurrencyFromCents(t.kz62)}</strong></Td>
+                    <Td
+                      align="right"
+                      style={{
+                        fontWeight: 700,
+                        color:
+                          t.zahllast > 0
+                            ? 'var(--color-error)'
+                            : t.zahllast < 0
+                              ? 'var(--color-secondary)'
+                              : 'var(--color-on-surface)',
+                      }}
+                    >
+                      <strong>{formatCurrencyFromCents(t.zahllast)}</strong>
+                    </Td>
+                  </tr>
+                </tfoot>
+              );
+            })()}
           </table>
         </div>
 
