@@ -231,7 +231,9 @@ router.get('/trips', (req, res) => {
       t.purpose                         AS purpose,
       (t.amount_cents / 100.0)          AS reimbursement_amount,
       (t.rate_per_km_cents / 100.0)     AS mileage_rate,
-      0                                 AS meal_allowance,
+      (t.meal_allowance_cents / 100.0)  AS meal_allowance,
+      t.departure_time                  AS departure_time,
+      t.return_time                     AS return_time,
       t.area_slug                       AS area_slug,
       COALESCE(
         t.reference,

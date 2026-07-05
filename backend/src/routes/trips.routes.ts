@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db/connection';
 import { mirrorTripToReceipts } from '../services/tripSyncService';
 import { logAudit } from '../services/audit.service';
+import { computeMealAllowanceCents } from '../lib/mealAllowance';
 
 /**
  * CRUD-Endpoint fuer trips (Fahrten).
@@ -58,6 +59,8 @@ router.post('/', (req, res) => {
     notes,
     area_slug,
     reference,
+    departure_time,
+    return_time,
   } = req.body as Record<string, unknown>;
 
   if (!expense_date) {
@@ -73,12 +76,23 @@ router.post('/', (req, res) => {
   const referenceValue =
     typeof reference === 'string' && reference.trim() ? reference.trim() : null;
 
+  const departureTime =
+    typeof departure_time === 'string' && departure_time.trim()
+      ? departure_time.trim()
+      : null;
+  const returnTime =
+    typeof return_time === 'string' && return_time.trim()
+      ? return_time.trim()
+      : null;
+  const mealCents = computeMealAllowanceCents(departureTime, returnTime);
+
   const result = db
     .prepare(
       `INSERT INTO trips
          (start_location, end_location, distance_km, purpose,
-          rate_per_km_cents, amount_cents, linked_event_id, expense_date, notes, area_slug, reference)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          rate_per_km_cents, amount_cents, linked_event_id, expense_date, notes, area_slug, reference,
+          departure_time, return_time, meal_allowance_cents)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       start_location ?? null,
@@ -92,6 +106,9 @@ router.post('/', (req, res) => {
       notes ?? null,
       areaSlug,
       referenceValue,
+      departureTime,
+      returnTime,
+      mealCents,
     );
   const id = Number(result.lastInsertRowid);
 
@@ -128,6 +145,8 @@ router.patch('/:id', (req, res) => {
     notes,
     area_slug,
     reference,
+    departure_time,
+    return_time,
   } = req.body as Record<string, unknown>;
 
   const distance = distance_km !== undefined ? Number(distance_km) : null;
@@ -176,6 +195,24 @@ router.patch('/:id', (req, res) => {
   db.prepare(
     `UPDATE trips SET amount_cents = distance_km * 2 * rate_per_km_cents WHERE id = ?`,
   ).run(id);
+
+  // Abwesenheitspauschale: nur bei gesendeten Zeitwerten aktualisieren.
+  // Direkte Zuweisung (kein COALESCE) — leerer/nuller Wert loescht die Pauschale
+  // (Schalter aus + Speichern). meal_allowance_cents wird serverseitig berechnet.
+  if (departure_time !== undefined || return_time !== undefined) {
+    const dep =
+      typeof departure_time === 'string' && departure_time.trim()
+        ? departure_time.trim()
+        : null;
+    const ret =
+      typeof return_time === 'string' && return_time.trim()
+        ? return_time.trim()
+        : null;
+    const mealCents = computeMealAllowanceCents(dep, ret);
+    db.prepare(
+      `UPDATE trips SET departure_time = ?, return_time = ?, meal_allowance_cents = ? WHERE id = ?`,
+    ).run(dep, ret, mealCents, id);
+  }
 
   logAudit(req, 'trip', id, 'update', existing, req.body);
   mirrorTripToReceipts(id, req);
