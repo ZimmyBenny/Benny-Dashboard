@@ -187,8 +187,8 @@ export function DjInvoicesPage() {
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '2.5rem' }}>
             <div>
-              <h1 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '3rem', letterSpacing: '-0.02em', color: 'var(--color-primary)', margin: 0, lineHeight: 1.1, textTransform: 'uppercase' }}>
-                RECHNUNGEN
+              <h1 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '3rem', letterSpacing: '-0.02em', color: 'var(--color-on-surface)', margin: 0, lineHeight: 1.1 }}>
+                Rechnungen
               </h1>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}>
@@ -201,7 +201,7 @@ export function DjInvoicesPage() {
               </select>
               <button
                 onClick={() => navigate('/dj/invoices/new')}
-                style={{ background: 'linear-gradient(135deg, #94aaff 0%, #5cfd80 100%)', color: '#060e20', border: 'none', borderRadius: '0.75rem', padding: '0.625rem 1.25rem', fontSize: '0.875rem', fontFamily: 'Manrope, sans-serif', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.375rem', boxShadow: '0 0 16px rgba(148,170,255,0.3)' }}
+                style={{ background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))', color: 'var(--color-on-primary)', border: 'none', borderRadius: '999px', padding: '0.625rem 1.25rem', fontSize: '0.875rem', fontFamily: 'Manrope, sans-serif', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.375rem', boxShadow: '0 0 16px rgba(148,170,255,0.3)' }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span>
                 Neue Rechnung
