@@ -376,6 +376,26 @@ export async function fetchBelegeExportCsvText(filter: {
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text; // BOM strippen
 }
 
+// ── Manuelle Beleg-Erfassung / Eigenbeleg (Plan quick-260705-tot) ─────────
+
+export interface ManualReceiptInput {
+  type: 'eingangsrechnung' | 'ausgangsrechnung' | 'quittung' | 'sonstiges';
+  receipt_date: string;
+  supplier_name: string | null;
+  supplier_invoice_number: string | null;
+  amount_gross_cents: number;
+  vat_rate: number;
+  area_id: number | null;
+  steuerrelevant: boolean;
+  notes: string | null;
+}
+
+/** POST /api/belege/manual — Eigenbeleg ohne Datei anlegen (fileless-create). */
+export const createManualReceipt = (
+  data: ManualReceiptInput,
+): Promise<ReceiptListItem> =>
+  apiClient.post('/belege/manual', data).then((r) => r.data);
+
 // ── Finder-Spiegel (Plan quick-260704-m69) ────────────────────────────────
 
 /** POST /api/belege/mirror-rebuild — Finder-Spiegel komplett neu aufbauen. */
