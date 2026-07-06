@@ -90,7 +90,15 @@ export function ChecklistSectionBlock({
             Noch keine Punkte in dieser Section.
           </p>
         ) : (
-          <table className="w-full">
+          <table className="w-full table-fixed">
+            <colgroup>
+              <col style={{ width: 36 }} />
+              <col style={{ width: '32%' }} />
+              <col style={{ width: 72 }} />
+              <col style={{ width: '44%' }} />
+              <col />
+              <col style={{ width: 56 }} />
+            </colgroup>
             <thead>
               <tr>
                 <th style={{ ...TH_STYLE, textAlign: 'right', width: 36 }}>#</th>

@@ -74,6 +74,7 @@ export function ChecklistItemRow({ rowNumber, item, onUpdate, onRequestEdit, onR
           maxLength={500}
           autoComplete="off"
           spellCheck={false}
+          title={description}
           className="w-full px-2 py-1 rounded text-sm"
           style={{
             ...INPUT_STYLE,
@@ -112,19 +113,20 @@ export function ChecklistItemRow({ rowNumber, item, onUpdate, onRequestEdit, onR
         ) : (
           <div
             onDoubleClick={() => setEditingRemark(true)}
-            className="px-2 py-1 rounded cursor-text min-h-[1.75rem] hover:bg-white/5 transition-colors"
-            title="Doppelklick zum Bearbeiten"
+            className="px-2 py-1 rounded cursor-text min-h-[1.75rem] hover:bg-white/5 transition-colors break-words"
+            title={item.remark ? item.remark : 'Doppelklick zum Bearbeiten'}
           >
             {item.remark ?? ''}
           </div>
         )}
       </td>
-      <td className="p-2 text-sm">
+      <td className="p-2 text-sm" style={{ wordBreak: 'break-word' }}>
         {item.link_url && linkText ? (
           <a
             href={item.link_url}
             target="_blank"
             rel="noopener noreferrer"
+            title={item.link_url}
             style={{ color: 'var(--color-primary)', textDecoration: 'underline' }}
           >
             {linkText}
