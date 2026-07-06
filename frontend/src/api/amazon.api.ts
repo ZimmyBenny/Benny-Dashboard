@@ -855,3 +855,42 @@ export async function updateListingImage(productId: number, imageId: number, pat
   const r = await apiClient.patch<{ image: ListingImage }>(`/amazon/products/${productId}/listing/images/${imageId}`, patch);
   return r.data.image;
 }
+
+// ── Produkt-Dokumente (Verpackungsdesign + Aufbauanleitung) — Migr. 107 ───────
+// Datei-/Bild-Upload (beliebige Typen) + Notizfeld je Produkt und Bereich (area).
+export type ProductDocArea = 'verpackung' | 'anleitung';
+export interface ProductDocFile {
+  id: number; product_id: number; area: ProductDocArea; sort_order: number;
+  file_path: string; original_name: string | null; mime: string | null;
+}
+export interface ProductDocsData {
+  files: ProductDocFile[];
+  notes: string;
+}
+
+export async function fetchProductDocs(productId: number, area: ProductDocArea): Promise<ProductDocsData> {
+  const r = await apiClient.get<ProductDocsData>(`/amazon/products/${productId}/docs/${area}`);
+  return r.data;
+}
+export async function uploadProductDoc(productId: number, area: ProductDocArea, file: File): Promise<ProductDocFile> {
+  const fd = new FormData(); fd.append('file', file);
+  const r = await apiClient.post<{ file: ProductDocFile }>(
+    `/amazon/products/${productId}/docs/${area}`, fd,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
+  return r.data.file;
+}
+export async function deleteProductDoc(productId: number, area: ProductDocArea, fileId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/docs/${area}/files/${fileId}`);
+}
+export async function getProductDocObjectUrl(productId: number, area: ProductDocArea, fileId: number): Promise<string> {
+  const r = await apiClient.get(`/amazon/products/${productId}/docs/${area}/files/${fileId}`, { responseType: 'blob' });
+  return URL.createObjectURL(r.data as Blob);
+}
+export async function reorderProductDocs(productId: number, area: ProductDocArea, order: number[]): Promise<void> {
+  await apiClient.post(`/amazon/products/${productId}/docs/${area}/reorder`, { order });
+}
+export async function updateProductDocNotes(productId: number, area: ProductDocArea, notes: string): Promise<string> {
+  const r = await apiClient.put<{ notes: string }>(`/amazon/products/${productId}/docs/${area}/notes`, { notes });
+  return r.data.notes;
+}
