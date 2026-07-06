@@ -3,10 +3,11 @@ import db from '../db/connection';
 
 const router = Router();
 
-type AmazonProductStatus = 'interessant' | 'aktiv' | 'bestehend' | 'verworfen';
+type AmazonProductStatus = 'interessant' | 'warteliste' | 'aktiv' | 'bestehend' | 'verworfen';
 
 interface Counts {
   interessant: number;
+  warteliste: number;
   aktiv: number;
   bestehend: number;
   verworfen: number;
@@ -24,7 +25,7 @@ interface ActiveProduct {
 // Kein createBackup (siehe CLAUDE.md Datensicherheit — Backup nur vor Bulk-Schreibvorgaengen).
 router.get('/dashboard', (_req: Request, res: Response) => {
   // 1. Status-Counts
-  const counts: Counts = { interessant: 0, aktiv: 0, bestehend: 0, verworfen: 0 };
+  const counts: Counts = { interessant: 0, warteliste: 0, aktiv: 0, bestehend: 0, verworfen: 0 };
   const countRows = db
     .prepare(`SELECT status, COUNT(*) AS c FROM amazon_products GROUP BY status`)
     .all() as { status: AmazonProductStatus; c: number }[];

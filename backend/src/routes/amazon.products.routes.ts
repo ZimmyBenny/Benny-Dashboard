@@ -41,8 +41,8 @@ function deleteImageFile(filename: string | null | undefined) {
 
 const router = Router();
 
-type Status = 'interessant' | 'aktiv' | 'bestehend' | 'verworfen';
-const VALID_STATUS: ReadonlySet<Status> = new Set(['interessant', 'aktiv', 'bestehend', 'verworfen']);
+type Status = 'interessant' | 'warteliste' | 'aktiv' | 'bestehend' | 'verworfen';
+const VALID_STATUS: ReadonlySet<Status> = new Set(['interessant', 'warteliste', 'aktiv', 'bestehend', 'verworfen']);
 const MAX_NAME_LEN = 200;
 const MAX_NOTES_LEN = 5000;
 
