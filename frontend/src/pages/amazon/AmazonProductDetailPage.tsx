@@ -230,7 +230,7 @@ export function AmazonProductDetailPage() {
               if (id === 'usp') return <UspSection productId={product.id} productName={product.name} />;
               if (id === 'manufacturers') return <ManufacturersSection productId={product.id} />;
               if (id === 'research') return <ResearchSection scope={product.id} />;
-              if (id === 'listing') return <ListingSection productId={product.id} />;
+              if (id === 'listing') return <ListingSection productId={product.id} productName={product.name} />;
               return <ChecklistSection productId={product.id} />;
             },
           }))}
