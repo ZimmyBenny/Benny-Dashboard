@@ -30,7 +30,7 @@ export function ListingSection({ productId, defaultOpen = false }: { productId: 
           {data && (
             <>
               <ListingEditor productId={productId} initial={data.listing} />
-              <MainImageComparator productId={productId} competitorImages={data.images.competitor} />
+              <MainImageComparator productId={productId} competitorImages={data.images.competitor} listing={data.listing} />
               <ListingImages productId={productId} images={data.images.listing} />
             </>
           )}
