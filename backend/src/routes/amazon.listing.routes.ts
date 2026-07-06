@@ -38,6 +38,7 @@ interface ListingRow {
   comp_own_rating: number | null;
   comp_own_reviews: number | null;
   comp_own_sold: string | null; // „X Mal gekauft"-Zeile (Migr. 105)
+  comp_search_term: string | null; // editierbarer Amazon-Suchbegriff (Migr. 106)
   created_at: number;
   updated_at: number;
 }
@@ -82,7 +83,7 @@ function emptyListing(productId: number): ListingRow {
     title: '', bullet_1: '', bullet_2: '', bullet_3: '', bullet_4: '', bullet_5: '',
     description: '', keywords_main: '', keywords_backend: '',
     comp_own_title: null, comp_own_price: null, comp_own_rating: null, comp_own_reviews: null,
-    comp_own_sold: null,
+    comp_own_sold: null, comp_search_term: null,
     created_at: 0, updated_at: 0,
   };
 }
@@ -132,13 +133,16 @@ router.put('/products/:id/listing', (req: Request, res: Response) => {
   const ownSold = 'comp_own_sold' in body
     ? (body.comp_own_sold == null ? null : String(body.comp_own_sold).slice(0, MAX_FIELD))
     : base.comp_own_sold;
+  const searchTerm = 'comp_search_term' in body
+    ? (body.comp_search_term == null ? null : String(body.comp_search_term).slice(0, MAX_FIELD))
+    : base.comp_search_term;
 
   db.prepare(`
     INSERT INTO amazon_listing
       (product_id, title, bullet_1, bullet_2, bullet_3, bullet_4, bullet_5, description, keywords_main, keywords_backend,
-       comp_own_title, comp_own_price, comp_own_rating, comp_own_reviews, comp_own_sold)
+       comp_own_title, comp_own_price, comp_own_rating, comp_own_reviews, comp_own_sold, comp_search_term)
     VALUES (@product_id, @title, @bullet_1, @bullet_2, @bullet_3, @bullet_4, @bullet_5, @description, @keywords_main, @keywords_backend,
-       @comp_own_title, @comp_own_price, @comp_own_rating, @comp_own_reviews, @comp_own_sold)
+       @comp_own_title, @comp_own_price, @comp_own_rating, @comp_own_reviews, @comp_own_sold, @comp_search_term)
     ON CONFLICT(product_id) DO UPDATE SET
       title = excluded.title,
       bullet_1 = excluded.bullet_1,
@@ -154,11 +158,13 @@ router.put('/products/:id/listing', (req: Request, res: Response) => {
       comp_own_rating = excluded.comp_own_rating,
       comp_own_reviews = excluded.comp_own_reviews,
       comp_own_sold = excluded.comp_own_sold,
+      comp_search_term = excluded.comp_search_term,
       updated_at = unixepoch()
   `).run({
     product_id: id, ...next,
     comp_own_title: ownTitle, comp_own_price: ownPrice,
     comp_own_rating: ownRating, comp_own_reviews: ownReviews, comp_own_sold: ownSold,
+    comp_search_term: searchTerm,
   });
 
   res.json({ listing: db.prepare(`SELECT * FROM amazon_listing WHERE product_id = ?`).get(id) as ListingRow });
