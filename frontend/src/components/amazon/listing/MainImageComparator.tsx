@@ -167,15 +167,50 @@ function fmtReviews(n: number | null): string {
   return n.toLocaleString('de-DE');
 }
 
-// ── echtes Amazon-„prime" — kleiner blauer Swoosh/Haken + „prime" fett blau ───
+// ── Bewertungs-Anzahl: zeigt „(192)", per Klick editierbar (Amazon-Look) ───────
+function ReviewsField({ value, onSave }: { value: number | null; onSave: (v: string) => void }) {
+  const [focused, setFocused] = useState(false);
+  const [local, setLocal] = useState(value == null ? '' : String(value));
+  const last = useRef(value == null ? '' : String(value));
+  useEffect(() => {
+    const s = value == null ? '' : String(value);
+    setLocal(s); last.current = s;
+  }, [value]);
+  function save() {
+    setFocused(false);
+    if (local === last.current) return;
+    last.current = local;
+    onSave(local);
+  }
+  if (focused) {
+    return (
+      <input
+        autoFocus value={local} onChange={(e) => setLocal(e.target.value)} onBlur={save}
+        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+        inputMode="numeric" placeholder="Anzahl"
+        style={{
+          width: 60, fontSize: 12, color: AZ_LINK, background: '#fff',
+          border: `1px solid ${AZ_CARD_BORDER}`, borderRadius: 4, padding: '1px 3px', outline: 'none',
+        }}
+      />
+    );
+  }
+  return (
+    <span role="button" tabIndex={0} onClick={() => setFocused(true)} onFocus={() => setFocused(true)}
+      title="Anzahl Bewertungen bearbeiten"
+      style={{ color: AZ_LINK, fontSize: 12, cursor: 'pointer' }}>
+      {value == null ? 'Bewertungen' : `(${fmtReviews(value)})`}
+    </span>
+  );
+}
+
+// ── echtes Amazon-„prime" — blauer Haken + „prime" fett blau ──────────────────
 function PrimeBadge() {
   return (
     <span className="inline-flex items-center gap-1" style={{ lineHeight: 1 }}>
-      <svg viewBox="0 0 24 24" width={16} height={16} aria-hidden="true" style={{ display: 'block' }}>
-        {/* geschwungener Amazon-„smile"-Swoosh */}
-        <path fill="none" stroke={AZ_PRIME} strokeWidth={2.4} strokeLinecap="round"
-          d="M3 14c4 3.5 14 3.5 18 0" />
-        <path fill={AZ_PRIME} d="M19 12.5l2.6 1.2-1.9 2.1z" />
+      <svg viewBox="0 0 24 24" width={15} height={15} aria-hidden="true" style={{ display: 'block' }}>
+        <path fill="none" stroke={AZ_PRIME} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"
+          d="M4 12.5l5 5 11-12" />
       </svg>
       <span style={{ color: AZ_PRIME, fontWeight: 700, fontSize: 12, fontStyle: 'italic' }}>prime</span>
     </span>
@@ -223,25 +258,15 @@ function CardBody({
       <div style={{ minHeight: 36 }}>
         <TitleInput value={title} onSave={onTitle} />
       </div>
-      {/* Sterne + Reviews */}
+      {/* Rating-Wert + Sterne + (Anzahl) — wie ein echter Amazon-Suchtreffer */}
       <div className="flex items-center gap-1.5" style={{ paddingLeft: 3 }}>
+        {rating != null && (
+          <span style={{ color: AZ_INK, fontSize: 12 }}>
+            {rating.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+          </span>
+        )}
         <Stars rating={rating} onPick={onRating} />
-        <input
-          onBlur={(e) => onReviews(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-          placeholder="0"
-          inputMode="numeric"
-          className="rounded outline-none"
-          style={{
-            width: 60, background: 'transparent', color: AZ_LINK, fontSize: 12,
-            border: '1px solid transparent', padding: '1px 3px',
-          }}
-          onFocus={(e) => { e.target.style.border = `1px solid ${AZ_CARD_BORDER}`; e.target.style.background = '#fff'; }}
-          title="Anzahl Bewertungen"
-          defaultValue={reviews == null ? '' : String(reviews)}
-          key={reviews == null ? 'empty' : String(reviews)}
-        />
-        {reviews != null && <span style={{ color: AZ_LINK, fontSize: 12 }}>({fmtReviews(reviews)})</span>}
+        <ReviewsField value={reviews} onSave={onReviews} />
       </div>
       {/* „X Mal gekauft"-Zeile — klein/grau, editierbar */}
       <div style={{ paddingLeft: 3 }}>
