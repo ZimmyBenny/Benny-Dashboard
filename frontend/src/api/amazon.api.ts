@@ -800,6 +800,8 @@ export type ListingImageKind = 'listing' | 'competitor';
 export interface ListingImage {
   id: number; product_id: number; kind: ListingImageKind; sort_order: number;
   file_path: string; original_name: string | null; mime: string | null; label: string | null;
+  // Karten-Felder (Amazon-Suchoptik, Migr. 104).
+  card_title: string | null; card_price: string | null; card_rating: number | null; card_reviews: number | null;
 }
 export interface ListingFields {
   product_id: number;
@@ -808,6 +810,9 @@ export interface ListingFields {
   description: string;
   keywords_main: string;
   keywords_backend: string;
+  // Eigene Karten-Angaben (Amazon-Suchoptik, Migr. 104).
+  comp_own_title: string | null; comp_own_price: string | null;
+  comp_own_rating: number | null; comp_own_reviews: number | null;
 }
 export interface ListingData {
   listing: ListingFields;
@@ -841,7 +846,9 @@ export async function getListingImageObjectUrl(productId: number, imageId: numbe
 export async function reorderListingImages(productId: number, kind: ListingImageKind, order: number[]): Promise<void> {
   await apiClient.post(`/amazon/products/${productId}/listing/images/reorder`, { kind, order });
 }
-export async function updateListingImageLabel(productId: number, imageId: number, label: string | null): Promise<ListingImage> {
-  const r = await apiClient.patch<{ image: ListingImage }>(`/amazon/products/${productId}/listing/images/${imageId}`, { label });
+// Generisches Karten-Patch: label + card_title/card_price/card_rating/card_reviews (jeweils optional).
+export type ListingImagePatch = Partial<Pick<ListingImage, 'label' | 'card_title' | 'card_price' | 'card_rating' | 'card_reviews'>>;
+export async function updateListingImage(productId: number, imageId: number, patch: ListingImagePatch): Promise<ListingImage> {
+  const r = await apiClient.patch<{ image: ListingImage }>(`/amazon/products/${productId}/listing/images/${imageId}`, patch);
   return r.data.image;
 }

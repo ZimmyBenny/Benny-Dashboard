@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   fetchListing, updateListing, uploadListingImage, deleteListingImage,
-  reorderListingImages, updateListingImageLabel,
-  type ListingPatch, type ListingImageKind,
+  reorderListingImages, updateListingImage,
+  type ListingPatch, type ListingImageKind, type ListingImagePatch,
 } from '../../api/amazon.api';
 
 export const listingKey = (productId: number) => ['amazon', 'products', productId, 'listing'] as const;
@@ -38,7 +38,7 @@ export function useReorderListingImages(productId: number) {
   const inv = useInvalidate(productId);
   return useMutation({ mutationFn: (v: { kind: ListingImageKind; order: number[] }) => reorderListingImages(productId, v.kind, v.order), onSettled: inv });
 }
-export function useUpdateListingImageLabel(productId: number) {
+export function useUpdateListingImage(productId: number) {
   const inv = useInvalidate(productId);
-  return useMutation({ mutationFn: (v: { imageId: number; label: string | null }) => updateListingImageLabel(productId, v.imageId, v.label), onSettled: inv });
+  return useMutation({ mutationFn: (v: { imageId: number; patch: ListingImagePatch }) => updateListingImage(productId, v.imageId, v.patch), onSettled: inv });
 }
