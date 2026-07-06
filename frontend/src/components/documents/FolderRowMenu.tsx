@@ -56,7 +56,7 @@ export function FolderRowMenu({
           e.stopPropagation();
           setOpen((v) => !v);
         }}
-        className="p-1 rounded hover:bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="p-1 rounded hover:bg-white/5 opacity-60 hover:opacity-100 transition-opacity"
         style={{ color: 'var(--color-on-surface-variant)', opacity: open ? 1 : undefined }}
         aria-label="Ordner-Menü öffnen"
       >
