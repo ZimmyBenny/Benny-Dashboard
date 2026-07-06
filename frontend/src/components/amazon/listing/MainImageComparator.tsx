@@ -499,13 +499,26 @@ export function MainImageComparator({
 
   return (
     <div className="flex flex-col gap-2">
-      <h3 className="text-sm font-medium" style={{ color: 'var(--color-on-surface)' }}>Hauptbild-Vergleich</h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-medium" style={{ color: 'var(--color-on-surface)' }}>Hauptbild-Vergleich</h3>
+        {/* Druck-Export: druckt nur den weissen Amazon-Bereich (Querformat) → im Dialog „Als PDF sichern" */}
+        <button
+          type="button"
+          onClick={() => window.print()}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium"
+          style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}
+          title="Als PDF exportieren (Druckdialog → Als PDF sichern)"
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>picture_as_pdf</span>
+          Als PDF exportieren
+        </button>
+      </div>
       <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)', opacity: 0.7 }}>
         Deine Karte neben Wettbewerber-Karten — wie eine Amazon-Suchergebnis-Seite.
       </p>
 
       {/* helles Amazon-Panel */}
-      <div style={{ background: AZ_PANEL, borderRadius: 10, padding: 16 }}>
+      <div className="az-cmp-print-root" style={{ background: AZ_PANEL, borderRadius: 10, padding: 16 }}>
         {/* Amazon-Suchleiste — Suchbegriff editierbar (Auto-Save) */}
         <div className="flex items-center gap-2 mb-4">
           <div className="flex items-center flex-1 rounded-md overflow-hidden" style={{ border: `1px solid ${AZ_CARD_BORDER}` }}>
@@ -558,6 +571,15 @@ export function MainImageComparator({
           @media (max-width: 1200px) { .az-search-grid { grid-template-columns: repeat(4, 1fr); } }
           @media (max-width: 900px)  { .az-cmp-layout .az-filter { display: none; } .az-search-grid { grid-template-columns: repeat(3, 1fr); } }
           @media (max-width: 620px)  { .az-search-grid { grid-template-columns: repeat(2, 1fr); } }
+          @media print {
+            @page { size: landscape; margin: 10mm; }
+            body { background: #fff !important; }
+            body * { visibility: hidden !important; }
+            .az-cmp-print-root, .az-cmp-print-root * { visibility: visible !important; }
+            .az-cmp-print-root { position: absolute !important; left: 0; top: 0; width: 100%; border-radius: 0 !important; }
+            .az-search-grid { grid-template-columns: repeat(5, 1fr) !important; }
+            .az-cmp-layout .az-filter { display: block !important; }
+          }
         `}</style>
       </div>
 
