@@ -427,6 +427,41 @@ function CompetitorCard({ productId, image, onDelete }: { productId: number; ima
   );
 }
 
+// ── Deko: linke Amazon-Filterspalte (rein optisch, nicht funktional) ──────────
+function FilterSidebar() {
+  const heading = (t: string) => (
+    <div style={{ fontWeight: 700, fontSize: 13, color: AZ_INK, margin: '14px 0 6px' }}>{t}</div>
+  );
+  const swatches = ['#8f8f8f', '#ffffff', '#111111', '#d9c9a3', '#c0392b', '#f7c6d0', '#7ec850', '#39b7b0', '#2c3e88', '#e8e8e8', '#8a5a2b'];
+  const brands = ['LZQ', 'COSTWAY', 'Reer', 'AufN', 'Ikodm', 'TULANO', 'YRHome'];
+  const checkbox = (label: string) => (
+    <div key={label} className="flex items-center gap-1.5" style={{ marginTop: 2 }}>
+      <span style={{ width: 13, height: 13, border: `1px solid ${AZ_GREY}`, borderRadius: 2, display: 'inline-block', flexShrink: 0 }} />
+      <span>{label}</span>
+    </div>
+  );
+  return (
+    <aside aria-hidden="true" className="az-filter" style={{ width: 172, flexShrink: 0, fontSize: 13, color: AZ_GREY, lineHeight: 1.55 }}>
+      {heading('Kundenrezensionen')}
+      <div className="flex items-center gap-1"><Stars rating={4} /><span>&amp; mehr</span></div>
+      {heading('Preis')}
+      {['Bis zu 45 EUR', '45 – 70 EUR', '70 – 200 EUR', '200 – 250 EUR', 'Über 250 EUR'].map(p => (
+        <div key={p} style={{ color: AZ_LINK }}>{p}</div>
+      ))}
+      {heading('Farbe')}
+      <div className="flex flex-wrap gap-1">
+        {swatches.map((c, i) => (
+          <span key={i} style={{ width: 18, height: 18, borderRadius: 3, background: c, border: '1px solid #ccc', display: 'inline-block' }} />
+        ))}
+      </div>
+      {heading('Zustand')}
+      {['Neu', 'Gebraucht'].map(checkbox)}
+      {heading('Marken')}
+      {brands.map(checkbox)}
+    </aside>
+  );
+}
+
 // ── Haupt-Komponente ──────────────────────────────────────────────────────────
 export function MainImageComparator({
   productId, competitorImages, listing, productName,
@@ -493,29 +528,35 @@ export function MainImageComparator({
           </div>
         </div>
 
-        {/* Raster: 5 Karten pro Zeile (bei genug Wettbewerbern 2. Zeile → bis 10 sichtbar);
-            responsiv weniger Spalten auf schmaler Breite. */}
-        <div className="az-search-grid" style={{ display: 'grid', gap: 16 }}>
-          <OwnCard productId={productId} listing={listing} />
-          {competitorImages.map(im => (
-            <CompetitorCard key={im.id} productId={productId} image={im} onDelete={() => del.mutate(im.id)} />
-          ))}
-          {/* Upload-/Add-Kachel */}
-          <button type="button" onClick={() => fileInput.current?.click()}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); pickMany(e.dataTransfer.files); }}
-            className="flex flex-col items-center justify-center rounded-md aspect-square"
-            style={{ border: `1px dashed ${AZ_CARD_BORDER}`, color: AZ_GREY, background: '#fafafa', minHeight: 190 }}
-            aria-label="Wettbewerber-Karte hinzufügen" title="Wettbewerber-Bild hinzufügen (oder hierher ziehen)">
-            <span className="material-symbols-outlined" style={{ fontSize: 28 }}>add_photo_alternate</span>
-            <span className="text-xs mt-1">Wettbewerber</span>
-          </button>
+        {/* Zweispaltig wie die Amazon-Suche: links Filterspalte (Deko), rechts das
+            Ergebnis-Raster mit 5 Karten pro Zeile → 2 Reihen = 10 Plaetze. */}
+        <div className="az-cmp-layout" style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+          <FilterSidebar />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="az-search-grid" style={{ display: 'grid', gap: 16 }}>
+              <OwnCard productId={productId} listing={listing} />
+              {competitorImages.map(im => (
+                <CompetitorCard key={im.id} productId={productId} image={im} onDelete={() => del.mutate(im.id)} />
+              ))}
+              {/* Add-Kacheln fuellen das Raster auf 2x5 = 10 Plaetze auf (mind. 1 bleibt immer). */}
+              {Array.from({ length: Math.max(1, 10 - (1 + competitorImages.length)) }).map((_, i) => (
+                <button key={`add-${i}`} type="button" onClick={() => fileInput.current?.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => { e.preventDefault(); pickMany(e.dataTransfer.files); }}
+                  className="flex flex-col items-center justify-center rounded-md"
+                  style={{ border: `1px dashed ${AZ_CARD_BORDER}`, color: AZ_GREY, background: '#fafafa', minHeight: 300 }}
+                  aria-label="Wettbewerber-Karte hinzufügen" title="Wettbewerber-Bild hinzufügen (oder hierher ziehen)">
+                  <span className="material-symbols-outlined" style={{ fontSize: 28 }}>add_photo_alternate</span>
+                  <span className="text-xs mt-1">Wettbewerber</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
-        {/* 5 Spalten fix, responsiv abfallend */}
         <style>{`
           .az-search-grid { grid-template-columns: repeat(5, 1fr); }
-          @media (max-width: 1100px) { .az-search-grid { grid-template-columns: repeat(4, 1fr); } }
-          @media (max-width: 860px)  { .az-search-grid { grid-template-columns: repeat(3, 1fr); } }
+          @media (max-width: 1200px) { .az-search-grid { grid-template-columns: repeat(4, 1fr); } }
+          @media (max-width: 900px)  { .az-cmp-layout .az-filter { display: none; } .az-search-grid { grid-template-columns: repeat(3, 1fr); } }
           @media (max-width: 620px)  { .az-search-grid { grid-template-columns: repeat(2, 1fr); } }
         `}</style>
       </div>
