@@ -794,3 +794,54 @@ export async function getAmazonAppointments(): Promise<AmazonAppointment[]> {
   const r = await apiClient.get<AmazonAppointment[]>('/amazon/appointments');
   return r.data;
 }
+
+// ── Listing (Amazon-Listing-Anatomie + Listing-/Wettbewerber-Bilder) ──────────
+export type ListingImageKind = 'listing' | 'competitor';
+export interface ListingImage {
+  id: number; product_id: number; kind: ListingImageKind; sort_order: number;
+  file_path: string; original_name: string | null; mime: string | null; label: string | null;
+}
+export interface ListingFields {
+  product_id: number;
+  title: string;
+  bullet_1: string; bullet_2: string; bullet_3: string; bullet_4: string; bullet_5: string;
+  description: string;
+  keywords_main: string;
+  keywords_backend: string;
+}
+export interface ListingData {
+  listing: ListingFields;
+  images: { listing: ListingImage[]; competitor: ListingImage[] };
+}
+export type ListingPatch = Partial<Omit<ListingFields, 'product_id'>>;
+
+export async function fetchListing(productId: number): Promise<ListingData> {
+  const r = await apiClient.get<ListingData>(`/amazon/products/${productId}/listing`);
+  return r.data;
+}
+export async function updateListing(productId: number, patch: ListingPatch): Promise<ListingFields> {
+  const r = await apiClient.put<{ listing: ListingFields }>(`/amazon/products/${productId}/listing`, patch);
+  return r.data.listing;
+}
+export async function uploadListingImage(productId: number, kind: ListingImageKind, file: File): Promise<ListingImage> {
+  const fd = new FormData(); fd.append('file', file);
+  const r = await apiClient.post<{ image: ListingImage }>(
+    `/amazon/products/${productId}/listing/images?kind=${kind}`, fd,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
+  return r.data.image;
+}
+export async function deleteListingImage(productId: number, imageId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/listing/images/${imageId}`);
+}
+export async function getListingImageObjectUrl(productId: number, imageId: number): Promise<string> {
+  const r = await apiClient.get(`/amazon/products/${productId}/listing/images/${imageId}`, { responseType: 'blob' });
+  return URL.createObjectURL(r.data as Blob);
+}
+export async function reorderListingImages(productId: number, kind: ListingImageKind, order: number[]): Promise<void> {
+  await apiClient.post(`/amazon/products/${productId}/listing/images/reorder`, { kind, order });
+}
+export async function updateListingImageLabel(productId: number, imageId: number, label: string | null): Promise<ListingImage> {
+  const r = await apiClient.patch<{ image: ListingImage }>(`/amazon/products/${productId}/listing/images/${imageId}`, { label });
+  return r.data.image;
+}
