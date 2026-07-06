@@ -1,6 +1,6 @@
 import apiClient from './client';
 
-export type AmazonProductStatus = 'interessant' | 'aktiv' | 'bestehend' | 'verworfen';
+export type AmazonProductStatus = 'interessant' | 'warteliste' | 'aktiv' | 'bestehend' | 'verworfen';
 
 export interface AmazonProduct {
   id: number;
@@ -773,7 +773,7 @@ export interface AmazonDashboardActiveProduct {
   sourcing: { done: number; total: number };
 }
 export interface AmazonDashboard {
-  counts: { interessant: number; aktiv: number; bestehend: number; verworfen: number };
+  counts: { interessant: number; warteliste: number; aktiv: number; bestehend: number; verworfen: number };
   active: AmazonDashboardActiveProduct[];
 }
 export async function getAmazonDashboard(): Promise<AmazonDashboard> {

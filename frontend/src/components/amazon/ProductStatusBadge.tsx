@@ -4,23 +4,26 @@ import { useUpdateAmazonProductStatus } from '../../hooks/amazon/useAmazonProduc
 
 const LABEL: Record<AmazonProductStatus, string> = {
   interessant: 'Interessant',
+  warteliste:  'Warteliste',
   aktiv:       'Aktiv',
   bestehend:   'Bestehend',
   verworfen:   'Verworfen',
 };
 const ICON: Record<AmazonProductStatus, string> = {
   interessant: 'star',
+  warteliste:  'schedule',
   aktiv:       'settings',
   bestehend:   'check_circle',
   verworfen:   'archive',
 };
 const COLOR: Record<AmazonProductStatus, string> = {
   interessant: '#60a5fa',
+  warteliste:  '#fbbf24',
   aktiv:       '#60a5fa',
   bestehend:   '#34d399',
   verworfen:   '#fdba74',
 };
-const ORDER: AmazonProductStatus[] = ['interessant', 'aktiv', 'bestehend', 'verworfen'];
+const ORDER: AmazonProductStatus[] = ['interessant', 'warteliste', 'aktiv', 'bestehend', 'verworfen'];
 
 export function ProductStatusBadge({
   productId, status, align = 'left',

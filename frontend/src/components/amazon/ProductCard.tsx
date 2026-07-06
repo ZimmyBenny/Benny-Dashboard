@@ -5,6 +5,7 @@ import { ProductStatusBadge } from './ProductStatusBadge';
 
 const BORDER_COLOR: Record<AmazonProduct['status'], string> = {
   interessant: '#60a5fa',
+  warteliste:  '#fbbf24',
   aktiv:       '#60a5fa',
   bestehend:   '#34d399',
   verworfen:   '#fdba74',

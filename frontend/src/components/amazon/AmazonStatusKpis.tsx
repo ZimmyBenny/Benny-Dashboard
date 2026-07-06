@@ -14,6 +14,7 @@ interface KpiDef {
 
 const KPIS: KpiDef[] = [
   { key: 'interessant', label: 'Interessant', icon: 'lightbulb',    color: 'var(--color-primary)' },
+  { key: 'warteliste',  label: 'Warteliste',  icon: 'schedule',      color: 'var(--color-tertiary)' },
   { key: 'aktiv',       label: 'Aktiv',       icon: 'rocket_launch', color: 'var(--color-secondary)' },
   { key: 'bestehend',   label: 'Bestehend',   icon: 'inventory_2',   color: 'var(--color-tertiary)' },
   { key: 'verworfen',   label: 'Verworfen',   icon: 'block',         color: 'var(--color-outline)' },
