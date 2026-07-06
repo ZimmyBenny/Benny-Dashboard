@@ -13,6 +13,7 @@ const AZ_STAR_EMPTY = '#C7CDD1'; // leerer Stern
 const AZ_LINK = '#007185';       // Review-Zahl / Links
 const AZ_PRIME = '#00A8E1';      // Prime
 const AZ_LINE = '#e7e7e7';       // Trennlinie
+const AZ_GREEN = '#007600';      // „Auf Lager"
 const AZ_FONT = 'Arial, "Helvetica Neue", Helvetica, sans-serif';
 
 function StarGlyph({ color }: { color: string }) {
@@ -65,20 +66,38 @@ export function ListingProductPreview({
     .filter(b => b.length > 0);
   const reviews = listing.comp_own_reviews;
 
+  const price = listing.comp_own_price?.trim() || '—';
+
   return (
     <div style={{ background: '#fff', borderRadius: 10, padding: 24, fontFamily: AZ_FONT, color: AZ_INK }}>
-      <div className="flex flex-col md:flex-row" style={{ gap: 32 }}>
-        {/* Links: Hauptbild */}
-        <div className="flex items-start justify-center" style={{ flex: '0 0 42%', minWidth: 0 }}>
-          <div className="w-full flex items-center justify-center" style={{ background: '#fff', minHeight: 320 }}>
+      {/* echtes 3-Spalten-Amazon-Detaillayout — Kaufbox wrappt auf schmaler Breite */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 28 }}>
+
+        {/* ── Spalte 1: Hauptbild + dekorative Thumbnails ── */}
+        <div style={{ flex: '1 1 260px', minWidth: 240, maxWidth: 380 }}>
+          <div className="flex items-center justify-center" style={{ background: '#fff', minHeight: 320 }}>
             {src
-              ? <img src={src} alt={title} style={{ maxWidth: '100%', maxHeight: 460, objectFit: 'contain' }} />
+              ? <img src={src} alt={title} style={{ maxWidth: '100%', maxHeight: 420, objectFit: 'contain' }} />
               : <span style={{ color: AZ_GREY, fontSize: 14 }}>{loaded ? 'Kein Hauptbild' : '…'}</span>}
           </div>
+          {/* Thumbnail-Reihe (rein dekorativ) */}
+          {src && (
+            <div aria-hidden="true" style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'center' }}>
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} style={{
+                  width: 44, height: 44, borderRadius: 6, overflow: 'hidden',
+                  border: `1px solid ${i === 0 ? AZ_LINK : AZ_LINE}`, background: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <img src={src} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Rechts: Titel / Sterne / Preis / Bullets / Beschreibung */}
-        <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+        {/* ── Spalte 2: Titel / Sterne / Bullets / Beschreibung ── */}
+        <div style={{ flex: '2 1 360px', minWidth: 300 }}>
           <h1 style={{ fontSize: 20, fontWeight: 400, lineHeight: 1.35, color: AZ_INK, margin: 0 }}>{title}</h1>
           <div style={{ fontSize: 12, color: AZ_LINK, marginTop: 4 }}>Besuche den {productName}-Store</div>
 
@@ -88,19 +107,6 @@ export function ListingProductPreview({
             {reviews != null && (
               <span style={{ color: AZ_LINK, fontSize: 14 }}>{reviews.toLocaleString('de-DE')} Bewertungen</span>
             )}
-          </div>
-
-          <div style={{ borderTop: `1px solid ${AZ_LINE}`, marginTop: 14, paddingTop: 14 }} />
-
-          {/* Preis */}
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
-            <span style={{ fontSize: 28, fontWeight: 500, color: AZ_INK }}>
-              {listing.comp_own_price?.trim() || '—'}
-            </span>
-          </div>
-          <div style={{ marginTop: 4 }}>
-            <span style={{ color: AZ_PRIME, fontWeight: 700, fontSize: 13 }}>prime</span>
-            <span style={{ color: AZ_GREY, fontSize: 13 }}> GRATIS Lieferung</span>
           </div>
 
           <div style={{ borderTop: `1px solid ${AZ_LINE}`, marginTop: 16, paddingTop: 16 }} />
@@ -129,6 +135,54 @@ export function ListingProductPreview({
             <div style={{ fontSize: 13, color: AZ_GREY }}>Noch keine Beschreibung hinterlegt.</div>
           )}
         </div>
+
+        {/* ── Spalte 3: Amazon-Kaufbox (rein dekorativ) ── */}
+        <aside
+          aria-hidden="true"
+          style={{
+            flex: '0 1 240px', minWidth: 220, alignSelf: 'flex-start',
+            border: `1px solid ${AZ_LINE}`, borderRadius: 8, padding: 16,
+          }}
+        >
+          <div style={{ fontSize: 26, fontWeight: 500, color: AZ_INK }}>{price}</div>
+          <div style={{ fontSize: 13, color: AZ_GREY, marginTop: 6 }}>
+            <span style={{ color: AZ_PRIME, fontWeight: 700 }}>prime</span> GRATIS Lieferung morgen
+          </div>
+          <div style={{ fontSize: 18, color: AZ_GREEN, marginTop: 10 }}>Auf Lager</div>
+
+          {/* Menge (dekorativ) */}
+          <div style={{ marginTop: 12 }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              border: `1px solid ${AZ_LINE}`, borderRadius: 8, padding: '4px 10px',
+              fontSize: 13, color: AZ_INK, background: '#f0f2f2',
+            }}>
+              Menge: 1 <span style={{ fontSize: 10 }}>▾</span>
+            </span>
+          </div>
+
+          {/* gelber „In den Einkaufswagen"-Button — dekorativ */}
+          <div style={{
+            marginTop: 14, textAlign: 'center', background: '#FFD814', color: AZ_INK,
+            border: '1px solid #FCD200', borderRadius: 18, fontSize: 13, fontWeight: 500, padding: '7px 0',
+          }}>
+            In den Einkaufswagen
+          </div>
+          {/* oranger „Jetzt kaufen"-Button — dekorativ */}
+          <div style={{
+            marginTop: 8, textAlign: 'center', background: '#FFA41C', color: AZ_INK,
+            border: '1px solid #FA8900', borderRadius: 18, fontSize: 13, fontWeight: 500, padding: '7px 0',
+          }}>
+            Jetzt kaufen
+          </div>
+
+          <div style={{ marginTop: 14, fontSize: 12, color: AZ_GREY, lineHeight: 1.7 }}>
+            <div>Versand durch Amazon</div>
+            <div>Verkäufer: <span style={{ color: AZ_LINK }}>{productName}</span></div>
+            <div>Sichere Transaktion</div>
+          </div>
+        </aside>
+
       </div>
     </div>
   );
