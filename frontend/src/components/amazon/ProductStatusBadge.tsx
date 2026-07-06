@@ -23,7 +23,7 @@ const COLOR: Record<AmazonProductStatus, string> = {
   bestehend:   '#34d399',
   verworfen:   '#fdba74',
 };
-const ORDER: AmazonProductStatus[] = ['interessant', 'warteliste', 'aktiv', 'bestehend', 'verworfen'];
+const ORDER: AmazonProductStatus[] = ['warteliste', 'interessant', 'aktiv', 'bestehend', 'verworfen'];
 
 export function ProductStatusBadge({
   productId, status, align = 'left',
