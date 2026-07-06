@@ -138,12 +138,53 @@ router.patch('/products/:id', (req: Request, res: Response) => {
 });
 
 // DELETE /api/amazon/products/:id
+// Die meisten Kind-Tabellen tragen einen product_id-FK mit ON DELETE CASCADE und
+// verschwinden beim Produkt-Delete automatisch. ZWEI Aeste kaskadieren intern NICHT
+// (ihre Blaetter haengen an manufacturer_id bzw. topic_id/card_id ohne CASCADE) und
+// wuerden das Loeschen mit "FOREIGN KEY constraint failed" blockieren:
+//   - Hersteller-Ast: offer_files -> offers/samples -> usp_manufacturers -> manufacturers
+//     + amazon_manufacturer_settings (eigener product_id-FK ohne CASCADE)
+//   - Recherche-Ast: card_images/card_links -> cards -> topics
+// Daher raeumen wir diese beiden Aeste in einer Transaktion Blatt-zu-Wurzel selbst ab,
+// bevor das Produkt geloescht wird (Rest via CASCADE).
 router.delete('/products/:id', (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id)) { res.status(400).json({ error: 'invalid id' }); return; }
   const row = db.prepare(`SELECT image_path FROM amazon_products WHERE id=?`).get(id) as { image_path: string | null } | undefined;
-  if (row) deleteImageFile(row.image_path);
-  db.prepare(`DELETE FROM amazon_products WHERE id = ?`).run(id);
+  if (!row) { res.status(204).end(); return; }
+
+  const purge = db.transaction((productId: number) => {
+    // Recherche-Ast (Blatt -> Wurzel)
+    db.prepare(`DELETE FROM amazon_research_card_images WHERE card_id IN (
+      SELECT c.id FROM amazon_research_cards c
+      JOIN amazon_research_topics t ON t.id = c.topic_id WHERE t.product_id = ?)`).run(productId);
+    db.prepare(`DELETE FROM amazon_research_card_links WHERE card_id IN (
+      SELECT c.id FROM amazon_research_cards c
+      JOIN amazon_research_topics t ON t.id = c.topic_id WHERE t.product_id = ?)`).run(productId);
+    db.prepare(`DELETE FROM amazon_research_cards WHERE topic_id IN (
+      SELECT id FROM amazon_research_topics WHERE product_id = ?)`).run(productId);
+    db.prepare(`DELETE FROM amazon_research_topics WHERE product_id = ?`).run(productId);
+
+    // Hersteller-Ast (Blatt -> Wurzel)
+    db.prepare(`DELETE FROM amazon_manufacturer_offer_files WHERE offer_id IN (
+      SELECT o.id FROM amazon_manufacturer_offers o
+      JOIN amazon_manufacturers m ON m.id = o.manufacturer_id WHERE m.product_id = ?)`).run(productId);
+    db.prepare(`DELETE FROM amazon_manufacturer_offers WHERE manufacturer_id IN (
+      SELECT id FROM amazon_manufacturers WHERE product_id = ?)`).run(productId);
+    db.prepare(`DELETE FROM amazon_manufacturer_samples WHERE manufacturer_id IN (
+      SELECT id FROM amazon_manufacturers WHERE product_id = ?)`).run(productId);
+    // usp_manufacturers referenziert manufacturer_id ohne CASCADE -> vor den Herstellern loeschen
+    // (per product_id, da diese Zeilen ohnehin zum selben Produkt gehoeren)
+    db.prepare(`DELETE FROM amazon_usp_manufacturers WHERE product_id = ?`).run(productId);
+    db.prepare(`DELETE FROM amazon_manufacturers WHERE product_id = ?`).run(productId);
+    db.prepare(`DELETE FROM amazon_manufacturer_settings WHERE product_id = ?`).run(productId);
+
+    // Produkt selbst — Rest (Sourcing, Marke, Checkliste, USP, doc_folders) via CASCADE/SET NULL
+    db.prepare(`DELETE FROM amazon_products WHERE id = ?`).run(productId);
+  });
+
+  purge(id);
+  deleteImageFile(row.image_path);
   res.status(204).end();
 });
 
