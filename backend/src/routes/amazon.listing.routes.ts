@@ -37,14 +37,16 @@ interface ListingRow {
   comp_own_price: string | null;
   comp_own_rating: number | null;
   comp_own_reviews: number | null;
+  comp_own_sold: string | null; // „X Mal gekauft"-Zeile (Migr. 105)
   created_at: number;
   updated_at: number;
 }
 interface ListingImageRow {
   id: number; product_id: number; kind: ListingKind; sort_order: number;
   file_path: string; original_name: string | null; mime: string | null; label: string | null;
-  // Karten-Felder (Amazon-Suchoptik, Migr. 104).
+  // Karten-Felder (Amazon-Suchoptik, Migr. 104 + card_sold Migr. 105).
   card_title: string | null; card_price: string | null; card_rating: number | null; card_reviews: number | null;
+  card_sold: string | null;
   created_at: number;
 }
 
@@ -80,6 +82,7 @@ function emptyListing(productId: number): ListingRow {
     title: '', bullet_1: '', bullet_2: '', bullet_3: '', bullet_4: '', bullet_5: '',
     description: '', keywords_main: '', keywords_backend: '',
     comp_own_title: null, comp_own_price: null, comp_own_rating: null, comp_own_reviews: null,
+    comp_own_sold: null,
     created_at: 0, updated_at: 0,
   };
 }
@@ -126,13 +129,16 @@ router.put('/products/:id/listing', (req: Request, res: Response) => {
     : base.comp_own_price;
   const ownRating = 'comp_own_rating' in body ? clampRating(body.comp_own_rating) : base.comp_own_rating;
   const ownReviews = 'comp_own_reviews' in body ? clampReviews(body.comp_own_reviews) : base.comp_own_reviews;
+  const ownSold = 'comp_own_sold' in body
+    ? (body.comp_own_sold == null ? null : String(body.comp_own_sold).slice(0, MAX_FIELD))
+    : base.comp_own_sold;
 
   db.prepare(`
     INSERT INTO amazon_listing
       (product_id, title, bullet_1, bullet_2, bullet_3, bullet_4, bullet_5, description, keywords_main, keywords_backend,
-       comp_own_title, comp_own_price, comp_own_rating, comp_own_reviews)
+       comp_own_title, comp_own_price, comp_own_rating, comp_own_reviews, comp_own_sold)
     VALUES (@product_id, @title, @bullet_1, @bullet_2, @bullet_3, @bullet_4, @bullet_5, @description, @keywords_main, @keywords_backend,
-       @comp_own_title, @comp_own_price, @comp_own_rating, @comp_own_reviews)
+       @comp_own_title, @comp_own_price, @comp_own_rating, @comp_own_reviews, @comp_own_sold)
     ON CONFLICT(product_id) DO UPDATE SET
       title = excluded.title,
       bullet_1 = excluded.bullet_1,
@@ -147,11 +153,12 @@ router.put('/products/:id/listing', (req: Request, res: Response) => {
       comp_own_price = excluded.comp_own_price,
       comp_own_rating = excluded.comp_own_rating,
       comp_own_reviews = excluded.comp_own_reviews,
+      comp_own_sold = excluded.comp_own_sold,
       updated_at = unixepoch()
   `).run({
     product_id: id, ...next,
     comp_own_title: ownTitle, comp_own_price: ownPrice,
-    comp_own_rating: ownRating, comp_own_reviews: ownReviews,
+    comp_own_rating: ownRating, comp_own_reviews: ownReviews, comp_own_sold: ownSold,
   });
 
   res.json({ listing: db.prepare(`SELECT * FROM amazon_listing WHERE product_id = ?`).get(id) as ListingRow });
@@ -218,7 +225,7 @@ router.post('/products/:id/listing/images/reorder', (req: Request, res: Response
 });
 
 // ── PATCH /products/:id/listing/images/:imageId ── (generisches Karten-Patch) ──
-// Akzeptiert optional label + card_title/card_price/card_rating/card_reviews.
+// Akzeptiert optional label + card_title/card_price/card_rating/card_reviews/card_sold.
 // Dynamisches SET nur für übergebene Felder. 404 wenn Bild nicht zum Produkt gehört.
 router.patch('/products/:id/listing/images/:imageId', (req: Request, res: Response) => {
   const id = Number(req.params.id);
@@ -249,6 +256,10 @@ router.patch('/products/:id/listing/images/:imageId', (req: Request, res: Respon
   if ('card_reviews' in body) {
     sets.push('card_reviews = ?');
     params.push(clampReviews(body.card_reviews));
+  }
+  if ('card_sold' in body) {
+    sets.push('card_sold = ?');
+    params.push(body.card_sold == null ? null : String(body.card_sold).slice(0, MAX_FIELD));
   }
   if (sets.length === 0) { res.status(400).json({ error: 'kein gültiges Feld' }); return; }
 
