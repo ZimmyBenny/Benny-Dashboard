@@ -182,7 +182,7 @@ export function AmazonProductDetailPage() {
             }}
           />
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 justify-center">
             <button
               type="button"
               onClick={() => fileInput.current?.click()}
