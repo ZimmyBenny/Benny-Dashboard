@@ -112,9 +112,74 @@ function CardInput({
   );
 }
 
+// ── Titel-Input: genau 2 Zeilen wie Amazon (line-clamp), randlos, Auto-Save ────
+function TitleInput({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+  const [local, setLocal] = useState(value);
+  const [focused, setFocused] = useState(false);
+  const last = useRef(value);
+  useEffect(() => { setLocal(value); last.current = value; }, [value]);
+  function save() {
+    setFocused(false);
+    if (local === last.current) return;
+    last.current = local;
+    onSave(local);
+  }
+  // Im Fokus: echtes 2-zeiliges Textfeld zum Tippen.
+  if (focused) {
+    return (
+      <textarea
+        autoFocus
+        value={local}
+        onChange={(e) => setLocal(e.target.value)}
+        onBlur={save}
+        rows={2}
+        placeholder="Produkttitel …"
+        className="w-full rounded outline-none resize-none"
+        style={{
+          background: '#fff', color: AZ_INK, fontSize: 13, lineHeight: '18px',
+          border: `1px solid ${AZ_CARD_BORDER}`, padding: '1px 3px', height: 40,
+        }}
+      />
+    );
+  }
+  // Ohne Fokus: 2-Zeilen-Clamp-Darstellung (Amazon-Look), klickbar zum Editieren.
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => setFocused(true)}
+      onFocus={() => setFocused(true)}
+      title="Zum Bearbeiten klicken"
+      style={{
+        color: local ? AZ_INK : AZ_GREY, fontSize: 13, lineHeight: '18px',
+        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+        overflow: 'hidden', minHeight: 36, cursor: 'text',
+        border: '1px solid transparent', padding: '1px 3px',
+      }}
+    >
+      {local || 'Produkttitel …'}
+    </div>
+  );
+}
+
 function fmtReviews(n: number | null): string {
   if (n == null) return '';
   return n.toLocaleString('de-DE');
+}
+
+// ── echtes Amazon-„prime" — kleiner blauer Swoosh/Haken + „prime" fett blau ───
+function PrimeBadge() {
+  return (
+    <span className="inline-flex items-center gap-1" style={{ lineHeight: 1 }}>
+      <svg viewBox="0 0 24 24" width={16} height={16} aria-hidden="true" style={{ display: 'block' }}>
+        {/* geschwungener Amazon-„smile"-Swoosh */}
+        <path fill="none" stroke={AZ_PRIME} strokeWidth={2.4} strokeLinecap="round"
+          d="M3 14c4 3.5 14 3.5 18 0" />
+        <path fill={AZ_PRIME} d="M19 12.5l2.6 1.2-1.9 2.1z" />
+      </svg>
+      <span style={{ color: AZ_PRIME, fontWeight: 700, fontSize: 12, fontStyle: 'italic' }}>prime</span>
+    </span>
+  );
 }
 
 // ── Karten-Grundgeruest (weisse Amazon-Karte) ─────────────────────────────────
@@ -128,12 +193,7 @@ function Card({ own, children, onDelete }: { own?: boolean; children: React.Reac
         padding: 10,
       }}
     >
-      {own && (
-        <span className="absolute z-10 text-[11px] px-1.5 py-0.5 rounded font-semibold"
-          style={{ top: 6, left: 6, background: OWN_ACCENT, color: '#1a1a1a' }}>
-          Dein Produkt
-        </span>
-      )}
+      {/* Kein Text-Badge mehr — die eigene Karte wird NUR am orangen Rahmen erkannt. */}
       {onDelete && (
         <button type="button" onClick={onDelete}
           className="absolute z-10 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
@@ -159,9 +219,9 @@ function CardBody({
 }) {
   return (
     <div className="flex flex-col gap-1 mt-2">
-      {/* Titel: 2 Zeilen — hier als Input (Amazon-Look) */}
-      <div style={{ minHeight: 34 }}>
-        <CardInput value={title} onSave={onTitle} placeholder="Produkttitel …" ink={AZ_INK} size={13} />
+      {/* Titel: genau 2 Zeilen (line-clamp), feste Min-Höhe → Karten gleich hoch */}
+      <div style={{ minHeight: 36 }}>
+        <TitleInput value={title} onSave={onTitle} />
       </div>
       {/* Sterne + Reviews */}
       <div className="flex items-center gap-1.5" style={{ paddingLeft: 3 }}>
@@ -197,9 +257,11 @@ function CardBody({
       <div style={{ paddingLeft: 0 }}>
         <CardInput value={price} onSave={onPrice} placeholder="39,99 €" bold ink={AZ_INK} size={16} />
       </div>
-      {/* Prime-Badge (optional) */}
+      {/* echtes Prime-Badge — auf jeder Karte, sauber angefügt */}
       {prime && (
-        <span className="text-[11px] font-bold" style={{ color: AZ_PRIME, paddingLeft: 3 }}>prime</span>
+        <div style={{ paddingLeft: 3 }}>
+          <PrimeBadge />
+        </div>
       )}
       {/* gelber „In den Einkaufswagen"-Button — REIN DEKORATIV (kein onClick) */}
       <div
@@ -295,6 +357,7 @@ function CompetitorCard({ productId, image, onDelete }: { productId: number; ima
         rating={image.card_rating}
         reviews={image.card_reviews}
         sold={image.card_sold ?? ''}
+        prime
         onTitle={(v) => patch({ card_title: v.trim() === '' ? null : v })}
         onPrice={(v) => patch({ card_price: v.trim() === '' ? null : v })}
         onRating={(v) => patch({ card_rating: v })}
@@ -307,7 +370,7 @@ function CompetitorCard({ productId, image, onDelete }: { productId: number; ima
 
 // ── Haupt-Komponente ──────────────────────────────────────────────────────────
 export function MainImageComparator({
-  productId, competitorImages, listing,
+  productId, competitorImages, listing, productName,
 }: {
   productId: number;
   competitorImages: ListingImage[];
@@ -316,10 +379,13 @@ export function MainImageComparator({
     comp_own_title: string | null; comp_own_price: string | null;
     comp_own_rating: number | null; comp_own_reviews: number | null;
     comp_own_sold: string | null;
+    comp_search_term: string | null;
   };
+  productName?: string;
 }) {
   const upload = useUploadListingImage(productId);
   const del = useDeleteListingImage(productId);
+  const updateListing = useUpdateListing(productId);
   const fileInput = useRef<HTMLInputElement | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -334,7 +400,8 @@ export function MainImageComparator({
     Array.from(files).forEach(pick);
   }
 
-  const searchTerm = listing.comp_own_title || listing.title || 'Mein Produkt';
+  // Fallback-Suchbegriff = Produktname (bzw. Titel), Anzeige aus comp_search_term.
+  const searchFallback = productName || listing.title || 'Mein Produkt';
 
   return (
     <div className="flex flex-col gap-2">
@@ -345,17 +412,31 @@ export function MainImageComparator({
 
       {/* helles Amazon-Panel */}
       <div style={{ background: AZ_PANEL, borderRadius: 10, padding: 16 }}>
-        {/* angedeutete Amazon-Suchleiste */}
+        {/* Amazon-Suchleiste — Suchbegriff editierbar (Auto-Save) */}
         <div className="flex items-center gap-2 mb-4">
           <div className="flex items-center flex-1 rounded-md overflow-hidden" style={{ border: `1px solid ${AZ_CARD_BORDER}` }}>
             <span className="px-2 text-[13px]" style={{ color: AZ_GREY, background: '#f3f3f3', paddingTop: 6, paddingBottom: 6 }}>Alle</span>
-            <span className="px-2 flex-1 truncate" style={{ color: AZ_INK, fontSize: 13, paddingTop: 6, paddingBottom: 6 }}>{searchTerm}</span>
+            <input
+              className="px-2 flex-1 outline-none"
+              style={{ color: AZ_INK, fontSize: 13, paddingTop: 6, paddingBottom: 6, background: '#fff', minWidth: 0 }}
+              placeholder={searchFallback}
+              defaultValue={listing.comp_search_term ?? ''}
+              key={listing.comp_search_term ?? ''}
+              onBlur={(e) => {
+                const v = e.target.value;
+                if ((listing.comp_search_term ?? '') === v) return;
+                updateListing.mutate({ comp_search_term: v.trim() === '' ? null : v });
+              }}
+              onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+              aria-label="Amazon-Suchbegriff"
+            />
             <span className="material-symbols-outlined" style={{ color: '#fff', background: '#febd69', padding: '6px 10px', fontSize: 18 }}>search</span>
           </div>
         </div>
 
-        {/* Raster */}
-        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 16 }}>
+        {/* Raster: 5 Karten pro Zeile (bei genug Wettbewerbern 2. Zeile → bis 10 sichtbar);
+            responsiv weniger Spalten auf schmaler Breite. */}
+        <div className="az-search-grid" style={{ display: 'grid', gap: 16 }}>
           <OwnCard productId={productId} listing={listing} />
           {competitorImages.map(im => (
             <CompetitorCard key={im.id} productId={productId} image={im} onDelete={() => del.mutate(im.id)} />
@@ -371,6 +452,13 @@ export function MainImageComparator({
             <span className="text-xs mt-1">Wettbewerber</span>
           </button>
         </div>
+        {/* 5 Spalten fix, responsiv abfallend */}
+        <style>{`
+          .az-search-grid { grid-template-columns: repeat(5, 1fr); }
+          @media (max-width: 1100px) { .az-search-grid { grid-template-columns: repeat(4, 1fr); } }
+          @media (max-width: 860px)  { .az-search-grid { grid-template-columns: repeat(3, 1fr); } }
+          @media (max-width: 620px)  { .az-search-grid { grid-template-columns: repeat(2, 1fr); } }
+        `}</style>
       </div>
 
       <input ref={fileInput} type="file" accept="image/*" multiple className="hidden"

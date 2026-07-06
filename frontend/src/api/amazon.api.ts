@@ -815,6 +815,7 @@ export interface ListingFields {
   comp_own_title: string | null; comp_own_price: string | null;
   comp_own_rating: number | null; comp_own_reviews: number | null;
   comp_own_sold: string | null;
+  comp_search_term: string | null; // editierbarer Amazon-Suchbegriff (Migr. 106)
 }
 export interface ListingData {
   listing: ListingFields;
