@@ -1144,7 +1144,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                       checked={selectedFileIds.has(file.id)}
                       onChange={() => toggleFileSelected(file.id)}
                       onClick={(e) => e.stopPropagation()}
-                      className={selectedFileIds.size > 0 ? '' : 'opacity-0 group-hover:opacity-100 transition-opacity'}
+                      className={selectedFileIds.size > 0 ? '' : 'opacity-60 hover:opacity-100 transition-opacity'}
                       style={{ accentColor: 'var(--color-primary)', cursor: 'pointer' }}
                       aria-label={`${file.filename} auswählen`}
                     />
@@ -1181,7 +1181,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                           {formatBytes(file.size_bytes)} · {formatDate(file.created_at)}
                         </span>
                       </button>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-1 opacity-60 hover:opacity-100 transition-opacity">
                         <button
                           type="button"
                           title="Umbenennen"
