@@ -147,14 +147,15 @@ function Card({ own, children, onDelete }: { own?: boolean; children: React.Reac
   );
 }
 
-// gemeinsamer unterer Karten-Block (Titel/Sterne/Reviews/Preis) — fuer eigen & Wettbewerber.
+// gemeinsamer unterer Karten-Block — Reihenfolge wie echter Amazon-Suchtreffer:
+// Titel → Sterne+Bewertungen → „X Mal gekauft" → Preis (+prime) → gelber Button.
 function CardBody({
-  title, price, rating, reviews, prime,
-  onTitle, onPrice, onRating, onReviews,
+  title, price, rating, reviews, sold, prime,
+  onTitle, onPrice, onRating, onReviews, onSold,
 }: {
-  title: string; price: string; rating: number | null; reviews: number | null; prime?: boolean;
+  title: string; price: string; rating: number | null; reviews: number | null; sold: string; prime?: boolean;
   onTitle: (v: string) => void; onPrice: (v: string) => void;
-  onRating: (v: number) => void; onReviews: (v: string) => void;
+  onRating: (v: number) => void; onReviews: (v: string) => void; onSold: (v: string) => void;
 }) {
   return (
     <div className="flex flex-col gap-1 mt-2">
@@ -166,8 +167,6 @@ function CardBody({
       <div className="flex items-center gap-1.5" style={{ paddingLeft: 3 }}>
         <Stars rating={rating} onPick={onRating} />
         <input
-          value={reviews == null ? '' : String(reviews)}
-          onChange={() => { /* controlled via onSave below */ }}
           onBlur={(e) => onReviews(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
           placeholder="0"
@@ -184,13 +183,34 @@ function CardBody({
         />
         {reviews != null && <span style={{ color: AZ_LINK, fontSize: 12 }}>({fmtReviews(reviews)})</span>}
       </div>
+      {/* „X Mal gekauft"-Zeile — klein/grau, editierbar */}
+      <div style={{ paddingLeft: 3 }}>
+        <CardInput
+          value={sold}
+          onSave={onSold}
+          placeholder="z. B. 500+ Mal im letzten Monat gekauft"
+          ink={AZ_GREY}
+          size={12}
+        />
+      </div>
+      {/* Preis */}
+      <div style={{ paddingLeft: 0 }}>
+        <CardInput value={price} onSave={onPrice} placeholder="39,99 €" bold ink={AZ_INK} size={16} />
+      </div>
       {/* Prime-Badge (optional) */}
       {prime && (
         <span className="text-[11px] font-bold" style={{ color: AZ_PRIME, paddingLeft: 3 }}>prime</span>
       )}
-      {/* Preis */}
-      <div style={{ paddingLeft: 0 }}>
-        <CardInput value={price} onSave={onPrice} placeholder="39,99 €" bold ink={AZ_INK} size={16} />
+      {/* gelber „In den Einkaufswagen"-Button — REIN DEKORATIV (kein onClick) */}
+      <div
+        aria-hidden="true"
+        className="mt-1 w-full text-center select-none"
+        style={{
+          background: '#FFD814', color: AZ_INK, border: '1px solid #FCD200',
+          borderRadius: 18, fontSize: 12, fontWeight: 500, padding: '5px 0',
+        }}
+      >
+        In den Einkaufswagen
       </div>
     </div>
   );
@@ -205,6 +225,7 @@ function OwnCard({
     title: string;
     comp_own_title: string | null; comp_own_price: string | null;
     comp_own_rating: number | null; comp_own_reviews: number | null;
+    comp_own_sold: string | null;
   };
 }) {
   const update = useUpdateListing(productId);
@@ -234,11 +255,13 @@ function OwnCard({
         price={listing.comp_own_price ?? ''}
         rating={listing.comp_own_rating}
         reviews={listing.comp_own_reviews}
+        sold={listing.comp_own_sold ?? ''}
         prime
         onTitle={(v) => patch({ comp_own_title: v.trim() === '' ? null : v })}
         onPrice={(v) => patch({ comp_own_price: v.trim() === '' ? null : v })}
         onRating={(v) => patch({ comp_own_rating: v })}
         onReviews={(v) => patch({ comp_own_reviews: v.trim() === '' ? null : Number(v.replace(/\D/g, '')) })}
+        onSold={(v) => patch({ comp_own_sold: v.trim() === '' ? null : v })}
       />
     </Card>
   );
@@ -271,10 +294,12 @@ function CompetitorCard({ productId, image, onDelete }: { productId: number; ima
         price={image.card_price ?? ''}
         rating={image.card_rating}
         reviews={image.card_reviews}
+        sold={image.card_sold ?? ''}
         onTitle={(v) => patch({ card_title: v.trim() === '' ? null : v })}
         onPrice={(v) => patch({ card_price: v.trim() === '' ? null : v })}
         onRating={(v) => patch({ card_rating: v })}
         onReviews={(v) => patch({ card_reviews: v.trim() === '' ? null : Number(v.replace(/\D/g, '')) })}
+        onSold={(v) => patch({ card_sold: v.trim() === '' ? null : v })}
       />
     </Card>
   );
@@ -290,6 +315,7 @@ export function MainImageComparator({
     title: string;
     comp_own_title: string | null; comp_own_price: string | null;
     comp_own_rating: number | null; comp_own_reviews: number | null;
+    comp_own_sold: string | null;
   };
 }) {
   const upload = useUploadListingImage(productId);
