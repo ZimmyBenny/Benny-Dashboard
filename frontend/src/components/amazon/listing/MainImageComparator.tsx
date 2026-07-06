@@ -204,6 +204,44 @@ function ReviewsField({ value, onSave }: { value: number | null; onSave: (v: str
   );
 }
 
+// ── Rating-Wert (0–5, Dezimal wie „4,3") — per Klick editierbar, leer = keine ──
+function RatingValueField({ value, onSave }: { value: number | null; onSave: (v: number | null) => void }) {
+  const fmt = (v: number | null) => (v == null ? '' : v.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
+  const [focused, setFocused] = useState(false);
+  const [local, setLocal] = useState(fmt(value));
+  const last = useRef(fmt(value));
+  useEffect(() => { const s = fmt(value); setLocal(s); last.current = s; }, [value]);
+  function save() {
+    setFocused(false);
+    if (local === last.current) return;
+    last.current = local;
+    const t = local.trim();
+    if (t === '') { onSave(null); return; }
+    const num = parseFloat(t.replace(',', '.'));
+    onSave(Number.isNaN(num) ? null : Math.max(0, Math.min(5, Math.round(num * 10) / 10)));
+  }
+  if (focused) {
+    return (
+      <input
+        autoFocus value={local} onChange={(e) => setLocal(e.target.value)} onBlur={save}
+        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+        inputMode="decimal" placeholder="4,3"
+        style={{
+          width: 34, fontSize: 12, color: AZ_INK, background: '#fff',
+          border: `1px solid ${AZ_CARD_BORDER}`, borderRadius: 4, padding: '1px 3px', outline: 'none',
+        }}
+      />
+    );
+  }
+  return (
+    <span role="button" tabIndex={0} onClick={() => setFocused(true)} onFocus={() => setFocused(true)}
+      title="Bewertung (0–5, z. B. 4,3) bearbeiten"
+      style={{ color: value == null ? AZ_GREY : AZ_INK, fontSize: 12, cursor: 'pointer', minWidth: 20 }}>
+      {value == null ? '–' : fmt(value)}
+    </span>
+  );
+}
+
 // ── echtes Amazon-„prime" — blauer Haken + „prime" fett blau ──────────────────
 function PrimeBadge() {
   return (
@@ -250,7 +288,7 @@ function CardBody({
 }: {
   title: string; price: string; rating: number | null; reviews: number | null; sold: string; prime?: boolean;
   onTitle: (v: string) => void; onPrice: (v: string) => void;
-  onRating: (v: number) => void; onReviews: (v: string) => void; onSold: (v: string) => void;
+  onRating: (v: number | null) => void; onReviews: (v: string) => void; onSold: (v: string) => void;
 }) {
   return (
     <div className="flex flex-col gap-1 mt-2">
@@ -258,13 +296,9 @@ function CardBody({
       <div style={{ minHeight: 36 }}>
         <TitleInput value={title} onSave={onTitle} />
       </div>
-      {/* Rating-Wert + Sterne + (Anzahl) — wie ein echter Amazon-Suchtreffer */}
+      {/* Bewertung wie Amazon: Dezimalwert (z. B. 4,3) + anteilige Sterne + (Anzahl) */}
       <div className="flex items-center gap-1.5" style={{ paddingLeft: 3 }}>
-        {rating != null && (
-          <span style={{ color: AZ_INK, fontSize: 12 }}>
-            {rating.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
-          </span>
-        )}
+        <RatingValueField value={rating} onSave={onRating} />
         <Stars rating={rating} onPick={onRating} />
         <ReviewsField value={reviews} onSave={onReviews} />
       </div>
