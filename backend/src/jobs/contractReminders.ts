@@ -10,6 +10,7 @@ interface ContractRow {
   start_date: string | null;
   reminder_date: string | null;
   cancellation_notice_weeks: number | null;
+  last_reminded_for: string | null;
 }
 
 /** Schritte in Monaten je Kündigungs-relevantem Intervall. */
@@ -83,7 +84,7 @@ function runContractReminderPass(): void {
   const today = todayLocal(); // 'YYYY-MM-DD'
 
   const rows = db.prepare(`
-    SELECT id, title, cost_interval, start_date, reminder_date, cancellation_notice_weeks
+    SELECT id, title, cost_interval, start_date, reminder_date, cancellation_notice_weeks, last_reminded_for
     FROM contracts_and_deadlines
     WHERE status = 'aktiv' AND is_archived = 0
   `).all() as ContractRow[];
@@ -115,11 +116,20 @@ function runContractReminderPass(): void {
       continue;
     }
 
+    // Schon einmal fuer genau diese Frist erinnert? Dann NICHT neu erzeugen — auch wenn
+    // der Nutzer die Aufgabe geloescht hat (sonst kommt sie bei jedem Job-Lauf zurueck).
+    if (row.last_reminded_for === effectiveReminder) continue;
+
     const taskTitle = `Vertrag kündbar: ${row.title}`;
     const existing = db.prepare(
       `SELECT id FROM tasks WHERE title LIKE ? AND due_date = ? LIMIT 1`
     ).get(`${taskTitle}%`, effectiveReminder) as { id?: number } | undefined;
-    if (existing?.id) continue; // Duplikat
+    if (existing?.id) {
+      // Aufgabe existiert bereits -> Frist als 'erinnert' vormerken, damit ein spaeteres
+      // Loeschen der Aufgabe sie nicht bei jedem Lauf neu erzeugt.
+      db.prepare(`UPDATE contracts_and_deadlines SET last_reminded_for = ? WHERE id = ?`).run(effectiveReminder, row.id);
+      continue;
+    }
 
     const deadlineFormatted = deadlineForMessage ? formatDeadlineDe(deadlineForMessage) : '—';
 
@@ -135,6 +145,8 @@ function runContractReminderPass(): void {
       ) VALUES (?, ?, 'open', 'high', ?, ?, 1)
     `).run(taskTitle, description, effectiveReminder, effectiveReminder);
 
+    // Frist als 'erinnert' vormerken -> genau EINE Erinnerung pro Frist.
+    db.prepare(`UPDATE contracts_and_deadlines SET last_reminded_for = ? WHERE id = ?`).run(effectiveReminder, row.id);
     created++;
   }
 
