@@ -20,6 +20,7 @@ import { useDetailSectionOrder, type DetailSectionId } from '../../hooks/amazon/
 import { UspSection } from '../../components/amazon/usp/UspSection';
 import { ManufacturersSection } from '../../components/amazon/manufacturers/ManufacturersSection';
 import { ResearchSection } from '../../components/amazon/research/ResearchSection';
+import { ListingSection } from '../../components/amazon/listing/ListingSection';
 import { FolderDocumentsSection } from '../../components/amazon/FolderDocumentsSection';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -229,6 +230,7 @@ export function AmazonProductDetailPage() {
               if (id === 'usp') return <UspSection productId={product.id} productName={product.name} />;
               if (id === 'manufacturers') return <ManufacturersSection productId={product.id} />;
               if (id === 'research') return <ResearchSection scope={product.id} />;
+              if (id === 'listing') return <ListingSection productId={product.id} />;
               return <ChecklistSection productId={product.id} />;
             },
           }))}
