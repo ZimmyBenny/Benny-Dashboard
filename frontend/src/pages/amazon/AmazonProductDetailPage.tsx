@@ -22,7 +22,6 @@ import { ManufacturersSection } from '../../components/amazon/manufacturers/Manu
 import { ResearchSection } from '../../components/amazon/research/ResearchSection';
 import { ListingSection } from '../../components/amazon/listing/ListingSection';
 import { DesignDruckSection } from '../../components/amazon/productdocs/DesignDruckSection';
-import { FolderDocumentsSection } from '../../components/amazon/FolderDocumentsSection';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -238,9 +237,6 @@ export function AmazonProductDetailPage() {
           }))}
           onReorder={moveSection}
         />
-      </div>
-      <div className="mt-4">
-        <FolderDocumentsSection productId={product.id} />
       </div>
       <div className="mt-4">
         <AutosaveIndicator />
