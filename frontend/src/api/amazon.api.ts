@@ -876,11 +876,12 @@ export async function updateListingImage(productId: number, imageId: number, pat
   return r.data.image;
 }
 
-// ── Produkt-Dokumente (Verpackungsdesign + Aufbauanleitung) — Migr. 107 ───────
-// Datei-/Bild-Upload (beliebige Typen) + Notizfeld je Produkt und Bereich (area).
-export type ProductDocArea = 'verpackung' | 'anleitung';
+// ── Produkt-Dokumente — „Design & Druck" mit Unterpunkten (Topics) — Migr. 112 ──
+// Datei-/Bild-Upload (beliebige Typen) + Notizfeld je Produkt und Unterpunkt (topicId).
+// Die DB-Spalte `area` bleibt als Legacy erhalten, ist aber NICHT mehr im Typ — gefiltert
+// wird ausschliesslich ueber topic_id.
 export interface ProductDocFile {
-  id: number; product_id: number; area: ProductDocArea; sort_order: number;
+  id: number; product_id: number; topic_id: number; sort_order: number;
   file_path: string; original_name: string | null; mime: string | null;
   is_final: number; // 0 = Arbeitsdatei, 1 = Finale Datei
   manufacturer_id: number | null; // NULL = Allgemein; sonst Hersteller-ID (nur bei is_final=1 relevant)
@@ -891,19 +892,42 @@ export interface ProductDocsData {
   notes: Record<string, string>;
 }
 
-export async function fetchProductDocs(productId: number, area: ProductDocArea): Promise<ProductDocsData> {
-  const r = await apiClient.get<ProductDocsData>(`/amazon/products/${productId}/docs/${area}`);
+// ── Unterpunkte (Topics) von „Design & Druck" ──
+export interface ProductDocTopic {
+  id: number; product_id: number; name: string; sort_order: number; created_at: number;
+}
+export async function fetchProductDocTopics(productId: number): Promise<ProductDocTopic[]> {
+  const r = await apiClient.get<{ topics: ProductDocTopic[] }>(`/amazon/products/${productId}/topics`);
+  return r.data.topics;
+}
+export async function createProductDocTopic(productId: number, name?: string): Promise<ProductDocTopic> {
+  const r = await apiClient.post<{ topic: ProductDocTopic }>(`/amazon/products/${productId}/topics`, name !== undefined ? { name } : {});
+  return r.data.topic;
+}
+export async function renameProductDocTopic(productId: number, topicId: number, name: string): Promise<ProductDocTopic> {
+  const r = await apiClient.patch<{ topic: ProductDocTopic }>(`/amazon/products/${productId}/topics/${topicId}`, { name });
+  return r.data.topic;
+}
+export async function reorderProductDocTopics(productId: number, order: number[]): Promise<void> {
+  await apiClient.patch(`/amazon/products/${productId}/topics/reorder`, { order });
+}
+export async function deleteProductDocTopic(productId: number, topicId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/topics/${topicId}`);
+}
+
+export async function fetchProductDocs(productId: number, topicId: number): Promise<ProductDocsData> {
+  const r = await apiClient.get<ProductDocsData>(`/amazon/products/${productId}/docs/${topicId}`);
   return r.data;
 }
 export async function uploadProductDoc(
-  productId: number, area: ProductDocArea, file: File, isFinal: 0 | 1 = 0,
+  productId: number, topicId: number, file: File, isFinal: 0 | 1 = 0,
   manufacturerId: number | null = null,
 ): Promise<ProductDocFile> {
   const fd = new FormData(); fd.append('file', file);
   // manufacturer_id nur bei Final-Upload sinnvoll; Backend ignoriert es bei is_final=0.
   const mfrParam = isFinal === 1 && manufacturerId ? `&manufacturer_id=${manufacturerId}` : '';
   const r = await apiClient.post<{ file: ProductDocFile }>(
-    `/amazon/products/${productId}/docs/${area}?is_final=${isFinal}${mfrParam}`, fd,
+    `/amazon/products/${productId}/docs/${topicId}?is_final=${isFinal}${mfrParam}`, fd,
     { headers: { 'Content-Type': 'multipart/form-data' } },
   );
   return r.data.file;
@@ -911,22 +935,22 @@ export async function uploadProductDoc(
 // Verschiebt eine Datei zwischen Arbeit/Final und setzt beim Verschieben nach Final
 // den Ziel-Bucket (manufacturer_id = Hersteller-ID oder null fuer Allgemein).
 export async function moveProductDoc(
-  productId: number, area: ProductDocArea, fileId: number,
+  productId: number, topicId: number, fileId: number,
   patch: { is_final: 0 | 1; manufacturer_id?: number | null },
 ): Promise<ProductDocFile> {
   const body: { is_final: 0 | 1; manufacturer_id?: number | null } = { is_final: patch.is_final };
   if (patch.is_final === 1) body.manufacturer_id = patch.manufacturer_id ?? null;
   const r = await apiClient.patch<{ file: ProductDocFile }>(
-    `/amazon/products/${productId}/docs/${area}/files/${fileId}`, body,
+    `/amazon/products/${productId}/docs/${topicId}/files/${fileId}`, body,
   );
   return r.data.file;
 }
 // Laedt die finalen Dateien eines Buckets als ZIP (bucket=0 → Allgemein, sonst Hersteller-ID)
 // und loest den Browser-Download mit den echten Originalnamen im ZIP aus.
 export async function downloadProductDocsFinalZip(
-  productId: number, area: ProductDocArea, bucket: number, filename: string,
+  productId: number, topicId: number, bucket: number, filename: string,
 ): Promise<void> {
-  const r = await apiClient.get(`/amazon/products/${productId}/docs/${area}/final.zip?bucket=${bucket}`, { responseType: 'blob' });
+  const r = await apiClient.get(`/amazon/products/${productId}/docs/${topicId}/final.zip?bucket=${bucket}`, { responseType: 'blob' });
   const url = URL.createObjectURL(r.data as Blob);
   const a = document.createElement('a');
   a.href = url;
@@ -936,21 +960,21 @@ export async function downloadProductDocsFinalZip(
   a.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
-export async function deleteProductDoc(productId: number, area: ProductDocArea, fileId: number): Promise<void> {
-  await apiClient.delete(`/amazon/products/${productId}/docs/${area}/files/${fileId}`);
+export async function deleteProductDoc(productId: number, topicId: number, fileId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/docs/${topicId}/files/${fileId}`);
 }
-export async function getProductDocObjectUrl(productId: number, area: ProductDocArea, fileId: number): Promise<string> {
-  const r = await apiClient.get(`/amazon/products/${productId}/docs/${area}/files/${fileId}`, { responseType: 'blob' });
+export async function getProductDocObjectUrl(productId: number, topicId: number, fileId: number): Promise<string> {
+  const r = await apiClient.get(`/amazon/products/${productId}/docs/${topicId}/files/${fileId}`, { responseType: 'blob' });
   return URL.createObjectURL(r.data as Blob);
 }
-export async function reorderProductDocs(productId: number, area: ProductDocArea, order: number[]): Promise<void> {
-  await apiClient.post(`/amazon/products/${productId}/docs/${area}/reorder`, { order });
+export async function reorderProductDocs(productId: number, topicId: number, order: number[]): Promise<void> {
+  await apiClient.post(`/amazon/products/${productId}/docs/${topicId}/reorder`, { order });
 }
 export async function updateProductDocNotes(
-  productId: number, area: ProductDocArea, bucket: number, notes: string,
+  productId: number, topicId: number, bucket: number, notes: string,
 ): Promise<string> {
   const r = await apiClient.put<{ manufacturer_bucket: number; notes: string }>(
-    `/amazon/products/${productId}/docs/${area}/notes`, { manufacturer_bucket: bucket, notes },
+    `/amazon/products/${productId}/docs/${topicId}/notes`, { manufacturer_bucket: bucket, notes },
   );
   return r.data.notes;
 }
