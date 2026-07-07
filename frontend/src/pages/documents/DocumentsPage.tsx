@@ -1088,7 +1088,6 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                       >
                         <span className="material-symbols-outlined" style={{ color: 'var(--color-primary-dim)' }}>folder</span>
                         <span style={{ color: 'var(--color-on-surface)' }}>{folder.name}</span>
-                        <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{folder.file_count} Dateien</span>
                         {folder.product_id != null && (
                           <span
                             role="button"
