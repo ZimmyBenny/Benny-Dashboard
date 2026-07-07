@@ -3,8 +3,12 @@ import { SectionHeader } from '../SectionHeader';
 import { useSectionExpanded } from '../../../hooks/amazon/useSectionExpanded';
 import {
   useProductDocs, useUploadProductDoc, useDeleteProductDoc, useUpdateProductDocNotes,
+  useUpdateProductDocFinal,
 } from '../../../hooks/amazon/useProductDocs';
-import { getProductDocObjectUrl, type ProductDocArea, type ProductDocFile } from '../../../api/amazon.api';
+import {
+  getProductDocObjectUrl, downloadProductDocsFinalZip,
+  type ProductDocArea, type ProductDocFile,
+} from '../../../api/amazon.api';
 
 interface Props {
   productId: number;
@@ -16,6 +20,11 @@ interface Props {
 
 const AUTOSAVE_DELAY_MS = 600;
 const MAX_NOTES = 20000;
+
+// ZIP-Dateiname je Bereich (muss zur Backend-Content-Disposition passen).
+function zipFilenameFor(area: ProductDocArea): string {
+  return area === 'verpackung' ? 'Verpackungsdesign-final.zip' : 'Aufbauanleitung-final.zip';
+}
 
 function isImage(mime: string | null): boolean {
   return !!mime && mime.startsWith('image/');
@@ -35,8 +44,11 @@ export function ProductDocsSection({ productId, area, title, accent, icon }: Pro
   const { data, isLoading, isError, refetch } = useProductDocs(productId, area);
   const upload = useUploadProductDoc(productId, area);
   const del = useDeleteProductDoc(productId, area);
+  const setFinal = useUpdateProductDocFinal(productId, area);
 
   const [dragOver, setDragOver] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const uploadFiles = useCallback((files: FileList | File[]) => {
@@ -48,6 +60,21 @@ export function ProductDocsSection({ productId, area, title, accent, icon }: Pro
     setDragOver(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) uploadFiles(e.dataTransfer.files);
   }
+
+  async function onDownloadZip() {
+    setDownloadError(null);
+    setDownloading(true);
+    try {
+      await downloadProductDocsFinalZip(productId, area, zipFilenameFor(area));
+    } catch {
+      setDownloadError('Download fehlgeschlagen.');
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  const workFiles = data ? data.files.filter((f) => f.is_final === 0) : [];
+  const finalFiles = data ? data.files.filter((f) => f.is_final === 1) : [];
 
   return (
     <section className="rounded-xl" style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -68,7 +95,7 @@ export function ProductDocsSection({ productId, area, title, accent, icon }: Pro
 
           {data && (
             <>
-              {/* Datei-/Bild-Bereich mit Drag&Drop */}
+              {/* ── Arbeitsdateien (mit Drag&Drop + Hochladen) ── */}
               <div
                 onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                 onDragLeave={() => setDragOver(false)}
@@ -81,8 +108,8 @@ export function ProductDocsSection({ productId, area, title, accent, icon }: Pro
                 }}
               >
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
-                    Bilder und Dateien (PDF, Dielines, Anleitungen …) — hier ablegen oder hochladen
+                  <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-on-surface-variant)' }}>
+                    Arbeitsdateien
                   </span>
                   <button
                     type="button"
@@ -102,13 +129,13 @@ export function ProductDocsSection({ productId, area, title, accent, icon }: Pro
                   />
                 </div>
 
-                {data.files.length === 0 ? (
+                {workFiles.length === 0 ? (
                   <p className="text-sm py-4 text-center" style={{ color: 'var(--color-on-surface-variant)', opacity: 0.7 }}>
-                    Noch keine Dateien.
+                    Noch keine Arbeitsdateien — hier ablegen oder hochladen.
                   </p>
                 ) : (
                   <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
-                    {data.files.map((f) => (
+                    {workFiles.map((f) => (
                       <DocTile
                         key={f.id}
                         productId={productId}
@@ -116,6 +143,60 @@ export function ProductDocsSection({ productId, area, title, accent, icon }: Pro
                         file={f}
                         accent={accent}
                         onDelete={() => del.mutate(f.id)}
+                        onMove={() => setFinal.mutate({ fileId: f.id, isFinal: 1 })}
+                        moveIcon="north_east"
+                        moveLabel="Zu finalen Dateien verschieben"
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* ── Finale Dateien (mit ZIP-Download) ── */}
+              <div
+                className="rounded-lg p-3"
+                style={{ border: `1px solid ${accent}55`, background: 'rgba(255,255,255,0.02)' }}
+              >
+                <div className="flex items-center justify-between mb-3 gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide inline-flex items-center gap-1.5" style={{ color: accent }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>verified</span>
+                    Finale Dateien
+                  </span>
+                  {finalFiles.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={onDownloadZip}
+                      disabled={downloading}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium disabled:opacity-60"
+                      style={{ background: accent, color: '#1a1a1a' }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>folder_zip</span>
+                      {downloading ? 'Wird gepackt …' : 'Als ZIP herunterladen'}
+                    </button>
+                  )}
+                </div>
+
+                {downloadError && (
+                  <p className="text-xs mb-2" style={{ color: 'var(--color-error, #ff6b6b)' }}>{downloadError}</p>
+                )}
+
+                {finalFiles.length === 0 ? (
+                  <p className="text-sm py-4 text-center" style={{ color: 'var(--color-on-surface-variant)', opacity: 0.7 }}>
+                    Noch keine finalen Dateien. Verschiebe fertige Dateien mit dem Pfeil aus den Arbeitsdateien hierher.
+                  </p>
+                ) : (
+                  <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
+                    {finalFiles.map((f) => (
+                      <DocTile
+                        key={f.id}
+                        productId={productId}
+                        area={area}
+                        file={f}
+                        accent={accent}
+                        onDelete={() => del.mutate(f.id)}
+                        onMove={() => setFinal.mutate({ fileId: f.id, isFinal: 0 })}
+                        moveIcon="south_west"
+                        moveLabel="Zurueck zu Arbeitsdateien"
                       />
                     ))}
                   </div>
@@ -134,9 +215,10 @@ export function ProductDocsSection({ productId, area, title, accent, icon }: Pro
 
 // ── Einzelne Datei-/Bild-Kachel ──
 function DocTile({
-  productId, area, file, accent, onDelete,
+  productId, area, file, accent, onDelete, onMove, moveIcon, moveLabel,
 }: {
-  productId: number; area: ProductDocArea; file: ProductDocFile; accent: string; onDelete: () => void;
+  productId: number; area: ProductDocArea; file: ProductDocFile; accent: string;
+  onDelete: () => void; onMove: () => void; moveIcon: string; moveLabel: string;
 }) {
   const [thumb, setThumb] = useState<string | null>(null);
   const image = isImage(file.mime);
@@ -177,6 +259,17 @@ function DocTile({
       <div className="px-2 py-1.5 text-xs truncate" style={{ color: 'var(--color-on-surface)' }}>
         {file.original_name ?? 'Datei'}
       </div>
+      {/* Verschieben zwischen Arbeits-/Finale-Gruppe */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onMove(); }}
+        aria-label={moveLabel}
+        title={moveLabel}
+        className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-md"
+        style={{ background: 'rgba(0,0,0,0.55)', color: accent, width: '26px', height: '26px' }}
+      >
+        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{moveIcon}</span>
+      </button>
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); onDelete(); }}
