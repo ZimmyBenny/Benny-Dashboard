@@ -30,7 +30,17 @@ type DocArea = 'verpackung' | 'anleitung';
 interface DocRow {
   id: number; product_id: number; area: DocArea; sort_order: number;
   file_path: string; original_name: string | null; mime: string | null; created_at: number;
-  is_final: number;
+  is_final: number; manufacturer_id: number | null;
+}
+
+// Bucket-Parsing: 0 (oder leer/ungueltig) → Allgemein (NULL). Sonst positive Hersteller-ID.
+function parseBucketToMfrId(raw: unknown): number | null {
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+// Herstellername fuer ZIP-Dateiname holen; Sonderzeichen fuer Dateinamen bereinigen.
+function sanitizeForFilename(name: string): string {
+  return name.replace(/[/\\?%*:|"<>]/g, '_').replace(/\s+/g, ' ').trim() || 'Datei';
 }
 
 const router = Router();
@@ -52,10 +62,13 @@ router.get('/products/:id/docs/:area', (req: Request, res: Response) => {
   const files = db.prepare(
     `SELECT * FROM amazon_product_docs WHERE product_id = ? AND area = ? ORDER BY sort_order, id`,
   ).all(id, area) as DocRow[];
-  const noteRow = db.prepare(
-    `SELECT notes FROM amazon_product_doc_notes WHERE product_id = ? AND area = ?`,
-  ).get(id, area) as { notes: string } | undefined;
-  res.json({ files, notes: noteRow?.notes ?? '' });
+  // ALLE Notiz-Buckets als Map (Key = manufacturer_bucket als String; "0" = Allgemein).
+  const noteRows = db.prepare(
+    `SELECT manufacturer_bucket, notes FROM amazon_product_doc_notes WHERE product_id = ? AND area = ?`,
+  ).all(id, area) as { manufacturer_bucket: number; notes: string }[];
+  const notes: Record<string, string> = {};
+  for (const n of noteRows) notes[String(n.manufacturer_bucket)] = n.notes;
+  res.json({ files, notes });
 });
 
 // ── POST /products/:id/docs/:area ── (multipart „file") beliebiger Dateityp ──
@@ -73,13 +86,17 @@ router.post('/products/:id/docs/:area', (req: Request, res: Response) => {
     // Optionaler is_final (Query oder Body, 0|1). Default 0 = Arbeitsdatei.
     const rawFinal = (req.query.is_final ?? (req.body as { is_final?: unknown } | undefined)?.is_final);
     const isFinal = String(rawFinal) === '1' ? 1 : 0;
+    // Optionaler manufacturer_id (Query oder Body) fuer Direkt-Upload in einen Final-Reiter.
+    // Nur relevant wenn is_final=1; sonst immer NULL (Arbeitsdateien sind gemeinsam).
+    const rawMfr = (req.query.manufacturer_id ?? (req.body as { manufacturer_id?: unknown } | undefined)?.manufacturer_id);
+    const mfrId = isFinal === 1 ? parseBucketToMfrId(rawMfr) : null;
     const r = db.prepare(
-      `INSERT INTO amazon_product_docs (product_id, area, sort_order, file_path, original_name, mime, is_final) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO amazon_product_docs (product_id, area, sort_order, file_path, original_name, mime, is_final, manufacturer_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       id, area, maxOrder + 1, file.filename,
       Buffer.from(file.originalname, 'latin1').toString('utf8').slice(0, 300),
       file.mimetype.slice(0, 200),
-      isFinal,
+      isFinal, mfrId,
     );
     res.status(201).json({ file: db.prepare(`SELECT * FROM amazon_product_docs WHERE id = ?`).get(r.lastInsertRowid) as DocRow });
   });
@@ -111,13 +128,25 @@ router.get('/products/:id/docs/:area/final.zip', (req: Request, res: Response) =
   const id = Number(req.params.id);
   const area = req.params.area;
   if (!Number.isInteger(id) || !ensureProduct(id) || !isArea(area)) { res.status(404).json({ error: 'not found' }); return; }
-  const rows = db.prepare(
-    `SELECT * FROM amazon_product_docs WHERE product_id = ? AND area = ? AND is_final = 1 ORDER BY sort_order, id`,
-  ).all(id, area) as DocRow[];
+  // bucket=0 → Allgemein (manufacturer_id IS NULL); bucket=<id> → manufacturer_id = <id>.
+  const mfrId = parseBucketToMfrId(req.query.bucket);
+  const rows = (mfrId === null
+    ? db.prepare(
+        `SELECT * FROM amazon_product_docs WHERE product_id = ? AND area = ? AND is_final = 1 AND manufacturer_id IS NULL ORDER BY sort_order, id`,
+      ).all(id, area)
+    : db.prepare(
+        `SELECT * FROM amazon_product_docs WHERE product_id = ? AND area = ? AND is_final = 1 AND manufacturer_id = ? ORDER BY sort_order, id`,
+      ).all(id, area, mfrId)) as DocRow[];
   if (rows.length === 0) { res.status(400).json({ error: 'Keine finalen Dateien vorhanden.' }); return; }
 
+  // Herstellername (oder „Allgemein") fuer den Dateinamen.
+  let bucketLabel = 'Allgemein';
+  if (mfrId !== null) {
+    const m = db.prepare(`SELECT name FROM amazon_manufacturers WHERE id = ? AND product_id = ?`).get(mfrId, id) as { name: string } | undefined;
+    bucketLabel = m ? sanitizeForFilename(m.name) : `Hersteller-${mfrId}`;
+  }
   const zipBase = area === 'verpackung' ? 'Verpackungsdesign' : 'Aufbauanleitung';
-  const zipName = `${zipBase}-final.zip`;
+  const zipName = `${zipBase}-${bucketLabel}-final.zip`;
   const asciiZip = zipName.replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '');
 
   res.setHeader('Content-Type', 'application/zip');
@@ -149,21 +178,40 @@ router.get('/products/:id/docs/:area/final.zip', (req: Request, res: Response) =
   archive.finalize();
 });
 
-// ── PATCH /products/:id/docs/:area/files/:fileId ── ({ is_final: 0|1 }) verschieben ──
+// ── PATCH /products/:id/docs/:area/files/:fileId ── ({ is_final?, manufacturer_id? }) ──
+// Verschieben zwischen Arbeit (0) und Final (1). Beim Verschieben nach Final wird der
+// Ziel-Bucket gesetzt (manufacturer_id = Hersteller-ID oder NULL fuer Allgemein).
+// Zurueck zu Arbeit (is_final=0) → manufacturer_id immer NULL (Arbeitsdateien gemeinsam).
 router.patch('/products/:id/docs/:area/files/:fileId', (req: Request, res: Response) => {
   const id = Number(req.params.id);
   const area = req.params.area;
   const fileId = Number(req.params.fileId);
   if (!Number.isInteger(id) || !Number.isInteger(fileId) || !isArea(area)) { res.status(404).json({ error: 'not found' }); return; }
-  const raw = (req.body as { is_final?: unknown } | undefined)?.is_final;
-  if (String(raw) !== '0' && String(raw) !== '1') { res.status(400).json({ error: 'is_final muss 0 oder 1 sein' }); return; }
-  const isFinal = String(raw) === '1' ? 1 : 0;
+  const body = (req.body ?? {}) as { is_final?: unknown; manufacturer_id?: unknown };
+  const rawFinal = body.is_final;
   // Ownership: Datei muss zu product + area gehoeren.
   const row = db.prepare(
     `SELECT * FROM amazon_product_docs WHERE id = ? AND product_id = ? AND area = ?`,
   ).get(fileId, id, area) as DocRow | undefined;
   if (!row) { res.status(404).json({ error: 'not found' }); return; }
-  db.prepare(`UPDATE amazon_product_docs SET is_final = ? WHERE id = ?`).run(isFinal, fileId);
+
+  // is_final: bei fehlendem Wert den bestehenden Zustand beibehalten (z. B. reiner Bucket-Wechsel).
+  let isFinal = row.is_final;
+  if (rawFinal !== undefined) {
+    if (String(rawFinal) !== '0' && String(rawFinal) !== '1') { res.status(400).json({ error: 'is_final muss 0 oder 1 sein' }); return; }
+    isFinal = String(rawFinal) === '1' ? 1 : 0;
+  }
+  // manufacturer_id: nur bei Final relevant. „manufacturer_id" im Body → Ziel-Bucket setzen.
+  // Zurueck zu Arbeit → immer NULL. Wenn im Body nicht angegeben und Final bleibt → bestehenden Wert halten.
+  let mfrId: number | null;
+  if (isFinal === 0) {
+    mfrId = null;
+  } else if ('manufacturer_id' in body) {
+    mfrId = parseBucketToMfrId(body.manufacturer_id);
+  } else {
+    mfrId = row.manufacturer_id;
+  }
+  db.prepare(`UPDATE amazon_product_docs SET is_final = ?, manufacturer_id = ? WHERE id = ?`).run(isFinal, mfrId, fileId);
   res.json({ file: db.prepare(`SELECT * FROM amazon_product_docs WHERE id = ?`).get(fileId) as DocRow });
 });
 
@@ -194,20 +242,24 @@ router.post('/products/:id/docs/:area/reorder', (req: Request, res: Response) =>
   res.status(204).end();
 });
 
-// ── PUT /products/:id/docs/:area/notes ── ({ notes }) UPSERT ──
+// ── PUT /products/:id/docs/:area/notes ── ({ manufacturer_bucket, notes }) UPSERT ──
+// Eine Notiz pro Bereich UND Bucket (0 = Allgemein, sonst manufacturer_id).
 router.put('/products/:id/docs/:area/notes', (req: Request, res: Response) => {
   const id = Number(req.params.id);
   const area = req.params.area;
   if (!Number.isInteger(id) || !ensureProduct(id) || !isArea(area)) { res.status(404).json({ error: 'not found' }); return; }
-  const notes = String((req.body ?? {}).notes ?? '').slice(0, MAX_NOTES);
+  const body = (req.body ?? {}) as { manufacturer_bucket?: unknown; notes?: unknown };
+  const notes = String(body.notes ?? '').slice(0, MAX_NOTES);
+  // Bucket: 0 (oder ungueltig) = Allgemein; sonst Hersteller-ID.
+  const bucket = parseBucketToMfrId(body.manufacturer_bucket) ?? 0;
   db.prepare(`
-    INSERT INTO amazon_product_doc_notes (product_id, area, notes)
-    VALUES (?, ?, ?)
-    ON CONFLICT(product_id, area) DO UPDATE SET
+    INSERT INTO amazon_product_doc_notes (product_id, area, manufacturer_bucket, notes)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(product_id, area, manufacturer_bucket) DO UPDATE SET
       notes = excluded.notes,
       updated_at = unixepoch()
-  `).run(id, area, notes);
-  res.json({ notes });
+  `).run(id, area, bucket, notes);
+  res.json({ manufacturer_bucket: bucket, notes });
 });
 
 export default router;
