@@ -268,13 +268,17 @@ router.get('/products/:id/docs/:topicId/files/:fileId', (req: Request, res: Resp
   fs.createReadStream(abs).pipe(res);
 });
 
-// ── PATCH /products/:id/docs/:topicId/files/:fileId ── ({ is_final?, manufacturer_id? }) ──
+// ── PATCH /products/:id/docs/:topicId/files/:fileId ── ({ is_final?, manufacturer_id?, topic_id? }) ──
+// Zwei Modi:
+//  a) OHNE topic_id → internes Verschieben (Arbeit↔Final / Bucket) innerhalb des Topics (bisher).
+//  b) MIT topic_id → Datei in einen ANDEREN Unterpunkt DESSELBEN Produkts verschieben
+//     (Cross-Topic-Move; kein Kopieren — topic_id wird umgesetzt).
 router.patch('/products/:id/docs/:topicId/files/:fileId', (req: Request, res: Response) => {
   const id = Number(req.params.id);
   const topicId = Number(req.params.topicId);
   const fileId = Number(req.params.fileId);
   if (!Number.isInteger(fileId) || !ensureTopic(id, topicId)) { res.status(404).json({ error: 'not found' }); return; }
-  const body = (req.body ?? {}) as { is_final?: unknown; manufacturer_id?: unknown };
+  const body = (req.body ?? {}) as { is_final?: unknown; manufacturer_id?: unknown; topic_id?: unknown };
   const rawFinal = body.is_final;
   const row = db.prepare(
     `SELECT * FROM amazon_product_docs WHERE id = ? AND product_id = ? AND topic_id = ?`,
@@ -294,6 +298,21 @@ router.patch('/products/:id/docs/:topicId/files/:fileId', (req: Request, res: Re
   } else {
     mfrId = row.manufacturer_id;
   }
+
+  // Cross-Topic-Move: body.topic_id gesetzt → Ziel-Topic muss zum selben Produkt gehoeren.
+  if (body.topic_id !== undefined) {
+    const targetTopicId = Number(body.topic_id);
+    if (!Number.isInteger(targetTopicId) || !ensureTopic(id, targetTopicId)) { res.status(404).json({ error: 'target topic not found' }); return; }
+    // is_final/manufacturer_id fuer den Ziel-Bucket: Defaults 0/NULL, wenn nicht mitgegeben.
+    const targetFinal = rawFinal !== undefined ? isFinal : 0;
+    const targetMfr = targetFinal === 1 ? mfrId : null;
+    db.prepare(
+      `UPDATE amazon_product_docs SET topic_id = ?, is_final = ?, manufacturer_id = ? WHERE id = ? AND topic_id = ?`,
+    ).run(targetTopicId, targetFinal, targetMfr, fileId, topicId);
+    res.json({ file: db.prepare(`SELECT * FROM amazon_product_docs WHERE id = ?`).get(fileId) as DocRow });
+    return;
+  }
+
   db.prepare(`UPDATE amazon_product_docs SET is_final = ?, manufacturer_id = ? WHERE id = ?`).run(isFinal, mfrId, fileId);
   res.json({ file: db.prepare(`SELECT * FROM amazon_product_docs WHERE id = ?`).get(fileId) as DocRow });
 });
