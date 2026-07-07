@@ -882,6 +882,7 @@ export type ProductDocArea = 'verpackung' | 'anleitung';
 export interface ProductDocFile {
   id: number; product_id: number; area: ProductDocArea; sort_order: number;
   file_path: string; original_name: string | null; mime: string | null;
+  is_final: number; // 0 = Arbeitsdatei, 1 = Finale Datei
 }
 export interface ProductDocsData {
   files: ProductDocFile[];
@@ -892,13 +893,39 @@ export async function fetchProductDocs(productId: number, area: ProductDocArea):
   const r = await apiClient.get<ProductDocsData>(`/amazon/products/${productId}/docs/${area}`);
   return r.data;
 }
-export async function uploadProductDoc(productId: number, area: ProductDocArea, file: File): Promise<ProductDocFile> {
+export async function uploadProductDoc(
+  productId: number, area: ProductDocArea, file: File, isFinal: 0 | 1 = 0,
+): Promise<ProductDocFile> {
   const fd = new FormData(); fd.append('file', file);
   const r = await apiClient.post<{ file: ProductDocFile }>(
-    `/amazon/products/${productId}/docs/${area}`, fd,
+    `/amazon/products/${productId}/docs/${area}?is_final=${isFinal}`, fd,
     { headers: { 'Content-Type': 'multipart/form-data' } },
   );
   return r.data.file;
+}
+// Verschiebt eine Datei zwischen „Arbeitsdateien" (0) und „Finale Dateien" (1).
+export async function updateProductDocFinal(
+  productId: number, area: ProductDocArea, fileId: number, isFinal: 0 | 1,
+): Promise<ProductDocFile> {
+  const r = await apiClient.patch<{ file: ProductDocFile }>(
+    `/amazon/products/${productId}/docs/${area}/files/${fileId}`, { is_final: isFinal },
+  );
+  return r.data.file;
+}
+// Laedt alle finalen Dateien als ZIP (mit Auth-Header, wie getProductDocObjectUrl)
+// und loest den Browser-Download mit den echten Originalnamen im ZIP aus.
+export async function downloadProductDocsFinalZip(
+  productId: number, area: ProductDocArea, filename: string,
+): Promise<void> {
+  const r = await apiClient.get(`/amazon/products/${productId}/docs/${area}/final.zip`, { responseType: 'blob' });
+  const url = URL.createObjectURL(r.data as Blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 export async function deleteProductDoc(productId: number, area: ProductDocArea, fileId: number): Promise<void> {
   await apiClient.delete(`/amazon/products/${productId}/docs/${area}/files/${fileId}`);

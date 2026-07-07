@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   fetchProductDocs, uploadProductDoc, deleteProductDoc,
-  reorderProductDocs, updateProductDocNotes,
+  reorderProductDocs, updateProductDocNotes, updateProductDocFinal,
   type ProductDocArea,
 } from '../../api/amazon.api';
 
@@ -36,4 +36,13 @@ export function useReorderProductDocs(productId: number, area: ProductDocArea) {
 export function useUpdateProductDocNotes(productId: number, area: ProductDocArea) {
   const inv = useInvalidate(productId, area);
   return useMutation({ mutationFn: (notes: string) => updateProductDocNotes(productId, area, notes), onSettled: inv });
+}
+// Verschiebt eine Datei zwischen Arbeits- und Finale-Gruppe und invalidiert die Docs-Query.
+export function useUpdateProductDocFinal(productId: number, area: ProductDocArea) {
+  const inv = useInvalidate(productId, area);
+  return useMutation({
+    mutationFn: ({ fileId, isFinal }: { fileId: number; isFinal: 0 | 1 }) =>
+      updateProductDocFinal(productId, area, fileId, isFinal),
+    onSettled: inv,
+  });
 }
