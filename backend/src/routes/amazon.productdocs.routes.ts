@@ -199,14 +199,16 @@ router.get('/products/:id/docs/:topicId/final.zip', (req: Request, res: Response
   const id = Number(req.params.id);
   const topicId = Number(req.params.topicId);
   if (!ensureTopic(id, topicId)) { res.status(404).json({ error: 'not found' }); return; }
-  // bucket=0 → Allgemein (manufacturer_id IS NULL); bucket=<id> → manufacturer_id = <id>.
+  // bucket=0 → Allgemein (nur manufacturer_id IS NULL).
+  // bucket=<id> → Hersteller-Satz: manufacturer_id = <id> ODER manufacturer_id IS NULL,
+  //   d.h. die Allgemein-Dateien gelten fuer ALLE Hersteller und sind mit im ZIP.
   const mfrId = parseBucketToMfrId(req.query.bucket);
   const rows = (mfrId === null
     ? db.prepare(
         `SELECT * FROM amazon_product_docs WHERE product_id = ? AND topic_id = ? AND is_final = 1 AND manufacturer_id IS NULL ORDER BY sort_order, id`,
       ).all(id, topicId)
     : db.prepare(
-        `SELECT * FROM amazon_product_docs WHERE product_id = ? AND topic_id = ? AND is_final = 1 AND manufacturer_id = ? ORDER BY sort_order, id`,
+        `SELECT * FROM amazon_product_docs WHERE product_id = ? AND topic_id = ? AND is_final = 1 AND (manufacturer_id = ? OR manufacturer_id IS NULL) ORDER BY (manufacturer_id IS NULL), sort_order, id`,
       ).all(id, topicId, mfrId)) as DocRow[];
   if (rows.length === 0) { res.status(400).json({ error: 'Keine finalen Dateien vorhanden.' }); return; }
 
