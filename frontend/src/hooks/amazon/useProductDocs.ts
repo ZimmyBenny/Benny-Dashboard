@@ -1,11 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   fetchProductDocs, uploadProductDoc, deleteProductDoc,
-  reorderProductDocs, updateProductDocNotes, moveProductDoc,
+  reorderProductDocs, updateProductDocNotes, moveProductDoc, moveProductDocToTopic,
 } from '../../api/amazon.api';
 
 export const productDocsKey = (productId: number, topicId: number) =>
   ['amazon', 'product-docs', productId, topicId] as const;
+// Produkt-weiter Prefix: invalidiert ALLE Topics eines Produkts (fuer Cross-Topic-Move,
+// damit Quell- UND Ziel-Sektion neu laden).
+export const productDocsProductKey = (productId: number) =>
+  ['amazon', 'product-docs', productId] as const;
 
 export function useProductDocs(productId: number, topicId: number) {
   return useQuery({
@@ -60,5 +64,20 @@ export function useMoveProductDoc(productId: number, topicId: number) {
     mutationFn: ({ fileId, isFinal, manufacturerId }: { fileId: number; isFinal: 0 | 1; manufacturerId?: number | null }) =>
       moveProductDoc(productId, topicId, fileId, { is_final: isFinal, manufacturer_id: manufacturerId }),
     onSettled: inv,
+  });
+}
+// Cross-Topic-Move: verschiebt eine Datei aus einem Quell-Topic in einen anderen Ziel-Topic.
+// Invalidiert den produkt-weiten Prefix, damit BEIDE betroffenen Sektionen neu laden.
+export function useMoveProductDocToTopic(productId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ sourceTopicId, fileId, targetTopicId, isFinal, manufacturerId }: {
+      sourceTopicId: number; fileId: number; targetTopicId: number;
+      isFinal?: 0 | 1; manufacturerId?: number | null;
+    }) =>
+      moveProductDocToTopic(productId, sourceTopicId, fileId, {
+        topic_id: targetTopicId, is_final: isFinal, manufacturer_id: manufacturerId,
+      }),
+    onSettled: () => qc.invalidateQueries({ queryKey: productDocsProductKey(productId) }),
   });
 }

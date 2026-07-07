@@ -945,6 +945,23 @@ export async function moveProductDoc(
   );
   return r.data.file;
 }
+// Verschiebt eine Datei in einen ANDEREN Unterpunkt (Topic) desselben Produkts.
+// Es wird die Quell-Topic-Route getroffen; das Ziel-Topic kommt im Body (topic_id).
+// Kein Kopieren — die Datei ist danach nur noch im Ziel-Topic.
+export async function moveProductDocToTopic(
+  productId: number, sourceTopicId: number, fileId: number,
+  patch: { topic_id: number; is_final?: 0 | 1; manufacturer_id?: number | null },
+): Promise<ProductDocFile> {
+  const body: { topic_id: number; is_final: 0 | 1; manufacturer_id?: number | null } = {
+    topic_id: patch.topic_id,
+    is_final: patch.is_final ?? 0,
+  };
+  if (body.is_final === 1) body.manufacturer_id = patch.manufacturer_id ?? null;
+  const r = await apiClient.patch<{ file: ProductDocFile }>(
+    `/amazon/products/${productId}/docs/${sourceTopicId}/files/${fileId}`, body,
+  );
+  return r.data.file;
+}
 // Laedt die finalen Dateien eines Buckets als ZIP (bucket=0 → Allgemein, sonst Hersteller-ID)
 // und loest den Browser-Download mit den echten Originalnamen im ZIP aus.
 export async function downloadProductDocsFinalZip(
