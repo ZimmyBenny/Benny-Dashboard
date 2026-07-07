@@ -430,6 +430,33 @@ router.patch('/folders/:id', async (req, res) => {
     product_id?: number | null;
   };
 
+  // Zyklus-Schutz: ein Ordner darf nicht in sich selbst oder in einen seiner
+  // eigenen Nachkommen verschoben werden (wuerde einen unerreichbaren Zyklus
+  // im Ordner-Baum erzeugen und den Mirror-Move in eine Schleife schicken).
+  if (parent_id !== undefined) {
+    let cycle = parent_id === id;
+    let cursor: number | null = parent_id;
+    let guard = 0;
+    while (!cycle && cursor !== null && guard < 1000) {
+      guard++;
+      if (cursor === id) {
+        cycle = true;
+        break;
+      }
+      const parentRow = db
+        .prepare(`SELECT parent_id FROM doc_folders WHERE id = ?`)
+        .get(cursor) as { parent_id: number | null } | undefined;
+      if (!parentRow) break;
+      cursor = parentRow.parent_id;
+    }
+    if (cycle) {
+      res.status(400).json({
+        error: 'Ordner kann nicht in sich selbst oder einen seiner Unterordner verschoben werden',
+      });
+      return;
+    }
+  }
+
   // Alte Pfade VOR dem DB-Update ermitteln (beide lesen aus der DB)
   const oldPath = folderFsPath(id);
   const oldMirrorRel = folderMirrorPath(id).relative;
