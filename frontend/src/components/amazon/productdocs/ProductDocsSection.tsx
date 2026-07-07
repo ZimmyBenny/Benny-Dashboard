@@ -128,6 +128,12 @@ export function ProductDocsSection({ productId, topicId, title, accent, icon }: 
   const finalFiles = data
     ? data.files.filter((f) => f.is_final === 1 && (f.manufacturer_id ?? 0) === selectedBucket)
     : [];
+  // Auf einem Hersteller-Reiter: die Allgemein-Dateien (manufacturer_id null) gelten fuer ALLE
+  // Hersteller und werden hier zusaetzlich READ-ONLY (nur Vorschau/Download) angezeigt.
+  const isMfrTab = selectedBucket > 0;
+  const sharedFiles = data && isMfrTab
+    ? data.files.filter((f) => f.is_final === 1 && f.manufacturer_id == null)
+    : [];
   // Notiz des aktuellen Reiters (Bucket-Map, "0" = Allgemein).
   const bucketNotes = data?.notes?.[String(selectedBucket)] ?? '';
 
@@ -268,7 +274,7 @@ export function ProductDocsSection({ productId, topicId, title, accent, icon }: 
                       ? 'Gilt fuer alle Hersteller.'
                       : `Finaler Satz fuer „${activeBucket.name}".`}
                   </span>
-                  {finalFiles.length > 0 && (
+                  {(finalFiles.length > 0 || sharedFiles.length > 0) && (
                     <button
                       type="button"
                       onClick={onDownloadZip}
@@ -286,6 +292,20 @@ export function ProductDocsSection({ productId, topicId, title, accent, icon }: 
                   <p className="text-xs mb-2" style={{ color: 'var(--color-error, #ff6b6b)' }}>{downloadError}</p>
                 )}
 
+                {/* Hinweis nur im Hersteller-Reiter: Allgemein-Dateien sind mit im ZIP. */}
+                {isMfrTab && (
+                  <p className="text-xs mb-3 flex items-start gap-1.5" style={{ color: 'var(--color-on-surface-variant)', opacity: 0.8 }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '15px', marginTop: '1px', color: accent }}>info</span>
+                    Die Allgemein-Dateien gelten fuer alle Hersteller und sind im ZIP enthalten.
+                  </p>
+                )}
+
+                {/* Gruppe 1 — herstellerspezifische bzw. Allgemein-Dateien dieses Reiters (volle Steuerung). */}
+                {isMfrTab && (
+                  <span className="block text-[11px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--color-on-surface-variant)' }}>
+                    Nur fuer diesen Hersteller
+                  </span>
+                )}
                 {finalFiles.length === 0 ? (
                   <p className="text-sm py-4 text-center" style={{ color: 'var(--color-on-surface-variant)', opacity: 0.7 }}>
                     Noch keine finalen Dateien fuer „{activeBucket.name}". Verschiebe fertige Dateien mit dem Pfeil aus den Arbeitsdateien hierher.
@@ -308,6 +328,28 @@ export function ProductDocsSection({ productId, topicId, title, accent, icon }: 
                   </div>
                 )}
 
+                {/* Gruppe 2 — geteilte Allgemein-Dateien (READ-ONLY: nur Vorschau + Download). */}
+                {isMfrTab && sharedFiles.length > 0 && (
+                  <div className="mt-4">
+                    <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--color-on-surface-variant)' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>public</span>
+                      Aus Allgemein (gilt fuer alle)
+                    </span>
+                    <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
+                      {sharedFiles.map((f) => (
+                        <DocTile
+                          key={f.id}
+                          productId={productId}
+                          topicId={topicId}
+                          file={f}
+                          accent={accent}
+                          readOnly
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Notiz des aktuell gewaehlten Reiters (folgt dem Bucket). */}
                 <DocNotes
                   key={`${productId}-${topicId}-${selectedBucket}`}
@@ -327,11 +369,14 @@ export function ProductDocsSection({ productId, topicId, title, accent, icon }: 
 }
 
 // ── Einzelne Datei-/Bild-Kachel ──
+// readOnly=true (geteilte Allgemein-Datei im Hersteller-Reiter): nur Vorschau + Download,
+// KEIN Verschieben/Loeschen/Drag — verwaltet wird sie ausschliesslich im Allgemein-Reiter.
 function DocTile({
-  productId, topicId, file, accent, onDelete, onMove, moveIcon, moveLabel,
+  productId, topicId, file, accent, onDelete, onMove, moveIcon, moveLabel, readOnly = false,
 }: {
   productId: number; topicId: number; file: ProductDocFile; accent: string;
-  onDelete: () => void; onMove: () => void; moveIcon: string; moveLabel: string;
+  onDelete?: () => void; onMove?: () => void; moveIcon?: string; moveLabel?: string;
+  readOnly?: boolean;
 }) {
   const [thumb, setThumb] = useState<string | null>(null);
   const image = isImage(file.mime);
@@ -377,8 +422,8 @@ function DocTile({
       style={{ background: 'var(--color-surface-container)', border: '1px solid rgba(255,255,255,0.08)' }}
       onClick={openFile}
       title={file.original_name ?? 'Datei'}
-      draggable
-      onDragStart={(e) => {
+      draggable={!readOnly}
+      onDragStart={readOnly ? undefined : (e) => {
         // Interner Verschiebe-Drag — eindeutig markiert, damit er nicht mit
         // einem OS-Datei-Upload-Drop verwechselt wird.
         e.dataTransfer.setData('application/x-docfile', String(file.id));
@@ -395,17 +440,30 @@ function DocTile({
       <div className="px-2 py-1.5 text-xs truncate" style={{ color: 'var(--color-on-surface)' }}>
         {file.original_name ?? 'Datei'}
       </div>
-      {/* Verschieben zwischen Arbeits-/Finale-Gruppe */}
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); onMove(); }}
-        aria-label={moveLabel}
-        title={moveLabel}
-        className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-md"
-        style={{ background: 'rgba(0,0,0,0.55)', color: accent, width: '26px', height: '26px' }}
-      >
-        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{moveIcon}</span>
-      </button>
+      {/* Dezentes Badge „geteilt" fuer read-only Allgemein-Dateien im Hersteller-Reiter */}
+      {readOnly && (
+        <span
+          className="absolute top-1 left-1 inline-flex items-center gap-1 rounded-md text-[10px] font-medium leading-none px-1.5 py-1"
+          style={{ background: 'rgba(0,0,0,0.55)', color: accent }}
+          title="Aus Allgemein — gilt fuer alle Hersteller"
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>public</span>
+          geteilt
+        </span>
+      )}
+      {/* Verschieben zwischen Arbeits-/Finale-Gruppe (nicht bei geteilten Dateien) */}
+      {!readOnly && onMove && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onMove(); }}
+          aria-label={moveLabel}
+          title={moveLabel}
+          className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-md"
+          style={{ background: 'rgba(0,0,0,0.55)', color: accent, width: '26px', height: '26px' }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{moveIcon}</span>
+        </button>
+      )}
       {/* Herunterladen — echter Datei-Download mit Originalnamen (neben Loeschen) */}
       <button
         type="button"
@@ -413,19 +471,22 @@ function DocTile({
         aria-label="Herunterladen"
         title={file.original_name ?? 'Datei'}
         className="absolute top-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-md"
-        style={{ right: '33px', background: 'rgba(0,0,0,0.55)', color: accent, width: '26px', height: '26px' }}
+        style={{ right: readOnly ? '1px' : '33px', background: 'rgba(0,0,0,0.55)', color: accent, width: '26px', height: '26px' }}
       >
         <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>download</span>
       </button>
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); onDelete(); }}
-        aria-label="Löschen"
-        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-md"
-        style={{ background: 'rgba(0,0,0,0.55)', color: '#fff', width: '26px', height: '26px' }}
-      >
-        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>delete</span>
-      </button>
+      {/* Loeschen nur bei voll steuerbaren Dateien (nicht bei geteilten Allgemein-Dateien) */}
+      {!readOnly && onDelete && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          aria-label="Löschen"
+          className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-md"
+          style={{ background: 'rgba(0,0,0,0.55)', color: '#fff', width: '26px', height: '26px' }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>delete</span>
+        </button>
+      )}
     </div>
   );
 }
