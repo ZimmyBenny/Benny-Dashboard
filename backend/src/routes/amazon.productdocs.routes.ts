@@ -26,11 +26,16 @@ function deleteFileFromDisk(filename: string | null | undefined) {
 }
 
 // ── Typen ──
-type DocArea = 'verpackung' | 'anleitung';
+// Hinweis: Die Spalte `area` bleibt in der DB (NOT NULL + CHECK), ist aber LEGACY.
+// Gefiltert wird ausschliesslich ueber topic_id. Neue Uploads schreiben konstant
+// area='verpackung' als CHECK-erfuellenden Platzhalter (siehe POST-Route).
 interface DocRow {
-  id: number; product_id: number; area: DocArea; sort_order: number;
+  id: number; product_id: number; area: string; topic_id: number | null; sort_order: number;
   file_path: string; original_name: string | null; mime: string | null; created_at: number;
   is_final: number; manufacturer_id: number | null;
+}
+interface TopicRow {
+  id: number; product_id: number; name: string; sort_order: number; created_at: number;
 }
 
 // Bucket-Parsing: 0 (oder leer/ungueltig) → Allgemein (NULL). Sonst positive Hersteller-ID.
@@ -38,7 +43,7 @@ function parseBucketToMfrId(raw: unknown): number | null {
   const n = Number(raw);
   return Number.isInteger(n) && n > 0 ? n : null;
 }
-// Herstellername fuer ZIP-Dateiname holen; Sonderzeichen fuer Dateinamen bereinigen.
+// Herstellername/Topic-Name fuer ZIP-Dateiname holen; Sonderzeichen fuer Dateinamen bereinigen.
 function sanitizeForFilename(name: string): string {
   return name.replace(/[/\\?%*:|"<>]/g, '_').replace(/\s+/g, ' ').trim() || 'Datei';
 }
@@ -46,54 +51,140 @@ function sanitizeForFilename(name: string): string {
 const router = Router();
 
 const MAX_NOTES = 20000;
+const MAX_TOPIC_NAME = 300;
 
 function ensureProduct(id: number): boolean {
   return db.prepare(`SELECT 1 FROM amazon_products WHERE id = ?`).get(id) !== undefined;
 }
-function isArea(v: unknown): v is DocArea {
-  return v === 'verpackung' || v === 'anleitung';
+// Ownership-Guard: Topic muss existieren UND zum Produkt gehoeren.
+function ensureTopic(productId: number, topicId: number): boolean {
+  if (!Number.isInteger(productId) || !Number.isInteger(topicId)) return false;
+  return db.prepare(`SELECT 1 FROM amazon_product_doc_topics WHERE id = ? AND product_id = ?`).get(topicId, productId) !== undefined;
 }
 
-// ── GET /products/:id/docs/:area ── Dateien + Notiz ──
-router.get('/products/:id/docs/:area', (req: Request, res: Response) => {
+// ════════════════════════════════════════════════════════════════════════════
+// Topic-CRUD (Unterpunkte von „Design & Druck").
+// WICHTIG: literale/reorder-Pfade MUESSEN vor /:topicId registriert werden,
+// sonst matcht Express „reorder" als :topicId (vgl. manufacturers reorder).
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── GET /products/:id/topics ── alle Unterpunkte eines Produkts ──
+router.get('/products/:id/topics', (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const area = req.params.area;
-  if (!Number.isInteger(id) || !ensureProduct(id) || !isArea(area)) { res.status(404).json({ error: 'not found' }); return; }
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'product not found' }); return; }
+  const topics = db.prepare(
+    `SELECT * FROM amazon_product_doc_topics WHERE product_id = ? ORDER BY sort_order, id`,
+  ).all(id) as TopicRow[];
+  res.json({ topics });
+});
+
+// ── POST /products/:id/topics ── neuen Unterpunkt anlegen ──
+router.post('/products/:id/topics', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'product not found' }); return; }
+  const rawName = (req.body as { name?: unknown })?.name;
+  const name = (typeof rawName === 'string' ? rawName.trim() : '').slice(0, MAX_TOPIC_NAME) || 'Neuer Unterpunkt';
+  const maxOrder = (db.prepare(
+    `SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_product_doc_topics WHERE product_id = ?`,
+  ).get(id) as { m: number }).m;
+  const r = db.prepare(
+    `INSERT INTO amazon_product_doc_topics (product_id, name, sort_order) VALUES (?, ?, ?)`,
+  ).run(id, name, maxOrder + 1);
+  const topic = db.prepare(`SELECT * FROM amazon_product_doc_topics WHERE id = ?`).get(r.lastInsertRowid) as TopicRow;
+  res.status(201).json({ topic });
+});
+
+// ── PATCH /products/:id/topics/reorder ── VOR /:topicId ── ──
+router.patch('/products/:id/topics/reorder', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  const order = (req.body as { order?: unknown })?.order;
+  if (!Array.isArray(order) || order.some(x => !Number.isInteger(x))) { res.status(400).json({ error: 'invalid order' }); return; }
+  const own = db.prepare(`SELECT id FROM amazon_product_doc_topics WHERE product_id = ?`).all(id) as Array<{ id: number }>;
+  const ownIds = new Set(own.map(o => o.id));
+  if (order.length !== ownIds.size || order.some((x: number) => !ownIds.has(x))) { res.status(400).json({ error: 'order mismatch' }); return; }
+  const upd = db.prepare(`UPDATE amazon_product_doc_topics SET sort_order = ? WHERE id = ?`);
+  db.transaction(() => { order.forEach((tid: number, idx: number) => upd.run(idx + 1, tid)); })();
+  const topics = db.prepare(`SELECT * FROM amazon_product_doc_topics WHERE product_id = ? ORDER BY sort_order, id`).all(id) as TopicRow[];
+  res.json({ topics });
+});
+
+// ── PATCH /products/:id/topics/:topicId ── umbenennen ──
+router.patch('/products/:id/topics/:topicId', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const topicId = Number(req.params.topicId);
+  if (!ensureTopic(id, topicId)) { res.status(404).json({ error: 'not found' }); return; }
+  const rawName = (req.body as { name?: unknown })?.name;
+  if (typeof rawName !== 'string') { res.status(400).json({ error: 'invalid name' }); return; }
+  const name = rawName.trim().slice(0, MAX_TOPIC_NAME);
+  if (name.length === 0) { res.status(400).json({ error: 'invalid name' }); return; }
+  db.prepare(`UPDATE amazon_product_doc_topics SET name = ? WHERE id = ? AND product_id = ?`).run(name, topicId, id);
+  const topic = db.prepare(`SELECT * FROM amazon_product_doc_topics WHERE id = ?`).get(topicId) as TopicRow;
+  res.json({ topic });
+});
+
+// ── DELETE /products/:id/topics/:topicId ── EXPLIZITES Cascade (nicht auf FK verlassen) ──
+router.delete('/products/:id/topics/:topicId', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const topicId = Number(req.params.topicId);
+  if (!ensureTopic(id, topicId)) { res.status(404).json({ error: 'not found' }); return; }
+  // Datei-Zeilen VOR dem Loeschen lesen (fuer Disk-Cleanup nach der Transaktion).
+  const fileRows = db.prepare(`SELECT file_path FROM amazon_product_docs WHERE topic_id = ?`).all(topicId) as Array<{ file_path: string }>;
+  db.transaction(() => {
+    db.prepare(`DELETE FROM amazon_product_doc_notes WHERE topic_id = ?`).run(topicId);
+    db.prepare(`DELETE FROM amazon_product_docs WHERE topic_id = ?`).run(topicId);
+    db.prepare(`DELETE FROM amazon_product_doc_topics WHERE id = ? AND product_id = ?`).run(topicId, id);
+  })();
+  // Disk-Files NACH erfolgreicher Transaktion entfernen.
+  fileRows.forEach(r => deleteFileFromDisk(r.file_path));
+  res.status(204).end();
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// Doc-Routen — jetzt ueber :topicId (Ownership per ensureTopic statt isArea).
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── GET /products/:id/docs/:topicId ── Dateien + Notiz ──
+router.get('/products/:id/docs/:topicId', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const topicId = Number(req.params.topicId);
+  if (!ensureTopic(id, topicId)) { res.status(404).json({ error: 'not found' }); return; }
   const files = db.prepare(
-    `SELECT * FROM amazon_product_docs WHERE product_id = ? AND area = ? ORDER BY sort_order, id`,
-  ).all(id, area) as DocRow[];
+    `SELECT * FROM amazon_product_docs WHERE product_id = ? AND topic_id = ? ORDER BY sort_order, id`,
+  ).all(id, topicId) as DocRow[];
   // ALLE Notiz-Buckets als Map (Key = manufacturer_bucket als String; "0" = Allgemein).
   const noteRows = db.prepare(
-    `SELECT manufacturer_bucket, notes FROM amazon_product_doc_notes WHERE product_id = ? AND area = ?`,
-  ).all(id, area) as { manufacturer_bucket: number; notes: string }[];
+    `SELECT manufacturer_bucket, notes FROM amazon_product_doc_notes WHERE topic_id = ?`,
+  ).all(topicId) as { manufacturer_bucket: number; notes: string }[];
   const notes: Record<string, string> = {};
   for (const n of noteRows) notes[String(n.manufacturer_bucket)] = n.notes;
   res.json({ files, notes });
 });
 
-// ── POST /products/:id/docs/:area ── (multipart „file") beliebiger Dateityp ──
-router.post('/products/:id/docs/:area', (req: Request, res: Response) => {
+// ── POST /products/:id/docs/:topicId ── (multipart „file") beliebiger Dateityp ──
+router.post('/products/:id/docs/:topicId', (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const area = req.params.area;
-  if (!Number.isInteger(id) || !ensureProduct(id) || !isArea(area)) { res.status(404).json({ error: 'not found' }); return; }
+  const topicId = Number(req.params.topicId);
+  if (!ensureTopic(id, topicId)) { res.status(404).json({ error: 'not found' }); return; }
   docUpload.single('file')(req, res, (err: unknown) => {
     if (err) { res.status(400).json({ error: err instanceof Error ? err.message : 'upload failed' }); return; }
     const file = (req as Request & { file?: { filename: string; originalname: string; mimetype: string } }).file;
     if (!file) { res.status(400).json({ error: 'no file' }); return; }
     const maxOrder = (db.prepare(
-      `SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_product_docs WHERE product_id = ? AND area = ?`,
-    ).get(id, area) as { m: number }).m;
+      `SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_product_docs WHERE product_id = ? AND topic_id = ?`,
+    ).get(id, topicId) as { m: number }).m;
     // Optionaler is_final (Query oder Body, 0|1). Default 0 = Arbeitsdatei.
     const rawFinal = (req.query.is_final ?? (req.body as { is_final?: unknown } | undefined)?.is_final);
     const isFinal = String(rawFinal) === '1' ? 1 : 0;
     // Optionaler manufacturer_id (Query oder Body) fuer Direkt-Upload in einen Final-Reiter.
-    // Nur relevant wenn is_final=1; sonst immer NULL (Arbeitsdateien sind gemeinsam).
     const rawMfr = (req.query.manufacturer_id ?? (req.body as { manufacturer_id?: unknown } | undefined)?.manufacturer_id);
     const mfrId = isFinal === 1 ? parseBucketToMfrId(rawMfr) : null;
+    // area ist LEGACY (NOT NULL + CHECK): konstanter Platzhalter 'verpackung', wird von der
+    // Query-Logik ignoriert — gefiltert wird ausschliesslich ueber topic_id.
     const r = db.prepare(
-      `INSERT INTO amazon_product_docs (product_id, area, sort_order, file_path, original_name, mime, is_final, manufacturer_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO amazon_product_docs (product_id, area, topic_id, sort_order, file_path, original_name, mime, is_final, manufacturer_id) VALUES (?, 'verpackung', ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
-      id, area, maxOrder + 1, file.filename,
+      id, topicId, maxOrder + 1, file.filename,
       Buffer.from(file.originalname, 'latin1').toString('utf8').slice(0, 300),
       file.mimetype.slice(0, 200),
       isFinal, mfrId,
@@ -102,41 +193,21 @@ router.post('/products/:id/docs/:area', (req: Request, res: Response) => {
   });
 });
 
-// ── GET /products/:id/docs/:area/files/:fileId ── Blob streamen (inline) ──
-router.get('/products/:id/docs/:area/files/:fileId', (req: Request, res: Response) => {
+// ── GET /products/:id/docs/:topicId/final.zip ── alle finalen Dateien als ZIP ──
+// (Kein „files/"-Segment im Pfad → kollisionsfrei mit /files/:fileId.)
+router.get('/products/:id/docs/:topicId/final.zip', (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const area = req.params.area;
-  const fileId = Number(req.params.fileId);
-  if (!Number.isInteger(id) || !Number.isInteger(fileId) || !isArea(area)) { res.status(404).end(); return; }
-  const row = db.prepare(
-    `SELECT * FROM amazon_product_docs WHERE id = ? AND product_id = ? AND area = ?`,
-  ).get(fileId, id, area) as DocRow | undefined;
-  if (!row) { res.status(404).end(); return; }
-  const abs = path.resolve(DOCS_FILES_DIR, row.file_path);
-  if (!abs.startsWith(path.resolve(DOCS_FILES_DIR) + path.sep) || !fs.existsSync(abs)) { res.status(404).end(); return; }
-  res.setHeader('Content-Type', row.mime || 'application/octet-stream');
-  const ascii = (row.original_name ?? 'datei').replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '');
-  res.setHeader('Content-Disposition', `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(row.original_name ?? 'datei')}`);
-  fs.createReadStream(abs).pipe(res);
-});
-
-// ── GET /products/:id/docs/:area/final.zip ── alle finalen Dateien als ZIP ──
-// Eintragsnamen = original_name; doppelte Namen bekommen einen Zaehler-Praefix
-// (z. B. „2_name.pdf"). Muss VOR der generischen /files/:fileId-Route stehen? Nein —
-// der Pfad enthaelt kein „files/"-Segment, daher kollisionsfrei.
-router.get('/products/:id/docs/:area/final.zip', (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  const area = req.params.area;
-  if (!Number.isInteger(id) || !ensureProduct(id) || !isArea(area)) { res.status(404).json({ error: 'not found' }); return; }
+  const topicId = Number(req.params.topicId);
+  if (!ensureTopic(id, topicId)) { res.status(404).json({ error: 'not found' }); return; }
   // bucket=0 → Allgemein (manufacturer_id IS NULL); bucket=<id> → manufacturer_id = <id>.
   const mfrId = parseBucketToMfrId(req.query.bucket);
   const rows = (mfrId === null
     ? db.prepare(
-        `SELECT * FROM amazon_product_docs WHERE product_id = ? AND area = ? AND is_final = 1 AND manufacturer_id IS NULL ORDER BY sort_order, id`,
-      ).all(id, area)
+        `SELECT * FROM amazon_product_docs WHERE product_id = ? AND topic_id = ? AND is_final = 1 AND manufacturer_id IS NULL ORDER BY sort_order, id`,
+      ).all(id, topicId)
     : db.prepare(
-        `SELECT * FROM amazon_product_docs WHERE product_id = ? AND area = ? AND is_final = 1 AND manufacturer_id = ? ORDER BY sort_order, id`,
-      ).all(id, area, mfrId)) as DocRow[];
+        `SELECT * FROM amazon_product_docs WHERE product_id = ? AND topic_id = ? AND is_final = 1 AND manufacturer_id = ? ORDER BY sort_order, id`,
+      ).all(id, topicId, mfrId)) as DocRow[];
   if (rows.length === 0) { res.status(400).json({ error: 'Keine finalen Dateien vorhanden.' }); return; }
 
   // Herstellername (oder „Allgemein") fuer den Dateinamen.
@@ -145,7 +216,9 @@ router.get('/products/:id/docs/:area/final.zip', (req: Request, res: Response) =
     const m = db.prepare(`SELECT name FROM amazon_manufacturers WHERE id = ? AND product_id = ?`).get(mfrId, id) as { name: string } | undefined;
     bucketLabel = m ? sanitizeForFilename(m.name) : `Hersteller-${mfrId}`;
   }
-  const zipBase = area === 'verpackung' ? 'Verpackungsdesign' : 'Aufbauanleitung';
+  // ZIP-Basisname aus dem Topic-Namen (muss zur Frontend-zipFilenameFor passen: sanitize(Topic-Name)).
+  const topic = db.prepare(`SELECT name FROM amazon_product_doc_topics WHERE id = ?`).get(topicId) as { name: string } | undefined;
+  const zipBase = sanitizeForFilename(topic?.name ?? 'Unterpunkt');
   const zipName = `${zipBase}-${bucketLabel}-final.zip`;
   const asciiZip = zipName.replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '');
 
@@ -154,7 +227,6 @@ router.get('/products/:id/docs/:area/final.zip', (req: Request, res: Response) =
 
   const archive = new ZipArchive({ zlib: { level: 9 } });
   archive.on('error', (err) => {
-    // Header sind evtl. schon gesendet — Verbindung sauber beenden.
     if (!res.headersSent) res.status(500).json({ error: err.message });
     else { try { res.destroy(); } catch { /* ignore */ } }
   });
@@ -163,10 +235,8 @@ router.get('/products/:id/docs/:area/final.zip', (req: Request, res: Response) =
   const usedNames = new Set<string>();
   for (const row of rows) {
     const abs = path.resolve(DOCS_FILES_DIR, row.file_path);
-    // Path-Traversal-Schutz + Existenzpruefung wie im Rest der Datei.
     if (!abs.startsWith(path.resolve(DOCS_FILES_DIR) + path.sep) || !fs.existsSync(abs)) continue;
     let entryName = (row.original_name ?? 'datei').replace(/[/\\]/g, '_') || 'datei';
-    // Bei doppelten Namen mit Zaehler eindeutig machen: name.pdf, 2_name.pdf, 3_name.pdf …
     if (usedNames.has(entryName)) {
       let n = 2;
       while (usedNames.has(`${n}_${entryName}`)) n++;
@@ -178,31 +248,42 @@ router.get('/products/:id/docs/:area/final.zip', (req: Request, res: Response) =
   archive.finalize();
 });
 
-// ── PATCH /products/:id/docs/:area/files/:fileId ── ({ is_final?, manufacturer_id? }) ──
-// Verschieben zwischen Arbeit (0) und Final (1). Beim Verschieben nach Final wird der
-// Ziel-Bucket gesetzt (manufacturer_id = Hersteller-ID oder NULL fuer Allgemein).
-// Zurueck zu Arbeit (is_final=0) → manufacturer_id immer NULL (Arbeitsdateien gemeinsam).
-router.patch('/products/:id/docs/:area/files/:fileId', (req: Request, res: Response) => {
+// ── GET /products/:id/docs/:topicId/files/:fileId ── Blob streamen (inline) ──
+router.get('/products/:id/docs/:topicId/files/:fileId', (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const area = req.params.area;
+  const topicId = Number(req.params.topicId);
   const fileId = Number(req.params.fileId);
-  if (!Number.isInteger(id) || !Number.isInteger(fileId) || !isArea(area)) { res.status(404).json({ error: 'not found' }); return; }
+  if (!Number.isInteger(fileId) || !ensureTopic(id, topicId)) { res.status(404).end(); return; }
+  const row = db.prepare(
+    `SELECT * FROM amazon_product_docs WHERE id = ? AND product_id = ? AND topic_id = ?`,
+  ).get(fileId, id, topicId) as DocRow | undefined;
+  if (!row) { res.status(404).end(); return; }
+  const abs = path.resolve(DOCS_FILES_DIR, row.file_path);
+  if (!abs.startsWith(path.resolve(DOCS_FILES_DIR) + path.sep) || !fs.existsSync(abs)) { res.status(404).end(); return; }
+  res.setHeader('Content-Type', row.mime || 'application/octet-stream');
+  const ascii = (row.original_name ?? 'datei').replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '');
+  res.setHeader('Content-Disposition', `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(row.original_name ?? 'datei')}`);
+  fs.createReadStream(abs).pipe(res);
+});
+
+// ── PATCH /products/:id/docs/:topicId/files/:fileId ── ({ is_final?, manufacturer_id? }) ──
+router.patch('/products/:id/docs/:topicId/files/:fileId', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const topicId = Number(req.params.topicId);
+  const fileId = Number(req.params.fileId);
+  if (!Number.isInteger(fileId) || !ensureTopic(id, topicId)) { res.status(404).json({ error: 'not found' }); return; }
   const body = (req.body ?? {}) as { is_final?: unknown; manufacturer_id?: unknown };
   const rawFinal = body.is_final;
-  // Ownership: Datei muss zu product + area gehoeren.
   const row = db.prepare(
-    `SELECT * FROM amazon_product_docs WHERE id = ? AND product_id = ? AND area = ?`,
-  ).get(fileId, id, area) as DocRow | undefined;
+    `SELECT * FROM amazon_product_docs WHERE id = ? AND product_id = ? AND topic_id = ?`,
+  ).get(fileId, id, topicId) as DocRow | undefined;
   if (!row) { res.status(404).json({ error: 'not found' }); return; }
 
-  // is_final: bei fehlendem Wert den bestehenden Zustand beibehalten (z. B. reiner Bucket-Wechsel).
   let isFinal = row.is_final;
   if (rawFinal !== undefined) {
     if (String(rawFinal) !== '0' && String(rawFinal) !== '1') { res.status(400).json({ error: 'is_final muss 0 oder 1 sein' }); return; }
     isFinal = String(rawFinal) === '1' ? 1 : 0;
   }
-  // manufacturer_id: nur bei Final relevant. „manufacturer_id" im Body → Ziel-Bucket setzen.
-  // Zurueck zu Arbeit → immer NULL. Wenn im Body nicht angegeben und Final bleibt → bestehenden Wert halten.
   let mfrId: number | null;
   if (isFinal === 0) {
     mfrId = null;
@@ -215,50 +296,49 @@ router.patch('/products/:id/docs/:area/files/:fileId', (req: Request, res: Respo
   res.json({ file: db.prepare(`SELECT * FROM amazon_product_docs WHERE id = ?`).get(fileId) as DocRow });
 });
 
-// ── DELETE /products/:id/docs/:area/files/:fileId ── Datei + Zeile ──
-router.delete('/products/:id/docs/:area/files/:fileId', (req: Request, res: Response) => {
+// ── DELETE /products/:id/docs/:topicId/files/:fileId ── Datei + Zeile ──
+router.delete('/products/:id/docs/:topicId/files/:fileId', (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const area = req.params.area;
+  const topicId = Number(req.params.topicId);
   const fileId = Number(req.params.fileId);
-  if (!Number.isInteger(id) || !Number.isInteger(fileId) || !isArea(area)) { res.status(404).json({ error: 'not found' }); return; }
+  if (!Number.isInteger(fileId) || !ensureTopic(id, topicId)) { res.status(404).json({ error: 'not found' }); return; }
   const row = db.prepare(
-    `SELECT * FROM amazon_product_docs WHERE id = ? AND product_id = ? AND area = ?`,
-  ).get(fileId, id, area) as DocRow | undefined;
+    `SELECT * FROM amazon_product_docs WHERE id = ? AND product_id = ? AND topic_id = ?`,
+  ).get(fileId, id, topicId) as DocRow | undefined;
   if (!row) { res.status(404).json({ error: 'not found' }); return; }
   db.prepare(`DELETE FROM amazon_product_docs WHERE id = ?`).run(fileId);
   deleteFileFromDisk(row.file_path);
   res.status(204).end();
 });
 
-// ── POST /products/:id/docs/:area/reorder ── ({ order: number[] }) ──
-router.post('/products/:id/docs/:area/reorder', (req: Request, res: Response) => {
+// ── POST /products/:id/docs/:topicId/reorder ── ({ order: number[] }) ──
+router.post('/products/:id/docs/:topicId/reorder', (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const area = req.params.area;
-  if (!Number.isInteger(id) || !ensureProduct(id) || !isArea(area)) { res.status(404).json({ error: 'not found' }); return; }
+  const topicId = Number(req.params.topicId);
+  if (!ensureTopic(id, topicId)) { res.status(404).json({ error: 'not found' }); return; }
   const order = req.body?.order;
   if (!Array.isArray(order)) { res.status(400).json({ error: 'order fehlt' }); return; }
-  const upd = db.prepare(`UPDATE amazon_product_docs SET sort_order = ? WHERE id = ? AND product_id = ? AND area = ?`);
-  db.transaction(() => { order.forEach((fid: number, idx: number) => upd.run(idx + 1, fid, id, area)); })();
+  const upd = db.prepare(`UPDATE amazon_product_docs SET sort_order = ? WHERE id = ? AND product_id = ? AND topic_id = ?`);
+  db.transaction(() => { order.forEach((fid: number, idx: number) => upd.run(idx + 1, fid, id, topicId)); })();
   res.status(204).end();
 });
 
-// ── PUT /products/:id/docs/:area/notes ── ({ manufacturer_bucket, notes }) UPSERT ──
-// Eine Notiz pro Bereich UND Bucket (0 = Allgemein, sonst manufacturer_id).
-router.put('/products/:id/docs/:area/notes', (req: Request, res: Response) => {
+// ── PUT /products/:id/docs/:topicId/notes ── ({ manufacturer_bucket, notes }) UPSERT ──
+// Eine Notiz pro Topic UND Bucket (0 = Allgemein, sonst manufacturer_id).
+router.put('/products/:id/docs/:topicId/notes', (req: Request, res: Response) => {
   const id = Number(req.params.id);
-  const area = req.params.area;
-  if (!Number.isInteger(id) || !ensureProduct(id) || !isArea(area)) { res.status(404).json({ error: 'not found' }); return; }
+  const topicId = Number(req.params.topicId);
+  if (!ensureTopic(id, topicId)) { res.status(404).json({ error: 'not found' }); return; }
   const body = (req.body ?? {}) as { manufacturer_bucket?: unknown; notes?: unknown };
   const notes = String(body.notes ?? '').slice(0, MAX_NOTES);
-  // Bucket: 0 (oder ungueltig) = Allgemein; sonst Hersteller-ID.
   const bucket = parseBucketToMfrId(body.manufacturer_bucket) ?? 0;
   db.prepare(`
-    INSERT INTO amazon_product_doc_notes (product_id, area, manufacturer_bucket, notes)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(product_id, area, manufacturer_bucket) DO UPDATE SET
+    INSERT INTO amazon_product_doc_notes (topic_id, manufacturer_bucket, notes)
+    VALUES (?, ?, ?)
+    ON CONFLICT(topic_id, manufacturer_bucket) DO UPDATE SET
       notes = excluded.notes,
       updated_at = unixepoch()
-  `).run(id, area, bucket, notes);
+  `).run(topicId, bucket, notes);
   res.json({ manufacturer_bucket: bucket, notes });
 });
 

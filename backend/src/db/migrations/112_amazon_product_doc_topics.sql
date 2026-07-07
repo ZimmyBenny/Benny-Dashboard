@@ -35,7 +35,7 @@ FROM (
   UNION
   SELECT product_id, area FROM amazon_product_doc_notes
 )
-ORDER BY product_id, sort_order;
+ORDER BY product_id, area;
 
 -- 4) docs.topic_id per (product_id, area) auf das passende Topic setzen (alle uebrigen Spalten unveraendert).
 UPDATE amazon_product_docs
