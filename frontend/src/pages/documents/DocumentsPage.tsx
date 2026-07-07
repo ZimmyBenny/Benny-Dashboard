@@ -9,7 +9,7 @@
  *
  * Siehe docs/superpowers/specs/2026-07-04-dokumente-modul-design.md
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useDropzone, type FileWithPath } from 'react-dropzone';
@@ -176,6 +176,8 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
   const [bulkMoveProgress, setBulkMoveProgress] = useState<string | null>(null);
   const [linkFolderId, setLinkFolderId] = useState<number | null>(null);
+  // Ordner-Drag&Drop: welche Ziel-Zeile wird gerade uebergezogen (Hervorhebung)
+  const [dragOverFolderId, setDragOverFolderId] = useState<number | null>(null);
   // Fix A (User-Wunsch 2026-07-04): Dateien, die auf der virtuellen Wurzel
   // ausgewaehlt wurden und noch auf einen Ziel-Ordner warten (MoveModal-Picker).
   const [pendingUploadFiles, setPendingUploadFiles] = useState<File[] | null>(null);
@@ -446,6 +448,69 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
     if (succeeded < ids.length) {
       setBulkMoveProgress(`${succeeded} von ${ids.length} verschoben`);
     }
+  }
+
+  // ── Ordner per Drag & Drop verschieben ────────────────────────────────
+
+  const DOC_FOLDER_DND_TYPE = 'application/x-docfolder';
+
+  /** Alle Nachkommen eines Ordners (inkl. seiner selbst) — verhindert Zyklen. */
+  function collectDescendants(rootId: number): Set<number> {
+    const ids = new Set<number>([rootId]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const f of tree) {
+        if (f.parent_id !== null && ids.has(f.parent_id) && !ids.has(f.id)) {
+          ids.add(f.id);
+          changed = true;
+        }
+      }
+    }
+    return ids;
+  }
+
+  /** True, wenn der gezogene Ordner NICHT auf das Ziel abgelegt werden darf. */
+  function isInvalidFolderDrop(draggedId: number, targetId: number): boolean {
+    if (draggedId === targetId) return true;
+    const dragged = tree.find((f) => f.id === draggedId);
+    if (!dragged || dragged.is_area_root) return true; // Bereichs-Wurzel nicht verschiebbar
+    // Ziel darf kein Nachkomme des gezogenen Ordners sein (Zyklus)
+    return collectDescendants(draggedId).has(targetId);
+  }
+
+  function handleFolderDragStart(e: DragEvent, folder: DocFolder) {
+    if (folder.is_area_root) {
+      e.preventDefault(); // Bereichs-Wurzeln duerfen nicht gezogen werden
+      return;
+    }
+    e.dataTransfer.setData(DOC_FOLDER_DND_TYPE, String(folder.id));
+    e.dataTransfer.effectAllowed = 'move';
+  }
+
+  function handleFolderDragOver(e: DragEvent, targetId: number) {
+    // Nur reagieren, wenn ein interner Ordner gezogen wird (nicht Datei-Upload)
+    if (!e.dataTransfer.types.includes(DOC_FOLDER_DND_TYPE)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverFolderId !== targetId) setDragOverFolderId(targetId);
+  }
+
+  function handleFolderDragLeave(targetId: number) {
+    setDragOverFolderId((prev) => (prev === targetId ? null : prev));
+  }
+
+  function handleFolderDrop(e: DragEvent, targetId: number) {
+    const raw = e.dataTransfer.getData(DOC_FOLDER_DND_TYPE);
+    if (!raw) return; // kein interner Ordner-Drag (z. B. Datei-Upload) — ignorieren
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverFolderId(null);
+    const draggedId = parseInt(raw, 10);
+    if (!Number.isFinite(draggedId)) return;
+    if (isInvalidFolderDrop(draggedId, targetId)) return;
+    updateFolderMut.mutate({ id: draggedId, data: { parent_id: targetId } });
   }
 
   // ── Titel ─────────────────────────────────────────────────────────────
@@ -839,9 +904,20 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                     <div
                       key={root.id}
                       className="group flex items-center gap-3 px-3 py-2.5 rounded-lg"
+                      draggable={root.is_area_root === 0}
+                      onDragStart={(e) => handleFolderDragStart(e, root)}
+                      onDragOver={(e) => handleFolderDragOver(e, root.id)}
+                      onDragLeave={() => handleFolderDragLeave(root.id)}
+                      onDrop={(e) => handleFolderDrop(e, root.id)}
                       style={{
-                        background: 'var(--color-surface-container-low)',
-                        border: '1px solid var(--color-outline-variant)',
+                        background:
+                          dragOverFolderId === root.id
+                            ? 'color-mix(in srgb, var(--color-primary) 16%, transparent)'
+                            : 'var(--color-surface-container-low)',
+                        border:
+                          dragOverFolderId === root.id
+                            ? '1px solid var(--color-primary)'
+                            : '1px solid var(--color-outline-variant)',
                         cursor: 'pointer',
                       }}
                       onClick={() => navigateTo(root.id)}
@@ -969,7 +1045,23 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
               )}
 
               {!searchActive && contents?.folders.map((folder) => (
-                <div key={folder.id} className="group flex items-center gap-2 px-2 py-2 rounded-md hover:bg-white/[0.03]">
+                <div
+                  key={folder.id}
+                  className="group flex items-center gap-2 px-2 py-2 rounded-md hover:bg-white/[0.03]"
+                  draggable={!folder.is_area_root && renamingId?.id !== folder.id}
+                  onDragStart={(e) => handleFolderDragStart(e, folder)}
+                  onDragOver={(e) => handleFolderDragOver(e, folder.id)}
+                  onDragLeave={() => handleFolderDragLeave(folder.id)}
+                  onDrop={(e) => handleFolderDrop(e, folder.id)}
+                  style={
+                    dragOverFolderId === folder.id
+                      ? {
+                          background: 'color-mix(in srgb, var(--color-primary) 14%, transparent)',
+                          outline: '1px solid var(--color-primary)',
+                        }
+                      : undefined
+                  }
+                >
                   {renamingId?.kind === 'folder' && renamingId.id === folder.id ? (
                     <input
                       autoFocus
