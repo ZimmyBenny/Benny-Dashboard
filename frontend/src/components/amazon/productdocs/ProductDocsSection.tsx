@@ -3,7 +3,7 @@ import { SectionHeader } from '../SectionHeader';
 import { useSectionExpanded } from '../../../hooks/amazon/useSectionExpanded';
 import {
   useProductDocs, useUploadProductDoc, useDeleteProductDoc, useUpdateProductDocNotes,
-  useMoveProductDoc,
+  useMoveProductDoc, useMoveProductDocToTopic,
 } from '../../../hooks/amazon/useProductDocs';
 import { useManufacturers } from '../../../hooks/amazon/useManufacturers';
 import {
@@ -54,6 +54,7 @@ export function ProductDocsSection({ productId, topicId, title, accent, icon }: 
   const upload = useUploadProductDoc(productId, topicId);
   const del = useDeleteProductDoc(productId, topicId);
   const move = useMoveProductDoc(productId, topicId);
+  const moveToTopic = useMoveProductDocToTopic(productId);
 
   // Reiter der Finale-Gruppe: „Allgemein" (0) + je Hersteller dieses Produkts.
   const buckets: Bucket[] = useMemo(() => {
@@ -95,6 +96,23 @@ export function ProductDocsSection({ productId, topicId, title, accent, icon }: 
     const raw = e.dataTransfer.getData('application/x-docfile');
     const fileId = Number(raw);
     if (!raw || !Number.isInteger(fileId)) return;
+    const rawSourceTopic = e.dataTransfer.getData('application/x-docfile-topic');
+    const sourceTopic = Number(rawSourceTopic);
+
+    // 2a) Cross-Topic-Move: Quell-Topic ≠ diese Sektion → Datei in DIESEN Topic verschieben.
+    // (Die Datei liegt nicht in data?.files dieser Sektion, daher separater Pfad.)
+    if (rawSourceTopic && Number.isInteger(sourceTopic) && sourceTopic !== topicId) {
+      moveToTopic.mutate({
+        sourceTopicId: sourceTopic,
+        fileId,
+        targetTopicId: topicId,
+        isFinal: targetFinal,
+        manufacturerId: mfrId,
+      });
+      return;
+    }
+
+    // 2b) Interner Move innerhalb dieses Topics (Arbeit↔Final / Bucket).
     const current = data?.files.find((f) => f.id === fileId);
     if (!current) return;
     // Schon exakt am Ziel (gleiche Gruppe UND gleicher Bucket)? → nichts tun.
@@ -427,6 +445,8 @@ function DocTile({
         // Interner Verschiebe-Drag — eindeutig markiert, damit er nicht mit
         // einem OS-Datei-Upload-Drop verwechselt wird.
         e.dataTransfer.setData('application/x-docfile', String(file.id));
+        // Quell-Topic mitgeben → ermoeglicht das Verschieben in einen ANDEREN Unterpunkt.
+        e.dataTransfer.setData('application/x-docfile-topic', String(topicId));
         e.dataTransfer.effectAllowed = 'move';
       }}
     >
