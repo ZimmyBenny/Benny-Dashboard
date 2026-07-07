@@ -353,6 +353,22 @@ function DocTile({
     } catch { /* ignore */ }
   }
 
+  // Datei mit echtem Originalnamen auf die Platte herunterladen (zum Nachbearbeiten,
+  // nachdem der User die lokalen Originale geloescht hat). Landet im Downloads-Ordner.
+  async function downloadFile() {
+    try {
+      const u = await getProductDocObjectUrl(productId, area, file.id);
+      const a = document.createElement('a');
+      a.href = u;
+      a.download = file.original_name ?? 'datei';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      // Objekt-URL erst nach kurzer Zeit freigeben, damit der Download starten kann.
+      window.setTimeout(() => URL.revokeObjectURL(u), 60_000);
+    } catch { /* ignore */ }
+  }
+
   return (
     <div
       className="group relative rounded-lg overflow-hidden flex flex-col cursor-pointer"
@@ -387,6 +403,17 @@ function DocTile({
         style={{ background: 'rgba(0,0,0,0.55)', color: accent, width: '26px', height: '26px' }}
       >
         <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{moveIcon}</span>
+      </button>
+      {/* Herunterladen — echter Datei-Download mit Originalnamen (neben Loeschen) */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); downloadFile(); }}
+        aria-label="Herunterladen"
+        title={file.original_name ?? 'Datei'}
+        className="absolute top-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-md"
+        style={{ right: '33px', background: 'rgba(0,0,0,0.55)', color: accent, width: '26px', height: '26px' }}
+      >
+        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>download</span>
       </button>
       <button
         type="button"
