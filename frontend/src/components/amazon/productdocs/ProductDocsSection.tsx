@@ -80,7 +80,7 @@ export function ProductDocsSection({ productId, topicId, title, accent, icon }: 
     for (const f of Array.from(files)) upload.mutate(f);
   }, [upload]);
 
-  // Gemeinsamer Drop-Handler fuer beide Gruppen.
+  // Gemeinsamer Drop-Handler für beide Gruppen.
   // targetFinal: 1 = Finale Dateien (in den aktuell gewaehlten Reiter), 0 = Arbeitsdateien.
   function onDropZone(e: React.DragEvent, targetFinal: 0 | 1) {
     e.preventDefault();
@@ -128,7 +128,7 @@ export function ProductDocsSection({ productId, topicId, title, accent, icon }: 
   const finalFiles = data
     ? data.files.filter((f) => f.is_final === 1 && (f.manufacturer_id ?? 0) === selectedBucket)
     : [];
-  // Auf einem Hersteller-Reiter: die Allgemein-Dateien (manufacturer_id null) gelten fuer ALLE
+  // Auf einem Hersteller-Reiter: die Allgemein-Dateien (manufacturer_id null) gelten für ALLE
   // Hersteller und werden hier zusaetzlich READ-ONLY (nur Vorschau/Download) angezeigt.
   const isMfrTab = selectedBucket > 0;
   const sharedFiles = data && isMfrTab
@@ -271,8 +271,8 @@ export function ProductDocsSection({ productId, topicId, title, accent, icon }: 
                 <div className="flex items-center justify-between mb-3 gap-2">
                   <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)', opacity: 0.8 }}>
                     {selectedBucket === 0
-                      ? 'Gilt fuer alle Hersteller.'
-                      : `Finaler Satz fuer „${activeBucket.name}".`}
+                      ? 'Gilt für alle Hersteller.'
+                      : `Finaler Satz für „${activeBucket.name}".`}
                   </span>
                   {(finalFiles.length > 0 || sharedFiles.length > 0) && (
                     <button
@@ -296,19 +296,19 @@ export function ProductDocsSection({ productId, topicId, title, accent, icon }: 
                 {isMfrTab && (
                   <p className="text-xs mb-3 flex items-start gap-1.5" style={{ color: 'var(--color-on-surface-variant)', opacity: 0.8 }}>
                     <span className="material-symbols-outlined" style={{ fontSize: '15px', marginTop: '1px', color: accent }}>info</span>
-                    Die Allgemein-Dateien gelten fuer alle Hersteller und sind im ZIP enthalten.
+                    Die Allgemein-Dateien gelten für alle Hersteller und sind im ZIP enthalten.
                   </p>
                 )}
 
                 {/* Gruppe 1 — herstellerspezifische bzw. Allgemein-Dateien dieses Reiters (volle Steuerung). */}
                 {isMfrTab && (
                   <span className="block text-[11px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--color-on-surface-variant)' }}>
-                    Nur fuer diesen Hersteller
+                    Nur für diesen Hersteller
                   </span>
                 )}
                 {finalFiles.length === 0 ? (
                   <p className="text-sm py-4 text-center" style={{ color: 'var(--color-on-surface-variant)', opacity: 0.7 }}>
-                    Noch keine finalen Dateien fuer „{activeBucket.name}". Verschiebe fertige Dateien mit dem Pfeil aus den Arbeitsdateien hierher.
+                    Noch keine finalen Dateien für „{activeBucket.name}". Verschiebe fertige Dateien mit dem Pfeil aus den Arbeitsdateien hierher.
                   </p>
                 ) : (
                   <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
@@ -322,7 +322,7 @@ export function ProductDocsSection({ productId, topicId, title, accent, icon }: 
                         onDelete={() => del.mutate(f.id)}
                         onMove={() => move.mutate({ fileId: f.id, isFinal: 0 })}
                         moveIcon="south_west"
-                        moveLabel="Zurueck zu Arbeitsdateien"
+                        moveLabel="Zurück zu Arbeitsdateien"
                       />
                     ))}
                   </div>
@@ -333,7 +333,7 @@ export function ProductDocsSection({ productId, topicId, title, accent, icon }: 
                   <div className="mt-4">
                     <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--color-on-surface-variant)' }}>
                       <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>public</span>
-                      Aus Allgemein (gilt fuer alle)
+                      Aus Allgemein (gilt für alle)
                     </span>
                     <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
                       {sharedFiles.map((f) => (
@@ -440,12 +440,12 @@ function DocTile({
       <div className="px-2 py-1.5 text-xs truncate" style={{ color: 'var(--color-on-surface)' }}>
         {file.original_name ?? 'Datei'}
       </div>
-      {/* Dezentes Badge „geteilt" fuer read-only Allgemein-Dateien im Hersteller-Reiter */}
+      {/* Dezentes Badge „geteilt" für read-only Allgemein-Dateien im Hersteller-Reiter */}
       {readOnly && (
         <span
           className="absolute top-1 left-1 inline-flex items-center gap-1 rounded-md text-[10px] font-medium leading-none px-1.5 py-1"
           style={{ background: 'rgba(0,0,0,0.55)', color: accent }}
-          title="Aus Allgemein — gilt fuer alle Hersteller"
+          title="Aus Allgemein — gilt für alle Hersteller"
         >
           <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>public</span>
           geteilt

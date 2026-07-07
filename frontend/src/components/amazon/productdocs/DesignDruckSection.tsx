@@ -7,9 +7,9 @@ import {
 } from '../../../hooks/amazon/useProductDocTopics';
 import type { ProductDocTopic } from '../../../api/amazon.api';
 
-// Oberpunkt-Akzent (Violett) — deutlich verschieden vom einheitlichen Unterpunkt-Akzent.
-const OBERPUNKT_ACCENT = '#a78bfa';
-// Einheitlicher sekundaerer Akzent fuer die Unterpunkte (klar getrennt vom Violett).
+// Oberpunkt-Akzent — globale Primärfarbe (Blau/Grün-Palette, kein Lila mehr).
+const OBERPUNKT_ACCENT = 'var(--color-primary)';
+// Einheitlicher sekundärer Akzent für die Unterpunkte.
 const TOPIC_ACCENT = '#22d3ee';
 
 interface Props {
@@ -82,23 +82,23 @@ export function DesignDruckSection({ productId }: Props) {
               <span className="material-symbols-outlined" style={{ fontSize: '40px', color: OBERPUNKT_ACCENT }}>palette</span>
               <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
                 Noch keine Unterpunkte. Lege deinen ersten Unterpunkt an — z.&nbsp;B. „Verpackungsdesign",
-                „Aufbauanleitung" oder was immer du fuer dieses Produkt brauchst.
+                „Aufbauanleitung" oder was immer du für dieses Produkt brauchst.
               </p>
               <button
                 type="button"
                 onClick={addTopic}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium"
-                style={{ background: OBERPUNKT_ACCENT, color: '#1a1a1a' }}
+                style={{ background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))', color: 'var(--color-on-primary)', borderRadius: 9999 }}
               >
                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span>
-                Unterpunkt hinzufuegen
+                Unterpunkt hinzufügen
               </button>
             </div>
           )}
 
           {list.map((t, i) => (
             <div key={t.id} className="flex flex-col">
-              {/* Kopf-Aktionen des Unterpunkts (Sortieren/Umbenennen/Loeschen) */}
+              {/* Kopf-Aktionen des Unterpunkts (Sortieren/Umbenennen/Löschen) */}
               <div className="flex items-center justify-end gap-1 mb-1">
                 <button
                   type="button"
@@ -135,8 +135,8 @@ export function DesignDruckSection({ productId }: Props) {
                 <button
                   type="button"
                   onClick={() => deleteTopic(t)}
-                  aria-label="Loeschen"
-                  title="Unterpunkt loeschen"
+                  aria-label="Löschen"
+                  title="Unterpunkt löschen"
                   className="flex items-center justify-center rounded-md"
                   style={{ background: 'var(--color-surface-container)', color: '#ff6b6b', width: '28px', height: '28px' }}
                 >
@@ -153,16 +153,16 @@ export function DesignDruckSection({ productId }: Props) {
             </div>
           ))}
 
-          {/* „+ Unterpunkt hinzufuegen" — unter der Liste (nicht im Leerzustand doppelt). */}
+          {/* „+ Unterpunkt hinzufügen" — unter der Liste (nicht im Leerzustand doppelt). */}
           {list.length > 0 && (
             <button
               type="button"
               onClick={addTopic}
               className="self-start inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium"
-              style={{ background: OBERPUNKT_ACCENT, color: '#1a1a1a' }}
+              style={{ background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))', color: 'var(--color-on-primary)', borderRadius: 9999 }}
             >
               <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span>
-              Unterpunkt hinzufuegen
+              Unterpunkt hinzufügen
             </button>
           )}
         </div>
