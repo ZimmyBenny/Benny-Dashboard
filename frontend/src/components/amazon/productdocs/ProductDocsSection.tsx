@@ -8,12 +8,12 @@ import {
 import { useManufacturers } from '../../../hooks/amazon/useManufacturers';
 import {
   getProductDocObjectUrl, downloadProductDocsFinalZip,
-  type ProductDocArea, type ProductDocFile,
+  type ProductDocFile,
 } from '../../../api/amazon.api';
 
 interface Props {
   productId: number;
-  area: ProductDocArea;
+  topicId: number;
   title: string;
   accent: string;
   icon: string;
@@ -25,10 +25,12 @@ const MAX_NOTES = 20000;
 // Ein Reiter der Finale-Gruppe. bucket 0 = „Allgemein", sonst Hersteller-ID.
 interface Bucket { id: number; name: string; }
 
-// ZIP-Dateiname je Bereich + Bucket (muss zur Backend-Content-Disposition passen).
-function zipFilenameFor(area: ProductDocArea, bucketName: string): string {
-  const base = area === 'verpackung' ? 'Verpackungsdesign' : 'Aufbauanleitung';
-  const safe = bucketName.replace(/[/\\?%*:|"<>]/g, '_').replace(/\s+/g, ' ').trim() || 'Allgemein';
+// ZIP-Dateiname aus Topic-Titel + Bucket (muss zur Backend-Content-Disposition passen —
+// Backend nutzt denselben sanitizeForFilename-Regex auf dem Topic-Namen).
+function zipFilenameFor(title: string, bucketName: string): string {
+  const sanitize = (s: string) => s.replace(/[/\\?%*:|"<>]/g, '_').replace(/\s+/g, ' ').trim();
+  const base = sanitize(title) || 'Unterpunkt';
+  const safe = sanitize(bucketName) || 'Allgemein';
   return `${base}-${safe}-final.zip`;
 }
 
@@ -45,13 +47,13 @@ function fileIcon(mime: string | null): string {
   return 'description';
 }
 
-export function ProductDocsSection({ productId, area, title, accent, icon }: Props) {
-  const { expanded, toggle } = useSectionExpanded(productId, `docs.${area}`, false);
-  const { data, isLoading, isError, refetch } = useProductDocs(productId, area);
+export function ProductDocsSection({ productId, topicId, title, accent, icon }: Props) {
+  const { expanded, toggle } = useSectionExpanded(productId, `docs.topic.${topicId}`, false);
+  const { data, isLoading, isError, refetch } = useProductDocs(productId, topicId);
   const { data: mfrData } = useManufacturers(productId);
-  const upload = useUploadProductDoc(productId, area);
-  const del = useDeleteProductDoc(productId, area);
-  const move = useMoveProductDoc(productId, area);
+  const upload = useUploadProductDoc(productId, topicId);
+  const del = useDeleteProductDoc(productId, topicId);
+  const move = useMoveProductDoc(productId, topicId);
 
   // Reiter der Finale-Gruppe: „Allgemein" (0) + je Hersteller dieses Produkts.
   const buckets: Bucket[] = useMemo(() => {
@@ -113,7 +115,7 @@ export function ProductDocsSection({ productId, area, title, accent, icon }: Pro
     setDownloadError(null);
     setDownloading(true);
     try {
-      await downloadProductDocsFinalZip(productId, area, selectedBucket, zipFilenameFor(area, activeBucket.name));
+      await downloadProductDocsFinalZip(productId, topicId, selectedBucket, zipFilenameFor(title, activeBucket.name));
     } catch {
       setDownloadError('Download fehlgeschlagen.');
     } finally {
@@ -192,7 +194,7 @@ export function ProductDocsSection({ productId, area, title, accent, icon }: Pro
                       <DocTile
                         key={f.id}
                         productId={productId}
-                        area={area}
+                        topicId={topicId}
                         file={f}
                         accent={accent}
                         onDelete={() => del.mutate(f.id)}
@@ -294,7 +296,7 @@ export function ProductDocsSection({ productId, area, title, accent, icon }: Pro
                       <DocTile
                         key={f.id}
                         productId={productId}
-                        area={area}
+                        topicId={topicId}
                         file={f}
                         accent={accent}
                         onDelete={() => del.mutate(f.id)}
@@ -308,9 +310,9 @@ export function ProductDocsSection({ productId, area, title, accent, icon }: Pro
 
                 {/* Notiz des aktuell gewaehlten Reiters (folgt dem Bucket). */}
                 <DocNotes
-                  key={`${productId}-${area}-${selectedBucket}`}
+                  key={`${productId}-${topicId}-${selectedBucket}`}
                   productId={productId}
-                  area={area}
+                  topicId={topicId}
                   bucket={selectedBucket}
                   bucketName={activeBucket.name}
                   initialNotes={bucketNotes}
@@ -326,9 +328,9 @@ export function ProductDocsSection({ productId, area, title, accent, icon }: Pro
 
 // ── Einzelne Datei-/Bild-Kachel ──
 function DocTile({
-  productId, area, file, accent, onDelete, onMove, moveIcon, moveLabel,
+  productId, topicId, file, accent, onDelete, onMove, moveIcon, moveLabel,
 }: {
-  productId: number; area: ProductDocArea; file: ProductDocFile; accent: string;
+  productId: number; topicId: number; file: ProductDocFile; accent: string;
   onDelete: () => void; onMove: () => void; moveIcon: string; moveLabel: string;
 }) {
   const [thumb, setThumb] = useState<string | null>(null);
@@ -338,15 +340,15 @@ function DocTile({
     if (!image) return;
     let url: string | null = null;
     let cancelled = false;
-    getProductDocObjectUrl(productId, area, file.id)
+    getProductDocObjectUrl(productId, topicId, file.id)
       .then((u) => { if (cancelled) { URL.revokeObjectURL(u); return; } url = u; setThumb(u); })
       .catch(() => { /* Vorschau nicht verfügbar */ });
     return () => { cancelled = true; if (url) URL.revokeObjectURL(url); };
-  }, [productId, area, file.id, image]);
+  }, [productId, topicId, file.id, image]);
 
   async function openFile() {
     try {
-      const u = await getProductDocObjectUrl(productId, area, file.id);
+      const u = await getProductDocObjectUrl(productId, topicId, file.id);
       window.open(u, '_blank', 'noopener,noreferrer');
       // Objekt-URL erst nach kurzer Zeit freigeben, damit der neue Tab laden kann.
       window.setTimeout(() => URL.revokeObjectURL(u), 60_000);
@@ -357,7 +359,7 @@ function DocTile({
   // nachdem der User die lokalen Originale geloescht hat). Landet im Downloads-Ordner.
   async function downloadFile() {
     try {
-      const u = await getProductDocObjectUrl(productId, area, file.id);
+      const u = await getProductDocObjectUrl(productId, topicId, file.id);
       const a = document.createElement('a');
       a.href = u;
       a.download = file.original_name ?? 'datei';
@@ -429,22 +431,22 @@ function DocTile({
 }
 
 // ── Notizfeld mit Debounce-/onBlur-Auto-Save (folgt dem gewaehlten Reiter/Bucket) ──
-function DocNotes({ productId, area, bucket, bucketName, initialNotes }: {
-  productId: number; area: ProductDocArea; bucket: number; bucketName: string; initialNotes: string;
+function DocNotes({ productId, topicId, bucket, bucketName, initialNotes }: {
+  productId: number; topicId: number; bucket: number; bucketName: string; initialNotes: string;
 }) {
-  const update = useUpdateProductDocNotes(productId, area);
+  const update = useUpdateProductDocNotes(productId, topicId);
   const [value, setValue] = useState<string>(initialNotes);
   const lastSavedRef = useRef<string>(initialNotes);
   const timerRef = useRef<number | null>(null);
 
-  // Init nur bei productId/area/bucket-Wechsel — nicht bei jedem Refetch (sonst würde
+  // Init nur bei productId/topicId/bucket-Wechsel — nicht bei jedem Refetch (sonst würde
   // der User-Input während des Tippens überschrieben). Die Komponente wird zusaetzlich
   // per key beim Bucket-Wechsel neu gemountet.
   useEffect(() => {
     setValue(initialNotes);
     lastSavedRef.current = initialNotes;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productId, area, bucket]);
+  }, [productId, topicId, bucket]);
 
   function persist(next: string) {
     if (next === lastSavedRef.current) return;

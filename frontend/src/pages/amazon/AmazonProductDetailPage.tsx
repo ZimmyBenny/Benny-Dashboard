@@ -21,7 +21,7 @@ import { UspSection } from '../../components/amazon/usp/UspSection';
 import { ManufacturersSection } from '../../components/amazon/manufacturers/ManufacturersSection';
 import { ResearchSection } from '../../components/amazon/research/ResearchSection';
 import { ListingSection } from '../../components/amazon/listing/ListingSection';
-import { ProductDocsSection } from '../../components/amazon/productdocs/ProductDocsSection';
+import { DesignDruckSection } from '../../components/amazon/productdocs/DesignDruckSection';
 import { FolderDocumentsSection } from '../../components/amazon/FolderDocumentsSection';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -232,8 +232,7 @@ export function AmazonProductDetailPage() {
               if (id === 'manufacturers') return <ManufacturersSection productId={product.id} />;
               if (id === 'research') return <ResearchSection scope={product.id} />;
               if (id === 'listing') return <ListingSection productId={product.id} productName={product.name} />;
-              if (id === 'verpackung') return <ProductDocsSection productId={product.id} area="verpackung" title="Verpackungsdesign" accent="#22d3ee" icon="deployed_code" />;
-              if (id === 'anleitung') return <ProductDocsSection productId={product.id} area="anleitung" title="Aufbauanleitung / Gebrauchsanleitung" accent="#f472b6" icon="menu_book" />;
+              if (id === 'design_druck') return <DesignDruckSection productId={product.id} />;
               return <ChecklistSection productId={product.id} />;
             },
           }))}
