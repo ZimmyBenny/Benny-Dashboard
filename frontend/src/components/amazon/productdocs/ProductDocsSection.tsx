@@ -46,19 +46,42 @@ export function ProductDocsSection({ productId, area, title, accent, icon }: Pro
   const del = useDeleteProductDoc(productId, area);
   const setFinal = useUpdateProductDocFinal(productId, area);
 
-  const [dragOver, setDragOver] = useState(false);
+  // Welche Gruppe ist gerade Drop-Ziel? null = keine. 'work' | 'final'.
+  const [dropZone, setDropZone] = useState<'work' | 'final' | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Reiner Datei-Upload aus dem „Hochladen"-Dialog → immer Arbeitsdateien.
   const uploadFiles = useCallback((files: FileList | File[]) => {
     for (const f of Array.from(files)) upload.mutate(f);
   }, [upload]);
 
-  function onDrop(e: React.DragEvent) {
+  // Gemeinsamer Drop-Handler fuer beide Gruppen.
+  // targetFinal: 1 = Finale Dateien, 0 = Arbeitsdateien.
+  function onDropZone(e: React.DragEvent, targetFinal: 0 | 1) {
     e.preventDefault();
-    setDragOver(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) uploadFiles(e.dataTransfer.files);
+    setDropZone(null);
+    // 1) OS-Datei-Upload → in die jeweilige Ziel-Gruppe hochladen.
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      for (const f of Array.from(e.dataTransfer.files)) upload.mutate({ file: f, isFinal: targetFinal });
+      return;
+    }
+    // 2) Interner Tile-Drag → zwischen Gruppen verschieben (kein Kopieren).
+    const raw = e.dataTransfer.getData('application/x-docfile');
+    const fileId = Number(raw);
+    if (!raw || !Number.isInteger(fileId)) return;
+    const current = data?.files.find((f) => f.id === fileId);
+    if (!current) return;
+    // Schon in der Ziel-Gruppe? → nichts tun (kein unnoetiger Request).
+    if (current.is_final === targetFinal) return;
+    setFinal.mutate({ fileId, isFinal: targetFinal });
+  }
+
+  // DragOver nur hervorheben — sowohl bei OS-Datei-Drag als auch bei internem Tile-Drag.
+  function onZoneDragOver(e: React.DragEvent, zone: 'work' | 'final') {
+    e.preventDefault();
+    setDropZone(zone);
   }
 
   async function onDownloadZip() {
@@ -95,15 +118,15 @@ export function ProductDocsSection({ productId, area, title, accent, icon }: Pro
 
           {data && (
             <>
-              {/* ── Arbeitsdateien (mit Drag&Drop + Hochladen) ── */}
+              {/* ── Arbeitsdateien (Drop-Zone: Upload + Verschieben) ── */}
               <div
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={onDrop}
+                onDragOver={(e) => onZoneDragOver(e, 'work')}
+                onDragLeave={() => setDropZone(null)}
+                onDrop={(e) => onDropZone(e, 0)}
                 className="rounded-lg p-3"
                 style={{
-                  border: dragOver ? `2px dashed ${accent}` : '1px dashed rgba(255,255,255,0.12)',
-                  background: dragOver ? 'rgba(255,255,255,0.03)' : 'transparent',
+                  border: dropZone === 'work' ? `2px dashed ${accent}` : '1px dashed rgba(255,255,255,0.12)',
+                  background: dropZone === 'work' ? 'rgba(255,255,255,0.03)' : 'transparent',
                   transition: 'border-color 120ms, background 120ms',
                 }}
               >
@@ -152,10 +175,17 @@ export function ProductDocsSection({ productId, area, title, accent, icon }: Pro
                 )}
               </div>
 
-              {/* ── Finale Dateien (mit ZIP-Download) ── */}
+              {/* ── Finale Dateien (Drop-Zone: Upload/Verschieben + ZIP-Download) ── */}
               <div
+                onDragOver={(e) => onZoneDragOver(e, 'final')}
+                onDragLeave={() => setDropZone(null)}
+                onDrop={(e) => onDropZone(e, 1)}
                 className="rounded-lg p-3"
-                style={{ border: `1px solid ${accent}55`, background: 'rgba(255,255,255,0.02)' }}
+                style={{
+                  border: dropZone === 'final' ? `2px dashed ${accent}` : `1px solid ${accent}55`,
+                  background: dropZone === 'final' ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.02)',
+                  transition: 'border-color 120ms, background 120ms',
+                }}
               >
                 <div className="flex items-center justify-between mb-3 gap-2">
                   <span className="text-xs font-semibold uppercase tracking-wide inline-flex items-center gap-1.5" style={{ color: accent }}>
@@ -248,6 +278,13 @@ function DocTile({
       style={{ background: 'var(--color-surface-container)', border: '1px solid rgba(255,255,255,0.08)' }}
       onClick={openFile}
       title={file.original_name ?? 'Datei'}
+      draggable
+      onDragStart={(e) => {
+        // Interner Verschiebe-Drag — eindeutig markiert, damit er nicht mit
+        // einem OS-Datei-Upload-Drop verwechselt wird.
+        e.dataTransfer.setData('application/x-docfile', String(file.id));
+        e.dataTransfer.effectAllowed = 'move';
+      }}
     >
       <div className="flex items-center justify-center" style={{ height: '110px', background: 'var(--color-surface-container-low)' }}>
         {image && thumb ? (

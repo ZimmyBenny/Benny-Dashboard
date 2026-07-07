@@ -21,9 +21,19 @@ function useInvalidate(productId: number, area: ProductDocArea) {
   return () => qc.invalidateQueries({ queryKey: productDocsKey(productId, area) });
 }
 
+// Akzeptiert entweder eine reine File (→ Arbeitsdatei) oder { file, isFinal }
+// fuer gezieltes Hochladen in die Finale-Gruppe (z. B. Drop direkt auf „Finale Dateien").
+type UploadArg = File | { file: File; isFinal: 0 | 1 };
 export function useUploadProductDoc(productId: number, area: ProductDocArea) {
   const inv = useInvalidate(productId, area);
-  return useMutation({ mutationFn: (file: File) => uploadProductDoc(productId, area, file), onSettled: inv });
+  return useMutation({
+    mutationFn: (arg: UploadArg) => {
+      const file = arg instanceof File ? arg : arg.file;
+      const isFinal = arg instanceof File ? 0 : arg.isFinal;
+      return uploadProductDoc(productId, area, file, isFinal);
+    },
+    onSettled: inv,
+  });
 }
 export function useDeleteProductDoc(productId: number, area: ProductDocArea) {
   const inv = useInvalidate(productId, area);
