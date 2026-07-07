@@ -883,10 +883,12 @@ export interface ProductDocFile {
   id: number; product_id: number; area: ProductDocArea; sort_order: number;
   file_path: string; original_name: string | null; mime: string | null;
   is_final: number; // 0 = Arbeitsdatei, 1 = Finale Datei
+  manufacturer_id: number | null; // NULL = Allgemein; sonst Hersteller-ID (nur bei is_final=1 relevant)
 }
 export interface ProductDocsData {
   files: ProductDocFile[];
-  notes: string;
+  // Notizen als Bucket-Map: Key = manufacturer_bucket als String ("0" = Allgemein).
+  notes: Record<string, string>;
 }
 
 export async function fetchProductDocs(productId: number, area: ProductDocArea): Promise<ProductDocsData> {
@@ -895,29 +897,36 @@ export async function fetchProductDocs(productId: number, area: ProductDocArea):
 }
 export async function uploadProductDoc(
   productId: number, area: ProductDocArea, file: File, isFinal: 0 | 1 = 0,
+  manufacturerId: number | null = null,
 ): Promise<ProductDocFile> {
   const fd = new FormData(); fd.append('file', file);
+  // manufacturer_id nur bei Final-Upload sinnvoll; Backend ignoriert es bei is_final=0.
+  const mfrParam = isFinal === 1 && manufacturerId ? `&manufacturer_id=${manufacturerId}` : '';
   const r = await apiClient.post<{ file: ProductDocFile }>(
-    `/amazon/products/${productId}/docs/${area}?is_final=${isFinal}`, fd,
+    `/amazon/products/${productId}/docs/${area}?is_final=${isFinal}${mfrParam}`, fd,
     { headers: { 'Content-Type': 'multipart/form-data' } },
   );
   return r.data.file;
 }
-// Verschiebt eine Datei zwischen „Arbeitsdateien" (0) und „Finale Dateien" (1).
-export async function updateProductDocFinal(
-  productId: number, area: ProductDocArea, fileId: number, isFinal: 0 | 1,
+// Verschiebt eine Datei zwischen Arbeit/Final und setzt beim Verschieben nach Final
+// den Ziel-Bucket (manufacturer_id = Hersteller-ID oder null fuer Allgemein).
+export async function moveProductDoc(
+  productId: number, area: ProductDocArea, fileId: number,
+  patch: { is_final: 0 | 1; manufacturer_id?: number | null },
 ): Promise<ProductDocFile> {
+  const body: { is_final: 0 | 1; manufacturer_id?: number | null } = { is_final: patch.is_final };
+  if (patch.is_final === 1) body.manufacturer_id = patch.manufacturer_id ?? null;
   const r = await apiClient.patch<{ file: ProductDocFile }>(
-    `/amazon/products/${productId}/docs/${area}/files/${fileId}`, { is_final: isFinal },
+    `/amazon/products/${productId}/docs/${area}/files/${fileId}`, body,
   );
   return r.data.file;
 }
-// Laedt alle finalen Dateien als ZIP (mit Auth-Header, wie getProductDocObjectUrl)
+// Laedt die finalen Dateien eines Buckets als ZIP (bucket=0 → Allgemein, sonst Hersteller-ID)
 // und loest den Browser-Download mit den echten Originalnamen im ZIP aus.
 export async function downloadProductDocsFinalZip(
-  productId: number, area: ProductDocArea, filename: string,
+  productId: number, area: ProductDocArea, bucket: number, filename: string,
 ): Promise<void> {
-  const r = await apiClient.get(`/amazon/products/${productId}/docs/${area}/final.zip`, { responseType: 'blob' });
+  const r = await apiClient.get(`/amazon/products/${productId}/docs/${area}/final.zip?bucket=${bucket}`, { responseType: 'blob' });
   const url = URL.createObjectURL(r.data as Blob);
   const a = document.createElement('a');
   a.href = url;
@@ -937,7 +946,11 @@ export async function getProductDocObjectUrl(productId: number, area: ProductDoc
 export async function reorderProductDocs(productId: number, area: ProductDocArea, order: number[]): Promise<void> {
   await apiClient.post(`/amazon/products/${productId}/docs/${area}/reorder`, { order });
 }
-export async function updateProductDocNotes(productId: number, area: ProductDocArea, notes: string): Promise<string> {
-  const r = await apiClient.put<{ notes: string }>(`/amazon/products/${productId}/docs/${area}/notes`, { notes });
+export async function updateProductDocNotes(
+  productId: number, area: ProductDocArea, bucket: number, notes: string,
+): Promise<string> {
+  const r = await apiClient.put<{ manufacturer_bucket: number; notes: string }>(
+    `/amazon/products/${productId}/docs/${area}/notes`, { manufacturer_bucket: bucket, notes },
+  );
   return r.data.notes;
 }

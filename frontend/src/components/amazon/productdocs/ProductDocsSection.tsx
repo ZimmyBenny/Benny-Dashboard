@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SectionHeader } from '../SectionHeader';
 import { useSectionExpanded } from '../../../hooks/amazon/useSectionExpanded';
 import {
   useProductDocs, useUploadProductDoc, useDeleteProductDoc, useUpdateProductDocNotes,
-  useUpdateProductDocFinal,
+  useMoveProductDoc,
 } from '../../../hooks/amazon/useProductDocs';
+import { useManufacturers } from '../../../hooks/amazon/useManufacturers';
 import {
   getProductDocObjectUrl, downloadProductDocsFinalZip,
   type ProductDocArea, type ProductDocFile,
@@ -21,9 +22,14 @@ interface Props {
 const AUTOSAVE_DELAY_MS = 600;
 const MAX_NOTES = 20000;
 
-// ZIP-Dateiname je Bereich (muss zur Backend-Content-Disposition passen).
-function zipFilenameFor(area: ProductDocArea): string {
-  return area === 'verpackung' ? 'Verpackungsdesign-final.zip' : 'Aufbauanleitung-final.zip';
+// Ein Reiter der Finale-Gruppe. bucket 0 = „Allgemein", sonst Hersteller-ID.
+interface Bucket { id: number; name: string; }
+
+// ZIP-Dateiname je Bereich + Bucket (muss zur Backend-Content-Disposition passen).
+function zipFilenameFor(area: ProductDocArea, bucketName: string): string {
+  const base = area === 'verpackung' ? 'Verpackungsdesign' : 'Aufbauanleitung';
+  const safe = bucketName.replace(/[/\\?%*:|"<>]/g, '_').replace(/\s+/g, ' ').trim() || 'Allgemein';
+  return `${base}-${safe}-final.zip`;
 }
 
 function isImage(mime: string | null): boolean {
@@ -42,9 +48,24 @@ function fileIcon(mime: string | null): string {
 export function ProductDocsSection({ productId, area, title, accent, icon }: Props) {
   const { expanded, toggle } = useSectionExpanded(productId, `docs.${area}`, false);
   const { data, isLoading, isError, refetch } = useProductDocs(productId, area);
+  const { data: mfrData } = useManufacturers(productId);
   const upload = useUploadProductDoc(productId, area);
   const del = useDeleteProductDoc(productId, area);
-  const setFinal = useUpdateProductDocFinal(productId, area);
+  const move = useMoveProductDoc(productId, area);
+
+  // Reiter der Finale-Gruppe: „Allgemein" (0) + je Hersteller dieses Produkts.
+  const buckets: Bucket[] = useMemo(() => {
+    const list: Bucket[] = [{ id: 0, name: 'Allgemein' }];
+    for (const m of mfrData?.manufacturers ?? []) list.push({ id: m.id, name: m.name });
+    return list;
+  }, [mfrData]);
+
+  // Aktuell gewaehlter Final-Reiter (Bucket-ID; 0 = Allgemein).
+  const [selectedBucket, setSelectedBucket] = useState<number>(0);
+  // Falls der gewaehlte Hersteller nicht mehr existiert → zurueck auf Allgemein.
+  useEffect(() => {
+    if (!buckets.some((b) => b.id === selectedBucket)) setSelectedBucket(0);
+  }, [buckets, selectedBucket]);
 
   // Welche Gruppe ist gerade Drop-Ziel? null = keine. 'work' | 'final'.
   const [dropZone, setDropZone] = useState<'work' | 'final' | null>(null);
@@ -58,24 +79,26 @@ export function ProductDocsSection({ productId, area, title, accent, icon }: Pro
   }, [upload]);
 
   // Gemeinsamer Drop-Handler fuer beide Gruppen.
-  // targetFinal: 1 = Finale Dateien, 0 = Arbeitsdateien.
+  // targetFinal: 1 = Finale Dateien (in den aktuell gewaehlten Reiter), 0 = Arbeitsdateien.
   function onDropZone(e: React.DragEvent, targetFinal: 0 | 1) {
     e.preventDefault();
     setDropZone(null);
-    // 1) OS-Datei-Upload → in die jeweilige Ziel-Gruppe hochladen.
+    const mfrId = targetFinal === 1 && selectedBucket > 0 ? selectedBucket : null;
+    // 1) OS-Datei-Upload → in die jeweilige Ziel-Gruppe (Final = aktueller Reiter) hochladen.
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      for (const f of Array.from(e.dataTransfer.files)) upload.mutate({ file: f, isFinal: targetFinal });
+      for (const f of Array.from(e.dataTransfer.files)) upload.mutate({ file: f, isFinal: targetFinal, manufacturerId: mfrId });
       return;
     }
-    // 2) Interner Tile-Drag → zwischen Gruppen verschieben (kein Kopieren).
+    // 2) Interner Tile-Drag → zwischen Gruppen/Reitern verschieben (kein Kopieren).
     const raw = e.dataTransfer.getData('application/x-docfile');
     const fileId = Number(raw);
     if (!raw || !Number.isInteger(fileId)) return;
     const current = data?.files.find((f) => f.id === fileId);
     if (!current) return;
-    // Schon in der Ziel-Gruppe? → nichts tun (kein unnoetiger Request).
-    if (current.is_final === targetFinal) return;
-    setFinal.mutate({ fileId, isFinal: targetFinal });
+    // Schon exakt am Ziel (gleiche Gruppe UND gleicher Bucket)? → nichts tun.
+    const curMfr = current.manufacturer_id ?? null;
+    if (current.is_final === targetFinal && curMfr === mfrId) return;
+    move.mutate({ fileId, isFinal: targetFinal, manufacturerId: mfrId });
   }
 
   // DragOver nur hervorheben — sowohl bei OS-Datei-Drag als auch bei internem Tile-Drag.
@@ -84,11 +107,13 @@ export function ProductDocsSection({ productId, area, title, accent, icon }: Pro
     setDropZone(zone);
   }
 
+  const activeBucket = buckets.find((b) => b.id === selectedBucket) ?? buckets[0];
+
   async function onDownloadZip() {
     setDownloadError(null);
     setDownloading(true);
     try {
-      await downloadProductDocsFinalZip(productId, area, zipFilenameFor(area));
+      await downloadProductDocsFinalZip(productId, area, selectedBucket, zipFilenameFor(area, activeBucket.name));
     } catch {
       setDownloadError('Download fehlgeschlagen.');
     } finally {
@@ -97,7 +122,12 @@ export function ProductDocsSection({ productId, area, title, accent, icon }: Pro
   }
 
   const workFiles = data ? data.files.filter((f) => f.is_final === 0) : [];
-  const finalFiles = data ? data.files.filter((f) => f.is_final === 1) : [];
+  // Finale Dateien des aktuell gewaehlten Reiters: Allgemein = manufacturer_id null; sonst = id.
+  const finalFiles = data
+    ? data.files.filter((f) => f.is_final === 1 && (f.manufacturer_id ?? 0) === selectedBucket)
+    : [];
+  // Notiz des aktuellen Reiters (Bucket-Map, "0" = Allgemein).
+  const bucketNotes = data?.notes?.[String(selectedBucket)] ?? '';
 
   return (
     <section className="rounded-xl" style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -118,7 +148,7 @@ export function ProductDocsSection({ productId, area, title, accent, icon }: Pro
 
           {data && (
             <>
-              {/* ── Arbeitsdateien (Drop-Zone: Upload + Verschieben) ── */}
+              {/* ── Arbeitsdateien (gemeinsam; Drop-Zone: Upload + Verschieben) ── */}
               <div
                 onDragOver={(e) => onZoneDragOver(e, 'work')}
                 onDragLeave={() => setDropZone(null)}
@@ -166,16 +196,16 @@ export function ProductDocsSection({ productId, area, title, accent, icon }: Pro
                         file={f}
                         accent={accent}
                         onDelete={() => del.mutate(f.id)}
-                        onMove={() => setFinal.mutate({ fileId: f.id, isFinal: 1 })}
+                        onMove={() => move.mutate({ fileId: f.id, isFinal: 1, manufacturerId: selectedBucket > 0 ? selectedBucket : null })}
                         moveIcon="north_east"
-                        moveLabel="Zu finalen Dateien verschieben"
+                        moveLabel={`Nach „${activeBucket.name}" (Finale Dateien) verschieben`}
                       />
                     ))}
                   </div>
                 )}
               </div>
 
-              {/* ── Finale Dateien (Drop-Zone: Upload/Verschieben + ZIP-Download) ── */}
+              {/* ── Finale Dateien (Reiter je Bucket; Drop-Zone + ZIP-Download + Notiz) ── */}
               <div
                 onDragOver={(e) => onZoneDragOver(e, 'final')}
                 onDragLeave={() => setDropZone(null)}
@@ -187,10 +217,54 @@ export function ProductDocsSection({ productId, area, title, accent, icon }: Pro
                   transition: 'border-color 120ms, background 120ms',
                 }}
               >
-                <div className="flex items-center justify-between mb-3 gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-wide inline-flex items-center gap-1.5" style={{ color: accent }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>verified</span>
+                <div className="flex items-center gap-1.5 mb-3">
+                  <span className="material-symbols-outlined" style={{ fontSize: '16px', color: accent }}>verified</span>
+                  <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: accent }}>
                     Finale Dateien
+                  </span>
+                </div>
+
+                {/* Reiter-Leiste: Allgemein + je Hersteller */}
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {buckets.map((b) => {
+                    const active = b.id === selectedBucket;
+                    const count = data.files.filter((f) => f.is_final === 1 && (f.manufacturer_id ?? 0) === b.id).length;
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => setSelectedBucket(b.id)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors"
+                        style={{
+                          background: active ? accent : 'var(--color-surface-container)',
+                          color: active ? '#1a1a1a' : 'var(--color-on-surface-variant)',
+                          border: active ? `1px solid ${accent}` : '1px solid rgba(255,255,255,0.08)',
+                        }}
+                      >
+                        {b.id === 0 && <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>public</span>}
+                        {b.name}
+                        {count > 0 && (
+                          <span
+                            className="inline-flex items-center justify-center rounded-full text-[10px] leading-none"
+                            style={{
+                              minWidth: '16px', height: '16px', padding: '0 4px',
+                              background: active ? 'rgba(0,0,0,0.18)' : `${accent}33`,
+                              color: active ? '#1a1a1a' : accent,
+                            }}
+                          >
+                            {count}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center justify-between mb-3 gap-2">
+                  <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)', opacity: 0.8 }}>
+                    {selectedBucket === 0
+                      ? 'Gilt fuer alle Hersteller.'
+                      : `Finaler Satz fuer „${activeBucket.name}".`}
                   </span>
                   {finalFiles.length > 0 && (
                     <button
@@ -212,7 +286,7 @@ export function ProductDocsSection({ productId, area, title, accent, icon }: Pro
 
                 {finalFiles.length === 0 ? (
                   <p className="text-sm py-4 text-center" style={{ color: 'var(--color-on-surface-variant)', opacity: 0.7 }}>
-                    Noch keine finalen Dateien. Verschiebe fertige Dateien mit dem Pfeil aus den Arbeitsdateien hierher.
+                    Noch keine finalen Dateien fuer „{activeBucket.name}". Verschiebe fertige Dateien mit dem Pfeil aus den Arbeitsdateien hierher.
                   </p>
                 ) : (
                   <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
@@ -224,17 +298,24 @@ export function ProductDocsSection({ productId, area, title, accent, icon }: Pro
                         file={f}
                         accent={accent}
                         onDelete={() => del.mutate(f.id)}
-                        onMove={() => setFinal.mutate({ fileId: f.id, isFinal: 0 })}
+                        onMove={() => move.mutate({ fileId: f.id, isFinal: 0 })}
                         moveIcon="south_west"
                         moveLabel="Zurueck zu Arbeitsdateien"
                       />
                     ))}
                   </div>
                 )}
-              </div>
 
-              {/* Notizfeld mit Auto-Save */}
-              <DocNotes productId={productId} area={area} initialNotes={data.notes} />
+                {/* Notiz des aktuell gewaehlten Reiters (folgt dem Bucket). */}
+                <DocNotes
+                  key={`${productId}-${area}-${selectedBucket}`}
+                  productId={productId}
+                  area={area}
+                  bucket={selectedBucket}
+                  bucketName={activeBucket.name}
+                  initialNotes={bucketNotes}
+                />
+              </div>
             </>
           )}
         </div>
@@ -320,25 +401,28 @@ function DocTile({
   );
 }
 
-// ── Notizfeld mit Debounce-/onBlur-Auto-Save (Muster wie ProductNotes) ──
-function DocNotes({ productId, area, initialNotes }: { productId: number; area: ProductDocArea; initialNotes: string }) {
+// ── Notizfeld mit Debounce-/onBlur-Auto-Save (folgt dem gewaehlten Reiter/Bucket) ──
+function DocNotes({ productId, area, bucket, bucketName, initialNotes }: {
+  productId: number; area: ProductDocArea; bucket: number; bucketName: string; initialNotes: string;
+}) {
   const update = useUpdateProductDocNotes(productId, area);
   const [value, setValue] = useState<string>(initialNotes);
   const lastSavedRef = useRef<string>(initialNotes);
   const timerRef = useRef<number | null>(null);
 
-  // Init nur bei productId/area-Wechsel — nicht bei jedem Refetch (sonst würde
-  // der User-Input während des Tippens überschrieben).
+  // Init nur bei productId/area/bucket-Wechsel — nicht bei jedem Refetch (sonst würde
+  // der User-Input während des Tippens überschrieben). Die Komponente wird zusaetzlich
+  // per key beim Bucket-Wechsel neu gemountet.
   useEffect(() => {
     setValue(initialNotes);
     lastSavedRef.current = initialNotes;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productId, area]);
+  }, [productId, area, bucket]);
 
   function persist(next: string) {
     if (next === lastSavedRef.current) return;
     lastSavedRef.current = next;
-    update.mutate(next);
+    update.mutate({ bucket, notes: next });
   }
 
   function onChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
@@ -356,16 +440,16 @@ function DocNotes({ productId, area, initialNotes }: { productId: number; area: 
   useEffect(() => () => { if (timerRef.current !== null) window.clearTimeout(timerRef.current); }, []);
 
   return (
-    <section className="flex flex-col gap-2">
+    <section className="flex flex-col gap-2 mt-4">
       <label className="text-xs font-medium" style={{ color: 'var(--color-on-surface-variant)' }}>
-        Notizen
+        Notizen — {bucketName}
       </label>
       <textarea
         value={value}
         onChange={onChange}
         onBlur={onBlur}
         maxLength={MAX_NOTES}
-        placeholder="Freier Notizbereich — Maße, Materialien, Druckvorgaben, To-dos …"
+        placeholder="Freier Notizbereich — Kartonmasse, Materialien, Druckvorgaben, To-dos …"
         spellCheck={false}
         className="w-full rounded-lg px-3 py-2 text-sm resize-none"
         style={{
