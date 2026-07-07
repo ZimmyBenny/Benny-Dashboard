@@ -24,6 +24,7 @@ import path from 'path';
 import fs from 'fs';
 import fsp from 'fs/promises';
 import os from 'os';
+import { ZipArchive } from 'archiver';
 import db from '../db/connection';
 import {
   getMirrorPath,
@@ -690,6 +691,85 @@ router.post('/files', upload.array('file', 20), async (req, res) => {
   }
 
   res.status(201).json({ created });
+});
+
+/**
+ * POST /api/dokumente/files/zip — mehrere Dateien als ZIP herunterladen.
+ *
+ * WICHTIG: literaler Pfad `/files/zip` MUSS vor `/files/:id`-Routen stehen,
+ * sonst wuerde `:id = "zip"` matchen.
+ *
+ * Body: { ids: number[], filename?: string }.
+ * Pfad-Logik identisch zum Einzel-Blob-Endpoint (folderFsPath + fileFsName).
+ * Fehlende Dateien werden uebersprungen; leere/ungueltige Liste -> 400.
+ */
+router.post('/files/zip', (req, res) => {
+  const body = (req.body ?? {}) as { ids?: unknown; filename?: unknown };
+  const ids = Array.isArray(body.ids)
+    ? body.ids.map((v) => Number(v)).filter((n) => Number.isFinite(n))
+    : [];
+  if (ids.length === 0) {
+    res.status(400).json({ error: 'Keine gueltigen Datei-IDs uebergeben' });
+    return;
+  }
+
+  // Gueltige Dateien mit existierendem Pfad sammeln.
+  const files: { absPath: string; entryName: string }[] = [];
+  const usedNames = new Set<string>();
+  for (const id of ids) {
+    const file = db.prepare(`SELECT * FROM doc_files WHERE id = ?`).get(id) as
+      | DocFileRow
+      | undefined;
+    if (!file) continue;
+    // Pfad NIE aus User-Input -> ausschliesslich aus DB-Baum abgeleitet (kein Path-Traversal).
+    const { absolute: folderAbs } = folderFsPath(file.folder_id);
+    const fsName = fileFsName(file.filename);
+    const absPath = path.join(folderAbs, fsName);
+    if (!fs.existsSync(absPath)) continue;
+
+    // Eintragsname = echter Filename; bei Kollision Zaehler-Praefix.
+    let entryName = file.filename.replace(/[/\\]/g, '_') || 'datei';
+    if (usedNames.has(entryName)) {
+      let n = 2;
+      while (usedNames.has(`${n}_${entryName}`)) n++;
+      entryName = `${n}_${entryName}`;
+    }
+    usedNames.add(entryName);
+    files.push({ absPath, entryName });
+  }
+
+  if (files.length === 0) {
+    res.status(400).json({ error: 'Keine der ausgewaehlten Dateien ist verfuegbar' });
+    return;
+  }
+
+  // ZIP-Name aus optionalem Body (Sonderzeichen bereinigt) oder Default.
+  const rawName = typeof body.filename === 'string' && body.filename.trim() ? body.filename.trim() : 'Dokumente.zip';
+  const zipName = rawName.toLowerCase().endsWith('.zip') ? rawName : `${rawName}.zip`;
+  const asciiZip = zipName.replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '') || 'Dokumente.zip';
+
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="${asciiZip}"; filename*=UTF-8''${encodeURIComponent(zipName)}`,
+  );
+
+  const archive = new ZipArchive({ zlib: { level: 9 } });
+  archive.on('error', (err) => {
+    if (!res.headersSent) res.status(500).json({ error: err.message });
+    else {
+      try {
+        res.destroy();
+      } catch {
+        /* ignore */
+      }
+    }
+  });
+  archive.pipe(res);
+  for (const f of files) {
+    archive.file(f.absPath, { name: f.entryName });
+  }
+  archive.finalize();
 });
 
 /** GET /api/dokumente/files/:id/blob — Datei ausliefern (Vorschau/Download). */
