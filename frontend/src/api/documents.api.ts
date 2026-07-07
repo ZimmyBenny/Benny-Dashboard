@@ -111,6 +111,26 @@ export const fetchDocFileBlobUrl = (id: number): Promise<string> =>
     .get(`/dokumente/files/${id}/blob`, { responseType: 'blob' })
     .then((r) => URL.createObjectURL(r.data as Blob));
 
+/**
+ * POST /api/dokumente/files/zip — markierte Dateien als ZIP herunterladen.
+ * Antwort als Blob (Auth via apiClient), loest den Download per <a download> aus.
+ */
+export const downloadDocFilesZip = async (ids: number[], filename: string): Promise<void> => {
+  const res = await apiClient.post(
+    '/dokumente/files/zip',
+    { ids, filename },
+    { responseType: 'blob' },
+  );
+  const url = URL.createObjectURL(res.data as Blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
 export interface DocSearchFolder {
   id: number;
   name: string;

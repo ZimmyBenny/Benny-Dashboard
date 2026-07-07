@@ -33,6 +33,7 @@ import {
   fetchDocSettings,
   updateDocSettings,
   fetchDocFileBlobUrl,
+  downloadDocFilesZip,
   searchDocuments,
   type DocFolder,
   type DocFile,
@@ -175,6 +176,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
   const [selectedFileIds, setSelectedFileIds] = useState<Set<number>>(new Set());
   const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
   const [bulkMoveProgress, setBulkMoveProgress] = useState<string | null>(null);
+  const [zipDownloading, setZipDownloading] = useState(false);
   const [linkFolderId, setLinkFolderId] = useState<number | null>(null);
   // Ordner-Drag&Drop: welche Ziel-Zeile wird gerade uebergezogen (Hervorhebung)
   const [dragOverFolderId, setDragOverFolderId] = useState<number | null>(null);
@@ -447,6 +449,26 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
     setSelectedFileIds(new Set());
     if (succeeded < ids.length) {
       setBulkMoveProgress(`${succeeded} von ${ids.length} verschoben`);
+    }
+  }
+
+  async function handleBulkDownload() {
+    const ids = Array.from(selectedFileIds);
+    if (ids.length === 0 || zipDownloading) return;
+    const folderName =
+      breadcrumb.length > 0
+        ? breadcrumb[breadcrumb.length - 1].name
+        : areaSlug
+          ? AREA_LABELS[areaSlug]
+          : 'Dokumente';
+    setZipDownloading(true);
+    setBulkMoveProgress(null);
+    try {
+      await downloadDocFilesZip(ids, `${folderName || 'Dokumente'}.zip`);
+    } catch {
+      setBulkMoveProgress('Download fehlgeschlagen – bitte erneut versuchen.');
+    } finally {
+      setZipDownloading(false);
     }
   }
 
@@ -1190,6 +1212,20 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                         style={{ background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))', color: 'var(--color-on-primary)' }}
                       >
                         Verschieben
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleBulkDownload}
+                        disabled={zipDownloading}
+                        className="px-3 py-1.5 rounded-md text-sm font-semibold"
+                        style={{
+                          background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+                          color: 'var(--color-on-primary)',
+                          opacity: zipDownloading ? 0.6 : 1,
+                          cursor: zipDownloading ? 'wait' : 'pointer',
+                        }}
+                      >
+                        {zipDownloading ? 'Wird geladen…' : 'Herunterladen'}
                       </button>
                       <button
                         type="button"
