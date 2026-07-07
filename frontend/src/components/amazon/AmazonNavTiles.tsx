@@ -1,17 +1,9 @@
 import { useNavigate } from 'react-router-dom';
+import { navItems } from '../layout/navConfig';
 
-interface Tile {
-  path: string;
-  label: string;
-  icon: string;
-}
-
-const TILES: Tile[] = [
-  { path: '/amazon/entwicklung',            label: 'Entwicklung', icon: 'settings' },
-  { path: '/amazon/entwicklung/checkliste', label: 'Checkliste',  icon: 'checklist' },
-  { path: '/amazon/entwicklung/markenname', label: 'Markenname',  icon: 'label' },
-  { path: '/amazon/meine-daten',            label: 'Meine Daten', icon: 'lock' },
-];
+// Bereiche-Kacheln = die Amazon-Unterpunkte aus der zentralen Nav-Config (navConfig.ts).
+// EINE Quelle für Menü UND Dashboard: neue Amazon-Bereiche erscheinen automatisch als Kachel.
+const TILES = navItems.find((i) => i.path === '/amazon')?.subItems ?? [];
 
 export function AmazonNavTiles() {
   const navigate = useNavigate();
