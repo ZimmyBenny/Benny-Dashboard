@@ -403,7 +403,11 @@ export function Sidebar() {
           >
             {/* Parent-Item mit optionalem Chevron für Untermenüs */}
             {item.subItems && !collapsed ? (
-              <div style={{ display: 'flex', alignItems: 'center' }}>
+              <div
+                style={{ display: 'flex', alignItems: 'center', userSelect: 'none' }}
+                onDoubleClick={() => toggleGroup(item.path)}
+                title="Doppelklick: Untermenü auf-/zuklappen"
+              >
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <SidebarNavLink item={item} collapsed={collapsed} end={item.path === '/'} />
                 </div>
