@@ -202,6 +202,20 @@ export function Sidebar() {
     return () => clearInterval(iv);
   }, []);
 
+  // Echten letzten Backup-Stand vom Server holen (egal ob per Button, Skript oder API
+  // ausgeloest) — der Indikator soll immer den tatsaechlichen Stand zeigen.
+  useEffect(() => {
+    apiClient.get<{ lastBackupAt: string | null }>('/backup/status')
+      .then((r) => {
+        const iso = r.data?.lastBackupAt;
+        if (!iso) return;
+        const serverDate = new Date(iso);
+        setLastBackupAt((prev) => (!prev || serverDate > prev ? serverDate : prev));
+        localStorage.setItem('lastBackupAt', serverDate.toISOString());
+      })
+      .catch(() => { /* offline/Fehler → lokalen Wert behalten */ });
+  }, []);
+
   async function handleRestartBackend() {
     setRestarting(true);
     setBackendStatus('checking');

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { exec } from 'child_process';
-import { mkdir, readdir, unlink } from 'fs/promises';
+import { mkdir, readdir, unlink, stat } from 'fs/promises';
 import { promisify } from 'util';
 import path from 'path';
 import os from 'os';
@@ -82,6 +82,27 @@ router.post('/', async (_req, res) => {
 
   const status = result.errors.length === 0 ? 200 : 207;
   res.status(status).json({ success: result.errors.length === 0, ...result });
+});
+
+// GET /api/backup/status — echter letzter Backup-Stand (neuestes iCloud-Snapshot),
+// unabhaengig davon, ob per Button, Skript oder API ausgeloest.
+router.get('/status', async (_req, res) => {
+  try {
+    // Nach echtem Aenderungsdatum (mtime) neuestes Snapshot — Dateinamen sortieren
+    // nicht zuverlaessig chronologisch (z.B. 'dashboard-pre-*' vs 'dashboard-2026-*').
+    const names = (await readdir(ICLOUD_BACKUP_DIR)).filter((f) => /^dashboard-.*\.db$/.test(f));
+    let latestName: string | null = null;
+    let latestMtime: Date | null = null;
+    let latestMs = 0;
+    for (const name of names) {
+      const s = await stat(path.join(ICLOUD_BACKUP_DIR, name));
+      if (s.mtimeMs > latestMs) { latestMs = s.mtimeMs; latestName = name; latestMtime = s.mtime; }
+    }
+    if (!latestName || !latestMtime) { res.json({ lastBackupAt: null }); return; }
+    res.json({ lastBackupAt: latestMtime.toISOString(), file: latestName });
+  } catch {
+    res.json({ lastBackupAt: null });
+  }
 });
 
 export default router;
