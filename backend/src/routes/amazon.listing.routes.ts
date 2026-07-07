@@ -22,6 +22,14 @@ function deleteImageFromDisk(filename: string | null | undefined) {
   if (!abs.startsWith(path.resolve(LISTING_FILES_DIR) + path.sep)) return;
   try { fs.unlinkSync(abs); } catch { /* schon weg */ }
 }
+// Content-Type aus Datei-Endung ableiten (wie im Produkt-Bild-Route-Muster).
+function contentTypeFromExt(abs: string): string {
+  const ext = path.extname(abs).toLowerCase();
+  return ext === '.png'  ? 'image/png'
+    : ext === '.webp' ? 'image/webp'
+    : ext === '.gif'  ? 'image/gif'
+    : 'image/jpeg';
+}
 
 // ── Typen ──
 type ListingKind = 'listing' | 'competitor';
@@ -39,6 +47,7 @@ interface ListingRow {
   comp_own_reviews: number | null;
   comp_own_sold: string | null; // „X Mal gekauft"-Zeile (Migr. 105)
   comp_search_term: string | null; // editierbarer Amazon-Suchbegriff (Migr. 106)
+  comp_own_image: string | null; // Tausch-Bild fuer die eigene Karte (Dateiname; NULL = Produkt-Hauptbild, Migr. 109)
   created_at: number;
   updated_at: number;
 }
@@ -83,7 +92,7 @@ function emptyListing(productId: number): ListingRow {
     title: '', bullet_1: '', bullet_2: '', bullet_3: '', bullet_4: '', bullet_5: '',
     description: '', keywords_main: '', keywords_backend: '',
     comp_own_title: null, comp_own_price: null, comp_own_rating: null, comp_own_reviews: null,
-    comp_own_sold: null, comp_search_term: null,
+    comp_own_sold: null, comp_search_term: null, comp_own_image: null,
     created_at: 0, updated_at: 0,
   };
 }
@@ -271,6 +280,63 @@ router.patch('/products/:id/listing/images/:imageId', (req: Request, res: Respon
 
   db.prepare(`UPDATE amazon_listing_images SET ${sets.join(', ')} WHERE id = ?`).run(...params, imageId);
   res.json({ image: db.prepare(`SELECT * FROM amazon_listing_images WHERE id = ?`).get(imageId) as ListingImageRow });
+});
+
+// ── Tausch-Bild der eigenen Karte (Migr. 109) ─────────────────────────────────
+// Separates Bild fuer die eigene Karte im Hauptbild-Vergleicher. Ueberschreibt
+// NICHT das echte Produkt-Hauptbild (amazon_products.image_path). NULL = Produkt-
+// Hauptbild verwenden. Genau EIN Tausch-Bild (ersetzbar).
+
+// Stellt sicher, dass eine amazon_listing-Zeile existiert (Default-Insert wie beim PUT-Upsert).
+function ensureListingRow(id: number): void {
+  const exists = db.prepare(`SELECT 1 FROM amazon_listing WHERE product_id = ?`).get(id);
+  if (exists) return;
+  db.prepare(`INSERT INTO amazon_listing (product_id) VALUES (?)`).run(id);
+}
+
+// ── POST /products/:id/listing/own-image ── Tausch-Bild setzen/ersetzen ──
+router.post('/products/:id/listing/own-image', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  listingImageUpload.single('file')(req, res, (err: unknown) => {
+    if (err) { res.status(400).json({ error: err instanceof Error ? err.message : 'upload failed' }); return; }
+    const file = (req as Request & { file?: { filename: string; mimetype: string } }).file;
+    if (!file) { res.status(400).json({ error: 'no file' }); return; }
+    if (!file.mimetype.startsWith('image/')) {
+      deleteImageFromDisk(file.filename);
+      res.status(400).json({ error: 'nur Bilder erlaubt' });
+      return;
+    }
+    ensureListingRow(id);
+    const prev = db.prepare(`SELECT comp_own_image FROM amazon_listing WHERE product_id = ?`).get(id) as { comp_own_image: string | null } | undefined;
+    deleteImageFromDisk(prev?.comp_own_image);
+    db.prepare(`UPDATE amazon_listing SET comp_own_image = ?, updated_at = unixepoch() WHERE product_id = ?`).run(file.filename, id);
+    res.json({ comp_own_image: file.filename });
+  });
+});
+
+// ── GET /products/:id/listing/own-image ── Tausch-Bild inline streamen ──
+router.get('/products/:id/listing/own-image', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) { res.status(404).end(); return; }
+  const row = db.prepare(`SELECT comp_own_image FROM amazon_listing WHERE product_id = ?`).get(id) as { comp_own_image: string | null } | undefined;
+  const filename = row?.comp_own_image;
+  if (!filename) { res.status(404).end(); return; }
+  const abs = path.resolve(LISTING_FILES_DIR, filename);
+  if (!abs.startsWith(path.resolve(LISTING_FILES_DIR) + path.sep) || !fs.existsSync(abs)) { res.status(404).end(); return; }
+  res.setHeader('Content-Type', contentTypeFromExt(abs));
+  res.setHeader('Cache-Control', 'private, max-age=300');
+  fs.createReadStream(abs).pipe(res);
+});
+
+// ── DELETE /products/:id/listing/own-image ── zurueck zum Produkt-Hauptbild ──
+router.delete('/products/:id/listing/own-image', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  const row = db.prepare(`SELECT comp_own_image FROM amazon_listing WHERE product_id = ?`).get(id) as { comp_own_image: string | null } | undefined;
+  deleteImageFromDisk(row?.comp_own_image);
+  db.prepare(`UPDATE amazon_listing SET comp_own_image = NULL, updated_at = unixepoch() WHERE product_id = ?`).run(id);
+  res.status(204).end();
 });
 
 export default router;
