@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  getListingImageObjectUrl, getAmazonProductImageObjectUrl,
+  getListingImageObjectUrl, getAmazonProductImageObjectUrl, getListingOwnImageObjectUrl,
   type ListingImage, type ListingImagePatch, type ListingPatch,
 } from '../../../api/amazon.api';
 import {
   useUploadListingImage, useDeleteListingImage, useUpdateListingImage, useUpdateListing,
+  useUploadListingOwnImage, useDeleteListingOwnImage,
 } from '../../../hooks/amazon/useListing';
 
 // ── Bewusste Amazon-Nachbildung ──────────────────────────────────────────────
@@ -347,29 +348,80 @@ function OwnCard({
     comp_own_title: string | null; comp_own_price: string | null;
     comp_own_rating: number | null; comp_own_reviews: number | null;
     comp_own_sold: string | null;
+    comp_own_image: string | null;
   };
 }) {
   const update = useUpdateListing(productId);
+  const uploadOwn = useUploadListingOwnImage(productId);
+  const deleteOwn = useDeleteListingOwnImage(productId);
+  const swapInput = useRef<HTMLInputElement | null>(null);
   const [src, setSrc] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
+  // Wenn ein Tausch-Bild gesetzt ist → dieses laden, sonst das Produkt-Hauptbild.
+  // Neu laden, sobald sich comp_own_image aendert (Upload/Loeschen).
+  const hasSwap = !!listing.comp_own_image;
   useEffect(() => {
     let revoked = false; let url: string | null = null;
-    getAmazonProductImageObjectUrl(productId)
+    setLoaded(false);
+    const load = hasSwap
+      ? getListingOwnImageObjectUrl(productId)
+      : getAmazonProductImageObjectUrl(productId);
+    load
       .then(u => { if (revoked) { URL.revokeObjectURL(u); return; } url = u; setSrc(u); setLoaded(true); })
       .catch(() => { setSrc(null); setLoaded(true); });
     return () => { revoked = true; if (url) URL.revokeObjectURL(url); };
-  }, [productId]);
+  }, [productId, hasSwap, listing.comp_own_image]);
 
   function patch(p: ListingPatch) { update.mutate(p); }
+  function pickSwap(f: File | undefined | null) {
+    if (!f) return;
+    if (f.size > MAX_BYTES) return;
+    uploadOwn.mutate(f);
+  }
+  const busy = uploadOwn.isPending || deleteOwn.isPending;
 
   const shownTitle = listing.comp_own_title ?? listing.title ?? '';
   return (
     <Card own>
-      <div className="relative w-full aspect-square rounded-sm overflow-hidden flex items-center justify-center" style={{ background: '#fff' }}>
+      <div className="group/img relative w-full aspect-square rounded-sm overflow-hidden flex items-center justify-center" style={{ background: '#fff' }}>
         {src
           ? <img src={src} alt="Eigenes Hauptbild" className="max-w-full max-h-full object-contain" />
           : <span style={{ color: AZ_GREY, fontSize: 12 }}>{loaded ? 'Kein Hauptbild' : '…'}</span>}
+        {/* Dezente Bild-Steuerung — bei Hover sichtbar, unten ueber dem Bild */}
+        <div
+          className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1.5 px-1.5 py-1.5 opacity-0 group-hover/img:opacity-100 transition-opacity"
+          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0))' }}
+        >
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => swapInput.current?.click()}
+            className="inline-flex items-center gap-1 rounded"
+            style={{ background: 'rgba(255,255,255,0.95)', color: AZ_INK, fontSize: 11, fontWeight: 500, padding: '3px 7px', border: `1px solid ${AZ_CARD_BORDER}` }}
+            title="Ein anderes Titelbild fuer die eigene Karte zeigen (Produkt-Hauptbild bleibt unveraendert)"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>swap_horiz</span>
+            Bild tauschen
+          </button>
+          {hasSwap && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => deleteOwn.mutate()}
+              className="inline-flex items-center gap-1 rounded"
+              style={{ background: 'rgba(255,255,255,0.95)', color: AZ_INK, fontSize: 11, fontWeight: 500, padding: '3px 7px', border: `1px solid ${AZ_CARD_BORDER}` }}
+              title="Zurueck zum echten Produkt-Hauptbild"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 14 }}>restore</span>
+              Produktbild verwenden
+            </button>
+          )}
+        </div>
+        <input
+          ref={swapInput} type="file" accept="image/*" className="hidden"
+          onChange={(e) => { pickSwap(e.target.files?.[0]); e.target.value = ''; }}
+        />
       </div>
       <CardBody
         title={shownTitle}
@@ -474,6 +526,7 @@ export function MainImageComparator({
     comp_own_rating: number | null; comp_own_reviews: number | null;
     comp_own_sold: string | null;
     comp_search_term: string | null;
+    comp_own_image: string | null;
   };
   productName?: string;
 }) {

@@ -816,6 +816,7 @@ export interface ListingFields {
   comp_own_rating: number | null; comp_own_reviews: number | null;
   comp_own_sold: string | null;
   comp_search_term: string | null; // editierbarer Amazon-Suchbegriff (Migr. 106)
+  comp_own_image: string | null; // Tausch-Bild der eigenen Karte (Dateiname; null = Produkt-Hauptbild, Migr. 109)
 }
 export interface ListingData {
   listing: ListingFields;
@@ -844,6 +845,25 @@ export async function deleteListingImage(productId: number, imageId: number): Pr
 }
 export async function getListingImageObjectUrl(productId: number, imageId: number): Promise<string> {
   const r = await apiClient.get(`/amazon/products/${productId}/listing/images/${imageId}`, { responseType: 'blob' });
+  return URL.createObjectURL(r.data as Blob);
+}
+
+// ── Tausch-Bild der eigenen Karte (Migr. 109) ─────────────────────────────────
+// Separates Titelbild fuer die eigene Karte im Hauptbild-Vergleicher — ueberschreibt
+// NICHT das echte Produkt-Hauptbild. null = Produkt-Hauptbild verwenden.
+export async function uploadListingOwnImage(productId: number, file: File): Promise<{ comp_own_image: string }> {
+  const fd = new FormData(); fd.append('file', file);
+  const r = await apiClient.post<{ comp_own_image: string }>(
+    `/amazon/products/${productId}/listing/own-image`, fd,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
+  return r.data;
+}
+export async function deleteListingOwnImage(productId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/listing/own-image`);
+}
+export async function getListingOwnImageObjectUrl(productId: number): Promise<string> {
+  const r = await apiClient.get(`/amazon/products/${productId}/listing/own-image`, { responseType: 'blob' });
   return URL.createObjectURL(r.data as Blob);
 }
 export async function reorderListingImages(productId: number, kind: ListingImageKind, order: number[]): Promise<void> {

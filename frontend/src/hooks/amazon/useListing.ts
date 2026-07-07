@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   fetchListing, updateListing, uploadListingImage, deleteListingImage,
   reorderListingImages, updateListingImage,
+  uploadListingOwnImage, deleteListingOwnImage,
   type ListingPatch, type ListingImageKind, type ListingImagePatch,
 } from '../../api/amazon.api';
 
@@ -41,4 +42,14 @@ export function useReorderListingImages(productId: number) {
 export function useUpdateListingImage(productId: number) {
   const inv = useInvalidate(productId);
   return useMutation({ mutationFn: (v: { imageId: number; patch: ListingImagePatch }) => updateListingImage(productId, v.imageId, v.patch), onSettled: inv });
+}
+// Tausch-Bild der eigenen Karte (Migr. 109) — setzt/ersetzt bzw. loescht das Bild
+// und invalidiert die Listing-Query, damit comp_own_image neu geladen wird.
+export function useUploadListingOwnImage(productId: number) {
+  const inv = useInvalidate(productId);
+  return useMutation({ mutationFn: (file: File) => uploadListingOwnImage(productId, file), onSettled: inv });
+}
+export function useDeleteListingOwnImage(productId: number) {
+  const inv = useInvalidate(productId);
+  return useMutation({ mutationFn: () => deleteListingOwnImage(productId), onSettled: inv });
 }
