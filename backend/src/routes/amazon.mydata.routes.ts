@@ -106,7 +106,10 @@ router.post('/my-data/verify-pin', async (req: Request, res: Response) => {
   const row = getRow();
   const pin = (req.body ?? {}).pin;
   const ok = await bcrypt.compare(typeof pin === 'string' ? pin : '', row.pin_hash ?? DUMMY_HASH);
-  if (!row.pin_hash || !ok) { res.status(401).json({ error: 'wrong pin' }); return; }
+  // 403 statt 401: ein falscher/leerer PIN ist KEIN Auth-Token-Problem. Ein 401
+  // wuerde den globalen Response-Interceptor triggern und den Nutzer komplett zum
+  // Login ausloggen. 403 zeigt nur „Falscher PIN." — Session bleibt bestehen.
+  if (!row.pin_hash || !ok) { res.status(403).json({ error: 'wrong pin' }); return; }
   res.json({ token: issueUnlockToken() });
 });
 
@@ -115,7 +118,7 @@ router.post('/my-data/change-pin', async (req: Request, res: Response) => {
   const { oldPin, newPin } = (req.body ?? {}) as { oldPin?: unknown; newPin?: unknown };
   if (!row.pin_hash) { res.status(400).json({ error: 'no pin set' }); return; }
   const ok = await bcrypt.compare(typeof oldPin === 'string' ? oldPin : '', row.pin_hash);
-  if (!ok) { res.status(401).json({ error: 'wrong pin' }); return; }
+  if (!ok) { res.status(403).json({ error: 'wrong pin' }); return; } // 403, kein 401 (sonst globaler Logout)
   if (!isValidPin(newPin)) { res.status(400).json({ error: 'pin invalid' }); return; }
   const hash = await bcrypt.hash(newPin, 12);
   db.prepare(`UPDATE amazon_my_data SET pin_hash = ?, updated_at = unixepoch() WHERE id = 1`).run(hash);
