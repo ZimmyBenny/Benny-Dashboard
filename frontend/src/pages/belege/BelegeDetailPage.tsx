@@ -1505,12 +1505,16 @@ interface FieldProps {
 
 function Field({ label, value, disabled, type = 'text', suffix, onChange }: FieldProps) {
   const [localValue, setLocalValue] = useState(value);
+  const [focused, setFocused] = useState(false);
   const editable = !!onChange && !disabled;
 
-  // Sync with external value changes (e.g. after save)
-  if (!editable && localValue !== value) {
-    setLocalValue(value);
-  }
+  // Externe Wert-Aenderungen uebernehmen — nach dem Speichern UND vor allem beim
+  // WECHSEL des Belegs (Vor/Zurueck-Blaettern). Sonst blieben Feldwerte vom vorher
+  // angeschauten Beleg stehen (Datensicherheits-kritisch: falsche Werte koennten
+  // versehentlich gespeichert werden). NICHT waehrend der Nutzer tippt (Fokus).
+  useEffect(() => {
+    if (!focused) setLocalValue(value);
+  }, [value, focused]);
 
   return (
     <div
@@ -1539,7 +1543,9 @@ function Field({ label, value, disabled, type = 'text', suffix, onChange }: Fiel
             inputMode={type === 'money' || type === 'number' ? 'decimal' : undefined}
             value={localValue}
             onChange={(e) => setLocalValue(e.target.value)}
+            onFocus={() => setFocused(true)}
             onBlur={() => {
+              setFocused(false);
               if (localValue !== value) onChange!(localValue);
             }}
             onKeyDown={(e) => {
