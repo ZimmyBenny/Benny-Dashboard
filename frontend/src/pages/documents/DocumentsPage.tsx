@@ -1308,6 +1308,19 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
                           {formatBytes(file.size_bytes)} · {formatDate(file.created_at)}
                         </span>
                       </button>
+                      {/* Vertrags-Badge: Zuordnung sichtbar machen; Klick öffnet den Vertrag */}
+                      {file.contract_id != null && file.contract_title && (
+                        <button
+                          type="button"
+                          title={`Zum Vertrag „${file.contract_title}"`}
+                          onClick={(e) => { e.stopPropagation(); navigate('/contracts', { state: { openContractId: file.contract_id } }); }}
+                          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium shrink-0 hover:opacity-80 transition-opacity"
+                          style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-primary)', border: '1px solid rgba(255,255,255,0.08)' }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>contract</span>
+                          {file.contract_title}
+                        </button>
+                      )}
                       <div className="flex items-center gap-1 opacity-60 hover:opacity-100 transition-opacity">
                         <button
                           type="button"

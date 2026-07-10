@@ -359,8 +359,11 @@ router.get('/folders/:id', (req, res) => {
     .all(id) as DocFolderRow[];
   const files = db
     .prepare(
-      `SELECT id, folder_id, filename, size_bytes, mime_type, created_at
-       FROM doc_files WHERE folder_id = ? ORDER BY filename COLLATE NOCASE ASC`,
+      `SELECT df.id, df.folder_id, df.filename, df.size_bytes, df.mime_type, df.created_at,
+              df.contract_id, c.title AS contract_title
+       FROM doc_files df
+       LEFT JOIN contracts_and_deadlines c ON c.id = df.contract_id
+       WHERE df.folder_id = ? ORDER BY df.filename COLLATE NOCASE ASC`,
     )
     .all(id) as DocFileRow[];
 

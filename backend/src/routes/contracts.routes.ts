@@ -218,8 +218,8 @@ router.post('/:id/attachments', upload.single('file'), async (req, res) => {
   const file = req.file;
   if (!file) { res.status(400).json({ error: 'Keine Datei übermittelt' }); return; }
 
-  const contract = db.prepare('SELECT id, area FROM contracts_and_deadlines WHERE id = ?').get(id) as
-    | { id: number; area: string | null }
+  const contract = db.prepare('SELECT id, area, title, provider_name FROM contracts_and_deadlines WHERE id = ?').get(id) as
+    | { id: number; area: string | null; title: string | null; provider_name: string | null }
     | undefined;
   if (!contract) {
     await fsp.unlink(file.path).catch(() => undefined);
@@ -228,7 +228,15 @@ router.post('/:id/attachments', upload.single('file'), async (req, res) => {
   }
 
   // Multer liest Dateinamen als Latin-1 — in UTF-8 umwandeln
-  const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+  let originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+
+  // Anbieter-Präfix für bessere Zuordnung im Dokumente-Modul: „Anbieter – Datei.pdf".
+  // Fallback Vertragstitel; kein Doppel-Präfix, wenn der Name schon so beginnt.
+  const rawPrefix = (contract.provider_name?.trim() || contract.title?.trim() || '');
+  const prefix = rawPrefix.replace(/[/\\]/g, '_').slice(0, 60).trim();
+  if (prefix && !originalName.toLowerCase().startsWith(prefix.toLowerCase())) {
+    originalName = `${prefix} – ${originalName}`;
+  }
 
   const folderId = getOrCreateContractAreaFolder(contract.area ?? 'Sonstiges');
 

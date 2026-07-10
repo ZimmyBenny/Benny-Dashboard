@@ -38,6 +38,9 @@ export interface DocFile {
   size_bytes: number;
   mime_type: string | null;
   created_at: string;
+  // Vertrags-Verknüpfung (nur bei Dateien aus „Verträge & Fristen" gesetzt)
+  contract_id?: number | null;
+  contract_title?: string | null;
 }
 
 export interface DocUsage {
