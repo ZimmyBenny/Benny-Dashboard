@@ -171,6 +171,9 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
   const [isDragOver, setIsDragOver] = useState(false);
   const dragCounter = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Zwei-Optionen-Loeschdialog (nie stilles Loeschen — Memory-Regel)
+  const [deleteChoice, setDeleteChoice] = useState<{ id: number; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Zugehörige Belege (Feature 3, Plan quick-260702-vz7)
   const [linkedReceipts, setLinkedReceipts] = useState<ContractReceipt[]>([]);
@@ -259,15 +262,18 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
     }
   }
 
-  async function handleDeleteAttachment(attId: number, attName: string) {
-    if (!workingContract) return;
-    if (!confirm(`Anhang "${attName}" wirklich löschen?`)) return;
+  async function handleConfirmDeleteAttachment(mode: 'unlink' | 'delete') {
+    if (!workingContract || !deleteChoice) return;
+    setDeleting(true);
     try {
-      await deleteContractAttachment(workingContract.id, attId);
+      await deleteContractAttachment(workingContract.id, deleteChoice.id, mode);
       const updated = await fetchContractAttachments(workingContract.id);
       setAttachments(updated);
-    } catch {
-      // ignore
+    } catch (err) {
+      alert(`Löschen fehlgeschlagen: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setDeleting(false);
+      setDeleteChoice(null);
     }
   }
 
@@ -966,66 +972,149 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
                 </p>
               )}
 
+              {workingContract && (
+                <p style={{ fontSize: '0.75rem', color: 'var(--color-outline)', fontFamily: 'var(--font-body)', marginBottom: '0.5rem' }}>
+                  Anhänge liegen im Dokumente-Modul unter „Verträge & Fristen / {form.area || workingContract.area}".
+                </p>
+              )}
+
               {/* Anhänge-Liste */}
               {attachments.map(att => (
-                <div key={att.id} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  padding: '0.4rem 0',
-                  borderBottom: '1px solid var(--color-outline-variant)',
-                }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--color-primary)', flexShrink: 0 }}>description</span>
-                  <span
-                    onClick={() => openContractAttachment(workingContract!.id, att.id, att.file_name)}
-                    title="Öffnen"
-                    style={{
-                      flex: 1,
-                      fontSize: '0.8rem',
-                      color: 'var(--color-on-surface)',
-                      fontFamily: 'var(--font-body)',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      cursor: 'pointer',
-                      textDecoration: 'underline dotted',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-primary)')}
-                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-on-surface)')}
-                  >{att.file_name}</span>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--color-outline)', fontFamily: 'var(--font-body)', flexShrink: 0 }}>
-                    {formatFileSize(att.file_size)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => revealContractAttachment(workingContract!.id, att.id)}
-                    title="Im Finder anzeigen"
-                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-outline)', padding: '0.15rem', display: 'flex', alignItems: 'center' }}
-                    onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-primary)')}
-                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-outline)')}
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>folder_open</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => downloadContractAttachment(workingContract!.id, att.id, att.file_name)}
-                    title="Herunterladen"
-                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-outline)', padding: '0.15rem', display: 'flex', alignItems: 'center' }}
-                    onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-primary)')}
-                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-outline)')}
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>download</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteAttachment(att.id, att.file_name)}
-                    title="Löschen"
-                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-outline)', padding: '0.15rem', display: 'flex', alignItems: 'center' }}
-                    onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
-                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-outline)')}
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>delete</span>
-                  </button>
+                <div key={att.id}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.4rem 0',
+                    borderBottom: deleteChoice?.id === att.id ? 'none' : '1px solid var(--color-outline-variant)',
+                  }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '16px', color: 'var(--color-primary)', flexShrink: 0 }}>description</span>
+                    <span
+                      onClick={() => openContractAttachment(workingContract!.id, att.id, att.file_name)}
+                      title="Öffnen"
+                      style={{
+                        flex: 1,
+                        fontSize: '0.8rem',
+                        color: 'var(--color-on-surface)',
+                        fontFamily: 'var(--font-body)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        cursor: 'pointer',
+                        textDecoration: 'underline dotted',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-primary)')}
+                      onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-on-surface)')}
+                    >{att.file_name}</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--color-outline)', fontFamily: 'var(--font-body)', flexShrink: 0 }}>
+                      {formatFileSize(att.file_size)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => revealContractAttachment(workingContract!.id, att.id)}
+                      title="Im Finder anzeigen"
+                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-outline)', padding: '0.15rem', display: 'flex', alignItems: 'center' }}
+                      onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-primary)')}
+                      onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-outline)')}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>folder_open</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => downloadContractAttachment(workingContract!.id, att.id, att.file_name)}
+                      title="Herunterladen"
+                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-outline)', padding: '0.15rem', display: 'flex', alignItems: 'center' }}
+                      onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-primary)')}
+                      onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-outline)')}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>download</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteChoice({ id: att.id, name: att.file_name })}
+                      title="Löschen"
+                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-outline)', padding: '0.15rem', display: 'flex', alignItems: 'center' }}
+                      onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-error)')}
+                      onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-outline)')}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>delete</span>
+                    </button>
+                  </div>
+
+                  {deleteChoice?.id === att.id && (
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.5rem',
+                      padding: '0.6rem 0.75rem',
+                      marginBottom: '0.4rem',
+                      background: 'var(--color-surface-container-low)',
+                      border: '1px solid var(--color-outline-variant)',
+                      borderRadius: '0.5rem',
+                    }}>
+                      <p style={{ fontSize: '0.78rem', color: 'var(--color-on-surface)', fontFamily: 'var(--font-body)', margin: 0 }}>
+                        Anhang „{deleteChoice.name}" löschen — wie?
+                      </p>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          disabled={deleting}
+                          onClick={() => handleConfirmDeleteAttachment('unlink')}
+                          style={{
+                            background: 'var(--color-primary)',
+                            color: 'var(--color-on-primary)',
+                            border: 'none',
+                            borderRadius: '0.4rem',
+                            padding: '0.4rem 0.75rem',
+                            fontSize: '0.78rem',
+                            fontFamily: 'var(--font-body)',
+                            cursor: deleting ? 'not-allowed' : 'pointer',
+                            opacity: deleting ? 0.6 : 1,
+                          }}
+                        >
+                          Nur vom Vertrag entfernen
+                        </button>
+                        <button
+                          type="button"
+                          disabled={deleting}
+                          onClick={() => handleConfirmDeleteAttachment('delete')}
+                          style={{
+                            background: 'transparent',
+                            color: 'var(--color-error)',
+                            border: '1px solid var(--color-error)',
+                            borderRadius: '0.4rem',
+                            padding: '0.4rem 0.75rem',
+                            fontSize: '0.78rem',
+                            fontFamily: 'var(--font-body)',
+                            cursor: deleting ? 'not-allowed' : 'pointer',
+                            opacity: deleting ? 0.6 : 1,
+                          }}
+                        >
+                          Komplett löschen
+                        </button>
+                        <button
+                          type="button"
+                          disabled={deleting}
+                          onClick={() => setDeleteChoice(null)}
+                          style={{
+                            background: 'transparent',
+                            color: 'var(--color-outline)',
+                            border: 'none',
+                            borderRadius: '0.4rem',
+                            padding: '0.4rem 0.75rem',
+                            fontSize: '0.78rem',
+                            fontFamily: 'var(--font-body)',
+                            cursor: deleting ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          Abbrechen
+                        </button>
+                      </div>
+                      <p style={{ fontSize: '0.7rem', color: 'var(--color-outline)', fontFamily: 'var(--font-body)', margin: 0 }}>
+                        Die Datei bleibt im Dokumente-Modul erhalten, wenn du nur entfernst — bei „Komplett löschen" wird sie endgültig aus Dokumente entfernt (in den Papierkorb verschoben).
+                      </p>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
