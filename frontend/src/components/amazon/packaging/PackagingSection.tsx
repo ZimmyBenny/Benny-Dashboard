@@ -473,10 +473,10 @@ export function PackagingSection({ productId, productName }: Props) {
             {tab === 'single' && (
               <div className="flex flex-col gap-4">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <NumberField label="Breite (cm)" value={pkg.single_w} onCommit={(n) => commit({ single_w: n ?? undefined })} />
-                  <NumberField label="Höhe (cm)" value={pkg.single_h} onCommit={(n) => commit({ single_h: n ?? undefined })} />
-                  <NumberField label="Tiefe (cm)" value={pkg.single_d} onCommit={(n) => commit({ single_d: n ?? undefined })} />
-                  <NumberField label="Einzelgewicht" value={pkg.single_weight_kg} onCommit={(n) => commit({ single_weight_kg: n ?? undefined })} suffix="kg" />
+                  <NumberField label="Breite (cm)" value={pkg.single_w} onCommit={(n) => commit({ single_w: n })} />
+                  <NumberField label="Höhe (cm)" value={pkg.single_h} onCommit={(n) => commit({ single_h: n })} />
+                  <NumberField label="Tiefe (cm)" value={pkg.single_d} onCommit={(n) => commit({ single_d: n })} />
+                  <NumberField label="Einzelgewicht" value={pkg.single_weight_kg} onCommit={(n) => commit({ single_weight_kg: n })} suffix="kg" />
                 </div>
                 <SizeClassBadge sizeClass={sizeClass} />
                 <CheckList productId={productId} items={activeItems} boxLabel="Singlebox" />
@@ -487,11 +487,11 @@ export function PackagingSection({ productId, productName }: Props) {
             {tab === 'master' && (
               <div className="flex flex-col gap-4">
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <NumberField label="Breite (cm)" value={pkg.master_w} onCommit={(n) => commit({ master_w: n ?? undefined })} />
-                  <NumberField label="Höhe (cm)" value={pkg.master_h} onCommit={(n) => commit({ master_h: n ?? undefined })} />
-                  <NumberField label="Tiefe (cm)" value={pkg.master_d} onCommit={(n) => commit({ master_d: n ?? undefined })} />
-                  <NumberField label="Einheiten/Box" value={pkg.units_per_master} onCommit={(n) => commit({ units_per_master: n ?? undefined })} />
-                  <NumberField label="Leergewicht (Tara)" value={pkg.master_tare_kg} onCommit={(n) => commit({ master_tare_kg: n ?? undefined })} suffix="kg" />
+                  <NumberField label="Breite (cm)" value={pkg.master_w} onCommit={(n) => commit({ master_w: n })} />
+                  <NumberField label="Höhe (cm)" value={pkg.master_h} onCommit={(n) => commit({ master_h: n })} />
+                  <NumberField label="Tiefe (cm)" value={pkg.master_d} onCommit={(n) => commit({ master_d: n })} />
+                  <NumberField label="Einheiten/Box" value={pkg.units_per_master} onCommit={(n) => commit({ units_per_master: n })} />
+                  <NumberField label="Leergewicht (Tara)" value={pkg.master_tare_kg} onCommit={(n) => commit({ master_tare_kg: n })} suffix="kg" />
                 </div>
                 <div className="flex flex-col gap-1 text-sm tabular-nums" style={{ color: 'var(--color-on-surface-variant)' }}>
                   {pkg.units_per_master != null && pkg.single_weight_kg != null ? (
@@ -515,7 +515,7 @@ export function PackagingSection({ productId, productName }: Props) {
                 Versand-/Import-Rechner
               </span>
               <div className="max-w-xs">
-                <NumberField label="Bestellmenge (Stück)" value={pkg.order_qty} onCommit={(n) => commit({ order_qty: n ?? undefined })} />
+                <NumberField label="Bestellmenge (Stück)" value={pkg.order_qty} onCommit={(n) => commit({ order_qty: n })} />
               </div>
               <div className="text-sm tabular-nums flex flex-col gap-1 mt-1" style={{ color: 'var(--color-on-surface)' }}>
                 <span>Masterbox-Anzahl: <strong>{masterboxAnzahl != null ? fmtDe(masterboxAnzahl, 0) : '—'}</strong></span>

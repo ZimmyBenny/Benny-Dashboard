@@ -96,13 +96,14 @@ function getGpsrResponsible(): { name: string; address: string; email: string; p
 
 // ════════════════════════════════════════════════════════════════════════════
 // GPSR — literaler Pfad, eigenständig registriert.
+// Router ist unter /api/amazon gemountet → hier NUR '/gpsr' (kein /amazon-Prefix).
 // ════════════════════════════════════════════════════════════════════════════
 
-router.get('/amazon/gpsr', (_req: Request, res: Response) => {
+router.get('/gpsr', (_req: Request, res: Response) => {
   res.json(getGpsrResponsible());
 });
 
-router.put('/amazon/gpsr', (req: Request, res: Response) => {
+router.put('/gpsr', (req: Request, res: Response) => {
   const current = getGpsrResponsible();
   const body = (req.body ?? {}) as { name?: unknown; address?: unknown; email?: unknown; phone?: unknown };
   const next = {
