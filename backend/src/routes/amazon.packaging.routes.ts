@@ -342,8 +342,11 @@ router.get('/products/:id/packaging/briefing.pdf', async (req: Request, res: Res
   line('Maße & Größenklasse', { size: 14, bold: true, gapBefore: 6, gapAfter: 4 });
   line(`Singlebox: ${fmtDe(pkg.single_w)} x ${fmtDe(pkg.single_h)} x ${fmtDe(pkg.single_d)} cm, Einzelgewicht ${fmtDe(pkg.single_weight_kg, 2)} kg`, { size: 11, x: M + 12 });
   line(`Größenklasse: ${sizeClass ?? '— (nicht bestimmbar)'}`, { size: 11, x: M + 12, bold: true });
-  line(`Masterbox: ${fmtDe(pkg.master_w)} x ${fmtDe(pkg.master_h)} x ${fmtDe(pkg.master_d)} cm, ${fmtDe(pkg.units_per_master, 0)} Einheiten/Box`, { size: 11, x: M + 12, gapBefore: 4 });
-  line(`Masterbox-Gewicht: ${masterWeight != null ? fmtDe(masterWeight, 2) + ' kg' : '—'}  |  CBM/Box: ${cbmPerBox != null ? fmtDe(cbmPerBox, 3) : '—'}`, { size: 11, x: M + 12 });
+  // Masterbox-Zeilen nur wenn ueberhaupt Masterbox-Daten erfasst sind (sonst kein Karton = weglassen).
+  if (pkg.master_w != null || pkg.master_h != null || pkg.master_d != null || pkg.units_per_master != null) {
+    line(`Masterbox: ${fmtDe(pkg.master_w)} x ${fmtDe(pkg.master_h)} x ${fmtDe(pkg.master_d)} cm, ${fmtDe(pkg.units_per_master, 0)} Einheiten/Box`, { size: 11, x: M + 12, gapBefore: 4 });
+    line(`Masterbox-Gewicht: ${masterWeight != null ? fmtDe(masterWeight, 2) + ' kg' : '—'}  |  CBM/Box: ${cbmPerBox != null ? fmtDe(cbmPerBox, 3) : '—'}`, { size: 11, x: M + 12 });
+  }
 
   // ── GPSR-Angaben ──
   line('GPSR-Angaben', { size: 14, bold: true, gapBefore: 12, gapAfter: 4 });

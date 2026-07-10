@@ -401,8 +401,18 @@ export function PackagingSection({ productId, productName }: Props) {
   const masterboxAnzahl = pkg && pkg.order_qty != null && pkg.units_per_master
     ? Math.ceil(pkg.order_qty / pkg.units_per_master)
     : null;
-  const gesamtCbm = masterboxAnzahl != null && cbmPerBox != null ? masterboxAnzahl * cbmPerBox : null;
-  const gesamtgewicht = masterboxAnzahl != null && masterWeight != null ? masterboxAnzahl * masterWeight : null;
+  // Ohne Masterbox (keine Masse/Einheiten erfasst) rechnet der Rechner direkt
+  // ueber die Singlebox: Bestellmenge x Singlebox-CBM bzw. x Einzelgewicht.
+  const hasMasterbox = cbmPerBox != null || (pkg?.units_per_master ?? null) != null;
+  const cbmPerSingle = pkg && pkg.single_w != null && pkg.single_h != null && pkg.single_d != null
+    ? (pkg.single_w * pkg.single_h * pkg.single_d) / 1_000_000
+    : null;
+  const gesamtCbm = hasMasterbox
+    ? (masterboxAnzahl != null && cbmPerBox != null ? masterboxAnzahl * cbmPerBox : null)
+    : (pkg?.order_qty != null && cbmPerSingle != null ? pkg.order_qty * cbmPerSingle : null);
+  const gesamtgewicht = hasMasterbox
+    ? (masterboxAnzahl != null && masterWeight != null ? masterboxAnzahl * masterWeight : null)
+    : (pkg?.order_qty != null && pkg?.single_weight_kg != null ? pkg.order_qty * pkg.single_weight_kg : null);
 
   const manufacturers = mfrData?.manufacturers ?? [];
 
@@ -518,10 +528,14 @@ export function PackagingSection({ productId, productName }: Props) {
                 <NumberField label="Bestellmenge (Stück)" value={pkg.order_qty} onCommit={(n) => commit({ order_qty: n })} />
               </div>
               <div className="text-sm tabular-nums flex flex-col gap-1 mt-1" style={{ color: 'var(--color-on-surface)' }}>
-                <span>Masterbox-Anzahl: <strong>{masterboxAnzahl != null ? fmtDe(masterboxAnzahl, 0) : '—'}</strong></span>
+                {hasMasterbox ? (
+                  <span>Masterbox-Anzahl: <strong>{masterboxAnzahl != null ? fmtDe(masterboxAnzahl, 0) : '—'}</strong></span>
+                ) : (
+                  <span className="opacity-70">Ohne Masterbox — gerechnet über die Singlebox (Bestellmenge × Einzelkarton).</span>
+                )}
                 <span>Gesamt-CBM: <strong>{fmtDe(gesamtCbm, 3)}</strong></span>
                 <span>Gesamtgewicht: <strong>{fmtDe(gesamtgewicht, 1)} kg</strong></span>
-                <span className="opacity-70">Einzelgewicht: {fmtDe(pkg.single_weight_kg, 2)} kg · Singlebox: {fmtDe(pkg.single_w)}×{fmtDe(pkg.single_h)}×{fmtDe(pkg.single_d)} cm · Masterbox: {fmtDe(pkg.master_w)}×{fmtDe(pkg.master_h)}×{fmtDe(pkg.master_d)} cm</span>
+                <span className="opacity-70">Einzelgewicht: {fmtDe(pkg.single_weight_kg, 2)} kg · Singlebox: {fmtDe(pkg.single_w)}×{fmtDe(pkg.single_h)}×{fmtDe(pkg.single_d)} cm{hasMasterbox ? <> · Masterbox: {fmtDe(pkg.master_w)}×{fmtDe(pkg.master_h)}×{fmtDe(pkg.master_d)} cm</> : null}</span>
               </div>
             </div>
 
