@@ -1013,3 +1013,103 @@ export async function updateProductDocNotes(
   );
   return r.data.notes;
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// Verpackung & Versand ("packaging") — Singlebox/Masterbox-Checklisten, GPSR, Briefing-PDF.
+// ════════════════════════════════════════════════════════════════════════════
+
+export interface PackagingCheckItem {
+  id: number;
+  product_id: number | null;
+  box_type: 'single' | 'master';
+  category: string;
+  name: string;
+  description: string | null;
+  requirement: string | null;
+  severity: 'pflicht' | 'empfohlen' | 'optional';
+  sort_order: number;
+  status: 'erledigt' | 'nicht_zutreffend' | null;
+  is_custom: boolean;
+}
+export interface GpsrResponsible { name: string; address: string; email: string; phone: string; }
+export interface PackagingRow {
+  product_id: number;
+  single_w: number | null; single_h: number | null; single_d: number | null;
+  single_weight_kg: number | null;
+  master_w: number | null; master_h: number | null; master_d: number | null;
+  units_per_master: number | null;
+  master_tare_kg: number | null;
+  order_qty: number | null;
+  single_final: number; master_final: number;
+  mfr_name: string | null; mfr_address: string | null; mfr_contact: string | null;
+  notes: string;
+  created_at: number; updated_at: number;
+}
+export interface PackagingData {
+  packaging: PackagingRow;
+  items: PackagingCheckItem[];
+  gpsr: {
+    responsible: GpsrResponsible;
+    manufacturer: { name: string | null; address: string | null; contact: string | null };
+  };
+}
+export type PackagingPatch = Partial<Pick<PackagingRow,
+  'single_w' | 'single_h' | 'single_d' | 'single_weight_kg' |
+  'master_w' | 'master_h' | 'master_d' | 'units_per_master' | 'master_tare_kg' | 'order_qty' |
+  'mfr_name' | 'mfr_address' | 'mfr_contact' | 'notes'
+>>;
+export interface PackagingItemCreate {
+  box_type: 'single' | 'master';
+  category: string;
+  name: string;
+  description?: string;
+  requirement?: string;
+  severity: 'pflicht' | 'empfohlen' | 'optional';
+}
+
+export async function fetchPackaging(productId: number): Promise<PackagingData> {
+  const r = await apiClient.get<PackagingData>(`/amazon/products/${productId}/packaging`);
+  return r.data;
+}
+export async function savePackaging(productId: number, patch: PackagingPatch): Promise<PackagingRow> {
+  const r = await apiClient.put<PackagingRow>(`/amazon/products/${productId}/packaging`, patch);
+  return r.data;
+}
+export async function setPackagingFinal(productId: number, box: 'single' | 'master', final: 0 | 1): Promise<{ box: string; final: number }> {
+  const r = await apiClient.patch<{ box: string; final: number }>(`/amazon/products/${productId}/packaging/final`, { box, final });
+  return r.data;
+}
+export async function setPackagingCheck(
+  productId: number, itemId: number, status: 'erledigt' | 'nicht_zutreffend' | null,
+): Promise<{ item_id: number; status: string | null }> {
+  const r = await apiClient.put<{ item_id: number; status: string | null }>(
+    `/amazon/products/${productId}/packaging/checks/${itemId}`, { status },
+  );
+  return r.data;
+}
+export async function createPackagingItem(productId: number, body: PackagingItemCreate): Promise<PackagingCheckItem> {
+  const r = await apiClient.post<PackagingCheckItem>(`/amazon/products/${productId}/packaging/items`, body);
+  return r.data;
+}
+export async function deletePackagingItem(productId: number, itemId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/packaging/items/${itemId}`);
+}
+export async function fetchGpsr(): Promise<GpsrResponsible> {
+  const r = await apiClient.get<GpsrResponsible>('/amazon/gpsr');
+  return r.data;
+}
+export async function saveGpsr(patch: Partial<GpsrResponsible>): Promise<GpsrResponsible> {
+  const r = await apiClient.put<GpsrResponsible>('/amazon/gpsr', patch);
+  return r.data;
+}
+export async function downloadPackagingBriefing(productId: number, filename: string): Promise<void> {
+  const r = await apiClient.get(`/amazon/products/${productId}/packaging/briefing.pdf`, { responseType: 'blob' });
+  const objUrl = URL.createObjectURL(r.data as Blob);
+  const a = document.createElement('a');
+  a.href = objUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objUrl), 60_000);
+}
