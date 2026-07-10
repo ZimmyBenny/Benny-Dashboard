@@ -126,7 +126,7 @@ export interface ContractAttachment {
   file_name: string;
   file_type: string | null;
   file_size: number | null;
-  storage_path: string;
+  storage_path?: string;
   uploaded_at: string;
 }
 
@@ -143,8 +143,12 @@ export async function uploadContractAttachment(contractId: number, file: File): 
   return data;
 }
 
-export async function deleteContractAttachment(contractId: number, attachmentId: number): Promise<void> {
-  await apiClient.delete(`/contracts/${contractId}/attachments/${attachmentId}`);
+export async function deleteContractAttachment(
+  contractId: number,
+  attachmentId: number,
+  mode: 'unlink' | 'delete',
+): Promise<void> {
+  await apiClient.delete(`/contracts/${contractId}/attachments/${attachmentId}`, { params: { mode } });
 }
 
 const BROWSER_DISPLAYABLE = ['application/pdf', 'image/', 'text/plain', 'text/html', 'video/', 'audio/'];
