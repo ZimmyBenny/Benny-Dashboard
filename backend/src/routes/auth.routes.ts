@@ -14,7 +14,8 @@ interface UserRow { id: number; username: string; password_hash: string; }
 // T-02.2-01: bcrypt.compare for constant-time password verification.
 // T-02.2-02: explicit algorithm: 'HS256' — prevents alg:none attack.
 // T-02.2-03: identical 401 body for missing user and wrong password — prevents username enumeration.
-// T-02.2-06: expiresIn: '7d' hardcoded — no path to mint a non-expiring token.
+// T-02.2-06: expiresIn hardcoded — no path to mint a non-expiring token.
+// 2026-07-10: 7d → 90d auf Benny-Wunsch (rein lokale Single-User-App, seltener neu anmelden).
 // T-02.2-08: password and hash are never logged.
 router.post('/login', loginLimiter, async (req, res) => {
   const { username, password } = (req.body ?? {}) as { username?: string; password?: string };
@@ -42,7 +43,7 @@ router.post('/login', loginLimiter, async (req, res) => {
   const token = jwt.sign(
     { sub: user.id, username: user.username },
     process.env.JWT_SECRET as string,
-    { algorithm: 'HS256', expiresIn: '7d' }
+    { algorithm: 'HS256', expiresIn: '90d' }
   );
 
   res.status(200).json({ token });
