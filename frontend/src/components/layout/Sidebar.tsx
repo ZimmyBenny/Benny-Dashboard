@@ -204,16 +204,27 @@ export function Sidebar() {
 
   // Echten letzten Backup-Stand vom Server holen (egal ob per Button, Skript oder API
   // ausgeloest) — der Indikator soll immer den tatsaechlichen Stand zeigen.
+  // Nicht nur beim Mount: auch bei Fenster-Fokus und alle 10 Minuten, damit die
+  // Anzeige bei lange offener App nicht veraltet (z. B. Backup per Skript/API).
   useEffect(() => {
-    apiClient.get<{ lastBackupAt: string | null }>('/backup/status')
-      .then((r) => {
-        const iso = r.data?.lastBackupAt;
-        if (!iso) return;
-        const serverDate = new Date(iso);
-        setLastBackupAt((prev) => (!prev || serverDate > prev ? serverDate : prev));
-        localStorage.setItem('lastBackupAt', serverDate.toISOString());
-      })
-      .catch(() => { /* offline/Fehler → lokalen Wert behalten */ });
+    function fetchBackupStatus() {
+      apiClient.get<{ lastBackupAt: string | null }>('/backup/status')
+        .then((r) => {
+          const iso = r.data?.lastBackupAt;
+          if (!iso) return;
+          const serverDate = new Date(iso);
+          setLastBackupAt((prev) => (!prev || serverDate > prev ? serverDate : prev));
+          localStorage.setItem('lastBackupAt', serverDate.toISOString());
+        })
+        .catch(() => { /* offline/Fehler → lokalen Wert behalten */ });
+    }
+    fetchBackupStatus();
+    window.addEventListener('focus', fetchBackupStatus);
+    const interval = window.setInterval(fetchBackupStatus, 10 * 60 * 1000);
+    return () => {
+      window.removeEventListener('focus', fetchBackupStatus);
+      window.clearInterval(interval);
+    };
   }, []);
 
   async function handleRestartBackend() {
