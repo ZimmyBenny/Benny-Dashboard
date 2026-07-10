@@ -40,6 +40,23 @@ import {
 
 const router = Router();
 
+/**
+ * Ermittelt ob ein Ordner ein Bereichs-Unterordner von "Verträge & Fristen" ist
+ * (direktes Kind des geschuetzten Top-Ordners) und liefert dann dessen Namen
+ * (=area-String, z. B. "DJ") zurueck, sonst null.
+ */
+function contractAreaOfFolder(folderId: number): string | null {
+  const folder = db
+    .prepare(`SELECT id, parent_id, name FROM doc_folders WHERE id = ?`)
+    .get(folderId) as { id: number; parent_id: number | null; name: string } | undefined;
+  if (!folder || folder.parent_id === null) return null;
+  const parent = db
+    .prepare(`SELECT id, parent_id, name FROM doc_folders WHERE id = ?`)
+    .get(folder.parent_id) as { id: number; parent_id: number | null; name: string } | undefined;
+  if (!parent || parent.parent_id !== null || parent.name !== 'Verträge & Fristen') return null;
+  return folder.name;
+}
+
 interface KvRow {
   value: string;
 }
@@ -346,7 +363,50 @@ router.get('/folders/:id', (req, res) => {
        FROM doc_files WHERE folder_id = ? ORDER BY filename COLLATE NOCASE ASC`,
     )
     .all(id) as DocFileRow[];
-  res.json({ folders, files });
+
+  // Bereichs-Unterordner unter "Verträge & Fristen" (z. B. DJ) blenden verknuepfte
+  // Belege read-only ein — die echte GoBD-Belegdatei bleibt im Belege-Modul,
+  // hier gibt es KEINE doc_files-Zeile und damit keinen DELETE/PATCH-Pfad.
+  const area = contractAreaOfFolder(id);
+  let virtualReceipts: Array<{
+    receipt_id: number;
+    first_file_id: number | null;
+    label: string;
+    amount_gross_cents: number;
+    currency: string;
+    readOnly: true;
+    openUrl: string | null;
+  }> = [];
+  if (area !== null) {
+    const receiptRows = db
+      .prepare(
+        `SELECT r.id, r.title, r.supplier_name, r.receipt_date, r.amount_gross_cents, r.currency,
+                (SELECT rf.id FROM receipt_files rf WHERE rf.receipt_id = r.id ORDER BY rf.id LIMIT 1) AS first_file_id
+         FROM receipts r
+         JOIN contracts_and_deadlines c ON c.id = r.contract_id
+         WHERE c.area = ? AND r.contract_id IS NOT NULL`,
+      )
+      .all(area) as Array<{
+      id: number;
+      title: string | null;
+      supplier_name: string | null;
+      receipt_date: string;
+      amount_gross_cents: number;
+      currency: string;
+      first_file_id: number | null;
+    }>;
+    virtualReceipts = receiptRows.map((r) => ({
+      receipt_id: r.id,
+      first_file_id: r.first_file_id,
+      label: `${r.supplier_name ?? r.title ?? 'Beleg'} — ${r.receipt_date}`,
+      amount_gross_cents: r.amount_gross_cents,
+      currency: r.currency,
+      readOnly: true as const,
+      openUrl: r.first_file_id !== null ? `/api/belege/${r.id}/file/${r.first_file_id}` : null,
+    }));
+  }
+
+  res.json({ folders, files, virtualReceipts });
 });
 
 /** POST /api/dokumente/folders — Ordner anlegen. Body: { parent_id, name }. */
@@ -422,6 +482,10 @@ router.patch('/folders/:id', async (req, res) => {
   }
   if (folder.is_area_root) {
     res.status(403).json({ error: 'Bereichs-Ordner koennen nicht geaendert werden' });
+    return;
+  }
+  if (contractAreaOfFolder(id) !== null) {
+    res.status(403).json({ error: 'Dieser Ordner ist geschuetzt und kann nicht geaendert werden' });
     return;
   }
 
@@ -543,6 +607,10 @@ router.delete('/folders/:id', async (req, res) => {
   }
   if (folder.is_area_root) {
     res.status(403).json({ error: 'Bereichs-Ordner koennen nicht geloescht werden' });
+    return;
+  }
+  if (contractAreaOfFolder(id) !== null) {
+    res.status(403).json({ error: 'Dieser Ordner ist geschuetzt und kann nicht geloescht werden' });
     return;
   }
 
