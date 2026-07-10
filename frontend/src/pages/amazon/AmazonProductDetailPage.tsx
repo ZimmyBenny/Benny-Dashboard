@@ -22,6 +22,7 @@ import { ManufacturersSection } from '../../components/amazon/manufacturers/Manu
 import { ResearchSection } from '../../components/amazon/research/ResearchSection';
 import { ListingSection } from '../../components/amazon/listing/ListingSection';
 import { DesignDruckSection } from '../../components/amazon/productdocs/DesignDruckSection';
+import { PackagingSection } from '../../components/amazon/packaging/PackagingSection';
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -232,6 +233,7 @@ export function AmazonProductDetailPage() {
               if (id === 'research') return <ResearchSection scope={product.id} />;
               if (id === 'listing') return <ListingSection productId={product.id} productName={product.name} />;
               if (id === 'design_druck') return <DesignDruckSection productId={product.id} />;
+              if (id === 'packaging') return <PackagingSection productId={product.id} productName={product.name} />;
               return <ChecklistSection productId={product.id} />;
             },
           }))}
