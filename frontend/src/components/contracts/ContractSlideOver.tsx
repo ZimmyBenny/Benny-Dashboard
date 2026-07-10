@@ -288,7 +288,7 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
     const required = ['title', 'item_type', 'area', 'status'];
     const newErrors = new Set<string>();
     for (const field of required) {
-      if (!form[field as keyof FormData]?.trim()) newErrors.add(field);
+      if (!String(form[field as keyof FormData] ?? '').trim()) newErrors.add(field);
     }
     if (newErrors.size > 0) { setErrors(newErrors); return null; }
 
