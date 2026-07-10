@@ -885,6 +885,7 @@ export interface ProductDocFile {
   file_path: string; original_name: string | null; mime: string | null;
   is_final: number; // 0 = Arbeitsdatei, 1 = Finale Datei
   manufacturer_id: number | null; // NULL = Allgemein; sonst Hersteller-ID (nur bei is_final=1 relevant)
+  sent_to: number[]; // Hersteller-IDs, an die diese Datei schon gesendet wurde
 }
 export interface ProductDocsData {
   files: ProductDocFile[];
@@ -944,6 +945,23 @@ export async function moveProductDoc(
     `/amazon/products/${productId}/docs/${topicId}/files/${fileId}`, body,
   );
   return r.data.file;
+}
+// Benennt eine Datei um (nur Anzeige-/Download-Name; die physische Datei bleibt).
+export async function renameProductDoc(
+  productId: number, topicId: number, fileId: number, name: string,
+): Promise<ProductDocFile> {
+  const r = await apiClient.patch<{ file: ProductDocFile }>(
+    `/amazon/products/${productId}/docs/${topicId}/files/${fileId}`, { original_name: name },
+  );
+  return r.data.file;
+}
+// Setzt/entfernt den „gesendet an"-Marker fuer eine Datei × Hersteller.
+export async function setProductDocSent(
+  productId: number, topicId: number, fileId: number, manufacturerId: number, sent: boolean,
+): Promise<void> {
+  const url = `/amazon/products/${productId}/docs/${topicId}/files/${fileId}/sends/${manufacturerId}`;
+  if (sent) await apiClient.put(url);
+  else await apiClient.delete(url);
 }
 // Verschiebt eine Datei in einen ANDEREN Unterpunkt (Topic) desselben Produkts.
 // Es wird die Quell-Topic-Route getroffen; das Ziel-Topic kommt im Body (topic_id).

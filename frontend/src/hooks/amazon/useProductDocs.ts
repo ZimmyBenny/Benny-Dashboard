@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   fetchProductDocs, uploadProductDoc, deleteProductDoc,
   reorderProductDocs, updateProductDocNotes, moveProductDoc, moveProductDocToTopic,
+  renameProductDoc, setProductDocSent,
 } from '../../api/amazon.api';
 
 export const productDocsKey = (productId: number, topicId: number) =>
@@ -63,6 +64,24 @@ export function useMoveProductDoc(productId: number, topicId: number) {
   return useMutation({
     mutationFn: ({ fileId, isFinal, manufacturerId }: { fileId: number; isFinal: 0 | 1; manufacturerId?: number | null }) =>
       moveProductDoc(productId, topicId, fileId, { is_final: isFinal, manufacturer_id: manufacturerId }),
+    onSettled: inv,
+  });
+}
+// Benennt eine Datei um (nur Anzeige-/Download-Name).
+export function useRenameProductDoc(productId: number, topicId: number) {
+  const inv = useInvalidate(productId, topicId);
+  return useMutation({
+    mutationFn: ({ fileId, name }: { fileId: number; name: string }) =>
+      renameProductDoc(productId, topicId, fileId, name),
+    onSettled: inv,
+  });
+}
+// Setzt/entfernt den „gesendet an"-Marker (Datei × Hersteller).
+export function useSetProductDocSent(productId: number, topicId: number) {
+  const inv = useInvalidate(productId, topicId);
+  return useMutation({
+    mutationFn: ({ fileId, manufacturerId, sent }: { fileId: number; manufacturerId: number; sent: boolean }) =>
+      setProductDocSent(productId, topicId, fileId, manufacturerId, sent),
     onSettled: inv,
   });
 }

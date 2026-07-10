@@ -3,7 +3,7 @@ import { SectionHeader } from '../SectionHeader';
 import { useSectionExpanded } from '../../../hooks/amazon/useSectionExpanded';
 import {
   useProductDocs, useUploadProductDoc, useDeleteProductDoc, useUpdateProductDocNotes,
-  useMoveProductDoc, useMoveProductDocToTopic,
+  useMoveProductDoc, useMoveProductDocToTopic, useRenameProductDoc, useSetProductDocSent,
 } from '../../../hooks/amazon/useProductDocs';
 import { useManufacturers } from '../../../hooks/amazon/useManufacturers';
 import {
@@ -38,6 +38,14 @@ function isImage(mime: string | null): boolean {
   return !!mime && mime.startsWith('image/');
 }
 
+// Kompaktes Hersteller-Kürzel für die „gesendet an"-Chips (z. B. „Zhongshan Pinsheng…" → „ZP").
+function mfrInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '?';
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+
 // Datei-Icon je MIME-Typ (material-symbols).
 function fileIcon(mime: string | null): string {
   if (mime === 'application/pdf') return 'picture_as_pdf';
@@ -62,6 +70,8 @@ export function ProductDocsSection({ productId, topicId, title, accent, icon }: 
     for (const m of mfrData?.manufacturers ?? []) list.push({ id: m.id, name: m.name });
     return list;
   }, [mfrData]);
+  // Reine Hersteller-Liste (ohne „Allgemein") für die „gesendet an"-Checkliste/-Chips.
+  const manufacturers = useMemo(() => buckets.filter((b) => b.id !== 0), [buckets]);
 
   // Aktuell gewaehlter Final-Reiter (Bucket-ID; 0 = Allgemein).
   const [selectedBucket, setSelectedBucket] = useState<number>(0);
@@ -221,6 +231,7 @@ export function ProductDocsSection({ productId, topicId, title, accent, icon }: 
                         topicId={topicId}
                         file={f}
                         accent={accent}
+                        manufacturers={manufacturers}
                         onDelete={() => del.mutate(f.id)}
                         onMove={() => move.mutate({ fileId: f.id, isFinal: 1, manufacturerId: selectedBucket > 0 ? selectedBucket : null })}
                         moveIcon="north_east"
@@ -337,6 +348,7 @@ export function ProductDocsSection({ productId, topicId, title, accent, icon }: 
                         topicId={topicId}
                         file={f}
                         accent={accent}
+                        manufacturers={manufacturers}
                         onDelete={() => del.mutate(f.id)}
                         onMove={() => move.mutate({ fileId: f.id, isFinal: 0 })}
                         moveIcon="south_west"
@@ -361,6 +373,7 @@ export function ProductDocsSection({ productId, topicId, title, accent, icon }: 
                           topicId={topicId}
                           file={f}
                           accent={accent}
+                          manufacturers={manufacturers}
                           readOnly
                         />
                       ))}
@@ -390,14 +403,40 @@ export function ProductDocsSection({ productId, topicId, title, accent, icon }: 
 // readOnly=true (geteilte Allgemein-Datei im Hersteller-Reiter): nur Vorschau + Download,
 // KEIN Verschieben/Loeschen/Drag — verwaltet wird sie ausschliesslich im Allgemein-Reiter.
 function DocTile({
-  productId, topicId, file, accent, onDelete, onMove, moveIcon, moveLabel, readOnly = false,
+  productId, topicId, file, accent, manufacturers, onDelete, onMove, moveIcon, moveLabel, readOnly = false,
 }: {
   productId: number; topicId: number; file: ProductDocFile; accent: string;
+  manufacturers: { id: number; name: string }[];
   onDelete?: () => void; onMove?: () => void; moveIcon?: string; moveLabel?: string;
   readOnly?: boolean;
 }) {
   const [thumb, setThumb] = useState<string | null>(null);
   const image = isImage(file.mime);
+  const rename = useRenameProductDoc(productId, topicId);
+  const setSent = useSetProductDocSent(productId, topicId);
+  const [renaming, setRenaming] = useState(false);
+  const [draft, setDraft] = useState('');
+  // „Gesendet an"-Popover: fixe Position aus dem Button-Rect (entkommt overflow-hidden).
+  const sendBtnRef = useRef<HTMLButtonElement>(null);
+  const [sendPos, setSendPos] = useState<{ top: number; left: number } | null>(null);
+
+  function toggleSendPopover(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (sendPos) { setSendPos(null); return; }
+    const r = sendBtnRef.current?.getBoundingClientRect();
+    if (r) setSendPos({ top: r.bottom + 4, left: Math.max(8, Math.min(r.left, window.innerWidth - 226)) });
+  }
+
+  function startRename(e: React.MouseEvent) {
+    e.stopPropagation();
+    setDraft(file.original_name ?? '');
+    setRenaming(true);
+  }
+  function commitRename() {
+    const next = draft.trim();
+    setRenaming(false);
+    if (next && next !== (file.original_name ?? '')) rename.mutate({ fileId: file.id, name: next });
+  }
 
   useEffect(() => {
     if (!image) return;
@@ -438,9 +477,9 @@ function DocTile({
     <div
       className="group relative rounded-lg overflow-hidden flex flex-col cursor-pointer"
       style={{ background: 'var(--color-surface-container)', border: '1px solid rgba(255,255,255,0.08)' }}
-      onClick={openFile}
+      onClick={renaming ? undefined : openFile}
       title={file.original_name ?? 'Datei'}
-      draggable={!readOnly}
+      draggable={!readOnly && !renaming}
       onDragStart={readOnly ? undefined : (e) => {
         // Interner Verschiebe-Drag — eindeutig markiert, damit er nicht mit
         // einem OS-Datei-Upload-Drop verwechselt wird.
@@ -457,9 +496,46 @@ function DocTile({
           <span className="material-symbols-outlined" style={{ fontSize: '48px', color: accent }}>{fileIcon(file.mime)}</span>
         )}
       </div>
-      <div className="px-2 py-1.5 text-xs truncate" style={{ color: 'var(--color-on-surface)' }}>
-        {file.original_name ?? 'Datei'}
-      </div>
+      {renaming ? (
+        <input
+          autoFocus
+          value={draft}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => setDraft(e.target.value)}
+          onFocus={(e) => e.currentTarget.select()}
+          onBlur={commitRename}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); commitRename(); }
+            else if (e.key === 'Escape') { e.preventDefault(); setRenaming(false); }
+          }}
+          className="px-2 py-1.5 text-xs w-full outline-none"
+          style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: `1px solid ${accent}` }}
+        />
+      ) : (
+        <div className="px-2 py-1.5 text-xs truncate" style={{ color: 'var(--color-on-surface)' }}>
+          {file.original_name ?? 'Datei'}
+        </div>
+      )}
+      {/* „Gesendet an"-Chips: kompakte Hersteller-Kürzel, an die diese Datei schon ging */}
+      {file.sent_to.length > 0 && (
+        <div className="flex flex-wrap gap-1 px-2 pb-1.5 -mt-1">
+          {file.sent_to.map((mid) => {
+            const m = manufacturers.find((x) => x.id === mid);
+            if (!m) return null;
+            return (
+              <span
+                key={mid}
+                title={`Gesendet an ${m.name}`}
+                className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-semibold leading-none"
+                style={{ background: `${accent}22`, color: accent }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '11px' }}>send</span>
+                {mfrInitials(m.name)}
+              </span>
+            );
+          })}
+        </div>
+      )}
       {/* Dezentes Badge „geteilt" für read-only Allgemein-Dateien im Hersteller-Reiter */}
       {readOnly && (
         <span
@@ -484,6 +560,33 @@ function DocTile({
           <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{moveIcon}</span>
         </button>
       )}
+      {/* „Gesendet an" — Hersteller-Checkliste (nicht bei geteilten Allgemein-Dateien) */}
+      {!readOnly && (
+        <button
+          ref={sendBtnRef}
+          type="button"
+          onClick={toggleSendPopover}
+          aria-label="Gesendet an…"
+          title="Gesendet an…"
+          className="absolute top-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-md"
+          style={{ left: '33px', background: 'rgba(0,0,0,0.55)', color: accent, width: '26px', height: '26px' }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>send</span>
+        </button>
+      )}
+      {/* Umbenennen — nur Anzeige-/Download-Name (nicht bei geteilten Allgemein-Dateien) */}
+      {!readOnly && (
+        <button
+          type="button"
+          onClick={startRename}
+          aria-label="Umbenennen"
+          title="Umbenennen"
+          className="absolute top-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-md"
+          style={{ right: '65px', background: 'rgba(0,0,0,0.55)', color: accent, width: '26px', height: '26px' }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>edit</span>
+        </button>
+      )}
       {/* Herunterladen — echter Datei-Download mit Originalnamen (neben Loeschen) */}
       <button
         type="button"
@@ -506,6 +609,44 @@ function DocTile({
         >
           <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>delete</span>
         </button>
+      )}
+      {/* „Gesendet an"-Popover — fixe Position, entkommt dem overflow-hidden der Karte */}
+      {sendPos && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setSendPos(null); }} />
+          <div
+            className="fixed z-50 rounded-lg p-1.5 shadow-xl"
+            style={{ top: sendPos.top, left: sendPos.left, width: 218, background: 'var(--color-surface-container-high)', border: '1px solid rgba(255,255,255,0.12)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--color-on-surface-variant)' }}>
+              Gesendet an
+            </div>
+            {manufacturers.length === 0 ? (
+              <div className="px-2 py-2 text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
+                Noch keine Hersteller angelegt.
+              </div>
+            ) : (
+              manufacturers.map((m) => {
+                const checked = file.sent_to.includes(m.id);
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setSent.mutate({ fileId: file.id, manufacturerId: m.id, sent: !checked }); }}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-xs hover:bg-white/5 transition-colors"
+                    style={{ color: 'var(--color-on-surface)' }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '18px', color: checked ? accent : 'var(--color-on-surface-variant)' }}>
+                      {checked ? 'check_box' : 'check_box_outline_blank'}
+                    </span>
+                    <span className="truncate">{m.name}</span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </>
       )}
     </div>
   );
