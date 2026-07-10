@@ -316,7 +316,7 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
         split_amount: form.split_amount ? parseFloat(form.split_amount) : null,
         is_business: form.is_business ? 1 : 0,
         amount_type: form.amount_type || 'brutto',
-        vat_rate: Number(form.vat_rate) || 19,
+        vat_rate: Number.isFinite(Number(form.vat_rate)) ? Number(form.vat_rate) : 19,
         description: form.description || null,
         notes: form.notes || null,
         cancellation_notice_weeks: Number(form.cancellation_notice_weeks) || 4,
@@ -842,6 +842,7 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
                       >
                         <option value="19">19%</option>
                         <option value="7">7%</option>
+                        <option value="0">0% (steuerfrei, z. B. Versicherung)</option>
                       </select>
                     </div>
                   </div>
@@ -853,6 +854,13 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
                           : Number(form.cost_amount));
                     const vatRate = Number(form.vat_rate) / 100;
                     if (!effectiveAmt || isNaN(effectiveAmt)) return null;
+                    if (vatRate === 0) {
+                      return (
+                        <p style={{ fontSize: '0.78rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', marginTop: '0.5rem' }}>
+                          Keine USt. enthalten (steuerfrei) — Betrag: {effectiveAmt.toFixed(2)} EUR
+                        </p>
+                      );
+                    }
                     if (form.amount_type === 'brutto') {
                       const netto = effectiveAmt / (1 + vatRate);
                       const mwst = effectiveAmt - netto;

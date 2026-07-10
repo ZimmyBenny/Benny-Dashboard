@@ -461,7 +461,8 @@ router.post('/', (req, res) => {
     (body.split_amount as number | null) ?? null,
     body.is_business ? 1 : 0,
     (body.amount_type as string) || 'brutto',
-    Number(body.vat_rate) || 19,
+    // 0 ist ein gueltiger Satz (steuerfrei, z. B. Versicherung) — kein ||-Fallback!
+    Number.isFinite(Number(body.vat_rate)) ? Number(body.vat_rate) : 19,
     Number(body.cancellation_notice_weeks) || 4,
     body.auto_renews !== undefined ? (body.auto_renews ? 1 : 0) : 1,
     (body.last_reviewed_at as string | null) ?? null,
@@ -559,7 +560,7 @@ router.put('/:id', (req, res) => {
     body.split_amount !== undefined ? ((body.split_amount as number | null) ?? null) : (existing.split_amount as number | null),
     body.is_business !== undefined ? (body.is_business ? 1 : 0) : (existing.is_business as number ?? 0),
     body.amount_type !== undefined ? ((body.amount_type as string) || 'brutto') : (existing.amount_type as string ?? 'brutto'),
-    body.vat_rate !== undefined ? (Number(body.vat_rate) || 19) : (existing.vat_rate as number ?? 19),
+    body.vat_rate !== undefined ? (Number.isFinite(Number(body.vat_rate)) ? Number(body.vat_rate) : 19) : (existing.vat_rate as number ?? 19),
     body.cancellation_notice_weeks !== undefined ? (Number(body.cancellation_notice_weeks) || 4) : (existing.cancellation_notice_weeks as number ?? 4),
     body.auto_renews !== undefined ? (body.auto_renews ? 1 : 0) : (existing.auto_renews as number ?? 1),
     body.last_reviewed_at !== undefined ? ((body.last_reviewed_at as string | null) ?? null) : (existing.last_reviewed_at as string | null),
