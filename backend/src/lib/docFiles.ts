@@ -232,6 +232,68 @@ export async function rebuildMirror(): Promise<void> {
 }
 
 /**
+ * Stellt sicher, dass unter dem geschuetzten Top-Ordner "Verträge & Fristen"
+ * ein Bereichs-Unterordner (z. B. "DJ", "Amazon", "Privat", "Sonstiges") existiert,
+ * und gibt dessen id zurueck. Idempotent (mehrfacher Aufruf legt nie doppelt an;
+ * UNIQUE(parent_id,name) schuetzt zusaetzlich).
+ *
+ * area wird 1:1 als sichtbarer Ordnername verwendet (getrimmt), leer/unbekannt
+ * faellt auf 'Sonstiges' zurueck — contracts_and_deadlines.area kann live weitere
+ * Werte enthalten als die vier geseedeten Unterordner.
+ */
+export function getOrCreateContractAreaFolder(area: string): number {
+  const areaName = (area ?? '').trim() || 'Sonstiges';
+
+  let top = db
+    .prepare(`SELECT id FROM doc_folders WHERE parent_id IS NULL AND name = 'Verträge & Fristen'`)
+    .get() as { id: number } | undefined;
+
+  if (!top) {
+    const info = db
+      .prepare(
+        `INSERT INTO doc_folders (parent_id, name, is_area_root, area_slug)
+         VALUES (NULL, 'Verträge & Fristen', 1, 'vertraege-fristen')`,
+      )
+      .run();
+    top = { id: info.lastInsertRowid as number };
+  }
+
+  let sub = db
+    .prepare(`SELECT id FROM doc_folders WHERE parent_id = ? AND name = ?`)
+    .get(top.id, areaName) as { id: number } | undefined;
+
+  if (!sub) {
+    const info = db
+      .prepare(
+        `INSERT INTO doc_folders (parent_id, name, is_area_root, area_slug) VALUES (?, ?, 0, NULL)`,
+      )
+      .run(top.id, areaName);
+    const newId = info.lastInsertRowid as number;
+
+    // App-Speicher-Ordner anlegen (Quelle der Wahrheit)
+    try {
+      fs.mkdirSync(folderFsPath(newId).absolute, { recursive: true });
+    } catch (err) {
+      console.warn('[dokumente:contracts] App-Speicher-Ordner-Anlage fehlgeschlagen:', (err as Error).message);
+    }
+
+    // Spiegel best-effort (synchron, da getOrCreateContractAreaFolder synchron bleibt)
+    const mirrorRoot = getMirrorPath();
+    if (mirrorRoot !== null) {
+      try {
+        fs.mkdirSync(path.join(mirrorRoot, folderMirrorPath(newId).relative), { recursive: true });
+      } catch (err) {
+        console.warn('[dokumente:contracts] Spiegel-Ordner-Anlage fehlgeschlagen:', (err as Error).message);
+      }
+    }
+
+    sub = { id: newId };
+  }
+
+  return sub.id;
+}
+
+/**
  * Verschiebt eine Datei in den Trash (.trash/<timestamp>_<basename>) statt
  * sie hart zu loeschen (Datensicherheits-Regel, soft-delete).
  */
