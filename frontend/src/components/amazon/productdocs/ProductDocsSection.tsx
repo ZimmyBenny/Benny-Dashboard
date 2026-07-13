@@ -4,11 +4,12 @@ import { useSectionExpanded } from '../../../hooks/amazon/useSectionExpanded';
 import {
   useProductDocs, useUploadProductDoc, useDeleteProductDoc, useUpdateProductDocNotes,
   useMoveProductDoc, useMoveProductDocToTopic, useRenameProductDoc, useSetProductDocSent,
+  useCreateProductDocTextVariant, useUpdateProductDocTextVariant, useDeleteProductDocTextVariant,
 } from '../../../hooks/amazon/useProductDocs';
 import { useManufacturers } from '../../../hooks/amazon/useManufacturers';
 import {
   getProductDocObjectUrl, downloadProductDocsFinalZip,
-  type ProductDocFile,
+  type ProductDocFile, type ProductDocTextVariant,
 } from '../../../api/amazon.api';
 
 interface Props {
@@ -164,6 +165,8 @@ export function ProductDocsSection({ productId, topicId, title, accent, icon }: 
     : [];
   // Notiz des aktuellen Reiters (Bucket-Map, "0" = Allgemein).
   const bucketNotes = data?.notes?.[String(selectedBucket)] ?? '';
+  // Text-Varianten — topic-weit, unabhaengig vom gewaehlten Hersteller-Bucket.
+  const textVariants = data?.textVariants ?? [];
 
   return (
     <section className="rounded-xl" style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -380,6 +383,14 @@ export function ProductDocsSection({ productId, topicId, title, accent, icon }: 
                     </div>
                   </div>
                 )}
+
+                {/* Text-Varianten — topic-weit (unabhaengig vom Bucket), zwischen Finale Dateien und Notizen. */}
+                <TextVariantsBlock
+                  productId={productId}
+                  topicId={topicId}
+                  accent={accent}
+                  variants={textVariants}
+                />
 
                 {/* Notiz des aktuell gewaehlten Reiters (folgt dem Bucket). */}
                 <DocNotes
@@ -716,5 +727,175 @@ function DocNotes({ productId, topicId, bucket, bucketName, initialNotes }: {
         Wird automatisch gespeichert.
       </p>
     </section>
+  );
+}
+
+const VARIANT_AUTOSAVE_DELAY_MS = 600;
+const MAX_VARIANT_TEXT = 20000;
+
+// ── Text-Varianten-Bereich (topic-weit, unabhaengig vom Hersteller-Bucket) ──
+// Mehrere Formulierungs-Kandidaten (z. B. Beileger-Kartentexte) nebeneinander speichern,
+// vergleichen, genau einen als Favorit markieren, kopieren, mit Rueckfrage loeschen.
+function TextVariantsBlock({ productId, topicId, accent, variants }: {
+  productId: number; topicId: number; accent: string; variants: ProductDocTextVariant[];
+}) {
+  const create = useCreateProductDocTextVariant(productId, topicId);
+  const update = useUpdateProductDocTextVariant(productId, topicId);
+  const del = useDeleteProductDocTextVariant(productId, topicId);
+
+  return (
+    <section className="flex flex-col gap-2 mt-4">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-on-surface-variant)' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '16px', color: accent }}>edit_note</span>
+          Text-Varianten
+        </span>
+        <button
+          type="button"
+          onClick={() => create.mutate()}
+          disabled={create.isPending}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium disabled:opacity-60"
+          style={{ background: accent, color: '#1a1a1a' }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span>
+          Variante
+        </button>
+      </div>
+
+      {variants.length === 0 ? (
+        <p className="text-sm py-4 text-center" style={{ color: 'var(--color-on-surface-variant)', opacity: 0.7 }}>
+          Noch keine Text-Varianten — mit „+ Variante" die erste anlegen.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {variants.map((v) => (
+            <TextVariantCard
+              key={v.id}
+              variant={v}
+              accent={accent}
+              onSaveText={(text) => update.mutate({ variantId: v.id, patch: { text } })}
+              onToggleFavorite={(next) => update.mutate({ variantId: v.id, patch: { is_favorite: next ? 1 : 0 } })}
+              onDelete={() => del.mutate(v.id)}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ── Einzelne Text-Varianten-Karte — eigener Debounce-State pro Karte (Muster von DocNotes) ──
+function TextVariantCard({ variant, accent, onSaveText, onToggleFavorite, onDelete }: {
+  variant: ProductDocTextVariant; accent: string;
+  onSaveText: (text: string) => void;
+  onToggleFavorite: (next: boolean) => void;
+  onDelete: () => void;
+}) {
+  const [value, setValue] = useState(variant.text);
+  const lastSavedRef = useRef(variant.text);
+  const timerRef = useRef<number | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    setValue(variant.text);
+    lastSavedRef.current = variant.text;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [variant.id]);
+
+  function persist(next: string) {
+    if (next === lastSavedRef.current) return;
+    lastSavedRef.current = next;
+    onSaveText(next);
+  }
+
+  function onChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const next = e.target.value;
+    setValue(next);
+    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    timerRef.current = window.setTimeout(() => { timerRef.current = null; persist(next); }, VARIANT_AUTOSAVE_DELAY_MS);
+  }
+
+  function onBlur() {
+    if (timerRef.current !== null) { window.clearTimeout(timerRef.current); timerRef.current = null; }
+    persist(value);
+  }
+
+  useEffect(() => () => { if (timerRef.current !== null) window.clearTimeout(timerRef.current); }, []);
+
+  async function copyText() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch { /* Zwischenablage nicht verfuegbar */ }
+  }
+
+  function handleDelete() {
+    if (window.confirm('Diese Text-Variante wirklich löschen?')) onDelete();
+  }
+
+  const isFav = variant.is_favorite === 1;
+
+  return (
+    <div
+      className="rounded-lg p-3"
+      style={{
+        background: 'var(--color-surface-container)',
+        border: isFav ? `2px solid ${accent}` : '1px solid rgba(255,255,255,0.08)',
+      }}
+    >
+      <div className="flex items-center justify-end gap-1 mb-2">
+        <button
+          type="button"
+          onClick={() => onToggleFavorite(!isFav)}
+          aria-label={isFav ? 'Favorit entfernen' : 'Als Favorit markieren'}
+          title={isFav ? 'Favorit entfernen' : 'Als Favorit markieren'}
+          className="flex items-center justify-center rounded-md"
+          style={{ width: '28px', height: '28px', color: isFav ? accent : 'var(--color-on-surface-variant)' }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>{isFav ? 'star' : 'star_outline'}</span>
+        </button>
+        <button
+          type="button"
+          onClick={copyText}
+          aria-label="Text kopieren"
+          title={copied ? 'Kopiert!' : 'Text kopieren'}
+          className="flex items-center justify-center rounded-md"
+          style={{ width: '28px', height: '28px', color: copied ? accent : 'var(--color-on-surface-variant)' }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>{copied ? 'check' : 'content_copy'}</span>
+        </button>
+        <button
+          type="button"
+          onClick={handleDelete}
+          aria-label="Variante löschen"
+          title="Variante löschen"
+          className="flex items-center justify-center rounded-md"
+          style={{ width: '28px', height: '28px', color: 'var(--color-on-surface-variant)' }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>delete</span>
+        </button>
+      </div>
+      <textarea
+        value={value}
+        onChange={onChange}
+        onBlur={onBlur}
+        maxLength={MAX_VARIANT_TEXT}
+        placeholder="Formulierungs-Kandidat …"
+        spellCheck={false}
+        className="w-full rounded-lg px-3 py-2 text-sm resize-none"
+        style={{
+          minHeight: '120px',
+          background: 'var(--color-surface-container-low)',
+          color: 'var(--color-on-surface)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          fontFamily: 'inherit',
+          lineHeight: '1.5',
+        }}
+      />
+      <p className="text-xs mt-1" style={{ color: 'var(--color-on-surface-variant)', opacity: 0.7 }}>
+        Wird automatisch gespeichert.
+      </p>
+    </div>
   );
 }
