@@ -19,16 +19,6 @@ const NO_LIST_LABEL = '(Ohne Liste)';
 // Helper-Funktionen
 // ---------------------------------------------------------------------------
 
-function listColor(name: string): { bg: string; fg: string } {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0;
-  const hue = Math.abs(hash) % 360;
-  return {
-    bg: `hsla(${hue}, 60%, 55%, 0.15)`,
-    fg: `hsl(${hue}, 70%, 75%)`,
-  };
-}
-
 function formatDueDate(isoDate: string): string {
   const d = new Date(isoDate);
   if (isNaN(d.getTime())) return isoDate;
@@ -367,7 +357,6 @@ export function RemindersColumn() {
 
               {/* Karten der Gruppe */}
               {expanded && group.items.map((r, idx) => {
-                const badge = r.list_name ? listColor(r.list_name) : null;
                 const isLast = idx === group.items.length - 1;
                 return (
                   <div
@@ -438,25 +427,9 @@ export function RemindersColumn() {
                       </div>
                     )}
 
-                    {/* Zweite Zeile: Listen-Badge + Fälligkeitsdatum */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      {r.list_name && badge && (
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          padding: '1px 7px',
-                          borderRadius: '9999px',
-                          background: badge.bg,
-                          color: badge.fg,
-                          fontFamily: 'var(--font-body)',
-                          fontSize: '0.6875rem',
-                          fontWeight: 600,
-                          letterSpacing: '0.02em',
-                        }}>
-                          {r.list_name}
-                        </span>
-                      )}
-                      {r.due_date && (
+                    {/* Zweite Zeile: Fälligkeitsdatum (Liste steht bereits im Gruppen-Header) */}
+                    {r.due_date && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                         <span style={{
                           display: 'inline-flex',
                           alignItems: 'center',
@@ -470,8 +443,8 @@ export function RemindersColumn() {
                           </span>
                           {formatDueDate(r.due_date)}
                         </span>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
