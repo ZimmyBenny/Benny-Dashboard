@@ -37,6 +37,10 @@ interface DocRow {
 interface TopicRow {
   id: number; product_id: number; name: string; sort_order: number; created_at: number;
 }
+interface TextVariantRow {
+  id: number; topic_id: number; text: string; is_favorite: number; sort_order: number;
+  created_at: number; updated_at: number;
+}
 
 // Bucket-Parsing: 0 (oder leer/ungueltig) → Allgemein (NULL). Sonst positive Hersteller-ID.
 function parseBucketToMfrId(raw: unknown): number | null {
@@ -52,6 +56,7 @@ const router = Router();
 
 const MAX_NOTES = 20000;
 const MAX_TOPIC_NAME = 300;
+const MAX_VARIANT_TEXT = 20000;
 
 function ensureProduct(id: number): boolean {
   return db.prepare(`SELECT 1 FROM amazon_products WHERE id = ?`).get(id) !== undefined;
@@ -173,7 +178,11 @@ router.get('/products/:id/docs/:topicId', (req: Request, res: Response) => {
   ).all(topicId) as { manufacturer_bucket: number; notes: string }[];
   const notes: Record<string, string> = {};
   for (const n of noteRows) notes[String(n.manufacturer_bucket)] = n.notes;
-  res.json({ files: filesOut, notes });
+  // Text-Varianten dieses Topics (Beileger etc.) — topic-weit, unabhaengig vom Bucket.
+  const textVariants = db.prepare(
+    `SELECT * FROM amazon_product_doc_text_variants WHERE topic_id = ? ORDER BY sort_order, id`,
+  ).all(topicId) as TextVariantRow[];
+  res.json({ files: filesOut, notes, textVariants });
 });
 
 // ── POST /products/:id/docs/:topicId ── (multipart „file") beliebiger Dateityp ──
@@ -417,6 +426,91 @@ router.put('/products/:id/docs/:topicId/notes', (req: Request, res: Response) =>
       updated_at = unixepoch()
   `).run(topicId, bucket, notes);
   res.json({ manufacturer_bucket: bucket, notes });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// Text-Varianten je Topic (Beileger-Formulierungs-Kandidaten etc.) — Migr. 119.
+// Topic-weit, unabhaengig vom Hersteller-Bucket. Einzel-CRUD → KEIN createBackup
+// noetig (CLAUDE.md-Regel).
+// ════════════════════════════════════════════════════════════════════════════
+
+// Ownership-Guard: Variante muss existieren UND zum Topic gehoeren.
+function ensureTextVariant(topicId: number, variantId: number): boolean {
+  if (!Number.isInteger(variantId)) return false;
+  return db.prepare(
+    `SELECT 1 FROM amazon_product_doc_text_variants WHERE id = ? AND topic_id = ?`,
+  ).get(variantId, topicId) !== undefined;
+}
+
+// ── POST /products/:id/docs/:topicId/text-variants ── neue leere Variante ans Ende ──
+router.post('/products/:id/docs/:topicId/text-variants', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const topicId = Number(req.params.topicId);
+  if (!ensureTopic(id, topicId)) { res.status(404).json({ error: 'not found' }); return; }
+  const maxOrder = (db.prepare(
+    `SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_product_doc_text_variants WHERE topic_id = ?`,
+  ).get(topicId) as { m: number }).m;
+  const r = db.prepare(
+    `INSERT INTO amazon_product_doc_text_variants (topic_id, text, sort_order) VALUES (?, '', ?)`,
+  ).run(topicId, maxOrder + 1);
+  const variant = db.prepare(`SELECT * FROM amazon_product_doc_text_variants WHERE id = ?`).get(r.lastInsertRowid) as TextVariantRow;
+  res.status(201).json({ variant });
+});
+
+// ── PATCH /products/:id/docs/:topicId/text-variants/:variantId ── ({ text?, is_favorite? }) ──
+// is_favorite: true MUSS exklusiv sein — alle anderen Varianten des Topics werden in
+// derselben Transaktion auf 0 gesetzt.
+router.patch('/products/:id/docs/:topicId/text-variants/:variantId', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const topicId = Number(req.params.topicId);
+  const variantId = Number(req.params.variantId);
+  if (!ensureTopic(id, topicId) || !ensureTextVariant(topicId, variantId)) { res.status(404).json({ error: 'not found' }); return; }
+  const body = (req.body ?? {}) as { text?: unknown; is_favorite?: unknown };
+
+  let text: string | undefined;
+  if (body.text !== undefined) text = String(body.text).slice(0, MAX_VARIANT_TEXT);
+
+  let isFav: 0 | 1 | undefined;
+  if (body.is_favorite !== undefined) {
+    const rawFav = body.is_favorite;
+    if (rawFav !== true && rawFav !== false && rawFav !== 0 && rawFav !== 1) {
+      res.status(400).json({ error: 'is_favorite muss 0 oder 1 sein' });
+      return;
+    }
+    isFav = (rawFav === true || rawFav === 1) ? 1 : 0;
+  }
+
+  db.transaction(() => {
+    if (isFav === 1) {
+      db.prepare(`UPDATE amazon_product_doc_text_variants SET is_favorite = 0 WHERE topic_id = ?`).run(topicId);
+    }
+    if (text !== undefined && isFav !== undefined) {
+      db.prepare(
+        `UPDATE amazon_product_doc_text_variants SET text = ?, is_favorite = ?, updated_at = unixepoch() WHERE id = ?`,
+      ).run(text, isFav, variantId);
+    } else if (text !== undefined) {
+      db.prepare(
+        `UPDATE amazon_product_doc_text_variants SET text = ?, updated_at = unixepoch() WHERE id = ?`,
+      ).run(text, variantId);
+    } else if (isFav !== undefined) {
+      db.prepare(
+        `UPDATE amazon_product_doc_text_variants SET is_favorite = ?, updated_at = unixepoch() WHERE id = ?`,
+      ).run(isFav, variantId);
+    }
+  })();
+
+  const variant = db.prepare(`SELECT * FROM amazon_product_doc_text_variants WHERE id = ?`).get(variantId) as TextVariantRow;
+  res.json({ variant });
+});
+
+// ── DELETE /products/:id/docs/:topicId/text-variants/:variantId ── ──
+router.delete('/products/:id/docs/:topicId/text-variants/:variantId', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const topicId = Number(req.params.topicId);
+  const variantId = Number(req.params.variantId);
+  if (!ensureTopic(id, topicId) || !ensureTextVariant(topicId, variantId)) { res.status(404).json({ error: 'not found' }); return; }
+  db.prepare(`DELETE FROM amazon_product_doc_text_variants WHERE id = ? AND topic_id = ?`).run(variantId, topicId);
+  res.status(204).end();
 });
 
 export default router;
