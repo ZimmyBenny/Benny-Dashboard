@@ -269,6 +269,7 @@ export function KanbanBoard({ filters, onTaskClick, onShowAllDone, refreshKey = 
           paddingBottom: '0.5rem',
           alignItems: 'flex-start',
         }}>
+          <RemindersColumn />
           {COLUMNS.map((col) => (
             <KanbanColumn
               key={col.id}
@@ -284,7 +285,6 @@ export function KanbanBoard({ filters, onTaskClick, onShowAllDone, refreshKey = 
               onDelete={handleDelete}
             />
           ))}
-          <RemindersColumn />
         </div>
 
         <DragOverlay>
