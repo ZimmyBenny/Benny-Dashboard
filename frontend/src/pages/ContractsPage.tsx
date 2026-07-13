@@ -27,6 +27,7 @@ const AREA_COLORS: Record<string, string> = {
   Finanzen: '#60a5fa',
   Privat: '#f472b6',
   Banken: '#38bdf8',
+  Vermietung: '#facc15',
   Sonstiges: 'rgba(255,255,255,0.2)',
 };
 
@@ -207,6 +208,7 @@ const AREA_CHART_COLORS: Record<string, string> = {
   Cashback: '#4ade80',
   Finanzen: '#60a5fa',
   Banken: '#38bdf8',
+  Vermietung: '#facc15',
   Sonstiges: '#6b7280',
 };
 
@@ -679,7 +681,7 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
           onChange={e => setFilterArea(e.target.value)}
         >
           <option value="">Alle Bereiche</option>
-          {['Privat', 'DJ', 'Amazon', 'Cashback', 'Finanzen', 'Banken', 'Sonstiges'].map(a => (
+          {['Privat', 'DJ', 'Amazon', 'Cashback', 'Finanzen', 'Banken', 'Vermietung', 'Sonstiges'].map(a => (
             <option key={a} value={a}>{a}</option>
           ))}
         </select>
@@ -868,7 +870,7 @@ export function ContractsPage({ onEdit }: ContractsPageProps = {}) {
           }
 
           // Andere Tabs: nach Bereich gruppiert
-          const ORDER = ['Privat', 'DJ', 'Amazon', 'Cashback', 'Finanzen', 'Banken', 'Sonstiges'];
+          const ORDER = ['Privat', 'DJ', 'Amazon', 'Cashback', 'Finanzen', 'Banken', 'Vermietung', 'Sonstiges'];
           const grouped = new Map<string, Contract[]>();
           for (const c of contracts) {
             const key = c.area || 'Sonstiges';
