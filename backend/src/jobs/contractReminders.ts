@@ -39,22 +39,38 @@ function addMonthsClamped(start: { y: number; m: number; d: number }, months: nu
   return { y: ny, m: nm, d: nd };
 }
 
+/** Vorlauf: so viele Tage VOR dem Kuendigungs-Stichtag erscheint die Aufgabe. */
+const REMINDER_LEAD_DAYS = 28;
+
 /**
- * Berechnet die naechste zukuenftige Faelligkeit (>= today) fuer ein
- * Zahlungsintervall, ausgehend vom start_date. NICHT naiv start_date+Intervall
- * (bei alten Vertraegen laege das in der Vergangenheit) — sucht das naechste
- * Vorkommen ab dem heutigen Datum.
+ * Berechnet das naechste noch handhabbare Kuendigungs-Fenster fuer ein
+ * Zahlungsintervall, ausgehend vom start_date:
+ *
+ *  - due:      naechster Verlaengerungstermin. Fruehestens EIN Intervall nach
+ *              dem Startdatum — das Startdatum selbst ist kein
+ *              Verlaengerungstermin (ein Vertrag, der erst noch beginnt,
+ *              kann nicht "zum Start" gekuendigt werden).
+ *  - remindAt: letzter Kuendigungs-Stichtag (due minus Kuendigungsfrist).
+ *              Liegt der Stichtag eines Zyklus bereits in der Vergangenheit
+ *              (Frist verpasst), wird auf den naechsten Zyklus gesprungen —
+ *              es entsteht nie eine rueckdatierte Erinnerung.
  */
-function computeNextDue(startDate: string, today: string, interval: string): string | null {
+export function computeNextCancelWindow(
+  startDate: string,
+  today: string,
+  interval: string,
+  noticeWeeks: number,
+): { due: string; remindAt: string } | null {
   const step = INTERVAL_STEP_MONTHS[interval];
   if (!step) return null;
   const start = parseYMD(startDate);
   // Sicherheits-Obergrenze (100 Jahre in Monatsschritten reichen für jedes Intervall).
   const maxIter = Math.ceil((100 * 12) / step);
-  for (let i = 0; i <= maxIter; i++) {
+  for (let i = 1; i <= maxIter; i++) {
     const occ = addMonthsClamped(start, i * step);
-    const candidate = formatYMD(occ.y, occ.m, occ.d);
-    if (candidate >= today) return candidate;
+    const due = formatYMD(occ.y, occ.m, occ.d);
+    const remindAt = addDaysLocal(due, -(noticeWeeks * 7));
+    if (remindAt >= today) return { due, remindAt };
   }
   return null;
 }
@@ -69,9 +85,12 @@ function formatDeadlineDe(isoDate: string): string {
  *
  * 1. Ist am Vertrag ein `reminder_date` gesetzt, gilt dieses als Override —
  *    der Job erinnert daran statt an ein selbst berechnetes Datum.
- * 2. Ohne `reminder_date` wird fuer monatlich/quartalsweise/jaehrlich die
- *    naechste zukuenftige Faelligkeit berechnet und `cancellation_notice_weeks`
- *    Wochen vorher erinnert (statt hartkodierter 56 Tage; Spalten-Default 4).
+ * 2. Ohne `reminder_date` wird fuer monatlich/quartalsweise/jaehrlich das
+ *    naechste handhabbare Kuendigungs-Fenster berechnet (siehe
+ *    computeNextCancelWindow): Stichtag = Verlaengerung minus
+ *    `cancellation_notice_weeks`; verpasste Stichtage springen auf den
+ *    naechsten Zyklus, die Aufgabe erscheint REMINDER_LEAD_DAYS vor dem
+ *    Stichtag mit due_date = Stichtag — nie rueckdatiert.
  * 3. `einmalig` ohne `reminder_date` (oder fehlendes start_date) -> keine Erinnerung.
  *
  * Bestehendes Verhalten fuer jaehrliche Auto-Renew-Vertraege bleibt kompatibel —
@@ -105,12 +124,13 @@ function runContractReminderPass(): void {
       INTERVAL_STEP_MONTHS[row.cost_interval] !== undefined &&
       row.start_date
     ) {
-      const nextDue = computeNextDue(row.start_date, today, row.cost_interval);
-      if (!nextDue) continue;
       const weeks = row.cancellation_notice_weeks ?? 4;
-      effectiveReminder = addDaysLocal(nextDue, -(weeks * 7));
-      if (!(today >= effectiveReminder && nextDue > today)) continue;
-      deadlineForMessage = nextDue;
+      const win = computeNextCancelWindow(row.start_date, today, row.cost_interval, weeks);
+      if (!win) continue;
+      effectiveReminder = win.remindAt;
+      // Aufgabe erscheint mit Vorlauf VOR dem Stichtag (nicht erst am letzten Tag).
+      if (today < addDaysLocal(win.remindAt, -REMINDER_LEAD_DAYS)) continue;
+      deadlineForMessage = win.due;
     } else {
       // einmalig ohne reminder_date, oder start_date fehlt -> keine Erinnerung.
       continue;
