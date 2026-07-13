@@ -887,10 +887,18 @@ export interface ProductDocFile {
   manufacturer_id: number | null; // NULL = Allgemein; sonst Hersteller-ID (nur bei is_final=1 relevant)
   sent_to: number[]; // Hersteller-IDs, an die diese Datei schon gesendet wurde
 }
+// Text-Varianten je Topic (Beileger-Formulierungs-Kandidaten etc.) — Migr. 119.
+// Topic-weit, unabhaengig vom Hersteller-Bucket.
+export interface ProductDocTextVariant {
+  id: number; topic_id: number; text: string; is_favorite: number;
+  sort_order: number; created_at: number; updated_at: number;
+}
+
 export interface ProductDocsData {
   files: ProductDocFile[];
   // Notizen als Bucket-Map: Key = manufacturer_bucket als String ("0" = Allgemein).
   notes: Record<string, string>;
+  textVariants: ProductDocTextVariant[];
 }
 
 // ── Unterpunkte (Topics) von „Design & Druck" ──
@@ -1012,6 +1020,25 @@ export async function updateProductDocNotes(
     `/amazon/products/${productId}/docs/${topicId}/notes`, { manufacturer_bucket: bucket, notes },
   );
   return r.data.notes;
+}
+
+// ── Text-Varianten je Topic (Migr. 119) ───────────────────────────────────────
+export async function createProductDocTextVariant(productId: number, topicId: number): Promise<ProductDocTextVariant> {
+  const r = await apiClient.post<{ variant: ProductDocTextVariant }>(
+    `/amazon/products/${productId}/docs/${topicId}/text-variants`, {},
+  );
+  return r.data.variant;
+}
+export async function updateProductDocTextVariant(
+  productId: number, topicId: number, variantId: number, patch: { text?: string; is_favorite?: 0 | 1 },
+): Promise<ProductDocTextVariant> {
+  const r = await apiClient.patch<{ variant: ProductDocTextVariant }>(
+    `/amazon/products/${productId}/docs/${topicId}/text-variants/${variantId}`, patch,
+  );
+  return r.data.variant;
+}
+export async function deleteProductDocTextVariant(productId: number, topicId: number, variantId: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/docs/${topicId}/text-variants/${variantId}`);
 }
 
 // ════════════════════════════════════════════════════════════════════════════

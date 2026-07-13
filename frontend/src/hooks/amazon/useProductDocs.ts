@@ -3,6 +3,7 @@ import {
   fetchProductDocs, uploadProductDoc, deleteProductDoc,
   reorderProductDocs, updateProductDocNotes, moveProductDoc, moveProductDocToTopic,
   renameProductDoc, setProductDocSent,
+  createProductDocTextVariant, updateProductDocTextVariant, deleteProductDocTextVariant,
 } from '../../api/amazon.api';
 
 export const productDocsKey = (productId: number, topicId: number) =>
@@ -85,6 +86,24 @@ export function useSetProductDocSent(productId: number, topicId: number) {
     onSettled: inv,
   });
 }
+// ── Text-Varianten je Topic (Migr. 119) ───────────────────────────────────────
+export function useCreateProductDocTextVariant(productId: number, topicId: number) {
+  const inv = useInvalidate(productId, topicId);
+  return useMutation({ mutationFn: () => createProductDocTextVariant(productId, topicId), onSettled: inv });
+}
+export function useUpdateProductDocTextVariant(productId: number, topicId: number) {
+  const inv = useInvalidate(productId, topicId);
+  return useMutation({
+    mutationFn: ({ variantId, patch }: { variantId: number; patch: { text?: string; is_favorite?: 0 | 1 } }) =>
+      updateProductDocTextVariant(productId, topicId, variantId, patch),
+    onSettled: inv,
+  });
+}
+export function useDeleteProductDocTextVariant(productId: number, topicId: number) {
+  const inv = useInvalidate(productId, topicId);
+  return useMutation({ mutationFn: (variantId: number) => deleteProductDocTextVariant(productId, topicId, variantId), onSettled: inv });
+}
+
 // Cross-Topic-Move: verschiebt eine Datei aus einem Quell-Topic in einen anderen Ziel-Topic.
 // Invalidiert den produkt-weiten Prefix, damit BEIDE betroffenen Sektionen neu laden.
 export function useMoveProductDocToTopic(productId: number) {
