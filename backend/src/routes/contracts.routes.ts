@@ -14,6 +14,7 @@ import {
   fileMirrorName,
   syncMirror,
   moveToTrash,
+  moveContractDocsToArea,
 } from '../lib/docFiles';
 
 // ── Upload-Speicher ────────────────────────────────────────────────────────────
@@ -481,7 +482,7 @@ router.post('/', (req, res) => {
 // ---------------------------------------------------------------------------
 // PUT /:id — Aktualisieren
 // ---------------------------------------------------------------------------
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   const id = parseInt(req.params.id, 10);
   const existing = db.prepare(`SELECT * FROM contracts_and_deadlines WHERE id = ?`).get(id) as Record<string, unknown> | undefined;
   if (!existing) return res.status(404).json({ error: 'Nicht gefunden' });
@@ -577,6 +578,21 @@ router.put('/:id', (req, res) => {
     db.prepare(
       `INSERT INTO contracts_and_deadlines_activity_log (item_id, event_type, message) VALUES (?, ?, ?)`
     ).run(id, 'status_changed', `Status geändert: ${existing.status} → ${newStatus}`);
+  }
+
+  // Wenn Bereich sich geändert hat → verknüpfte Dokumente in den neuen
+  // Bereichs-Unterordner unter "Verträge & Fristen" umziehen (App-Speicher + Spiegel)
+  const newArea = (body.area as string) || (existing.area as string);
+  if (body.area && body.area !== existing.area) {
+    const movedCount = await moveContractDocsToArea(id, newArea);
+    db.prepare(
+      `INSERT INTO contracts_and_deadlines_activity_log (item_id, event_type, message) VALUES (?, ?, ?)`
+    ).run(
+      id,
+      'area_changed',
+      `Bereich geändert: ${existing.area} → ${newArea}` +
+        (movedCount > 0 ? ` · ${movedCount} Dokument(e) in den Bereichs-Ordner verschoben` : ''),
+    );
   }
 
   const detail = loadDetail(id);

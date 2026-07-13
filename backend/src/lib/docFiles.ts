@@ -294,6 +294,92 @@ export function getOrCreateContractAreaFolder(area: string): number {
 }
 
 /**
+ * Verschiebt die Dokumente eines Vertrags in den Bereichs-Unterordner des
+ * neuen Bereichs (z. B. nach Bereich-Wechsel "Sonstiges" -> "Vermietung").
+ *
+ * Bewegt NUR Dateien, die aktuell in einem Bereichs-Unterordner von
+ * "Verträge & Fristen" liegen — manuell woanders einsortierte Dateien
+ * bleiben unangetastet. Gibt die Anzahl verschobener Dateien zurueck.
+ */
+export async function moveContractDocsToArea(contractId: number, newArea: string): Promise<number> {
+  const targetFolderId = getOrCreateContractAreaFolder(newArea);
+
+  const files = db
+    .prepare(`SELECT id, folder_id, filename FROM doc_files WHERE contract_id = ?`)
+    .all(contractId) as { id: number; folder_id: number; filename: string }[];
+
+  let moved = 0;
+
+  for (const file of files) {
+    if (file.folder_id === targetFolderId) continue;
+
+    // Nur Dateien in Bereichs-Unterordnern von "Verträge & Fristen" umziehen
+    const folder = db
+      .prepare(`SELECT parent_id FROM doc_folders WHERE id = ?`)
+      .get(file.folder_id) as { parent_id: number | null } | undefined;
+    if (!folder || folder.parent_id === null) continue;
+    const parent = db
+      .prepare(`SELECT parent_id, name FROM doc_folders WHERE id = ?`)
+      .get(folder.parent_id) as { parent_id: number | null; name: string } | undefined;
+    if (!parent || parent.parent_id !== null || parent.name !== 'Verträge & Fristen') continue;
+
+    const oldAbsPath = path.join(folderFsPath(file.folder_id).absolute, fileFsName(file.filename));
+    const oldMirrorRel = folderMirrorPath(file.folder_id).relative;
+    const oldMirrorName = fileMirrorName(file.filename);
+
+    // Kollision am Ziel -> Suffix anhaengen (analog documents.routes.ts PATCH /files/:id)
+    let targetFilename = file.filename;
+    const ext = path.extname(targetFilename);
+    const base = path.basename(targetFilename, ext);
+    let suffix = 1;
+    while (
+      db
+        .prepare(`SELECT id FROM doc_files WHERE folder_id = ? AND filename = ? AND id != ?`)
+        .get(targetFolderId, targetFilename, file.id)
+    ) {
+      suffix++;
+      targetFilename = `${base} (${suffix})${ext}`;
+    }
+
+    db.prepare(`UPDATE doc_files SET folder_id = ?, filename = ? WHERE id = ?`).run(
+      targetFolderId,
+      targetFilename,
+      file.id,
+    );
+
+    const newFolderAbs = folderFsPath(targetFolderId).absolute;
+    const newAbsPath = path.join(newFolderAbs, fileFsName(targetFilename));
+    try {
+      await fsp.mkdir(newFolderAbs, { recursive: true });
+      if (fs.existsSync(oldAbsPath) && oldAbsPath !== newAbsPath) {
+        await fsp.rename(oldAbsPath, newAbsPath);
+      }
+    } catch (err) {
+      console.warn('[dokumente:contracts] Bereich-Umzug App-Speicher fehlgeschlagen:', (err as Error).message);
+    }
+
+    await syncMirror(async (mirrorRoot) => {
+      const oldMirrorPath = path.join(mirrorRoot, oldMirrorRel, oldMirrorName);
+      const newMirrorPath = path.join(
+        mirrorRoot,
+        folderMirrorPath(targetFolderId).relative,
+        fileMirrorName(targetFilename),
+      );
+      if (oldMirrorPath !== newMirrorPath) {
+        await fsp.mkdir(path.dirname(newMirrorPath), { recursive: true });
+        if (fs.existsSync(oldMirrorPath)) {
+          await fsp.rename(oldMirrorPath, newMirrorPath);
+        }
+      }
+    });
+
+    moved++;
+  }
+
+  return moved;
+}
+
+/**
  * Verschiebt eine Datei in den Trash (.trash/<timestamp>_<basename>) statt
  * sie hart zu loeschen (Datensicherheits-Regel, soft-delete).
  */
