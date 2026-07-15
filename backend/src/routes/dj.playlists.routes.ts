@@ -18,6 +18,7 @@
  * Einzel-CRUD -> kein createBackup (CLAUDE.md-Regel).
  */
 import { Router } from 'express';
+import { ZipArchive } from 'archiver';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -248,6 +249,78 @@ router.delete('/playlist-djs/:id', async (req, res) => {
 router.get('/playlists', (_req, res) => {
   const rows = db.prepare(`${PLAYLIST_JOIN_SELECT} ORDER BY p.id DESC`).all();
   res.json(rows);
+});
+
+/**
+ * GET /api/dj/playlists/export.zip?category_id=&dj_id= — gefilterte Playlisten
+ * als ZIP. Filter sind optional und kombinierbar; ohne Filter alle Playlisten.
+ * Eintrags-Namen: sprechender Titel + Original-Extension, Kollisions-Suffix.
+ * (Kein Konflikt mit PATCH/DELETE /playlists/:id — andere HTTP-Methoden.)
+ */
+router.get('/playlists/export.zip', (req, res) => {
+  const categoryId = req.query.category_id !== undefined && req.query.category_id !== ''
+    ? parseInt(String(req.query.category_id), 10) : null;
+  const djId = req.query.dj_id !== undefined && req.query.dj_id !== ''
+    ? parseInt(String(req.query.dj_id), 10) : null;
+  if ((categoryId !== null && !Number.isFinite(categoryId)) || (djId !== null && !Number.isFinite(djId))) {
+    res.status(400).json({ error: 'Ungueltiger Filter' });
+    return;
+  }
+
+  const conditions: string[] = [];
+  const params: number[] = [];
+  if (categoryId !== null) { conditions.push('p.category_id = ?'); params.push(categoryId); }
+  if (djId !== null) { conditions.push('p.dj_id = ?'); params.push(djId); }
+  const where = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : '';
+  const rows = db
+    .prepare(`${PLAYLIST_JOIN_SELECT}${where} ORDER BY p.title COLLATE NOCASE ASC`)
+    .all(...params) as {
+      id: number; title: string; category_name: string | null; dj_name: string | null;
+      doc_file_id: number; filename: string;
+    }[];
+  if (rows.length === 0) {
+    res.status(400).json({ error: 'Keine Playlisten für diesen Filter.' });
+    return;
+  }
+
+  // ZIP-Name aus den aktiven Filtern ableiten.
+  const nameParts = ['Playlisten'];
+  if (categoryId !== null && rows[0].category_name) nameParts.push(rows[0].category_name);
+  if (djId !== null && rows[0].dj_name) nameParts.push(rows[0].dj_name);
+  const zipName = `${nameParts.join(' - ').replace(/[/\\:*?"<>|]/g, '_')}.zip`;
+  const asciiZip = zipName.replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '');
+
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="${asciiZip}"; filename*=UTF-8''${encodeURIComponent(zipName)}`);
+
+  const archive = new ZipArchive({ zlib: { level: 9 } });
+  archive.on('error', (err) => {
+    if (!res.headersSent) res.status(500).json({ error: err.message });
+    else { try { res.destroy(); } catch { /* ignore */ } }
+  });
+  archive.pipe(res);
+
+  const usedNames = new Set<string>();
+  for (const row of rows) {
+    const df = db
+      .prepare(`SELECT id, folder_id, filename FROM doc_files WHERE id = ?`)
+      .get(row.doc_file_id) as { id: number; folder_id: number; filename: string } | undefined;
+    if (!df) continue;
+    const abs = path.join(folderFsPath(df.folder_id).absolute, fileFsName(df.filename));
+    if (!fs.existsSync(abs)) continue;
+    const ext = path.extname(df.filename);
+    // Sprechender Eintrags-Name: Playlist-Titel (Original-Schreibweise, minimal bereinigt).
+    let entryName = `${row.title.replace(/[/\\:*?"<>|\x00-\x1f]/g, '_').trim() || 'playlist'}${ext}`;
+    if (usedNames.has(entryName)) {
+      let n = 2;
+      while (usedNames.has(`${path.basename(entryName, ext)} (${n})${ext}`)) n++;
+      entryName = `${path.basename(entryName, ext)} (${n})${ext}`;
+    }
+    usedNames.add(entryName);
+    archive.file(abs, { name: entryName });
+  }
+
+  void archive.finalize();
 });
 
 /**

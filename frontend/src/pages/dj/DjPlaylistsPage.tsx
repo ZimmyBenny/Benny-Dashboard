@@ -16,6 +16,7 @@ import {
   createPlaylistDj,
   updatePlaylistDj,
   deletePlaylistDj,
+  exportPlaylistsZip,
   Playlist,
   PlaylistCategory,
   PlaylistDj,
@@ -124,6 +125,28 @@ export function DjPlaylistsPage() {
   // Drag & Drop aus dem Finder
   const [isDropActive, setIsDropActive] = useState(false);
   const dragCounter = useRef(0);
+
+  // ZIP-Export
+  const [exporting, setExporting] = useState(false);
+
+  async function handleExportZip() {
+    setExporting(true);
+    try {
+      const { blob, filename } = await exportPlaylistsZip(filterCategoryId, filterDjId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      window.alert('Export fehlgeschlagen — gibt es Playlisten für diesen Filter?');
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const queryClient = useQueryClient();
   const { onMouseDown: uploadDragDown, modalStyle: uploadModalStyle, headerStyle: uploadHeaderStyle } = useDraggableModal();
@@ -430,6 +453,15 @@ export function DjPlaylistsPage() {
               </p>
             </div>
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+              <button
+                onClick={handleExportZip}
+                disabled={exporting}
+                title="Exportiert die aktuell gefilterten Playlisten als ZIP"
+                style={{ ...secondaryBtn, opacity: exporting ? 0.6 : 1, cursor: exporting ? 'not-allowed' : 'pointer' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>folder_zip</span>
+                {exporting ? 'Exportiert…' : 'Als ZIP exportieren'}
+              </button>
               <button onClick={() => setShowCategories(true)} style={secondaryBtn}>
                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>label</span>
                 Kategorien &amp; DJs

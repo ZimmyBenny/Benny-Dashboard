@@ -110,3 +110,26 @@ export const updatePlaylistDj = (
 
 export const deletePlaylistDj = (id: number): Promise<{ ok: true }> =>
   apiClient.delete(`/dj/playlist-djs/${id}`).then((r) => r.data);
+
+/**
+ * ZIP-Export der (optional nach Kategorie/DJ gefilterten) Playlisten.
+ * Lädt das ZIP als Blob und liefert Blob + Server-Dateiname (Content-Disposition).
+ */
+export const exportPlaylistsZip = async (
+  categoryId: number | null,
+  djId: number | null,
+): Promise<{ blob: Blob; filename: string }> => {
+  const params: Record<string, string> = {};
+  if (categoryId !== null) params.category_id = String(categoryId);
+  if (djId !== null) params.dj_id = String(djId);
+  const r = await apiClient.get('/dj/playlists/export.zip', { params, responseType: 'blob' });
+  const disposition = (r.headers['content-disposition'] ?? '') as string;
+  const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/);
+  const plainMatch = disposition.match(/filename="([^"]+)"/);
+  const filename = utf8Match
+    ? decodeURIComponent(utf8Match[1])
+    : plainMatch
+      ? plainMatch[1]
+      : 'Playlisten.zip';
+  return { blob: r.data as Blob, filename };
+};
