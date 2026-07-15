@@ -350,6 +350,14 @@ export function DjPlaylistsPage() {
     setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }));
   }
 
+  // Anzahl Playlisten je Kategorie / DJ (fuer Badges in der Verwaltung).
+  const countByCategory = new Map<number, number>();
+  const countByDj = new Map<number, number>();
+  for (const p of playlists) {
+    if (p.category_id !== null) countByCategory.set(p.category_id, (countByCategory.get(p.category_id) ?? 0) + 1);
+    if (p.dj_id !== null) countByDj.set(p.dj_id, (countByDj.get(p.dj_id) ?? 0) + 1);
+  }
+
   const filtered = playlists.filter((p) => {
     if (filterCategoryId !== null && p.category_id !== filterCategoryId) return false;
     if (filterDjId !== null && p.dj_id !== filterDjId) return false;
@@ -1013,8 +1021,15 @@ export function DjPlaylistsPage() {
                       style={{ ...inputStyle, flex: 1 }}
                     />
                   ) : (
-                    <span style={{ flex: 1, fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface)' }}>
+                    <span style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface)' }}>
                       {c.name}
+                      <span style={{
+                        fontSize: '0.7rem', fontWeight: 600,
+                        color: (countByCategory.get(c.id) ?? 0) === 0 ? 'var(--color-error)' : 'var(--color-on-surface-variant)',
+                        background: 'rgba(255,255,255,0.06)', borderRadius: '999px', padding: '0.05rem 0.45rem',
+                      }} title={`${countByCategory.get(c.id) ?? 0} Playlist(en)`}>
+                        {countByCategory.get(c.id) ?? 0}
+                      </span>
                     </span>
                   )}
                   {renameCategoryId === c.id ? (
@@ -1090,8 +1105,15 @@ export function DjPlaylistsPage() {
                       style={{ ...inputStyle, flex: 1 }}
                     />
                   ) : (
-                    <span style={{ flex: 1, fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface)' }}>
+                    <span style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface)' }}>
                       {dj.name}
+                      <span style={{
+                        fontSize: '0.7rem', fontWeight: 600,
+                        color: (countByDj.get(dj.id) ?? 0) === 0 ? 'var(--color-error)' : 'var(--color-on-surface-variant)',
+                        background: 'rgba(255,255,255,0.06)', borderRadius: '999px', padding: '0.05rem 0.45rem',
+                      }} title={`${countByDj.get(dj.id) ?? 0} Playlist(en)`}>
+                        {countByDj.get(dj.id) ?? 0}
+                      </span>
                     </span>
                   )}
                   {renameDjId === dj.id ? (
