@@ -12,13 +12,17 @@ import {
   createPlaylistCategory,
   updatePlaylistCategory,
   deletePlaylistCategory,
-  playlistFileType,
+  fetchPlaylistDjs,
+  createPlaylistDj,
+  updatePlaylistDj,
+  deletePlaylistDj,
   Playlist,
   PlaylistCategory,
+  PlaylistDj,
 } from '../../api/dj.playlists.api';
 import { formatDateTime } from '../../lib/format';
 
-type SortKey = 'title' | 'category_name' | 'type' | 'created_at';
+type SortKey = 'title' | 'category_name' | 'dj_name' | 'year' | 'created_at';
 type SortDir = 'asc' | 'desc';
 
 const inputStyle: React.CSSProperties = {
@@ -88,6 +92,9 @@ export function DjPlaylistsPage() {
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadCategoryId, setUploadCategoryId] = useState<number | null>(null);
   const [uploadNewCatName, setUploadNewCatName] = useState('');
+  const [uploadDjId, setUploadDjId] = useState<number | null>(null);
+  const [uploadYear, setUploadYear] = useState('');
+  const [uploadNewDjName, setUploadNewDjName] = useState('');
   const [uploadError, setUploadError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -95,12 +102,21 @@ export function DjPlaylistsPage() {
   const [editTarget, setEditTarget] = useState<Playlist | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editCategoryId, setEditCategoryId] = useState<number | null>(null);
+  const [editDjId, setEditDjId] = useState<number | null>(null);
+  const [editYear, setEditYear] = useState('');
 
-  // Kategorien-Dialog
+  // Kategorien- & DJs-Dialog
   const [showCategories, setShowCategories] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [renameCategoryId, setRenameCategoryId] = useState<number | null>(null);
   const [renameCategoryName, setRenameCategoryName] = useState('');
+  const [newDjName, setNewDjName] = useState('');
+  const [renameDjId, setRenameDjId] = useState<number | null>(null);
+  const [renameDjName, setRenameDjName] = useState('');
+
+  // Filter
+  const [filterCategoryId, setFilterCategoryId] = useState<number | null>(null);
+  const [filterDjId, setFilterDjId] = useState<number | null>(null);
 
   // Viewer
   const [viewerPlaylist, setViewerPlaylist] = useState<Playlist | null>(null);
@@ -124,6 +140,11 @@ export function DjPlaylistsPage() {
     queryFn: fetchPlaylistCategories,
   });
 
+  const { data: djs = [] } = useQuery({
+    queryKey: ['dj-playlist-djs'],
+    queryFn: fetchPlaylistDjs,
+  });
+
   function startNextUpload(queue: File[]) {
     if (queue.length === 0) {
       setCurrentFile(null);
@@ -136,6 +157,9 @@ export function DjPlaylistsPage() {
     setUploadTitle(fileNameWithoutExt(next.name));
     setUploadCategoryId(null);
     setUploadNewCatName('');
+    setUploadDjId(null);
+    setUploadYear('');
+    setUploadNewDjName('');
     setUploadError('');
   }
 
@@ -183,7 +207,14 @@ export function DjPlaylistsPage() {
   }
 
   const uploadMutation = useMutation({
-    mutationFn: () => uploadPlaylist(currentFile as File, uploadTitle.trim(), uploadCategoryId),
+    mutationFn: () =>
+      uploadPlaylist(
+        currentFile as File,
+        uploadTitle.trim(),
+        uploadCategoryId,
+        uploadDjId,
+        uploadYear.trim() === '' ? null : Number(uploadYear),
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dj-playlists'] });
       startNextUpload(uploadQueue);
@@ -202,8 +233,17 @@ export function DjPlaylistsPage() {
     },
   });
 
+  const createDjInlineMutation = useMutation({
+    mutationFn: (name: string) => createPlaylistDj(name),
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ['dj-playlist-djs'] });
+      setUploadDjId(created.id);
+      setUploadNewDjName('');
+    },
+  });
+
   const updateMutation = useMutation({
-    mutationFn: (data: { title?: string; category_id?: number | null }) =>
+    mutationFn: (data: { title?: string; category_id?: number | null; dj_id?: number | null; year?: number | null }) =>
       updatePlaylist(editTarget!.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['dj-playlists'] });
@@ -242,21 +282,54 @@ export function DjPlaylistsPage() {
     },
   });
 
+  const createDjMutation = useMutation({
+    mutationFn: (name: string) => createPlaylistDj(name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dj-playlist-djs'] });
+      setNewDjName('');
+    },
+  });
+
+  const renameDjMutation = useMutation({
+    mutationFn: ({ id, name }: { id: number; name: string }) => updatePlaylistDj(id, { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dj-playlist-djs'] });
+      queryClient.invalidateQueries({ queryKey: ['dj-playlists'] });
+      setRenameDjId(null);
+      setRenameDjName('');
+    },
+  });
+
+  const deleteDjMutation = useMutation({
+    mutationFn: (id: number) => deletePlaylistDj(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dj-playlist-djs'] });
+      queryClient.invalidateQueries({ queryKey: ['dj-playlists'] });
+    },
+  });
+
   function toggleSort(key: SortKey) {
     setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }));
   }
 
   const filtered = playlists.filter((p) => {
+    if (filterCategoryId !== null && p.category_id !== filterCategoryId) return false;
+    if (filterDjId !== null && p.dj_id !== filterDjId) return false;
     const q = search.trim().toLowerCase();
     if (!q) return true;
-    return p.title.toLowerCase().includes(q) || (p.category_name ?? '').toLowerCase().includes(q);
+    return (
+      p.title.toLowerCase().includes(q) ||
+      (p.category_name ?? '').toLowerCase().includes(q) ||
+      (p.dj_name ?? '').toLowerCase().includes(q)
+    );
   });
 
   const sorted = [...filtered].sort((a, b) => {
     let cmp = 0;
     if (sort.key === 'title') cmp = a.title.localeCompare(b.title, 'de');
     else if (sort.key === 'category_name') cmp = (a.category_name ?? '').localeCompare(b.category_name ?? '', 'de');
-    else if (sort.key === 'type') cmp = playlistFileType(a.filename).localeCompare(playlistFileType(b.filename), 'de');
+    else if (sort.key === 'dj_name') cmp = (a.dj_name ?? '').localeCompare(b.dj_name ?? '', 'de');
+    else if (sort.key === 'year') cmp = (a.year ?? Number.MAX_SAFE_INTEGER) - (b.year ?? Number.MAX_SAFE_INTEGER);
     else if (sort.key === 'created_at') cmp = a.created_at.localeCompare(b.created_at);
     return sort.dir === 'asc' ? cmp : -cmp;
   });
@@ -274,6 +347,8 @@ export function DjPlaylistsPage() {
     setEditTarget(p);
     setEditTitle(p.title);
     setEditCategoryId(p.category_id);
+    setEditDjId(p.dj_id);
+    setEditYear(p.year !== null ? String(p.year) : '');
   }
 
   function handleDelete(p: Playlist) {
@@ -288,6 +363,13 @@ export function DjPlaylistsPage() {
       `Kategorie löschen? Zugeordnete Playlists bleiben erhalten und werden „Ohne Kategorie".`,
     );
     if (ok) deleteCategoryMutation.mutate(c.id);
+  }
+
+  function handleDeleteDj(dj: PlaylistDj) {
+    const ok = window.confirm(
+      `DJ löschen? Zugeordnete Playlists bleiben erhalten und werden „Ohne DJ"; die Dateien ziehen zurück nach Playlisten/.`,
+    );
+    if (ok) deleteDjMutation.mutate(dj.id);
   }
 
   return (
@@ -350,7 +432,7 @@ export function DjPlaylistsPage() {
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
               <button onClick={() => setShowCategories(true)} style={secondaryBtn}>
                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>label</span>
-                Kategorien
+                Kategorien &amp; DJs
               </button>
               <button onClick={() => fileInputRef.current?.click()} style={gradientBtn}>
                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>upload</span>
@@ -370,15 +452,41 @@ export function DjPlaylistsPage() {
             </div>
           </div>
 
-          {/* Suche */}
-          <div style={{ marginBottom: '1.5rem', maxWidth: '360px' }}>
-            <input
-              type="text"
-              placeholder="Suche nach Name oder Kategorie…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={inputStyle}
-            />
+          {/* Suche + Filter */}
+          <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <div style={{ maxWidth: '360px', flex: '1 1 260px' }}>
+              <input
+                type="text"
+                placeholder="Suche nach Name, Kategorie oder DJ…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+            <div style={{ maxWidth: '220px', flex: '1 1 180px' }}>
+              <select
+                value={filterCategoryId ?? ''}
+                onChange={(e) => setFilterCategoryId(e.target.value === '' ? null : Number(e.target.value))}
+                style={inputStyle}
+              >
+                <option value="">Alle Kategorien</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ maxWidth: '220px', flex: '1 1 180px' }}>
+              <select
+                value={filterDjId ?? ''}
+                onChange={(e) => setFilterDjId(e.target.value === '' ? null : Number(e.target.value))}
+                style={inputStyle}
+              >
+                <option value="">Alle DJs</option>
+                {djs.map((dj) => (
+                  <option key={dj.id} value={dj.id}>{dj.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Tabelle */}
@@ -402,7 +510,8 @@ export function DjPlaylistsPage() {
                     {([
                       ['title', 'Name'],
                       ['category_name', 'Kategorie'],
-                      ['type', 'Typ'],
+                      ['dj_name', 'DJ'],
+                      ['year', 'Jahr'],
                       ['created_at', 'Hochgeladen'],
                     ] as [SortKey, string][]).map(([key, label]) => (
                       <th
@@ -442,8 +551,17 @@ export function DjPlaylistsPage() {
                           }}>{p.category_name}</span>
                         ) : <span style={{ color: 'var(--color-on-surface-variant)', opacity: 0.6, fontStyle: 'italic' }}>Ohne Kategorie</span>}
                       </td>
+                      <td style={{ padding: '0.75rem 0.5rem' }}>
+                        {p.dj_name ? (
+                          <span style={{
+                            background: 'rgba(94,234,212,0.15)', color: 'var(--color-secondary)',
+                            borderRadius: '0.375rem', padding: '0.125rem 0.5rem',
+                            fontSize: '0.7rem', fontWeight: 600, whiteSpace: 'nowrap',
+                          }}>{p.dj_name}</span>
+                        ) : <span style={{ color: 'var(--color-on-surface-variant)', opacity: 0.6, fontStyle: 'italic' }}>Ohne DJ</span>}
+                      </td>
                       <td style={{ padding: '0.75rem 0.5rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)' }}>
-                        {playlistFileType(p.filename)}
+                        {p.year ?? '—'}
                       </td>
                       <td style={{ padding: '0.75rem 0.5rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)', whiteSpace: 'nowrap' }}>
                         {formatDateTime(p.created_at)}
@@ -569,6 +687,52 @@ export function DjPlaylistsPage() {
                 </button>
               </div>
 
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)', fontWeight: 500 }}>DJ</span>
+                <select
+                  value={uploadDjId ?? ''}
+                  onChange={(e) => setUploadDjId(e.target.value === '' ? null : Number(e.target.value))}
+                  style={inputStyle}
+                >
+                  <option value="">Ohne DJ</option>
+                  {djs.map((dj) => (
+                    <option key={dj.id} value={dj.id}>{dj.name}</option>
+                  ))}
+                </select>
+              </label>
+
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input
+                  type="text"
+                  placeholder="Neuen DJ anlegen…"
+                  value={uploadNewDjName}
+                  onChange={(e) => setUploadNewDjName(e.target.value)}
+                  style={inputStyle}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const name = uploadNewDjName.trim();
+                    if (name) createDjInlineMutation.mutate(name);
+                  }}
+                  disabled={!uploadNewDjName.trim() || createDjInlineMutation.isPending}
+                  style={{ ...secondaryBtn, whiteSpace: 'nowrap' }}
+                >
+                  Anlegen
+                </button>
+              </div>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)', fontWeight: 500 }}>Jahr</span>
+                <input
+                  type="number"
+                  placeholder="z. B. 2026"
+                  value={uploadYear}
+                  onChange={(e) => setUploadYear(e.target.value)}
+                  style={inputStyle}
+                />
+              </label>
+
               {uploadError && <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--color-error)', margin: 0 }}>{uploadError}</p>}
 
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', paddingTop: '0.25rem' }}>
@@ -649,6 +813,29 @@ export function DjPlaylistsPage() {
                   ))}
                 </select>
               </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)', fontWeight: 500 }}>DJ</span>
+                <select
+                  value={editDjId ?? ''}
+                  onChange={(e) => setEditDjId(e.target.value === '' ? null : Number(e.target.value))}
+                  style={inputStyle}
+                >
+                  <option value="">Ohne DJ</option>
+                  {djs.map((dj) => (
+                    <option key={dj.id} value={dj.id}>{dj.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)', fontWeight: 500 }}>Jahr</span>
+                <input
+                  type="number"
+                  placeholder="z. B. 2026"
+                  value={editYear}
+                  onChange={(e) => setEditYear(e.target.value)}
+                  style={inputStyle}
+                />
+              </label>
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', paddingTop: '0.25rem' }}>
                 <button
                   type="button"
@@ -663,7 +850,14 @@ export function DjPlaylistsPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => updateMutation.mutate({ title: editTitle.trim(), category_id: editCategoryId })}
+                  onClick={() =>
+                    updateMutation.mutate({
+                      title: editTitle.trim(),
+                      category_id: editCategoryId,
+                      dj_id: editDjId,
+                      year: editYear.trim() === '' ? null : Number(editYear),
+                    })
+                  }
                   disabled={!editTitle.trim() || updateMutation.isPending}
                   style={{ ...gradientBtn, opacity: updateMutation.isPending ? 0.7 : 1, cursor: updateMutation.isPending ? 'not-allowed' : 'pointer' }}
                 >
@@ -700,7 +894,7 @@ export function DjPlaylistsPage() {
               }}
             >
               <h2 style={{ fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '1.1rem', color: 'var(--color-on-surface)', margin: 0 }}>
-                Kategorien
+                Kategorien &amp; DJs
               </h2>
               <button
                 onMouseDown={(e) => e.stopPropagation()}
@@ -712,6 +906,9 @@ export function DjPlaylistsPage() {
             </div>
 
             <div style={{ padding: '1.25rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <h3 style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-on-surface-variant)', margin: 0 }}>
+                Kategorien
+              </h3>
               {categories.length === 0 && (
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)', margin: 0 }}>
                   Noch keine Kategorien angelegt.
@@ -780,6 +977,83 @@ export function DjPlaylistsPage() {
                   type="button"
                   onClick={() => newCategoryName.trim() && createCategoryMutation.mutate(newCategoryName.trim())}
                   disabled={!newCategoryName.trim() || createCategoryMutation.isPending}
+                  style={{ ...secondaryBtn, whiteSpace: 'nowrap' }}
+                >
+                  Anlegen
+                </button>
+              </div>
+
+              <h3 style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-on-surface-variant)', margin: '0.5rem 0 0', borderTop: '1px solid rgba(148,170,255,0.12)', paddingTop: '0.75rem' }}>
+                DJs
+              </h3>
+              {djs.length === 0 && (
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)', margin: 0 }}>
+                  Noch keine DJs angelegt.
+                </p>
+              )}
+              {djs.map((dj) => (
+                <div key={dj.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  {renameDjId === dj.id ? (
+                    <input
+                      type="text"
+                      value={renameDjName}
+                      onChange={(e) => setRenameDjName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && renameDjName.trim()) {
+                          renameDjMutation.mutate({ id: dj.id, name: renameDjName.trim() });
+                        }
+                        if (e.key === 'Escape') { setRenameDjId(null); setRenameDjName(''); }
+                      }}
+                      autoFocus
+                      style={{ ...inputStyle, flex: 1 }}
+                    />
+                  ) : (
+                    <span style={{ flex: 1, fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface)' }}>
+                      {dj.name}
+                    </span>
+                  )}
+                  {renameDjId === dj.id ? (
+                    <button
+                      onClick={() => renameDjName.trim() && renameDjMutation.mutate({ id: dj.id, name: renameDjName.trim() })}
+                      title="Speichern"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)', padding: '0.25rem', display: 'flex' }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '17px' }}>check</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => { setRenameDjId(dj.id); setRenameDjName(dj.name); }}
+                      title="Umbenennen"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)', padding: '0.25rem', display: 'flex' }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '17px' }}>edit</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDeleteDj(dj)}
+                    title="Löschen"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-error)', padding: '0.25rem', display: 'flex' }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '17px' }}>delete</span>
+                  </button>
+                </div>
+              ))}
+
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', borderTop: '1px solid rgba(148,170,255,0.12)', paddingTop: '0.75rem' }}>
+                <input
+                  type="text"
+                  placeholder="Neuen DJ…"
+                  value={newDjName}
+                  onChange={(e) => setNewDjName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newDjName.trim()) createDjMutation.mutate(newDjName.trim());
+                  }}
+                  style={inputStyle}
+                />
+                <button
+                  type="button"
+                  onClick={() => newDjName.trim() && createDjMutation.mutate(newDjName.trim())}
+                  disabled={!newDjName.trim() || createDjMutation.isPending}
                   style={{ ...secondaryBtn, whiteSpace: 'nowrap' }}
                 >
                   Anlegen
