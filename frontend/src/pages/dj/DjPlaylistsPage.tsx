@@ -729,6 +729,13 @@ export function DjPlaylistsPage() {
                   placeholder="Neue Kategorie anlegen…"
                   value={uploadNewCatName}
                   onChange={(e) => setUploadNewCatName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const name = uploadNewCatName.trim();
+                      if (name && !createCategoryInlineMutation.isPending) createCategoryInlineMutation.mutate(name);
+                    }
+                  }}
                   style={inputStyle}
                 />
                 <button
@@ -764,6 +771,13 @@ export function DjPlaylistsPage() {
                   placeholder="Neuen DJ anlegen…"
                   value={uploadNewDjName}
                   onChange={(e) => setUploadNewDjName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const name = uploadNewDjName.trim();
+                      if (name && !createDjInlineMutation.isPending) createDjInlineMutation.mutate(name);
+                    }
+                  }}
                   style={inputStyle}
                 />
                 <button
