@@ -16,6 +16,7 @@ import contractsRoutes from './routes/contracts.routes';
 import haushaltRoutes from './routes/haushalt.routes';
 import appSettingsRoutes from './routes/appSettings.routes';
 import djRoutes from './routes/dj.routes';
+import djPlaylistsRoutes from './routes/dj.playlists.routes';
 import remindersRoutes from './routes/reminders.routes';
 import belegeRoutes from './routes/belege.routes';
 import tripsRoutes from './routes/trips.routes';
@@ -73,6 +74,7 @@ export function createApp() {
   app.use('/api/haushalt', haushaltRoutes);
   app.use('/api/app-settings', appSettingsRoutes);
   app.use('/api/dj', djRoutes);
+  app.use('/api/dj', djPlaylistsRoutes);
   app.use('/api/reminders', remindersRoutes);
   app.use('/api/belege', belegeRoutes);
   app.use('/api/dokumente', documentsRoutes);

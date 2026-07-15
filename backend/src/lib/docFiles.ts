@@ -294,6 +294,57 @@ export function getOrCreateContractAreaFolder(area: string): number {
 }
 
 /**
+ * Stellt sicher, dass unter dem DJ-Bereichs-Wurzelordner (is_area_root=1,
+ * area_slug='dj', angelegt in Migration 096) ein Unterordner "Playlisten"
+ * existiert, und gibt dessen id zurueck. Modelliert nach
+ * getOrCreateContractAreaFolder — idempotent, App-Speicher zuerst, Spiegel
+ * best-effort.
+ */
+export function getOrCreatePlaylistFolder(): number {
+  const djRoot = db
+    .prepare(`SELECT id FROM doc_folders WHERE is_area_root = 1 AND area_slug = 'dj'`)
+    .get() as { id: number } | undefined;
+
+  if (!djRoot) {
+    throw new Error('DJ-Bereichs-Wurzelordner nicht gefunden (erwartet aus Migration 096)');
+  }
+
+  let sub = db
+    .prepare(`SELECT id FROM doc_folders WHERE parent_id = ? AND name = 'Playlisten'`)
+    .get(djRoot.id) as { id: number } | undefined;
+
+  if (!sub) {
+    const info = db
+      .prepare(
+        `INSERT INTO doc_folders (parent_id, name, is_area_root, area_slug) VALUES (?, 'Playlisten', 0, NULL)`,
+      )
+      .run(djRoot.id);
+    const newId = info.lastInsertRowid as number;
+
+    // App-Speicher-Ordner anlegen (Quelle der Wahrheit)
+    try {
+      fs.mkdirSync(folderFsPath(newId).absolute, { recursive: true });
+    } catch (err) {
+      console.warn('[dokumente:playlists] App-Speicher-Ordner-Anlage fehlgeschlagen:', (err as Error).message);
+    }
+
+    // Spiegel best-effort (synchron, wie getOrCreateContractAreaFolder)
+    const mirrorRoot = getMirrorPath();
+    if (mirrorRoot !== null) {
+      try {
+        fs.mkdirSync(path.join(mirrorRoot, folderMirrorPath(newId).relative), { recursive: true });
+      } catch (err) {
+        console.warn('[dokumente:playlists] Spiegel-Ordner-Anlage fehlgeschlagen:', (err as Error).message);
+      }
+    }
+
+    sub = { id: newId };
+  }
+
+  return sub.id;
+}
+
+/**
  * Verschiebt die Dokumente eines Vertrags in den Bereichs-Unterordner des
  * neuen Bereichs (z. B. nach Bereich-Wechsel "Sonstiges" -> "Vermietung").
  *
