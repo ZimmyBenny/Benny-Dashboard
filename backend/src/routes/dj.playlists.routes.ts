@@ -8,7 +8,7 @@
  * Siehe docs/superpowers/specs/2026-07-13-dj-playlisten-design.md
  *
  * Sicherheit (Threat T-dk0-01/02/03, siehe PLAN.md threat_model):
- *  - Upload-Allowlist (.xlsx/.xls/.pdf/.html/.htm) via path.extname.toLowerCase + multer
+ *  - Upload-Allowlist (.xlsx/.xls/.csv/.pdf/.html/.htm) via path.extname.toLowerCase + multer
  *    hard-limit 100 MB.
  *  - Dateisystem-Pfade werden AUSSCHLIESSLICH aus dem DB-Baum abgeleitet
  *    (folderFsPath + fileFsName) — nie aus User-Input direkt uebernommen.
@@ -54,7 +54,7 @@ const PLAYLIST_JOIN_SELECT = `
 `;
 
 /** Erlaubte Extensions fuer Playlist-Uploads (Threat T-dk0-01). */
-const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.pdf', '.html', '.htm'];
+const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.csv', '.pdf', '.html', '.htm'];
 
 const TMP_DIR = path.join(os.tmpdir(), 'benny-dj-playlists-tmp');
 const upload = multer({

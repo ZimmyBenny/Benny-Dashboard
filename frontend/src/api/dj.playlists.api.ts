@@ -30,12 +30,13 @@ export interface PlaylistCategory {
   created_at: string;
 }
 
-export type PlaylistFileType = 'Excel' | 'PDF' | 'HTML' | 'Datei';
+export type PlaylistFileType = 'Excel' | 'CSV' | 'PDF' | 'HTML' | 'Datei';
 
 /** Leitet den Anzeige-Dateityp aus der Extension ab. */
 export function playlistFileType(filename: string): PlaylistFileType {
   const ext = filename.toLowerCase().slice(filename.lastIndexOf('.'));
   if (ext === '.xlsx' || ext === '.xls') return 'Excel';
+  if (ext === '.csv') return 'CSV';
   if (ext === '.pdf') return 'PDF';
   if (ext === '.html' || ext === '.htm') return 'HTML';
   return 'Datei';

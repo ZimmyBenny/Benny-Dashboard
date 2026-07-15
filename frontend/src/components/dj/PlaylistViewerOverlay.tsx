@@ -51,7 +51,7 @@ export function PlaylistViewerOverlay({ playlist, onClose }: PlaylistViewerOverl
         if (type === 'HTML') {
           const text = await (await fetch(url)).text();
           if (!cancelled) setHtmlContent(text);
-        } else if (type === 'Excel') {
+        } else if (type === 'Excel' || type === 'CSV') {
           const buffer = await (await fetch(url)).arrayBuffer();
           const wb = XLSX.read(buffer, { type: 'array' });
           const sheet = wb.Sheets[wb.SheetNames[0]];
@@ -97,7 +97,7 @@ export function PlaylistViewerOverlay({ playlist, onClose }: PlaylistViewerOverl
         borderBottom: '1px solid rgba(255,255,255,0.1)', flexShrink: 0,
       }}>
         <span className="material-symbols-outlined" style={{ color: 'rgba(255,255,255,0.7)' }}>
-          {type === 'PDF' ? 'picture_as_pdf' : type === 'Excel' ? 'table_chart' : type === 'HTML' ? 'html' : 'description'}
+          {type === 'PDF' ? 'picture_as_pdf' : type === 'Excel' || type === 'CSV' ? 'table_chart' : type === 'HTML' ? 'html' : 'description'}
         </span>
         <span style={{ color: '#fff', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.9375rem', flex: 1 }} title={playlist.title}>
           {playlist.title}
@@ -144,7 +144,7 @@ export function PlaylistViewerOverlay({ playlist, onClose }: PlaylistViewerOverl
           <iframe src={blobUrl} title={playlist.title} style={{ width: '100%', height: '100%', border: 'none', background: '#fff' }} />
         ) : type === 'HTML' && htmlContent !== null ? (
           <iframe sandbox="" srcDoc={htmlContent} title={playlist.title} style={{ width: '100%', height: '100%', border: 'none', background: '#fff' }} />
-        ) : type === 'Excel' ? (
+        ) : type === 'Excel' || type === 'CSV' ? (
           rows && rows.length > 0 ? (
             <div style={{ width: '100%', height: '100%', overflow: 'auto', background: '#fff', borderRadius: '0.5rem' }}>
               <table style={{ borderCollapse: 'collapse', fontSize: '0.8125rem', minWidth: '100%' }}>

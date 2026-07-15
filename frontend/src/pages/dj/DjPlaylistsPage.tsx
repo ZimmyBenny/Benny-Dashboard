@@ -71,7 +71,7 @@ function fileNameWithoutExt(name: string): string {
   return idx > 0 ? name.slice(0, idx) : name;
 }
 
-const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.pdf', '.html', '.htm'];
+const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.csv', '.pdf', '.html', '.htm'];
 
 function isAllowedPlaylistFile(name: string): boolean {
   const lower = name.toLowerCase();
@@ -149,7 +149,7 @@ export function DjPlaylistsPage() {
     const rejected = files.length - allowed.length;
     if (rejected > 0) {
       window.alert(
-        `${rejected} Datei(en) übersprungen — erlaubt sind Excel (.xlsx/.xls), PDF und HTML.`,
+        `${rejected} Datei(en) übersprungen — erlaubt sind Excel (.xlsx/.xls), CSV, PDF und HTML.`,
       );
     }
     if (allowed.length === 0) return;
@@ -320,7 +320,7 @@ export function DjPlaylistsPage() {
               Playlisten hier ablegen
             </p>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)', margin: 0 }}>
-              Excel, PDF oder HTML
+              Excel, CSV, PDF oder HTML
             </p>
           </div>
         )}
@@ -344,7 +344,7 @@ export function DjPlaylistsPage() {
                 Playlisten
               </h1>
               <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.875rem', margin: '0.5rem 0 0' }}>
-                Excel-, PDF- und HTML-Playlisten zentral verwalten und ansehen.
+                Excel-, CSV-, PDF- und HTML-Playlisten zentral verwalten und ansehen.
               </p>
             </div>
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
@@ -360,7 +360,7 @@ export function DjPlaylistsPage() {
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept=".xlsx,.xls,.pdf,.html,.htm"
+                accept=".xlsx,.xls,.csv,.pdf,.html,.htm"
                 style={{ display: 'none' }}
                 onChange={(e) => {
                   handleFilesSelected(e.target.files);
