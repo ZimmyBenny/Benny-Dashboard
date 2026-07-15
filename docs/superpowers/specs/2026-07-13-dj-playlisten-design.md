@@ -98,3 +98,58 @@ Kategorie-Badge + Schließen-X, ESC schließt):
 - Playlist-Inhalte durchsuchen/parsen (Suche geht nur über Name/Kategorie)
 - Verknüpfung Playlist ↔ Event (später denkbar)
 - Rekordbox-Abgleich
+
+---
+
+# Erweiterung 2026-07-15: DJ-Name, Jahr, DJ-Ordnerstruktur (von Benny freigegeben)
+
+## Anforderungen
+
+- **DJ-Name** an der Playlist — auswählbar wie Kategorien (verwaltbare Liste, genau
+  ein DJ pro Playlist, optional). Benny bekommt Playlisten von mehreren DJs.
+- **Jahr** an der Playlist — einfache Jahreszahl beim Hochladen/Bearbeiten
+  (eintippen, optional, z. B. 2026)
+- **Suche/Filter** zusätzlich nach DJ (Suchfeld umfasst Name + Kategorie + DJ;
+  dazu Filter-Dropdowns für Kategorie und DJ)
+- **Typ-Spalte entfernen** (Excel/CSV/PDF — für Benny irrelevant)
+- **Ordnerstruktur in Dokumente: ein Unterordner je DJ** (Entscheidung A):
+  `Dokumente → DJ → Playlisten → <DJ-Name>/`; Playlists ohne DJ liegen direkt in
+  `Playlisten/`. Änderungen ziehen die Datei automatisch um (wie beim
+  Verträge-Bereich-Umzug):
+  - DJ an Playlist geändert/entfernt → Datei zieht in den neuen DJ-Ordner
+    bzw. zurück nach `Playlisten/` (App-Speicher + Spiegel)
+  - DJ umbenannt → sein Ordner wird umbenannt (DB + Dateisystem + Spiegel)
+  - DJ gelöscht → Playlists werden „Ohne DJ" (SET NULL), Dateien ziehen zurück
+    nach `Playlisten/`, leerer DJ-Ordner wird entfernt
+
+## Datenmodell (Migration 121, additiv)
+
+```sql
+CREATE TABLE dj_playlist_djs (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT    NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+ALTER TABLE dj_playlists ADD COLUMN dj_id INTEGER REFERENCES dj_playlist_djs(id) ON DELETE SET NULL;
+ALTER TABLE dj_playlists ADD COLUMN year INTEGER;
+```
+
+## API-Erweiterung
+
+- `GET/POST/PATCH/DELETE /api/dj/playlist-djs` — DJ-CRUD analog Kategorien;
+  PATCH (Umbenennen) benennt den Dokumente-Unterordner mit um; DELETE verschiebt
+  betroffene Dateien zurück nach `Playlisten/` und entfernt den leeren Ordner
+- Playlists-GET liefert zusätzlich `dj_id`, `dj_name`, `year`
+- Playlists-POST akzeptiert `dj_id?`, `year?` — Datei landet im DJ-Unterordner
+- Playlists-PATCH akzeptiert `dj_id?`, `year?` — bei DJ-Wechsel Datei-Umzug
+  (App-Speicher + Spiegel, Kollisions-Suffix; Muster moveContractDocsToArea)
+
+## UI-Erweiterung
+
+- Upload- und Bearbeiten-Dialog: DJ-Dropdown (mit Schnell-Anlegen wie bei
+  Kategorien) + Jahr-Feld (numerisch, optional)
+- Tabelle: Spalte „Typ" raus; neue sortierbare Spalten „DJ" und „Jahr"
+- Kopfzeile: Filter-Dropdowns „Alle Kategorien" / „Alle DJs"; Suchfeld matcht
+  auch DJ-Name; „Kategorien"-Dialog wird zu „Kategorien & DJs" (zwei Abschnitte)
+  oder eigener DJs-Button — Umsetzung darf das bestehende Dialog-Muster wählen
