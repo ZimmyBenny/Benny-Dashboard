@@ -345,6 +345,210 @@ export function getOrCreatePlaylistFolder(): number {
 }
 
 /**
+ * Stellt sicher, dass unter dem Playlisten-Ordner (getOrCreatePlaylistFolder())
+ * ein Unterordner fuer den angegebenen DJ-Namen existiert, und gibt dessen id
+ * zurueck. Modelliert nach getOrCreatePlaylistFolder — idempotent (Lookup
+ * parent_id=playlistRoot AND name=djName), App-Speicher zuerst, Spiegel
+ * best-effort.
+ */
+export function getOrCreatePlaylistDjFolder(djName: string): number {
+  const playlistRootId = getOrCreatePlaylistFolder();
+  const trimmedName = djName.trim();
+
+  let sub = db
+    .prepare(`SELECT id FROM doc_folders WHERE parent_id = ? AND name = ?`)
+    .get(playlistRootId, trimmedName) as { id: number } | undefined;
+
+  if (!sub) {
+    const info = db
+      .prepare(
+        `INSERT INTO doc_folders (parent_id, name, is_area_root, area_slug) VALUES (?, ?, 0, NULL)`,
+      )
+      .run(playlistRootId, trimmedName);
+    const newId = info.lastInsertRowid as number;
+
+    // App-Speicher-Ordner anlegen (Quelle der Wahrheit)
+    try {
+      fs.mkdirSync(folderFsPath(newId).absolute, { recursive: true });
+    } catch (err) {
+      console.warn('[dokumente:playlists] DJ-Ordner-Anlage fehlgeschlagen:', (err as Error).message);
+    }
+
+    // Spiegel best-effort (synchron, wie getOrCreatePlaylistFolder)
+    const mirrorRoot = getMirrorPath();
+    if (mirrorRoot !== null) {
+      try {
+        fs.mkdirSync(path.join(mirrorRoot, folderMirrorPath(newId).relative), { recursive: true });
+      } catch (err) {
+        console.warn('[dokumente:playlists] DJ-Ordner-Spiegel-Anlage fehlgeschlagen:', (err as Error).message);
+      }
+    }
+
+    sub = { id: newId };
+  }
+
+  return sub.id;
+}
+
+/**
+ * Verschiebt eine einzelne doc_files-Zeile in einen anderen Ordner
+ * (App-Speicher + Spiegel), inkl. Kollisions-Suffix am Ziel. No-op wenn die
+ * Datei bereits im Zielordner liegt. Uebernimmt das Muster aus
+ * moveContractDocsToArea.
+ */
+export async function movePlaylistFileToFolder(docFileId: number, targetFolderId: number): Promise<void> {
+  const file = db
+    .prepare(`SELECT id, folder_id, filename FROM doc_files WHERE id = ?`)
+    .get(docFileId) as { id: number; folder_id: number; filename: string } | undefined;
+  if (!file) return;
+  if (file.folder_id === targetFolderId) return;
+
+  const oldAbsPath = path.join(folderFsPath(file.folder_id).absolute, fileFsName(file.filename));
+  const oldMirrorRel = folderMirrorPath(file.folder_id).relative;
+  const oldMirrorName = fileMirrorName(file.filename);
+
+  // Kollision am Ziel -> Suffix anhaengen (analog moveContractDocsToArea)
+  let targetFilename = file.filename;
+  const ext = path.extname(targetFilename);
+  const base = path.basename(targetFilename, ext);
+  let suffix = 1;
+  while (
+    db
+      .prepare(`SELECT id FROM doc_files WHERE folder_id = ? AND filename = ? AND id != ?`)
+      .get(targetFolderId, targetFilename, file.id)
+  ) {
+    suffix++;
+    targetFilename = `${base} (${suffix})${ext}`;
+  }
+
+  db.prepare(`UPDATE doc_files SET folder_id = ?, filename = ? WHERE id = ?`).run(
+    targetFolderId,
+    targetFilename,
+    file.id,
+  );
+
+  const newFolderAbs = folderFsPath(targetFolderId).absolute;
+  const newAbsPath = path.join(newFolderAbs, fileFsName(targetFilename));
+  try {
+    await fsp.mkdir(newFolderAbs, { recursive: true });
+    if (fs.existsSync(oldAbsPath) && oldAbsPath !== newAbsPath) {
+      await fsp.rename(oldAbsPath, newAbsPath);
+    }
+  } catch (err) {
+    console.warn('[dokumente:playlists] Datei-Umzug App-Speicher fehlgeschlagen:', (err as Error).message);
+  }
+
+  await syncMirror(async (mirrorRoot) => {
+    const oldMirrorPath = path.join(mirrorRoot, oldMirrorRel, oldMirrorName);
+    const newMirrorPath = path.join(
+      mirrorRoot,
+      folderMirrorPath(targetFolderId).relative,
+      fileMirrorName(targetFilename),
+    );
+    if (oldMirrorPath !== newMirrorPath) {
+      await fsp.mkdir(path.dirname(newMirrorPath), { recursive: true });
+      if (fs.existsSync(oldMirrorPath)) {
+        await fsp.rename(oldMirrorPath, newMirrorPath);
+      }
+    }
+  });
+}
+
+/**
+ * Benennt den Unterordner eines DJs unter dem Playlisten-Root um (DB +
+ * App-Speicher + Spiegel). No-op wenn kein Ordner existiert (DJ hatte noch
+ * keine Datei) oder oldName === newName. Exakt wie documents.routes.ts
+ * PATCH /folders/:id (Zeilen 528-570).
+ */
+export async function renamePlaylistDjFolder(oldName: string, newName: string): Promise<void> {
+  const trimmedOld = oldName.trim();
+  const trimmedNew = newName.trim();
+  if (trimmedOld === trimmedNew) return;
+
+  const playlistRootId = getOrCreatePlaylistFolder();
+  const folder = db
+    .prepare(`SELECT id FROM doc_folders WHERE parent_id = ? AND name = ?`)
+    .get(playlistRootId, trimmedOld) as { id: number } | undefined;
+  if (!folder) return;
+
+  // Alte Pfade VOR dem DB-Update ermitteln
+  const oldPath = folderFsPath(folder.id);
+  const oldMirrorRel = folderMirrorPath(folder.id).relative;
+
+  db.prepare(`UPDATE doc_folders SET name = ? WHERE id = ?`).run(trimmedNew, folder.id);
+
+  const newPath = folderFsPath(folder.id);
+
+  // App-Speicher zuerst (Quelle der Wahrheit)
+  try {
+    if (oldPath.absolute !== newPath.absolute) {
+      await fsp.mkdir(path.dirname(newPath.absolute), { recursive: true });
+      if (fs.existsSync(oldPath.absolute)) {
+        await fsp.rename(oldPath.absolute, newPath.absolute);
+      } else {
+        await fsp.mkdir(newPath.absolute, { recursive: true });
+      }
+    }
+  } catch (err) {
+    console.warn('[dokumente:playlists] DJ-Ordner-Umbenennen App-Speicher fehlgeschlagen:', (err as Error).message);
+  }
+
+  // Spiegel best-effort (Original-Schreibweise)
+  await syncMirror(async (mirrorRoot) => {
+    const oldMirror = path.join(mirrorRoot, oldMirrorRel);
+    const newMirror = path.join(mirrorRoot, folderMirrorPath(folder.id).relative);
+    if (oldMirror !== newMirror) {
+      await fsp.mkdir(path.dirname(newMirror), { recursive: true });
+      if (fs.existsSync(oldMirror)) {
+        await fsp.rename(oldMirror, newMirror);
+      }
+    }
+  });
+}
+
+/**
+ * Entfernt den (leeren) Unterordner eines DJs unter dem Playlisten-Root,
+ * sobald keine doc_files mehr darauf verweisen. Best-effort, wirft nie.
+ * No-op wenn kein Ordner existiert.
+ */
+export async function removePlaylistDjFolder(djName: string): Promise<void> {
+  try {
+    const playlistRootId = getOrCreatePlaylistFolder();
+    const trimmedName = djName.trim();
+    const folder = db
+      .prepare(`SELECT id FROM doc_folders WHERE parent_id = ? AND name = ?`)
+      .get(playlistRootId, trimmedName) as { id: number } | undefined;
+    if (!folder) return;
+
+    const remaining = db
+      .prepare(`SELECT COUNT(*) AS c FROM doc_files WHERE folder_id = ?`)
+      .get(folder.id) as { c: number };
+    if (remaining.c > 0) return;
+
+    const { absolute } = folderFsPath(folder.id);
+    const mirrorRel = folderMirrorPath(folder.id).relative;
+
+    db.prepare(`DELETE FROM doc_folders WHERE id = ?`).run(folder.id);
+
+    try {
+      await fsp.rm(absolute, { recursive: true, force: true });
+    } catch (err) {
+      console.warn('[dokumente:playlists] DJ-Ordner-Entfernen App-Speicher fehlgeschlagen:', (err as Error).message);
+    }
+
+    await syncMirror(async (mirrorRoot) => {
+      try {
+        await fsp.rm(path.join(mirrorRoot, mirrorRel), { recursive: true, force: true });
+      } catch (err) {
+        console.warn('[dokumente:playlists] DJ-Ordner-Entfernen Spiegel fehlgeschlagen:', (err as Error).message);
+      }
+    });
+  } catch (err) {
+    console.warn('[dokumente:playlists] removePlaylistDjFolder fehlgeschlagen:', (err as Error).message);
+  }
+}
+
+/**
  * Verschiebt die Dokumente eines Vertrags in den Bereichs-Unterordner des
  * neuen Bereichs (z. B. nach Bereich-Wechsel "Sonstiges" -> "Vermietung").
  *
