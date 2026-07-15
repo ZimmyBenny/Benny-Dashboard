@@ -41,7 +41,7 @@ export interface PlaylistDj {
   created_at: string;
 }
 
-export type PlaylistFileType = 'Excel' | 'CSV' | 'PDF' | 'HTML' | 'Word' | 'Datei';
+export type PlaylistFileType = 'Excel' | 'CSV' | 'PDF' | 'HTML' | 'Word' | 'Text' | 'Datei';
 
 /** Leitet den Anzeige-Dateityp aus der Extension ab. */
 export function playlistFileType(filename: string): PlaylistFileType {
@@ -51,6 +51,7 @@ export function playlistFileType(filename: string): PlaylistFileType {
   if (ext === '.pdf') return 'PDF';
   if (ext === '.html' || ext === '.htm') return 'HTML';
   if (ext === '.docx') return 'Word';
+  if (ext === '.txt') return 'Text';
   return 'Datei';
 }
 

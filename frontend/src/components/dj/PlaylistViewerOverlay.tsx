@@ -20,6 +20,7 @@ export function PlaylistViewerOverlay({ playlist, onClose }: PlaylistViewerOverl
   const [error, setError] = useState<string | null>(null);
   const [htmlContent, setHtmlContent] = useState<string | null>(null);
   const [docxHtml, setDocxHtml] = useState<string | null>(null);
+  const [textContent, setTextContent] = useState<string | null>(null);
   const [rows, setRows] = useState<any[][] | null>(null);
   const blobUrlRef = useRef<string | null>(null);
 
@@ -39,6 +40,7 @@ export function PlaylistViewerOverlay({ playlist, onClose }: PlaylistViewerOverl
     setError(null);
     setHtmlContent(null);
     setDocxHtml(null);
+    setTextContent(null);
     setRows(null);
 
     (async () => {
@@ -64,6 +66,9 @@ export function PlaylistViewerOverlay({ playlist, onClose }: PlaylistViewerOverl
           const buffer = await (await fetch(url)).arrayBuffer();
           const result = await mammoth.convertToHtml({ arrayBuffer: buffer });
           if (!cancelled) setDocxHtml(result.value);
+        } else if (type === 'Text') {
+          const text = await (await fetch(url)).text();
+          if (!cancelled) setTextContent(text);
         }
         if (!cancelled) setLoading(false);
       } catch {
@@ -104,7 +109,7 @@ export function PlaylistViewerOverlay({ playlist, onClose }: PlaylistViewerOverl
         borderBottom: '1px solid rgba(255,255,255,0.1)', flexShrink: 0,
       }}>
         <span className="material-symbols-outlined" style={{ color: 'rgba(255,255,255,0.7)' }}>
-          {type === 'PDF' ? 'picture_as_pdf' : type === 'Excel' || type === 'CSV' ? 'table_chart' : type === 'HTML' ? 'html' : type === 'Word' ? 'description' : 'draft'}
+          {type === 'PDF' ? 'picture_as_pdf' : type === 'Excel' || type === 'CSV' ? 'table_chart' : type === 'HTML' ? 'html' : type === 'Word' ? 'description' : type === 'Text' ? 'notes' : 'draft'}
         </span>
         <span style={{ color: '#fff', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.9375rem', flex: 1 }} title={playlist.title}>
           {playlist.title}
@@ -186,6 +191,12 @@ export function PlaylistViewerOverlay({ playlist, onClose }: PlaylistViewerOverl
               style={{ maxWidth: '820px', margin: '0 auto', padding: '2.5rem 3rem', color: '#222', fontFamily: 'var(--font-body)', fontSize: '0.9375rem', lineHeight: 1.6 }}
               dangerouslySetInnerHTML={{ __html: docxHtml }}
             />
+          </div>
+        ) : type === 'Text' && textContent !== null ? (
+          <div style={{ width: '100%', height: '100%', overflow: 'auto', background: '#fff', borderRadius: '0.5rem' }}>
+            <pre style={{ margin: 0, padding: '2rem 2.5rem', color: '#222', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: '0.85rem', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+              {textContent}
+            </pre>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', color: '#fff' }}>

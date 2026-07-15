@@ -76,7 +76,7 @@ function fileNameWithoutExt(name: string): string {
   return idx > 0 ? name.slice(0, idx) : name;
 }
 
-const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.csv', '.pdf', '.html', '.htm', '.docx'];
+const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.csv', '.pdf', '.html', '.htm', '.docx', '.txt'];
 
 function isAllowedPlaylistFile(name: string): boolean {
   const lower = name.toLowerCase();
@@ -211,7 +211,7 @@ export function DjPlaylistsPage() {
     const rejected = files.length - allowed.length;
     if (rejected > 0) {
       window.alert(
-        `${rejected} Datei(en) übersprungen — erlaubt sind Excel (.xlsx/.xls), CSV, PDF, HTML und Word (.docx).`,
+        `${rejected} Datei(en) übersprungen — erlaubt sind Excel (.xlsx/.xls), CSV, PDF, HTML, Word (.docx) und Text (.txt).`,
       );
     }
     if (allowed.length === 0) return;
@@ -440,7 +440,7 @@ export function DjPlaylistsPage() {
               Playlisten hier ablegen
             </p>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)', margin: 0 }}>
-              Excel, CSV, PDF, HTML oder Word
+              Excel, CSV, PDF, HTML, Word oder Text
             </p>
           </div>
         )}
@@ -464,7 +464,7 @@ export function DjPlaylistsPage() {
                 Playlisten
               </h1>
               <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.875rem', margin: '0.5rem 0 0' }}>
-                Excel-, CSV-, PDF-, HTML- und Word-Playlisten zentral verwalten und ansehen.
+                Excel-, CSV-, PDF-, HTML-, Word- und Text-Playlisten zentral verwalten und ansehen.
               </p>
             </div>
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
@@ -489,7 +489,7 @@ export function DjPlaylistsPage() {
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept=".xlsx,.xls,.csv,.pdf,.html,.htm,.docx"
+                accept=".xlsx,.xls,.csv,.pdf,.html,.htm,.docx,.txt"
                 style={{ display: 'none' }}
                 onChange={(e) => {
                   handleFilesSelected(e.target.files);
