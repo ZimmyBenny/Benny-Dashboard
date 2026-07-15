@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
+import mammoth from 'mammoth';
 import { fetchDocFileBlobUrl } from '../../api/documents.api';
 import { playlistFileType, Playlist } from '../../api/dj.playlists.api';
 
@@ -18,6 +19,7 @@ export function PlaylistViewerOverlay({ playlist, onClose }: PlaylistViewerOverl
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [htmlContent, setHtmlContent] = useState<string | null>(null);
+  const [docxHtml, setDocxHtml] = useState<string | null>(null);
   const [rows, setRows] = useState<any[][] | null>(null);
   const blobUrlRef = useRef<string | null>(null);
 
@@ -36,6 +38,7 @@ export function PlaylistViewerOverlay({ playlist, onClose }: PlaylistViewerOverl
     setLoading(true);
     setError(null);
     setHtmlContent(null);
+    setDocxHtml(null);
     setRows(null);
 
     (async () => {
@@ -57,6 +60,10 @@ export function PlaylistViewerOverlay({ playlist, onClose }: PlaylistViewerOverl
           const sheet = wb.Sheets[wb.SheetNames[0]];
           const data = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: '' });
           if (!cancelled) setRows(data as any[][]);
+        } else if (type === 'Word') {
+          const buffer = await (await fetch(url)).arrayBuffer();
+          const result = await mammoth.convertToHtml({ arrayBuffer: buffer });
+          if (!cancelled) setDocxHtml(result.value);
         }
         if (!cancelled) setLoading(false);
       } catch {
@@ -97,7 +104,7 @@ export function PlaylistViewerOverlay({ playlist, onClose }: PlaylistViewerOverl
         borderBottom: '1px solid rgba(255,255,255,0.1)', flexShrink: 0,
       }}>
         <span className="material-symbols-outlined" style={{ color: 'rgba(255,255,255,0.7)' }}>
-          {type === 'PDF' ? 'picture_as_pdf' : type === 'Excel' || type === 'CSV' ? 'table_chart' : type === 'HTML' ? 'html' : 'description'}
+          {type === 'PDF' ? 'picture_as_pdf' : type === 'Excel' || type === 'CSV' ? 'table_chart' : type === 'HTML' ? 'html' : type === 'Word' ? 'description' : 'draft'}
         </span>
         <span style={{ color: '#fff', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.9375rem', flex: 1 }} title={playlist.title}>
           {playlist.title}
@@ -173,6 +180,13 @@ export function PlaylistViewerOverlay({ playlist, onClose }: PlaylistViewerOverl
           ) : (
             <p style={{ color: '#fff', fontFamily: 'var(--font-body)' }}>Keine Daten in dieser Tabelle.</p>
           )
+        ) : type === 'Word' && docxHtml !== null ? (
+          <div style={{ width: '100%', height: '100%', overflow: 'auto', background: '#fff', borderRadius: '0.5rem' }}>
+            <div
+              style={{ maxWidth: '820px', margin: '0 auto', padding: '2.5rem 3rem', color: '#222', fontFamily: 'var(--font-body)', fontSize: '0.9375rem', lineHeight: 1.6 }}
+              dangerouslySetInnerHTML={{ __html: docxHtml }}
+            />
+          </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', color: '#fff' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '48px' }}>draft</span>

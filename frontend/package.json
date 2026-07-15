@@ -32,6 +32,7 @@
     "exceljs": "^4.4.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
+    "mammoth": "^1.12.0",
     "material-symbols": "^0.44.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

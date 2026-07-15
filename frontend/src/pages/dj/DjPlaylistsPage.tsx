@@ -76,7 +76,7 @@ function fileNameWithoutExt(name: string): string {
   return idx > 0 ? name.slice(0, idx) : name;
 }
 
-const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.csv', '.pdf', '.html', '.htm'];
+const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.csv', '.pdf', '.html', '.htm', '.docx'];
 
 function isAllowedPlaylistFile(name: string): boolean {
   const lower = name.toLowerCase();
@@ -128,6 +128,21 @@ export function DjPlaylistsPage() {
 
   // ZIP-Export
   const [exporting, setExporting] = useState(false);
+
+  function submitUpload() {
+    if (!uploadTitle.trim() || uploadMutation.isPending) return;
+    uploadMutation.mutate();
+  }
+
+  function submitEdit() {
+    if (!editTitle.trim() || updateMutation.isPending) return;
+    updateMutation.mutate({
+      title: editTitle.trim(),
+      category_id: editCategoryId,
+      dj_id: editDjId,
+      year: editYear.trim() === '' ? null : Number(editYear),
+    });
+  }
 
   async function handleExportZip() {
     setExporting(true);
@@ -196,7 +211,7 @@ export function DjPlaylistsPage() {
     const rejected = files.length - allowed.length;
     if (rejected > 0) {
       window.alert(
-        `${rejected} Datei(en) übersprungen — erlaubt sind Excel (.xlsx/.xls), CSV, PDF und HTML.`,
+        `${rejected} Datei(en) übersprungen — erlaubt sind Excel (.xlsx/.xls), CSV, PDF, HTML und Word (.docx).`,
       );
     }
     if (allowed.length === 0) return;
@@ -425,7 +440,7 @@ export function DjPlaylistsPage() {
               Playlisten hier ablegen
             </p>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)', margin: 0 }}>
-              Excel, CSV, PDF oder HTML
+              Excel, CSV, PDF, HTML oder Word
             </p>
           </div>
         )}
@@ -449,7 +464,7 @@ export function DjPlaylistsPage() {
                 Playlisten
               </h1>
               <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.875rem', margin: '0.5rem 0 0' }}>
-                Excel-, CSV-, PDF- und HTML-Playlisten zentral verwalten und ansehen.
+                Excel-, CSV-, PDF-, HTML- und Word-Playlisten zentral verwalten und ansehen.
               </p>
             </div>
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
@@ -474,7 +489,7 @@ export function DjPlaylistsPage() {
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept=".xlsx,.xls,.csv,.pdf,.html,.htm"
+                accept=".xlsx,.xls,.csv,.pdf,.html,.htm,.docx"
                 style={{ display: 'none' }}
                 onChange={(e) => {
                   handleFilesSelected(e.target.files);
@@ -519,6 +534,16 @@ export function DjPlaylistsPage() {
                 ))}
               </select>
             </div>
+            {(search !== '' || filterCategoryId !== null || filterDjId !== null) && (
+              <button
+                onClick={() => { setSearch(''); setFilterCategoryId(null); setFilterDjId(null); }}
+                title="Suche und alle Filter zurücksetzen"
+                style={{ ...secondaryBtn, flex: '0 0 auto' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>filter_alt_off</span>
+                Filter zurücksetzen
+              </button>
+            )}
           </div>
 
           {/* Tabelle */}
@@ -681,7 +706,7 @@ export function DjPlaylistsPage() {
 
               <label style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
                 <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)', fontWeight: 500 }}>Anzeigename</span>
-                <input type="text" value={uploadTitle} onChange={(e) => setUploadTitle(e.target.value)} style={inputStyle} />
+                <input type="text" value={uploadTitle} onChange={(e) => setUploadTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitUpload(); } }} style={inputStyle} />
               </label>
 
               <label style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
@@ -761,6 +786,7 @@ export function DjPlaylistsPage() {
                   placeholder="z. B. 2026"
                   value={uploadYear}
                   onChange={(e) => setUploadYear(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitUpload(); } }}
                   style={inputStyle}
                 />
               </label>
@@ -830,7 +856,7 @@ export function DjPlaylistsPage() {
             <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <label style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
                 <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)', fontWeight: 500 }}>Anzeigename</span>
-                <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} style={inputStyle} />
+                <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitEdit(); } }} style={inputStyle} />
               </label>
               <label style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
                 <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)', fontWeight: 500 }}>Kategorie</span>
@@ -865,6 +891,7 @@ export function DjPlaylistsPage() {
                   placeholder="z. B. 2026"
                   value={editYear}
                   onChange={(e) => setEditYear(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitEdit(); } }}
                   style={inputStyle}
                 />
               </label>
