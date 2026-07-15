@@ -71,6 +71,13 @@ function fileNameWithoutExt(name: string): string {
   return idx > 0 ? name.slice(0, idx) : name;
 }
 
+const ALLOWED_EXTENSIONS = ['.xlsx', '.xls', '.pdf', '.html', '.htm'];
+
+function isAllowedPlaylistFile(name: string): boolean {
+  const lower = name.toLowerCase();
+  return ALLOWED_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
+
 export function DjPlaylistsPage() {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'title', dir: 'asc' });
@@ -97,6 +104,10 @@ export function DjPlaylistsPage() {
 
   // Viewer
   const [viewerPlaylist, setViewerPlaylist] = useState<Playlist | null>(null);
+
+  // Drag & Drop aus dem Finder
+  const [isDropActive, setIsDropActive] = useState(false);
+  const dragCounter = useRef(0);
 
   const queryClient = useQueryClient();
   const { onMouseDown: uploadDragDown, modalStyle: uploadModalStyle, headerStyle: uploadHeaderStyle } = useDraggableModal();
@@ -130,7 +141,45 @@ export function DjPlaylistsPage() {
 
   function handleFilesSelected(files: FileList | null) {
     if (!files || files.length === 0) return;
-    startNextUpload(Array.from(files));
+    enqueueFiles(Array.from(files));
+  }
+
+  function enqueueFiles(files: File[]) {
+    const allowed = files.filter((f) => isAllowedPlaylistFile(f.name));
+    const rejected = files.length - allowed.length;
+    if (rejected > 0) {
+      window.alert(
+        `${rejected} Datei(en) übersprungen — erlaubt sind Excel (.xlsx/.xls), PDF und HTML.`,
+      );
+    }
+    if (allowed.length === 0) return;
+    if (currentFile) {
+      // Dialog ist gerade offen -> hinten an die Warteschlange anhängen
+      setUploadQueue((q) => [...q, ...allowed]);
+    } else {
+      startNextUpload(allowed);
+    }
+  }
+
+  function handleDragEnter(e: React.DragEvent) {
+    e.preventDefault();
+    if (!e.dataTransfer.types.includes('Files')) return;
+    dragCounter.current++;
+    setIsDropActive(true);
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    dragCounter.current = Math.max(0, dragCounter.current - 1);
+    if (dragCounter.current === 0) setIsDropActive(false);
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    dragCounter.current = 0;
+    setIsDropActive(false);
+    const files = Array.from(e.dataTransfer.files ?? []);
+    if (files.length > 0) enqueueFiles(files);
   }
 
   const uploadMutation = useMutation({
@@ -243,7 +292,38 @@ export function DjPlaylistsPage() {
 
   return (
     <PageWrapper>
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2.5rem 2rem', position: 'relative' }}>
+      <div
+        onDragEnter={handleDragEnter}
+        onDragOver={(e) => e.preventDefault()}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        style={{ maxWidth: '1400px', margin: '0 auto', padding: '2.5rem 2rem', position: 'relative', minHeight: '70vh' }}
+      >
+
+        {/* Drop-Overlay beim Ziehen aus dem Finder */}
+        {isDropActive && (
+          <div style={{
+            position: 'absolute', inset: '0.75rem', zIndex: 5,
+            border: '2px dashed var(--color-primary)',
+            borderRadius: '1rem',
+            background: 'rgba(148,170,255,0.08)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            gap: '0.75rem', pointerEvents: 'none',
+          }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '3rem', color: 'var(--color-primary)' }}>
+              cloud_upload
+            </span>
+            <p style={{
+              fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '1.1rem',
+              color: 'var(--color-on-surface)', margin: 0,
+            }}>
+              Playlisten hier ablegen
+            </p>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)', margin: 0 }}>
+              Excel, PDF oder HTML
+            </p>
+          </div>
+        )}
 
         <div style={{
           position: 'absolute', top: '-60px', right: '10%',
