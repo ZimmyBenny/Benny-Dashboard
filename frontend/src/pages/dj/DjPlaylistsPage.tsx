@@ -546,6 +546,15 @@ export function DjPlaylistsPage() {
             )}
           </div>
 
+          {/* Anzahl-Anzeige */}
+          {!isLoading && playlists.length > 0 && (
+            <p style={{ margin: '0 0 0.75rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)' }}>
+              {sorted.length === playlists.length
+                ? `${playlists.length} Playlist${playlists.length === 1 ? '' : 'en'}`
+                : `${sorted.length} von ${playlists.length} Playlisten`}
+            </p>
+          )}
+
           {/* Tabelle */}
           <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', overflowX: 'auto', overflowY: 'hidden' }}>
             {isLoading ? (
