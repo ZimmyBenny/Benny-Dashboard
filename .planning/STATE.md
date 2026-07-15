@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: "quick-260705-q7o: Task 1+2 fertig, wartet auf Live-Check (Task 3)"
-last_updated: "2026-07-05T17:14:27.985Z"
+stopped_at: "Completed quick-260715-lsd: DJ-Playlisten-Erweiterung (DJ-Name, Jahr, DJ-Ordnerstruktur)"
+last_updated: "2026-07-15T13:53:41.000Z"
 progress:
   total_phases: 5
   completed_phases: 5
@@ -187,11 +187,30 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 | 260628-mat | Steuer-Checkliste: Aus Vorlage abgleichen (sync-year) — additiver Jahres-Abgleich, nur Fehlendes ergänzen, Dateien/Notizen/Haken bleiben erhalten | 2026-06-28 | 17a541f | [260628-mat-steuer-checkliste-aus-vorlage-abgleichen](.planning/quick/260628-mat-steuer-checkliste-aus-vorlage-abgleichen/) |
 | 260628-ogt | Tabellen-Vorschau (.xlsx/.xls/.csv) im FilePreviewModal — SpreadsheetPreview mit SheetJS, Reiter-Wechsel, Lade-/Fehlerzustand, isSpreadsheet vor isText | 2026-06-28 | 8c968c5 | [260628-ogt-tabellen-vorschau-xlsx-xls-csv-im-filepr](.planning/quick/260628-ogt-tabellen-vorschau-xlsx-xls-csv-im-filepr/) |
 | 260705-fh0 | Fahrten-Verknüpfung (validated, 5/5): Migration 100 (trips.reference), Referenz auto (RE bevorzugt, AN Fallback) + manuelles Feld, tripSyncService setzt supplier_invoice_number des Fahrt-Belegs (Freigabe-Guard verhindert GoBD-500), „Fahrt erfassen"-Dialog auf Dj-Angebot, DjTripsPage Referenz-Spalte/Feld, Bereich-Löschen DELETE /areas/:id mit Link-Guard (409+count). HINWEIS: Zwischenzeitlich viele weitere 260702–260705-Quick-Tasks (Dokumente-Modul, Belege-Spiegel, Graphit-Look, Fahrten-Bereich) — siehe git log / Memory | 2026-07-05 | 83f8251 | [260705-fh0-fahrten-verknuepfung-fahrt-aus-angebot-a](.planning/quick/260705-fh0-fahrten-verknuepfung-fahrt-aus-angebot-a/) |
+| 260705-q7o | Fahrten bearbeiten/duplizieren + km-Rundreise-Fix (amount = km*2*rate) + Sperr-Awareness (freigegeben_at) + Pflichtfeld-Validierung entfernt (Partial-Save). Validated. | 2026-07-05 | 4b414a7 | [260705-q7o-fahrten-bearbeiten-duplizieren-km-fix-hi](.planning/quick/260705-q7o-fahrten-bearbeiten-duplizieren-km-fix-hi/) |
+| 260705-r1m | Abwesenheitspauschale (Verpflegungsmehraufwand) im Fahrt-Formular: Migration 101 (departure_time/return_time/meal_allowance_cents), Helper computeMealAllowanceCents (Sätze aus dj_settings 'tax', Folgetag-Logik), Schalter+Zeitfelder+Live-Vorschau, Listen-Spalte; VERANSTALTUNG zeigt Zweck statt „Manuelle Fahrt"; Tabellen-Layout-Fix (Aktionen-Spalte). Validated 7/7. | 2026-07-05 | 790badb | [260705-r1m-abwesenheitspauschale-im-fahrt-formular-](.planning/quick/260705-r1m-abwesenheitspauschale-im-fahrt-formular-/) |
+| 260713-twb | Text-Varianten je Design-&-Druck-Topic (Beileger etc.): Migration 119 (amazon_product_doc_text_variants), GET/POST/PATCH/DELETE /text-variants (Favorit exklusiv in Transaktion), UI-Block zwischen Finale Dateien und Notizen (Debounce-Auto-Save, Stern, Kopieren, Löschen mit Rückfrage) | 2026-07-13 | 2ecf2f4 | [260713-twb-text-varianten-f-r-design-druck-topics-b](.planning/quick/260713-twb-text-varianten-f-r-design-druck-topics-b/) |
+| 260715-dk0 | DJ-Playlisten-Modul: Migration 120 (dj_playlist_categories + dj_playlists), fester Ordner Dokumente→DJ→Playlisten (App-Speicher + Spiegel), 8 API-Endpunkte, DjPlaylistsPage (sortierbare Tabelle, Suche, Upload-Dialog je Datei, Kategorien-Verwaltung), Vollbild-Viewer (PDF/HTML sandboxed/Excel via xlsx), Menüeintrag vor Dokumente | 2026-07-15 | 5d6e344 | [260715-dk0-dj-playlisten-modul-laut-spec-docs-super](.planning/quick/260715-dk0-dj-playlisten-modul-laut-spec-docs-super/) |
+| 260715-lsd | DJ-Playlisten-Erweiterung: Migration 121 (dj_playlist_djs + dj_id/year an dj_playlists), docFiles DJ-Unterordner-Helper (anlegen/umziehen/umbenennen/entfernen), playlist-djs CRUD + Datei-Umzug im Router, Frontend DJ-Dropdown+Jahr-Feld+Filter+sortierbare Spalten, „Kategorien & DJs"-Dialog | 2026-07-15 | 5049173 | [260715-lsd-dj-playlisten-erweiterung-dj-name-jahr-d](.planning/quick/260715-lsd-dj-playlisten-erweiterung-dj-name-jahr-d/) |
 
 ---
-*State initialized: 2026-04-07 | Last activity: 2026-07-05 - Completed quick task 260705-fh0: Fahrten-Verknüpfung (Referenz + Bereich-Löschen)*
+*State initialized: 2026-04-07 | Last activity: 2026-07-05 - Completed quick task 260705-r1m: Abwesenheitspauschale im Fahrt-Formular (Verpflegungsmehraufwand)*
 | 2026-04-10 | fast | TaskCard onClick → SlideOver fix (PointerSensor distance constraint) | ✅ |
 | 2026-04-10 | fast | TaskSlideOver Backdrop-Klick schließt Panel nicht mehr | ✅ |
 | 2026-04-10 | 260410-v3q | Status-Notiz beim Drag (DragPrompt + DB-Migration + KanbanBoard-Pause) | ✅ |
 | 2026-04-11 | 260410-wn7 | Kalender-Modul V1 — Apple Calendar Sync (JXA/AppleScript, bidirektional, Sync-Log, Kalender-Erkennung) | ✅ |
 | 2026-04-11 | fast | DashboardPage: Offene Aufgaben-Zahl immer anzeigen — auch wenn 0 | ✅ |
+| 2026-07-13 | fast | Verträge: Bereich 'Vermietung' im Kategorie-Dropdown (Migr. 118) | ✅ |
+| 2026-07-13 | fast | Verträge: Dokumente-Umzug bei Bereich-Wechsel (z.B. → Vermietung) | ✅ |
+| 2026-07-13 | fast | Aufgaben-Board: Erinnerungen-Spalte nach vorne (vor OFFEN) | ✅ |
+| 2026-07-13 | fast | Verträge-Reminder: keine rückdatierten Aufgaben, Zyklus-Sprung + 4 Wochen Vorlauf | ✅ |
+| 2026-07-13 | fast | Erinnerungen: redundantes Listen-Badge auf Karten entfernt | ✅ |
+| 2026-07-15 | fast | DJ-Playlisten: Drag & Drop Upload aus dem Finder | ✅ |
+| 2026-07-15 | fast | DJ-Playlisten: CSV-Format ergänzt (Upload/Drop/Viewer) | ✅ |
+| 2026-07-15 | quick | DJ-Playlisten: DJ-Name + Jahr + DJ-Ordnerstruktur + Filter, Typ-Spalte raus (260715-lsd) | ✅ |
+| 2026-07-15 | fast | DJ-Playlisten: ZIP-Export nach Kategorie/DJ-Filter | ✅ |
+| 2026-07-15 | fast | DJ-Playlisten: docx-Format + Filter-Reset + Enter-zum-Speichern | ✅ |
+| 2026-07-15 | fast | DJ-Playlisten: txt-Format ergänzt | ✅ |
+| 2026-07-15 | fast | DJ-Playlisten: Enter in allen Anlegen-Feldern | ✅ |
+| 2026-07-15 | fast | DJ-Playlisten: Anzahl-Anzeige (gesamt / X von Y) | ✅ |
+| 2026-07-15 | fast | DJ-Playlisten: Anzahl-Badge je Kategorie/DJ in Verwaltung | ✅ |
