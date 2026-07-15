@@ -17,6 +17,7 @@ import { DjServicesPage } from '../pages/dj/DjServicesPage';
 import { DjTripsPage } from '../pages/dj/DjTripsPage';
 import { DjAccountingPage } from '../pages/dj/DjAccountingPage';
 import { DjSettingsPage } from '../pages/dj/DjSettingsPage';
+import { DjPlaylistsPage } from '../pages/dj/DjPlaylistsPage';
 import { FinancesPage } from '../pages/FinancesPage';
 import { TaxChecklistPage } from '../pages/finanzen/TaxChecklistPage';
 import { FinanzenDashboardPage } from '../pages/finanzen/FinanzenDashboardPage';
@@ -111,6 +112,7 @@ export const router = createBrowserRouter([
           { path: '/belege/einstellungen',  element: <BelegeSettingsPage /> },
           // /belege/:id MUSS NACH allen spezifischen Sub-Routes stehen
           { path: '/belege/:id',            element: <BelegeDetailPage /> },
+          { path: '/dj/playlists',     element: <DjPlaylistsPage /> },
           // Dokumente-Modul: eine Seite, 4 Routen (areaSlug-Prop)
           { path: '/dokumente',        element: <DocumentsPage /> },
           { path: '/amazon/dokumente', element: <DocumentsPage areaSlug="amazon" /> },

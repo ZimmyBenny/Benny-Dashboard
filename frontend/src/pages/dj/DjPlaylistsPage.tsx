@@ -1,0 +1,718 @@
+import { useState, useRef } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { PageWrapper } from '../../components/layout/PageWrapper';
+import { useDraggableModal } from '../../hooks/useDraggableModal';
+import { PlaylistViewerOverlay } from '../../components/dj/PlaylistViewerOverlay';
+import {
+  fetchPlaylists,
+  uploadPlaylist,
+  updatePlaylist,
+  deletePlaylist,
+  fetchPlaylistCategories,
+  createPlaylistCategory,
+  updatePlaylistCategory,
+  deletePlaylistCategory,
+  playlistFileType,
+  Playlist,
+  PlaylistCategory,
+} from '../../api/dj.playlists.api';
+import { formatDateTime } from '../../lib/format';
+
+type SortKey = 'title' | 'category_name' | 'type' | 'created_at';
+type SortDir = 'asc' | 'desc';
+
+const inputStyle: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.06)',
+  border: '1px solid rgba(148,170,255,0.2)',
+  borderRadius: '0.5rem',
+  padding: '0.5rem 0.75rem',
+  fontFamily: 'var(--font-body)',
+  fontSize: '0.875rem',
+  color: 'var(--color-on-surface)',
+  width: '100%',
+  boxSizing: 'border-box',
+  outline: 'none',
+};
+
+const gradientBtn: React.CSSProperties = {
+  background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))',
+  color: 'var(--color-on-primary)',
+  border: 'none',
+  borderRadius: '999px',
+  padding: '0.5rem 1.25rem',
+  fontFamily: 'var(--font-body)',
+  fontWeight: 700,
+  fontSize: '0.875rem',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.375rem',
+  boxShadow: '0 0 16px rgba(148,170,255,0.3)',
+  letterSpacing: '0.03em',
+};
+
+const secondaryBtn: React.CSSProperties = {
+  background: 'none',
+  border: '1px solid rgba(148,170,255,0.25)',
+  borderRadius: '999px',
+  padding: '0.5rem 1.125rem',
+  fontFamily: 'var(--font-body)',
+  fontWeight: 600,
+  fontSize: '0.875rem',
+  color: 'var(--color-on-surface)',
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.375rem',
+};
+
+function fileNameWithoutExt(name: string): string {
+  const idx = name.lastIndexOf('.');
+  return idx > 0 ? name.slice(0, idx) : name;
+}
+
+export function DjPlaylistsPage() {
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'title', dir: 'asc' });
+
+  // Upload-Flow
+  const [uploadQueue, setUploadQueue] = useState<File[]>([]);
+  const [currentFile, setCurrentFile] = useState<File | null>(null);
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [uploadCategoryId, setUploadCategoryId] = useState<number | null>(null);
+  const [uploadNewCatName, setUploadNewCatName] = useState('');
+  const [uploadError, setUploadError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Bearbeiten
+  const [editTarget, setEditTarget] = useState<Playlist | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editCategoryId, setEditCategoryId] = useState<number | null>(null);
+
+  // Kategorien-Dialog
+  const [showCategories, setShowCategories] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [renameCategoryId, setRenameCategoryId] = useState<number | null>(null);
+  const [renameCategoryName, setRenameCategoryName] = useState('');
+
+  // Viewer
+  const [viewerPlaylist, setViewerPlaylist] = useState<Playlist | null>(null);
+
+  const queryClient = useQueryClient();
+  const { onMouseDown: uploadDragDown, modalStyle: uploadModalStyle, headerStyle: uploadHeaderStyle } = useDraggableModal();
+  const { onMouseDown: catDragDown, modalStyle: catModalStyle, headerStyle: catHeaderStyle } = useDraggableModal();
+  const { onMouseDown: editDragDown, modalStyle: editModalStyle, headerStyle: editHeaderStyle } = useDraggableModal();
+
+  const { data: playlists = [], isLoading } = useQuery({
+    queryKey: ['dj-playlists'],
+    queryFn: fetchPlaylists,
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['dj-playlist-categories'],
+    queryFn: fetchPlaylistCategories,
+  });
+
+  function startNextUpload(queue: File[]) {
+    if (queue.length === 0) {
+      setCurrentFile(null);
+      setUploadQueue([]);
+      return;
+    }
+    const [next, ...rest] = queue;
+    setUploadQueue(rest);
+    setCurrentFile(next);
+    setUploadTitle(fileNameWithoutExt(next.name));
+    setUploadCategoryId(null);
+    setUploadNewCatName('');
+    setUploadError('');
+  }
+
+  function handleFilesSelected(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    startNextUpload(Array.from(files));
+  }
+
+  const uploadMutation = useMutation({
+    mutationFn: () => uploadPlaylist(currentFile as File, uploadTitle.trim(), uploadCategoryId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dj-playlists'] });
+      startNextUpload(uploadQueue);
+    },
+    onError: () => {
+      setUploadError('Upload fehlgeschlagen. Bitte erneut versuchen.');
+    },
+  });
+
+  const createCategoryInlineMutation = useMutation({
+    mutationFn: (name: string) => createPlaylistCategory(name),
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ['dj-playlist-categories'] });
+      setUploadCategoryId(created.id);
+      setUploadNewCatName('');
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: { title?: string; category_id?: number | null }) =>
+      updatePlaylist(editTarget!.id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dj-playlists'] });
+      setEditTarget(null);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deletePlaylist(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['dj-playlists'] }),
+  });
+
+  const createCategoryMutation = useMutation({
+    mutationFn: (name: string) => createPlaylistCategory(name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dj-playlist-categories'] });
+      setNewCategoryName('');
+    },
+  });
+
+  const renameCategoryMutation = useMutation({
+    mutationFn: ({ id, name }: { id: number; name: string }) => updatePlaylistCategory(id, { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dj-playlist-categories'] });
+      queryClient.invalidateQueries({ queryKey: ['dj-playlists'] });
+      setRenameCategoryId(null);
+      setRenameCategoryName('');
+    },
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: (id: number) => deletePlaylistCategory(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dj-playlist-categories'] });
+      queryClient.invalidateQueries({ queryKey: ['dj-playlists'] });
+    },
+  });
+
+  function toggleSort(key: SortKey) {
+    setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }));
+  }
+
+  const filtered = playlists.filter((p) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return p.title.toLowerCase().includes(q) || (p.category_name ?? '').toLowerCase().includes(q);
+  });
+
+  const sorted = [...filtered].sort((a, b) => {
+    let cmp = 0;
+    if (sort.key === 'title') cmp = a.title.localeCompare(b.title, 'de');
+    else if (sort.key === 'category_name') cmp = (a.category_name ?? '').localeCompare(b.category_name ?? '', 'de');
+    else if (sort.key === 'type') cmp = playlistFileType(a.filename).localeCompare(playlistFileType(b.filename), 'de');
+    else if (sort.key === 'created_at') cmp = a.created_at.localeCompare(b.created_at);
+    return sort.dir === 'asc' ? cmp : -cmp;
+  });
+
+  function sortIcon(key: SortKey) {
+    if (sort.key !== key) return null;
+    return (
+      <span className="material-symbols-outlined" style={{ fontSize: '14px', verticalAlign: 'middle' }}>
+        {sort.dir === 'asc' ? 'arrow_upward' : 'arrow_downward'}
+      </span>
+    );
+  }
+
+  function openEdit(p: Playlist) {
+    setEditTarget(p);
+    setEditTitle(p.title);
+    setEditCategoryId(p.category_id);
+  }
+
+  function handleDelete(p: Playlist) {
+    const ok = window.confirm(
+      `Diese Playlist wirklich löschen? Die Datei wird auch in Dokumente → DJ → Playlisten gelöscht.`,
+    );
+    if (ok) deleteMutation.mutate(p.id);
+  }
+
+  function handleDeleteCategory(c: PlaylistCategory) {
+    const ok = window.confirm(
+      `Kategorie löschen? Zugeordnete Playlists bleiben erhalten und werden „Ohne Kategorie".`,
+    );
+    if (ok) deleteCategoryMutation.mutate(c.id);
+  }
+
+  return (
+    <PageWrapper>
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2.5rem 2rem', position: 'relative' }}>
+
+        <div style={{
+          position: 'absolute', top: '-60px', right: '10%',
+          width: '480px', height: '480px', borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(148,170,255,0.07) 0%, transparent 70%)',
+          pointerEvents: 'none', zIndex: 0,
+        }} />
+
+        <div style={{ position: 'relative', zIndex: 1 }}>
+
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <h1 style={{
+                fontFamily: 'var(--font-headline)', fontWeight: 800, fontSize: '2.25rem',
+                color: 'var(--color-on-surface)', margin: 0, letterSpacing: '-0.02em', lineHeight: 1,
+              }}>
+                Playlisten
+              </h1>
+              <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.875rem', margin: '0.5rem 0 0' }}>
+                Excel-, PDF- und HTML-Playlisten zentral verwalten und ansehen.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+              <button onClick={() => setShowCategories(true)} style={secondaryBtn}>
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>label</span>
+                Kategorien
+              </button>
+              <button onClick={() => fileInputRef.current?.click()} style={gradientBtn}>
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>upload</span>
+                Hochladen
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".xlsx,.xls,.pdf,.html,.htm"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  handleFilesSelected(e.target.files);
+                  e.target.value = '';
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Suche */}
+          <div style={{ marginBottom: '1.5rem', maxWidth: '360px' }}>
+            <input
+              type="text"
+              placeholder="Suche nach Name oder Kategorie…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={inputStyle}
+            />
+          </div>
+
+          {/* Tabelle */}
+          <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', overflowX: 'auto', overflowY: 'hidden' }}>
+            {isLoading ? (
+              <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-on-surface-variant)' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>hourglass_empty</span>
+                Lade Playlisten…
+              </div>
+            ) : sorted.length === 0 ? (
+              <div style={{ padding: '4rem', textAlign: 'center' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '3rem', color: 'var(--color-primary)', display: 'block', marginBottom: '1rem', opacity: 0.5 }}>queue_music</span>
+                <p style={{ color: 'var(--color-on-surface-variant)', margin: 0 }}>
+                  {playlists.length === 0 ? 'Noch keine Playlisten hochgeladen.' : 'Keine Playlisten gefunden.'}
+                </p>
+              </div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(255,255,255,0.04)' }}>
+                    {([
+                      ['title', 'Name'],
+                      ['category_name', 'Kategorie'],
+                      ['type', 'Typ'],
+                      ['created_at', 'Hochgeladen'],
+                    ] as [SortKey, string][]).map(([key, label]) => (
+                      <th
+                        key={key}
+                        onClick={() => toggleSort(key)}
+                        style={{
+                          padding: '0.75rem 0.5rem', textAlign: 'left', cursor: 'pointer',
+                          fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.7rem',
+                          color: 'var(--color-on-surface-variant)', letterSpacing: '0.08em',
+                          textTransform: 'uppercase', whiteSpace: 'nowrap', userSelect: 'none',
+                        }}
+                      >
+                        {label} {sortIcon(key)}
+                      </th>
+                    ))}
+                    <th style={{ padding: '0.75rem 0.5rem' }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {sorted.map((p, i) => (
+                    <tr
+                      key={p.id}
+                      style={{ borderTop: i > 0 ? '1px solid rgba(255,255,255,0.04)' : 'none', cursor: 'pointer', transition: 'background 0.15s' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(148,170,255,0.04)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      onClick={() => setViewerPlaylist(p)}
+                    >
+                      <td style={{ padding: '0.75rem 0.5rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface)', fontWeight: 500 }}>
+                        {p.title}
+                      </td>
+                      <td style={{ padding: '0.75rem 0.5rem' }}>
+                        {p.category_name ? (
+                          <span style={{
+                            background: 'rgba(148,170,255,0.15)', color: '#94aaff',
+                            borderRadius: '0.375rem', padding: '0.125rem 0.5rem',
+                            fontSize: '0.7rem', fontWeight: 600, whiteSpace: 'nowrap',
+                          }}>{p.category_name}</span>
+                        ) : <span style={{ color: 'var(--color-on-surface-variant)', opacity: 0.6, fontStyle: 'italic' }}>Ohne Kategorie</span>}
+                      </td>
+                      <td style={{ padding: '0.75rem 0.5rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)' }}>
+                        {playlistFileType(p.filename)}
+                      </td>
+                      <td style={{ padding: '0.75rem 0.5rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)', whiteSpace: 'nowrap' }}>
+                        {formatDateTime(p.created_at)}
+                      </td>
+                      <td style={{ padding: '0.75rem 0.5rem' }} onClick={(e) => e.stopPropagation()}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <button
+                            onClick={() => openEdit(p)}
+                            title="Bearbeiten"
+                            style={{
+                              background: 'none', border: 'none', cursor: 'pointer',
+                              color: 'var(--color-primary)', padding: '0.25rem', borderRadius: '0.25rem', display: 'flex', alignItems: 'center',
+                              opacity: 0.6, transition: 'opacity 0.15s',
+                            }}
+                            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.opacity = '1')}
+                            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.opacity = '0.6')}
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: '17px' }}>edit</span>
+                          </button>
+                          <button
+                            onClick={() => handleDelete(p)}
+                            title="Löschen"
+                            style={{
+                              background: 'none', border: 'none', cursor: 'pointer',
+                              color: 'var(--color-error)', padding: '0.25rem', borderRadius: '0.25rem', display: 'flex', alignItems: 'center',
+                              opacity: 0.6, transition: 'opacity 0.15s',
+                            }}
+                            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.opacity = '1')}
+                            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.opacity = '0.6')}
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: '17px' }}>delete</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+        </div>
+      </div>
+
+      {/* Upload-Dialog (je Datei) */}
+      {currentFile && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 40 }} />
+          <div
+            data-draggable-modal
+            style={{
+              position: 'fixed', top: 80, right: 32, width: '420px',
+              background: 'var(--color-surface-container-high)',
+              border: '1px solid rgba(148,170,255,0.25)',
+              borderRadius: '0.75rem',
+              boxShadow: '0 8px 40px rgba(0,0,0,0.5), 0 0 60px rgba(148,170,255,0.05)',
+              zIndex: 50, ...uploadModalStyle,
+            }}
+          >
+            <div
+              onMouseDown={uploadDragDown}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '1rem 1.25rem', borderBottom: '1px solid rgba(148,170,255,0.12)',
+                ...uploadHeaderStyle,
+              }}
+            >
+              <h2 style={{ fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '1.1rem', color: 'var(--color-on-surface)', margin: 0 }}>
+                Playlist hochladen
+              </h2>
+              <button
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => { setCurrentFile(null); setUploadQueue([]); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-on-surface-variant)', padding: '0.25rem' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span>
+              </button>
+            </div>
+
+            <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-on-surface-variant)', margin: 0 }}>
+                Datei: {currentFile.name}
+                {uploadQueue.length > 0 && ` (noch ${uploadQueue.length} weitere)`}
+              </p>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)', fontWeight: 500 }}>Anzeigename</span>
+                <input type="text" value={uploadTitle} onChange={(e) => setUploadTitle(e.target.value)} style={inputStyle} />
+              </label>
+
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)', fontWeight: 500 }}>Kategorie</span>
+                <select
+                  value={uploadCategoryId ?? ''}
+                  onChange={(e) => setUploadCategoryId(e.target.value === '' ? null : Number(e.target.value))}
+                  style={inputStyle}
+                >
+                  <option value="">Ohne Kategorie</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </label>
+
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input
+                  type="text"
+                  placeholder="Neue Kategorie anlegen…"
+                  value={uploadNewCatName}
+                  onChange={(e) => setUploadNewCatName(e.target.value)}
+                  style={inputStyle}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const name = uploadNewCatName.trim();
+                    if (name) createCategoryInlineMutation.mutate(name);
+                  }}
+                  disabled={!uploadNewCatName.trim() || createCategoryInlineMutation.isPending}
+                  style={{ ...secondaryBtn, whiteSpace: 'nowrap' }}
+                >
+                  Anlegen
+                </button>
+              </div>
+
+              {uploadError && <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--color-error)', margin: 0 }}>{uploadError}</p>}
+
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', paddingTop: '0.25rem' }}>
+                <button
+                  type="button"
+                  onClick={() => startNextUpload(uploadQueue)}
+                  style={{
+                    background: 'none', border: '1px solid rgba(255,255,255,0.12)',
+                    borderRadius: '0.5rem', padding: '0.5rem 1rem',
+                    fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface)', cursor: 'pointer',
+                  }}
+                >
+                  Überspringen
+                </button>
+                <button
+                  type="button"
+                  onClick={() => uploadMutation.mutate()}
+                  disabled={!uploadTitle.trim() || uploadMutation.isPending}
+                  style={{ ...gradientBtn, opacity: uploadMutation.isPending ? 0.7 : 1, cursor: uploadMutation.isPending ? 'not-allowed' : 'pointer' }}
+                >
+                  {uploadMutation.isPending ? 'Lädt hoch…' : 'Hochladen'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Bearbeiten-Dialog */}
+      {editTarget && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 40 }} />
+          <div
+            data-draggable-modal
+            style={{
+              position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '380px',
+              background: 'var(--color-surface-container-high)',
+              border: '1px solid rgba(148,170,255,0.25)',
+              borderRadius: '0.75rem',
+              boxShadow: '0 8px 40px rgba(0,0,0,0.5), 0 0 60px rgba(148,170,255,0.05)',
+              zIndex: 50, ...editModalStyle,
+            }}
+          >
+            <div
+              onMouseDown={editDragDown}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '1rem 1.25rem', borderBottom: '1px solid rgba(148,170,255,0.12)',
+                ...editHeaderStyle,
+              }}
+            >
+              <h2 style={{ fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '1.1rem', color: 'var(--color-on-surface)', margin: 0 }}>
+                Playlist bearbeiten
+              </h2>
+              <button
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => setEditTarget(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-on-surface-variant)', padding: '0.25rem' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span>
+              </button>
+            </div>
+            <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)', fontWeight: 500 }}>Anzeigename</span>
+                <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} style={inputStyle} />
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)', fontWeight: 500 }}>Kategorie</span>
+                <select
+                  value={editCategoryId ?? ''}
+                  onChange={(e) => setEditCategoryId(e.target.value === '' ? null : Number(e.target.value))}
+                  style={inputStyle}
+                >
+                  <option value="">Ohne Kategorie</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </label>
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', paddingTop: '0.25rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setEditTarget(null)}
+                  style={{
+                    background: 'none', border: '1px solid rgba(255,255,255,0.12)',
+                    borderRadius: '0.5rem', padding: '0.5rem 1rem',
+                    fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface)', cursor: 'pointer',
+                  }}
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateMutation.mutate({ title: editTitle.trim(), category_id: editCategoryId })}
+                  disabled={!editTitle.trim() || updateMutation.isPending}
+                  style={{ ...gradientBtn, opacity: updateMutation.isPending ? 0.7 : 1, cursor: updateMutation.isPending ? 'not-allowed' : 'pointer' }}
+                >
+                  {updateMutation.isPending ? 'Speichern…' : 'Speichern'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Kategorien-Dialog */}
+      {showCategories && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 40 }} />
+          <div
+            data-draggable-modal
+            style={{
+              position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '420px',
+              background: 'var(--color-surface-container-high)',
+              border: '1px solid rgba(148,170,255,0.25)',
+              borderRadius: '0.75rem',
+              boxShadow: '0 8px 40px rgba(0,0,0,0.5), 0 0 60px rgba(148,170,255,0.05)',
+              zIndex: 50, maxHeight: '80vh', display: 'flex', flexDirection: 'column',
+              ...catModalStyle,
+            }}
+          >
+            <div
+              onMouseDown={catDragDown}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '1rem 1.25rem', borderBottom: '1px solid rgba(148,170,255,0.12)', flexShrink: 0,
+                ...catHeaderStyle,
+              }}
+            >
+              <h2 style={{ fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '1.1rem', color: 'var(--color-on-surface)', margin: 0 }}>
+                Kategorien
+              </h2>
+              <button
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => setShowCategories(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-on-surface-variant)', padding: '0.25rem' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span>
+              </button>
+            </div>
+
+            <div style={{ padding: '1.25rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {categories.length === 0 && (
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)', margin: 0 }}>
+                  Noch keine Kategorien angelegt.
+                </p>
+              )}
+              {categories.map((c) => (
+                <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  {renameCategoryId === c.id ? (
+                    <input
+                      type="text"
+                      value={renameCategoryName}
+                      onChange={(e) => setRenameCategoryName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && renameCategoryName.trim()) {
+                          renameCategoryMutation.mutate({ id: c.id, name: renameCategoryName.trim() });
+                        }
+                        if (e.key === 'Escape') { setRenameCategoryId(null); setRenameCategoryName(''); }
+                      }}
+                      autoFocus
+                      style={{ ...inputStyle, flex: 1 }}
+                    />
+                  ) : (
+                    <span style={{ flex: 1, fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-on-surface)' }}>
+                      {c.name}
+                    </span>
+                  )}
+                  {renameCategoryId === c.id ? (
+                    <button
+                      onClick={() => renameCategoryName.trim() && renameCategoryMutation.mutate({ id: c.id, name: renameCategoryName.trim() })}
+                      title="Speichern"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)', padding: '0.25rem', display: 'flex' }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '17px' }}>check</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => { setRenameCategoryId(c.id); setRenameCategoryName(c.name); }}
+                      title="Umbenennen"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)', padding: '0.25rem', display: 'flex' }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '17px' }}>edit</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDeleteCategory(c)}
+                    title="Löschen"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-error)', padding: '0.25rem', display: 'flex' }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '17px' }}>delete</span>
+                  </button>
+                </div>
+              ))}
+
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', borderTop: '1px solid rgba(148,170,255,0.12)', paddingTop: '0.75rem' }}>
+                <input
+                  type="text"
+                  placeholder="Neue Kategorie…"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newCategoryName.trim()) createCategoryMutation.mutate(newCategoryName.trim());
+                  }}
+                  style={inputStyle}
+                />
+                <button
+                  type="button"
+                  onClick={() => newCategoryName.trim() && createCategoryMutation.mutate(newCategoryName.trim())}
+                  disabled={!newCategoryName.trim() || createCategoryMutation.isPending}
+                  style={{ ...secondaryBtn, whiteSpace: 'nowrap' }}
+                >
+                  Anlegen
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {viewerPlaylist && (
+        <PlaylistViewerOverlay playlist={viewerPlaylist} onClose={() => setViewerPlaylist(null)} />
+      )}
+    </PageWrapper>
+  );
+}
