@@ -202,8 +202,11 @@ router.get('/search', (req, res) => {
   const folderMap = new Map(allFolders.map((f) => [f.id, f]));
 
   function pathSegments(folderId: number): string[] {
-    // Sammelt Namen von folderId bis zur Wurzel (jeweils inkl. is_area_root-Flag),
-    // dreht danach um und laesst das erste Segment (die Bereichs-Wurzel selbst) weg.
+    // Sammelt Namen von folderId bis zur Wurzel (jeweils inkl. is_area_root-Flag)
+    // und dreht danach um. Bei Bereichs-Suche (area_slug gesetzt) wird das erste
+    // Segment (die Bereichs-Wurzel selbst) weggelassen — man ist dort schon "drin".
+    // Bei globaler Suche bleibt der Bereich sichtbar (z. B. "Privat › Rechnungen"),
+    // damit klar ist, WO der Treffer liegt.
     const chain: Array<{ name: string; is_area_root: number }> = [];
     let cursor: number | null = folderId;
     let guard = 0;
@@ -215,7 +218,7 @@ router.get('/search', (req, res) => {
       cursor = f.parent_id;
     }
     chain.reverse();
-    if (chain.length > 0 && chain[0].is_area_root === 1) {
+    if (areaSlug && chain.length > 0 && chain[0].is_area_root === 1) {
       chain.shift();
     }
     return chain.map((c) => c.name);
