@@ -35,74 +35,52 @@ const router = Router();
 // ---------------------------------------------------------------------------
 // SQL für berechnete Kündigungsfenster-Felder
 // ---------------------------------------------------------------------------
+
+/**
+ * Nächster Verlängerungstermin (jährlich): nächstes Monat/Tag-Vorkommen des
+ * Startdatums, aber FRÜHESTENS ein Jahr nach dem Start — das Startdatum selbst
+ * ist kein Verlängerungstermin (ein Vertrag, der erst noch beginnt, kann nicht
+ * "zum Start" gekündigt werden; gleiche Logik wie computeNextCancelWindow im
+ * Reminder-Job, jobs/contractReminders.ts). MAX() vergleicht ISO-Datums-Strings
+ * lexikografisch — für YYYY-MM-DD korrekt.
+ */
+const NEXT_ANNIVERSARY_SQL = `MAX(
+    date(CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
+      THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
+      ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END),
+    date(start_date, '+1 year')
+  )`;
+
 const COMPUTED_FIELDS_SQL = `,
   CASE WHEN auto_renews = 1 AND cost_interval = 'jaehrlich' AND start_date IS NOT NULL THEN
-    date(
-      CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
-        THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
-        ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END
-    )
+    ${NEXT_ANNIVERSARY_SQL}
   ELSE NULL END AS next_anniversary_date,
   CASE WHEN auto_renews = 1 AND cost_interval = 'jaehrlich' AND start_date IS NOT NULL THEN
-    CAST(julianday(
-      date(
-        CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
-          THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
-          ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END
-      )
-    ) - julianday(date('now')) AS INTEGER)
+    CAST(julianday(${NEXT_ANNIVERSARY_SQL}) - julianday(date('now')) AS INTEGER)
   ELSE NULL END AS days_to_anniversary,
   CASE WHEN auto_renews = 1 AND cost_interval = 'jaehrlich' AND start_date IS NOT NULL THEN
-    date(
-      CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
-        THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
-        ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END,
-      '-56 days')
+    date(${NEXT_ANNIVERSARY_SQL}, '-56 days')
   ELSE NULL END AS auto_reminder_date,
   CASE WHEN auto_renews = 1 AND cost_interval = 'jaehrlich' AND start_date IS NOT NULL THEN
-    date(
-      CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
-        THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
-        ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END,
-      '-' || (cancellation_notice_weeks * 7) || ' days')
+    date(${NEXT_ANNIVERSARY_SQL}, '-' || (cancellation_notice_weeks * 7) || ' days')
   ELSE NULL END AS cancellation_deadline,
   /* ── Bestehende Felder unverändert beibehalten (für Rückwärtskompatibilität) ── */
   CASE WHEN auto_renews = 1 AND cost_interval = 'jaehrlich' AND start_date IS NOT NULL THEN
-    date(
-      CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
-        THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
-        ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END,
-      '-' || (cancellation_notice_weeks * 7) || ' days')
+    date(${NEXT_ANNIVERSARY_SQL}, '-' || (cancellation_notice_weeks * 7) || ' days')
   ELSE NULL END AS cancellation_window_end,
   CASE WHEN auto_renews = 1 AND cost_interval = 'jaehrlich' AND start_date IS NOT NULL THEN
-    date(
-      CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
-        THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
-        ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END,
-      '-' || (cancellation_notice_weeks * 7 + 14) || ' days')
+    date(${NEXT_ANNIVERSARY_SQL}, '-' || (cancellation_notice_weeks * 7 + 14) || ' days')
   ELSE NULL END AS cancellation_window_start,
   CASE
     WHEN auto_renews = 1 AND cost_interval = 'jaehrlich' AND start_date IS NOT NULL
-      AND date('now') >= date(
-        CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
-          THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
-          ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END,
-        '-' || (cancellation_notice_weeks * 7 + 14) || ' days')
-      AND date('now') <= date(
-        CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
-          THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
-          ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END,
-        '-' || (cancellation_notice_weeks * 7) || ' days')
+      AND date('now') >= date(${NEXT_ANNIVERSARY_SQL}, '-' || (cancellation_notice_weeks * 7 + 14) || ' days')
+      AND date('now') <= date(${NEXT_ANNIVERSARY_SQL}, '-' || (cancellation_notice_weeks * 7) || ' days')
     THEN 1
     ELSE 0
   END AS is_in_cancellation_window,
   CASE WHEN auto_renews = 1 AND cost_interval = 'jaehrlich' AND start_date IS NOT NULL THEN
     CAST(julianday(
-      date(
-        CASE WHEN strftime('%m-%d', 'now') <= strftime('%m-%d', start_date)
-          THEN strftime('%Y', 'now') || '-' || strftime('%m-%d', start_date)
-          ELSE (CAST(strftime('%Y', 'now') AS INTEGER) + 1) || '-' || strftime('%m-%d', start_date) END,
-        '-' || (cancellation_notice_weeks * 7 + 14) || ' days')
+      date(${NEXT_ANNIVERSARY_SQL}, '-' || (cancellation_notice_weeks * 7 + 14) || ' days')
     ) - julianday(date('now')) AS INTEGER)
   ELSE NULL END AS days_until_cancellation_window`;
 
@@ -153,11 +131,8 @@ router.get('/', (req, res) => {
     conditions.push(`status = 'aktiv'`);
     conditions.push(`is_archived = 0`);
     // Im Fenster: heute <= anniversary-Datum UND anniversary-heute <= 56 Tage
-    conditions.push(`CAST(julianday(
-      date(CASE WHEN strftime('%m-%d','now') <= strftime('%m-%d',start_date)
-        THEN strftime('%Y','now') || '-' || strftime('%m-%d',start_date)
-        ELSE (CAST(strftime('%Y','now') AS INTEGER) + 1) || '-' || strftime('%m-%d',start_date) END)
-    ) - julianday(date('now')) AS INTEGER) BETWEEN 0 AND 56`);
+    // (NEXT_ANNIVERSARY_SQL klemmt auf frühestens Start + 1 Jahr)
+    conditions.push(`CAST(julianday(${NEXT_ANNIVERSARY_SQL}) - julianday(date('now')) AS INTEGER) BETWEEN 0 AND 56`);
   } else if (segment === 'archive') {
     conditions.push(`is_archived = 1`);
   } else if (segment === 'gesamt') {
