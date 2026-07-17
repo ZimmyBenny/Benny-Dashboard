@@ -13,6 +13,8 @@
  *  - PATCH  /api/belege/:id                Partial-Update (GoBD-Trigger blockt freigegebene)
  *  - POST   /api/belege/:id/areas          Area-Links setzen
  *  - POST   /api/belege/:id/freigeben      GoBD-Lock setzen
+ *  - POST   /api/belege/:id/split-eust     Einfuhrumsatzsteuer abspalten (Plan quick-260717-ld7)
+ *  - POST   /api/belege/:id/merge-eust     EUSt-Abspaltung rueckgaengig machen
  */
 import apiClient from './client';
 
@@ -44,6 +46,8 @@ export interface ReceiptListItem {
   notes: string | null;
   /** Primärer Bereichsname (z. B. „DJ", „Amazon") — null wenn keinem Bereich zugeordnet. */
   primary_area: string | null;
+  /** Gesetzt wenn dieser Beleg ein per split-eust abgespaltenes EUSt-Kind ist (Plan quick-260717-ld7). */
+  eust_parent_receipt_id?: number | null;
 }
 
 /** Detail-Response inkl. Joins (files / area_links / ocr_results / audit_log). */
@@ -62,6 +66,8 @@ export interface ReceiptDetail extends ReceiptListItem {
   /** Kilometer + Satz der verknüpften Fahrt (read-only, quick-260705-uq4). */
   trip_distance_km?: number | null;
   trip_rate_per_km_cents?: number | null;
+  /** Abgespaltener EUSt-Kind-Beleg, falls vorhanden (Plan quick-260717-ld7). */
+  eust_child?: { id: number; amount_gross_cents: number } | null;
   files: Array<{
     id: number;
     original_filename: string;
@@ -226,6 +232,20 @@ export const setReceiptAreas = (
 
 export const freigebenReceipt = (id: number): Promise<ReceiptDetail> =>
   apiClient.post(`/belege/${id}/freigeben`).then((r) => r.data);
+
+/**
+ * POST /api/belege/:id/split-eust — spaltet die Einfuhrumsatzsteuer eines
+ * gemischten Zollbelegs in einen eigenen verknüpften Beleg ab (Plan quick-260717-ld7).
+ */
+export const splitEust = (
+  id: number,
+  eust_cents: number,
+): Promise<{ parent: ReceiptDetail; eust_child: ReceiptDetail }> =>
+  apiClient.post(`/belege/${id}/split-eust`, { eust_cents }).then((r) => r.data);
+
+/** POST /api/belege/:id/merge-eust — macht split-eust rückgängig. */
+export const mergeEust = (id: number): Promise<{ parent: ReceiptDetail }> =>
+  apiClient.post(`/belege/${id}/merge-eust`).then((r) => r.data);
 
 /** GET /api/belege/areas — Picker-Quelle fuer den Upload-Bereichs-Selector (Plan 04-09). */
 export const fetchAreas = (): Promise<Area[]> =>

@@ -38,6 +38,8 @@ import {
   setReceiptAreas,
   fetchBelegeSettings,
   fetchSupplierSuggest,
+  splitEust,
+  mergeEust,
   type ReceiptDetail,
   type TaxCategory,
   type Area,
@@ -156,6 +158,32 @@ export function BelegeDetailPage() {
     onError: (err: unknown) => {
       const e = err as { response?: { data?: { error?: string } }; message?: string };
       window.alert(e?.response?.data?.error ?? e?.message ?? 'Bereich-Zuordnung fehlgeschlagen');
+    },
+  });
+
+  // EUSt-Abspaltung (Plan quick-260717-ld7): Gemischte Zollrechnungen in
+  // Service-Anteil (Original, bestehender USt-Satz) + EUSt-Beleg (0%, verknüpft) teilen.
+  const splitEustMut = useMutation({
+    mutationFn: (eust_cents: number) => splitEust(id, eust_cents),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['belege', id] });
+      qc.invalidateQueries({ queryKey: ['belege'] });
+    },
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { error?: string } }; message?: string };
+      window.alert(e?.response?.data?.error ?? e?.message ?? 'EUSt-Abspaltung fehlgeschlagen');
+    },
+  });
+
+  const mergeEustMut = useMutation({
+    mutationFn: () => mergeEust(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['belege', id] });
+      qc.invalidateQueries({ queryKey: ['belege'] });
+    },
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { error?: string } }; message?: string };
+      window.alert(e?.response?.data?.error ?? e?.message ?? 'Zusammenführen fehlgeschlagen');
     },
   });
 
@@ -355,6 +383,27 @@ export function BelegeDetailPage() {
                 );
               })()}
               <StatusBadge status={r.status as never} />
+              {r.eust_parent_receipt_id != null && (
+                <span
+                  title="Abgespaltener Einfuhrumsatzsteuer-Beleg"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                    background: 'rgba(45,212,191,0.14)',
+                    border: '1px solid rgba(45,212,191,0.4)',
+                    borderRadius: '999px',
+                    padding: '0.25rem 0.75rem',
+                    color: 'var(--color-tertiary)',
+                    fontSize: '0.78rem',
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 600,
+                  }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>call_split</span>
+                  Einfuhrumsatzsteuer
+                </span>
+              )}
               {isLocked && (
                 <span
                   title={`Freigegeben am ${formatDate(r.freigegeben_at)}`}
@@ -594,6 +643,15 @@ export function BelegeDetailPage() {
                 >
                   Netto und USt-Betrag werden automatisch aus Brutto + USt-Satz berechnet.
                 </p>
+                <EustSplitControls
+                  receipt={r}
+                  isLocked={isLocked}
+                  onSplit={(cents) => splitEustMut.mutate(cents)}
+                  splitPending={splitEustMut.isPending}
+                  onMerge={() => mergeEustMut.mutate()}
+                  mergePending={mergeEustMut.isPending}
+                  onNavigate={(targetId) => navigate(`/belege/${targetId}`)}
+                />
               </Section>
 
               <Section title="Steuer">
@@ -1911,6 +1969,186 @@ function AreaPicker({
               );
             })
         )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * EUSt-Abspalten-/Zusammenführen-Steuerung (Plan quick-260717-ld7).
+ *
+ * Drei Zustände, jeweils exklusiv:
+ *  1. Dieser Beleg IST ein EUSt-Kind (eust_parent_receipt_id gesetzt) → Rück-Link.
+ *  2. Original MIT abgespaltenem Kind (eust_child gesetzt) → Info-Zeile + Zusammenführen.
+ *  3. Original OHNE Kind & nicht gesperrt → Eingabefeld + Abspalten-Button.
+ */
+function EustSplitControls({
+  receipt,
+  isLocked,
+  onSplit,
+  splitPending,
+  onMerge,
+  mergePending,
+  onNavigate,
+}: {
+  receipt: ReceiptDetail;
+  isLocked: boolean;
+  onSplit: (cents: number) => void;
+  splitPending: boolean;
+  onMerge: () => void;
+  mergePending: boolean;
+  onNavigate: (id: number) => void;
+}) {
+  const [eustInput, setEustInput] = useState('');
+
+  const linkButtonStyle: React.CSSProperties = {
+    background: 'none',
+    border: 'none',
+    color: 'var(--color-primary)',
+    cursor: 'pointer',
+    fontFamily: 'var(--font-body)',
+    fontSize: '0.8rem',
+    textDecoration: 'underline',
+    padding: 0,
+    textAlign: 'left',
+  };
+
+  // Zustand 1: dieser Beleg ist selbst das EUSt-Kind.
+  if (receipt.eust_parent_receipt_id != null) {
+    return (
+      <p style={{ fontSize: '0.8rem', color: 'var(--color-tertiary)', fontFamily: 'var(--font-body)', margin: '0.25rem 0' }}>
+        <button
+          type="button"
+          onClick={() => onNavigate(receipt.eust_parent_receipt_id!)}
+          style={linkButtonStyle}
+        >
+          gehört zu Beleg #{receipt.eust_parent_receipt_id} →
+        </button>
+      </p>
+    );
+  }
+
+  // Zustand 2: Original mit bereits abgespaltenem EUSt-Kind.
+  if (receipt.eust_child) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
+        <button
+          type="button"
+          onClick={() => onNavigate(receipt.eust_child!.id)}
+          style={linkButtonStyle}
+        >
+          {formatCurrencyFromCents(receipt.eust_child.amount_gross_cents)} EUSt als verknüpften Beleg abgespalten →
+        </button>
+        {!isLocked && (
+          <button
+            type="button"
+            onClick={() => {
+              if (
+                window.confirm(
+                  'EUSt-Beleg wieder mit diesem Beleg zusammenführen? Der abgespaltene EUSt-Beleg wird gelöscht.',
+                )
+              ) {
+                onMerge();
+              }
+            }}
+            disabled={mergePending}
+            style={{
+              alignSelf: 'flex-start',
+              background: 'rgba(255,255,255,0.04)',
+              color: 'var(--color-on-surface-variant)',
+              border: '1px solid rgba(148,170,255,0.2)',
+              borderRadius: '0.5rem',
+              padding: '0.5rem 0.875rem',
+              fontSize: '0.8rem',
+              fontFamily: 'var(--font-body)',
+              cursor: mergePending ? 'wait' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.375rem',
+              opacity: mergePending ? 0.6 : 1,
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>merge</span>
+            Zusammenführen
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // Zustand 3: Original ohne Kind — Eingabefeld + Abspalten-Button (nur wenn nicht gesperrt).
+  if (isLocked) return null;
+
+  const cents = parseCents(eustInput);
+  const validCents = cents !== null && cents > 0 && cents < receipt.amount_gross_cents;
+
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '140px 1fr',
+        gap: '0.75rem',
+        alignItems: 'center',
+        padding: '0.25rem 0',
+        marginTop: '0.25rem',
+      }}
+    >
+      <span
+        style={{
+          fontSize: '0.75rem',
+          color: 'var(--color-on-surface-variant)',
+          fontFamily: 'var(--font-body)',
+          fontWeight: 500,
+        }}
+      >
+        davon EUSt
+      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={eustInput}
+          onChange={(e) => setEustInput(e.target.value)}
+          placeholder="0,00"
+          style={{
+            width: '7rem',
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(148,170,255,0.15)',
+            borderRadius: '0.375rem',
+            padding: '0.375rem 0.625rem',
+            color: 'var(--color-on-surface)',
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.85rem',
+            outline: 'none',
+            textAlign: 'right',
+          }}
+        />
+        <span style={{ fontSize: '0.85rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)' }}>€</span>
+        <button
+          type="button"
+          onClick={() => {
+            if (validCents) onSplit(cents);
+          }}
+          disabled={!validCents || splitPending}
+          style={{
+            background: 'rgba(45,212,191,0.14)',
+            color: 'var(--color-tertiary)',
+            border: '1px solid rgba(45,212,191,0.4)',
+            borderRadius: '0.5rem',
+            padding: '0.5rem 0.875rem',
+            fontSize: '0.8rem',
+            fontFamily: 'Manrope, sans-serif',
+            fontWeight: 600,
+            cursor: !validCents || splitPending ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.375rem',
+            opacity: !validCents || splitPending ? 0.5 : 1,
+          }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>call_split</span>
+          EUSt abspalten
+        </button>
       </div>
     </div>
   );
