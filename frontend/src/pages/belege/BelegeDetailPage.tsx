@@ -555,10 +555,8 @@ export function BelegeDetailPage() {
                     <span />
                     <button
                       type="button"
-                      onClick={() =>
-                        updateMut.mutate({ due_date: r.receipt_date, payment_date: r.receipt_date })
-                      }
-                      title="Fällig am und Bezahlt am auf das Belegdatum setzen"
+                      onClick={() => updateMut.mutate({ due_date: r.receipt_date })}
+                      title="Fällig am auf das Belegdatum setzen (Bezahlt am bleibt leer)"
                       style={{
                         justifySelf: 'start',
                         display: 'inline-flex',
@@ -1600,7 +1598,13 @@ function Field({ label, value, disabled, type = 'text', suffix, onChange }: Fiel
             type={type === 'date' ? 'date' : 'text'}
             inputMode={type === 'money' || type === 'number' ? 'decimal' : undefined}
             value={localValue}
-            onChange={(e) => setLocalValue(e.target.value)}
+            onChange={(e) => {
+              setLocalValue(e.target.value);
+              // Datumsfelder sofort committen: der native Datepicker liefert pro
+              // Aenderung genau einen vollstaendigen Wert, und onBlur feuert oft
+              // NICHT, wenn der Nutzer direkt wegnavigiert -> Eingabe ginge verloren.
+              if (type === 'date' && e.target.value !== value) onChange!(e.target.value);
+            }}
             onFocus={() => setFocused(true)}
             onBlur={() => {
               setFocused(false);
