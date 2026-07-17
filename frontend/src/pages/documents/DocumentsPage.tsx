@@ -390,6 +390,7 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
     setUploading(accepted.map((f) => f.name));
     const folderCache = new Map<string, number>();
     let failed = 0;
+    const reasons = new Set<string>();
     try {
       for (const [dir, groupFiles] of groups) {
         try {
@@ -397,8 +398,10 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
             ? await ensureFolderPath(effectiveFolderId, dir.split('/'), folderCache)
             : effectiveFolderId;
           await uploadMut.mutateAsync({ folderId: targetId, files: groupFiles });
-        } catch {
+        } catch (err) {
           failed += groupFiles.length;
+          const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+          if (msg) reasons.add(msg);
         }
       }
     } finally {
@@ -406,7 +409,8 @@ export function DocumentsPage({ areaSlug }: DocumentsPageProps) {
       invalidateAll();
     }
     if (failed > 0) {
-      alert(`${accepted.length - failed} von ${accepted.length} Dateien hochgeladen — ${failed} fehlgeschlagen.`);
+      const detail = reasons.size > 0 ? `\n\n${[...reasons].join('\n')}` : '';
+      alert(`${accepted.length - failed} von ${accepted.length} Dateien hochgeladen — ${failed} fehlgeschlagen.${detail}`);
     }
   }
 
