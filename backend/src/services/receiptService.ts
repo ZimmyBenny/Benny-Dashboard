@@ -287,8 +287,18 @@ export function applyOcrResult(
   if (parsed.vat_rate.value !== null) {
     fields.vat_rate = parsed.vat_rate.value;
   }
+  // Reverse-Charge nur automatisch übernehmen, wenn das Feature in den
+  // Belege-Einstellungen aktiv ist. Standard = 'false' → OCR-Erkennung wird
+  // ignoriert, Auslandsrechnungen kommen als reine Ausgabe (reverse_charge=0)
+  // rein; die §13b-Behandlung macht der Steuerberater aus dem Export.
   if (parsed.reverse_charge.value !== null) {
-    fields.reverse_charge = parsed.reverse_charge.value ? 1 : 0;
+    const rcEnabled =
+      (db
+        .prepare(`SELECT value FROM app_settings WHERE key = 'reverse_charge_enabled'`)
+        .get() as { value: string } | undefined)?.value === 'true';
+    if (rcEnabled) {
+      fields.reverse_charge = parsed.reverse_charge.value ? 1 : 0;
+    }
   }
   fields.status = 'zu_pruefen';
 
