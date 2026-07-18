@@ -190,7 +190,9 @@ router.get('/ustva', (req, res) => {
  * GET /api/belege/ustva-drill?year=2026&period_index=2
  *
  * Drilldown-Liste fuer einen UStVA-Bucket. Liefert die zugrunde liegenden
- * Receipts (steuerrelevant=1, status='bezahlt'/'teilbezahlt', payment_date im Bucket-Zeitraum).
+ * Receipts (steuerrelevant=1, status='bezahlt'/'teilbezahlt'/'freigegeben', payment_date im
+ * Bucket-Zeitraum). 'freigegeben' MUSS dabei sein — die Freigabe überschreibt den Status,
+ * die Belege sind aber bezahlt und zählen in taxCalcService (gleiche Filter-Regel).
  *
  * `period_index`:
  *  - bei period='jahr' → ignoriert (alle 12 Monate)
@@ -238,7 +240,7 @@ router.get('/ustva-drill', (req, res) => {
       `
       SELECT r.*, ${PRIMARY_AREA_SUBQUERY} FROM receipts r
       WHERE r.steuerrelevant = 1
-        AND r.status IN ('bezahlt','teilbezahlt')
+        AND r.status IN ('bezahlt','teilbezahlt','freigegeben')
         AND r.payment_date IS NOT NULL
         AND strftime('%Y', r.payment_date) = ?
         AND strftime('%m', r.payment_date) IN (${placeholders})
