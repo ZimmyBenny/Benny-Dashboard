@@ -9,7 +9,10 @@ import db from '../db/connection';
  *
  * Aggregations-Regeln:
  *  - Nur Belege mit `steuerrelevant = 1` werden gezählt.
- *  - Nur Belege mit `status = 'bezahlt'` und gesetztem `payment_date`.
+ *  - Nur bezahlte Belege: `status IN ('bezahlt','freigegeben')` UND gesetztes
+ *    `payment_date`. Freigabe (GoBD-Lock) überschreibt den Status auf 'freigegeben',
+ *    ändert aber nichts an der Bezahltheit — beide Status zählen daher als bezahlt.
+ *    `payment_date IS NOT NULL` bleibt der eigentliche Zahl-Gate.
  *  - `private_share_percent` reduziert die abzugsfähige Vorsteuer entsprechend.
  *  - Reverse-Charge §13b ist eine Nullsumme bei input_tax_deductible=1
  *    (Schuld in KZ85 + Vorsteuer in KZ67 heben sich auf).
@@ -126,7 +129,7 @@ export function aggregateForUstva(year: number, period: UstvaPeriod): UstvaBucke
         SELECT COALESCE(SUM(amount_net_cents), 0) AS cents
         FROM receipts
         WHERE type = 'ausgangsrechnung'
-          AND status = 'bezahlt'
+          AND status IN ('bezahlt', 'freigegeben')
           AND vat_rate = 19
           AND steuerrelevant = 1
           AND payment_date IS NOT NULL
@@ -143,7 +146,7 @@ export function aggregateForUstva(year: number, period: UstvaPeriod): UstvaBucke
         SELECT COALESCE(SUM(amount_net_cents), 0) AS cents
         FROM receipts
         WHERE type = 'ausgangsrechnung'
-          AND status = 'bezahlt'
+          AND status IN ('bezahlt', 'freigegeben')
           AND vat_rate = 7
           AND steuerrelevant = 1
           AND payment_date IS NOT NULL
@@ -160,7 +163,7 @@ export function aggregateForUstva(year: number, period: UstvaPeriod): UstvaBucke
         SELECT COALESCE(SUM(vat_amount_cents * (100 - private_share_percent) / 100), 0) AS cents
         FROM receipts
         WHERE type IN ('eingangsrechnung','beleg')
-          AND status = 'bezahlt'
+          AND status IN ('bezahlt', 'freigegeben')
           AND vat_rate IN (7, 19)
           AND input_tax_deductible = 1
           AND reverse_charge = 0
@@ -185,7 +188,7 @@ export function aggregateForUstva(year: number, period: UstvaPeriod): UstvaBucke
                             ELSE 0 END), 0) AS vat_deductible_cents
         FROM receipts
         WHERE reverse_charge = 1
-          AND status = 'bezahlt'
+          AND status IN ('bezahlt', 'freigegeben')
           AND steuerrelevant = 1
           AND payment_date IS NOT NULL
           AND strftime('%Y', payment_date) = ?
@@ -201,7 +204,7 @@ export function aggregateForUstva(year: number, period: UstvaPeriod): UstvaBucke
         SELECT COALESCE(SUM(amount_gross_cents), 0) AS cents
         FROM receipts
         WHERE import_eust = 1
-          AND status = 'bezahlt'
+          AND status IN ('bezahlt', 'freigegeben')
           AND input_tax_deductible = 1
           AND steuerrelevant = 1
           AND payment_date IS NOT NULL
