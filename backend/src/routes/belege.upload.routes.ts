@@ -34,7 +34,9 @@ import { ocrService } from '../services/ocrService';
 import { receiptParserService } from '../services/receiptParserService';
 import { duplicateCheckService } from '../services/duplicateCheckService';
 import { syncReceipt } from '../lib/belegeMirror';
+import { logAudit } from '../services/audit.service';
 import type { Request } from 'express';
+import type { AuthenticatedRequest } from '../middleware/auth';
 
 interface KvRow {
   value: string;
@@ -177,6 +179,98 @@ router.post('/upload', upload.array('file', 20), async (req, res, next) => {
     }
 
     res.status(201).json({ created });
+  } catch (err) {
+    next(err);
+  }
+});
+
+interface ReceiptLookupRow {
+  id: number;
+  freigegeben_at: string | null;
+}
+
+/**
+ * POST /api/belege/:id/files
+ *
+ * Haengt eine einzelne Datei an einen bestehenden Beleg an.
+ * - Beleg NICHT freigegeben  -> is_nachtrag=0 (normale weitere Datei)
+ * - Beleg freigegeben        -> is_nachtrag=1, added_by=actor (GoBD-Nachtrag,
+ *   der neue INSERT-Trigger aus Migration 123 laesst diesen Fall durch)
+ *
+ * KEINE Duplicate-Hash-Pruefung (receipts.file_hash_sha256 bleibt das des
+ * Original-Belegs) und KEIN OCR-Job — reine Anhang-Operation.
+ */
+router.post('/:id/files', upload.single('file'), async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) {
+      if (req.file) await fs.unlink(req.file.path).catch(() => undefined);
+      res.status(400).json({ error: 'Ungueltige Beleg-ID' });
+      return;
+    }
+
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ error: 'Keine Datei hochgeladen' });
+      return;
+    }
+
+    const beleg = db
+      .prepare(`SELECT id, freigegeben_at FROM receipts WHERE id = ?`)
+      .get(id) as ReceiptLookupRow | undefined;
+    if (!beleg) {
+      await fs.unlink(file.path).catch(() => undefined);
+      res.status(404).json({ error: 'Beleg nicht gefunden' });
+      return;
+    }
+
+    const maxBytes = getSettingNum('max_upload_size_mb', 25) * 1024 * 1024;
+    if (file.size > maxBytes) {
+      await fs.unlink(file.path).catch(() => undefined);
+      res.status(413).json({
+        error: `Datei "${file.originalname}" ueberschreitet ${maxBytes / 1024 / 1024} MB`,
+      });
+      return;
+    }
+
+    const sha = await sha256OfFile(file.path);
+
+    const today = new Date().toISOString().slice(0, 10);
+    const dir = await ensureStorageDir(today);
+    const ext = path.extname(file.originalname).toLowerCase();
+    const supplier = sanitizeForFilename('nachtrag', 25);
+    const shaPrefix = sha.slice(0, 8);
+    const filename = `${today}_${supplier}_0-00_eingangsrechnung_${shaPrefix}${ext}`;
+    const finalPath = path.join(dir, filename);
+    await fs.rename(file.path, finalPath);
+
+    const isNachtrag = beleg.freigegeben_at ? 1 : 0;
+    const actor = (req as AuthenticatedRequest).user?.username ?? 'unknown';
+    const addedBy = isNachtrag ? actor : null;
+
+    const info = db
+      .prepare(
+        `
+      INSERT INTO receipt_files
+        (receipt_id, original_filename, storage_path, sha256, mime_type, file_size_bytes, is_nachtrag, added_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+      )
+      .run(id, file.originalname, finalPath, sha, file.mimetype, file.size, isNachtrag, addedBy);
+
+    const newFileId = Number(info.lastInsertRowid);
+
+    logAudit(req as Request, 'receipt_file', newFileId, 'create', undefined, {
+      kind: isNachtrag ? 'nachtrag' : 'datei',
+      receipt_id: id,
+      original_filename: file.originalname,
+      added_by: addedBy,
+    });
+
+    // Finder-Spiegel best-effort aktualisieren (nie blockierend)
+    syncReceipt(id);
+
+    res.status(201).json(db.prepare('SELECT * FROM receipt_files WHERE id = ?').get(newFileId));
   } catch (err) {
     next(err);
   }
