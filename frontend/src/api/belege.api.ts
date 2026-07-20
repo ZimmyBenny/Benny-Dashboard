@@ -75,6 +75,11 @@ export interface ReceiptDetail extends ReceiptListItem {
     sha256: string;
     mime_type: string;
     file_size_bytes: number;
+    /** 1 = nachträglich (nach Freigabe) angehängt, 0 = Original-Datei (Migration 123). */
+    is_nachtrag: number;
+    /** Benutzername, der den Nachtrag angehängt hat; null bei Original-Dateien. */
+    added_by: string | null;
+    created_at: string;
   }>;
   area_links: Array<{
     area_id: number;
@@ -210,6 +215,21 @@ export const uploadReceipts = (files: File[]): Promise<UploadResult> => {
   files.forEach((f) => fd.append('file', f));
   return apiClient
     .post('/belege/upload', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    .then((r) => r.data);
+};
+
+/**
+ * POST /api/belege/:id/files — haengt eine einzelne Datei an einen bestehenden
+ * Beleg an. Bei freigegebenen Belegen setzt das Backend automatisch
+ * is_nachtrag=1 (GoBD-konformer Nachtrag, append-only).
+ */
+export const addReceiptFile = (id: number, file: File): Promise<ReceiptDetail['files'][number]> => {
+  const fd = new FormData();
+  fd.append('file', file);
+  return apiClient
+    .post(`/belege/${id}/files`, fd, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
     .then((r) => r.data);

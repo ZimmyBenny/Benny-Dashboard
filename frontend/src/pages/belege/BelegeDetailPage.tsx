@@ -22,6 +22,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useDropzone, type FileRejection } from 'react-dropzone';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { StatusBadge } from '../../components/dj/StatusBadge';
 import { PdfPreview } from '../../components/belege/PdfPreview';
@@ -40,6 +41,7 @@ import {
   fetchSupplierSuggest,
   splitEust,
   mergeEust,
+  addReceiptFile,
   type ReceiptDetail,
   type TaxCategory,
   type Area,
@@ -59,6 +61,7 @@ export function BelegeDetailPage() {
   const [showPaidConfirm, setShowPaidConfirm] = useState(false);
   const [paidDate, setPaidDate] = useState('');
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxFileId, setLightboxFileId] = useState<number | null>(null);
   const [showNewContractPanel, setShowNewContractPanel] = useState(false);
 
   const { data: r, isLoading, error } = useQuery({
@@ -187,6 +190,16 @@ export function BelegeDetailPage() {
     },
   });
 
+  // Datei-Nachtrag (quick-260720-bf9): weitere Datei an den Beleg anhaengen —
+  // bei freigegebenen Belegen setzt das Backend automatisch is_nachtrag=1.
+  const addFileMut = useMutation({
+    mutationFn: (file: File) => addReceiptFile(id, file),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['belege', id] });
+      qc.invalidateQueries({ queryKey: ['belege'] });
+    },
+  });
+
   // Supplier-Suggest auch auf der Detail-Page: wenn der User einen Lieferanten
   // manuell eintraegt (oder OCR den Lieferant gesetzt hat, aber area/tax_category
   // noch leer sind), schlagen wir area_id + tax_category_id aus supplier_memory
@@ -262,6 +275,8 @@ export function BelegeDetailPage() {
   const isLocked = !!r.freigegeben_at;
   const primaryFile = r.files[0];
   const fileUrl = primaryFile ? `/api/belege/${id}/file/${primaryFile.id}` : null;
+  const activeFile = r.files.find((f) => f.id === lightboxFileId) ?? primaryFile;
+  const activeFileUrl = activeFile ? `/api/belege/${id}/file/${activeFile.id}` : null;
 
   // Reverse-Charge wird im Schema als reverse_charge (0|1) gefuehrt — Plan-Snippet
   // hatte einen heuristischen Vergleich; wir lesen direkt die Spalte.
@@ -435,11 +450,18 @@ export function BelegeDetailPage() {
             {/* Linke Spalte: PDF/Bild-Preview */}
             <div style={{ position: 'sticky', top: '1rem' }}>
               {fileUrl && primaryFile ? (
-                <div style={{ position: 'relative', cursor: 'zoom-in' }} onClick={() => setLightboxOpen(true)}>
+                <div
+                  style={{ position: 'relative', cursor: 'zoom-in' }}
+                  onClick={() => {
+                    setLightboxFileId(primaryFile.id);
+                    setLightboxOpen(true);
+                  }}
+                >
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
+                      setLightboxFileId(primaryFile.id);
                       setLightboxOpen(true);
                     }}
                     title="Vollbild anzeigen"
@@ -483,25 +505,76 @@ export function BelegeDetailPage() {
                   Keine Datei verknüpft.
                 </div>
               )}
-              {r.files.length > 1 && (
-                <p style={{ fontSize: '0.75rem', color: 'var(--color-on-surface-variant)', marginTop: '0.5rem', fontFamily: 'var(--font-body)' }}>
-                  {r.files.length} Dateien angehängt — weitere unter
-                  {r.files.slice(1).map((f, i) => (
-                    <span key={f.id}>
-                      {' '}
-                      <a
-                        href={`/api/belege/${id}/file/${f.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ color: 'var(--color-primary)', textDecoration: 'underline' }}
-                      >
-                        {f.original_filename}
-                      </a>
-                      {i < r.files.length - 2 ? ',' : ''}
-                    </span>
+              {r.files.length > 0 && (
+                <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  {r.files.map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => {
+                        setLightboxFileId(f.id);
+                        setLightboxOpen(true);
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '0.75rem',
+                        background: 'var(--color-surface-variant)',
+                        border: f.is_nachtrag
+                          ? '1px solid rgba(45,212,191,0.35)'
+                          : '1px solid rgba(148,170,255,0.12)',
+                        borderRadius: '0.5rem',
+                        padding: '0.5rem 0.75rem',
+                        color: 'var(--color-on-surface)',
+                        fontFamily: 'var(--font-body)',
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', opacity: 0.7, flexShrink: 0 }}>
+                          description
+                        </span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {f.original_filename}
+                        </span>
+                      </span>
+                      {f.is_nachtrag ? (
+                        <span
+                          style={{
+                            flexShrink: 0,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                            background: 'rgba(45,212,191,0.14)',
+                            border: '1px solid rgba(45,212,191,0.4)',
+                            borderRadius: '999px',
+                            padding: '0.15rem 0.6rem',
+                            color: 'var(--color-tertiary)',
+                            fontSize: '0.72rem',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Nachtrag · hinzugefügt am {formatDate(f.created_at)}
+                        </span>
+                      ) : (
+                        <span style={{ flexShrink: 0, color: 'var(--color-on-surface-variant)', fontSize: '0.72rem' }}>
+                          Original
+                        </span>
+                      )}
+                    </button>
                   ))}
-                </p>
+                </div>
               )}
+
+              <AddFileArea
+                isLocked={isLocked}
+                pending={addFileMut.isPending}
+                error={addFileMut.error as Error | null}
+                onSelect={(file) => addFileMut.mutate(file)}
+              />
             </div>
 
             {/* Rechte Spalte: Daten-Sektionen */}
@@ -1178,8 +1251,15 @@ export function BelegeDetailPage() {
         </div>
       </div>
 
-      {lightboxOpen && fileUrl && primaryFile && (
-        <BelegLightbox url={fileUrl} mimeType={primaryFile.mime_type} onClose={() => setLightboxOpen(false)} />
+      {lightboxOpen && activeFileUrl && activeFile && (
+        <BelegLightbox
+          url={activeFileUrl}
+          mimeType={activeFile.mime_type}
+          onClose={() => {
+            setLightboxOpen(false);
+            setLightboxFileId(null);
+          }}
+        />
       )}
     </PageWrapper>
   );
@@ -1207,6 +1287,87 @@ function abwesenheitsStunden(dep?: string | null, ret?: string | null): number |
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-Components
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * AddFileArea — Button + Drag&Drop zum Anhaengen einer weiteren Datei
+ * (quick-260720-bf9). Bei freigegebenen Belegen wird das Ergebnis als
+ * GoBD-Nachtrag markiert (Backend setzt is_nachtrag automatisch).
+ */
+function AddFileArea({
+  isLocked,
+  pending,
+  error,
+  onSelect,
+}: {
+  isLocked: boolean;
+  pending: boolean;
+  error: Error | null;
+  onSelect: (file: File) => void;
+}) {
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: {
+      'application/pdf': ['.pdf'],
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png'],
+    },
+    multiple: false,
+    disabled: pending,
+    onDrop: (accepted: File[]) => {
+      if (accepted[0]) onSelect(accepted[0]);
+    },
+    onDropRejected: (rejected: FileRejection[]) => {
+      const msg = rejected[0]?.errors[0]?.message;
+      if (msg) window.alert(msg);
+    },
+  });
+
+  return (
+    <div
+      {...getRootProps()}
+      style={{
+        marginTop: '0.75rem',
+        border: `1px dashed ${isDragActive ? '#94aaff' : 'rgba(148,170,255,0.3)'}`,
+        borderRadius: '0.5rem',
+        padding: '0.75rem',
+        textAlign: 'center',
+        cursor: pending ? 'wait' : 'pointer',
+        background: isDragActive ? 'rgba(148,170,255,0.06)' : 'rgba(255,255,255,0.02)',
+        transition: 'all 0.2s',
+        opacity: pending ? 0.6 : 1,
+      }}
+    >
+      <input {...getInputProps()} />
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '0.375rem',
+          color: 'var(--color-primary)',
+          fontFamily: 'Manrope, sans-serif',
+          fontSize: '0.8rem',
+          fontWeight: 600,
+        }}
+      >
+        <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>
+          {pending ? 'hourglass_empty' : 'add_circle'}
+        </span>
+        {pending ? 'Wird hochgeladen…' : isLocked ? 'Nachtrag hinzufügen' : 'Datei hinzufügen'}
+      </span>
+      <p style={{ margin: '0.3rem 0 0', fontSize: '0.7rem', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)' }}>
+        {isLocked
+          ? 'Wird GoBD-konform mit Datum ergänzt; das Original bleibt unverändert.'
+          : 'PDF, JPG, PNG — auch per Drag & Drop aus dem Finder'}
+      </p>
+      {error && (
+        <p style={{ margin: '0.3rem 0 0', fontSize: '0.72rem', color: 'var(--color-error)', fontFamily: 'var(--font-body)' }}>
+          {(error as unknown as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+            error.message ??
+            'Upload fehlgeschlagen'}
+        </p>
+      )}
+    </div>
+  );
+}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
