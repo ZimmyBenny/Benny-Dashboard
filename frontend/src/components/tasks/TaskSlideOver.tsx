@@ -395,6 +395,12 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
                 type="text"
                 value={form.title}
                 onChange={(e) => handleChange('title', e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && form.title.trim() && !saving) {
+                    e.preventDefault();
+                    handleSave();
+                  }
+                }}
                 placeholder="Aufgabentitel..."
                 autoFocus
               />
