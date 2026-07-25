@@ -384,7 +384,20 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
           </div>
 
           {/* Form */}
-          <div style={{ flex: 1, padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div
+            style={{ flex: 1, padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
+            onKeyDown={(e) => {
+              // Enter speichert — außer in mehrzeiligen Textfeldern (Zeilenumbruch),
+              // nativen Selects und der Kontakt-Suche mit offenem Autocomplete.
+              if (e.key !== 'Enter') return;
+              const tag = (e.target as HTMLElement).tagName;
+              if (tag === 'TEXTAREA' || tag === 'SELECT') return;
+              if (contactDropdownOpen) return;
+              if (!form.title.trim() || saving) return;
+              e.preventDefault();
+              handleSave();
+            }}
+          >
 
             {/* Title */}
             <div>
@@ -395,12 +408,6 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
                 type="text"
                 value={form.title}
                 onChange={(e) => handleChange('title', e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && form.title.trim() && !saving) {
-                    e.preventDefault();
-                    handleSave();
-                  }
-                }}
                 placeholder="Aufgabentitel..."
                 autoFocus
               />
