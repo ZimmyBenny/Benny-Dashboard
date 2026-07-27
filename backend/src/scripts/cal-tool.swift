@@ -54,6 +54,20 @@ func hasFlag(_ args: [String], flag: String) -> Bool {
   return args.contains(flag)
 }
 
+func alarmOffsets(for event: EKEvent) -> [Int] {
+  guard let alarms = event.alarms else { return [] }
+  return alarms.map { alarm in
+    if let abs = alarm.absoluteDate {
+      return Int((abs.timeIntervalSince(event.startDate) / 60.0).rounded())
+    }
+    return Int((alarm.relativeOffset / 60.0).rounded())
+  }
+}
+
+func parseAlarmOffsets(_ s: String) -> [Int] {
+  return s.split(separator: ",").compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
+}
+
 // ── Hauptlogik ────────────────────────────────────────────────────────────────
 
 let args = Array(CommandLine.arguments.dropFirst())
@@ -155,6 +169,7 @@ func runRead(subArgs: [String]) {
       ]
       entry["location"] = evt.location as Any? ?? NSNull()
       entry["notes"]    = evt.notes    as Any? ?? NSNull()
+      entry["alarmOffsets"] = alarmOffsets(for: evt)
 
       result.append(entry)
     }
@@ -177,11 +192,10 @@ func runCreate(subArgs: [String]) {
     errorExit("create requires --calendar-id ID --title TEXT --start ISO --end ISO")
   }
 
-  let isAllDay     = hasFlag(subArgs, flag: "--all-day")
-  let notes        = argValue(subArgs, flag: "--notes")
-  let location     = argValue(subArgs, flag: "--location")
-  let alarmMinStr  = argValue(subArgs, flag: "--alarm-minutes")
-  let alarmMinutes = alarmMinStr.flatMap { Int($0) }
+  let isAllDay        = hasFlag(subArgs, flag: "--all-day")
+  let notes           = argValue(subArgs, flag: "--notes")
+  let location        = argValue(subArgs, flag: "--location")
+  let alarmOffsetsStr = argValue(subArgs, flag: "--alarm-offsets")
 
   requestAccess { granted in
     guard granted else { errorExit("EventKit access denied") }
@@ -198,8 +212,10 @@ func runCreate(subArgs: [String]) {
     newEvent.isAllDay  = isAllDay
     if let n = notes    { newEvent.notes    = n }
     if let l = location { newEvent.location = l }
-    if let mins = alarmMinutes {
-      newEvent.addAlarm(EKAlarm(relativeOffset: TimeInterval(-mins * 60)))
+    if let s = alarmOffsetsStr {
+      for m in parseAlarmOffsets(s) {
+        newEvent.addAlarm(EKAlarm(relativeOffset: TimeInterval(m * 60)))
+      }
     }
 
     do {
@@ -218,6 +234,7 @@ func runCreate(subArgs: [String]) {
       "isAllDay":      newEvent.isAllDay,
       "location":      newEvent.location as Any? ?? NSNull(),
       "notes":         newEvent.notes    as Any? ?? NSNull(),
+      "alarmOffsets":  alarmOffsets(for: newEvent),
     ]
 
     jsonOutput(result)
@@ -378,8 +395,7 @@ func runUpdate(subArgs: [String]) {
   let isAllDay    = hasFlag(subArgs, flag: "--all-day")
   let clearNotes  = hasFlag(subArgs, flag: "--clear-notes")
   let clearLoc    = hasFlag(subArgs, flag: "--clear-location")
-  let alarmMinStr  = argValue(subArgs, flag: "--alarm-minutes")
-  let alarmMinutes = alarmMinStr.flatMap { Int($0) }
+  let alarmOffsetsStr = argValue(subArgs, flag: "--alarm-offsets")
 
   requestAccess { granted in
     guard granted else { errorExit("EventKit access denied") }
@@ -406,11 +422,11 @@ func runUpdate(subArgs: [String]) {
       event.calendar = calendar
     }
 
-    // Alarm: bestehende löschen und neu setzen wenn --alarm-minutes übergeben
-    if alarmMinStr != nil {
+    // Flag FEHLT = Alarme unverändert lassen (Regressionsschutz)
+    if let s = alarmOffsetsStr {
       event.alarms = nil
-      if let mins = alarmMinutes, mins >= 0 {
-        event.addAlarm(EKAlarm(relativeOffset: TimeInterval(-mins * 60)))
+      for m in parseAlarmOffsets(s) {
+        event.addAlarm(EKAlarm(relativeOffset: TimeInterval(m * 60)))
       }
     }
 
@@ -432,6 +448,7 @@ func runUpdate(subArgs: [String]) {
       "isAllDay":      event.isAllDay,
       "location":      event.location as Any? ?? NSNull(),
       "notes":         event.notes    as Any? ?? NSNull(),
+      "alarmOffsets":  alarmOffsets(for: event),
     ]
 
     jsonOutput(result)
