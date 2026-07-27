@@ -1,10 +1,33 @@
 import { Router } from 'express';
 import db from '../db/connection';
 import {
-  getAllCalendars, syncRange, createEvent, updateEvent, deleteEvent, fullSync,
+  getAllCalendars, syncRange, createEvent, updateEvent, deleteEvent, fullSync, mapEventRow,
 } from '../services/calendarSwift.service';
 
 const router = Router();
+
+// ── Validierung: alarms (Minuten-Offsets) ────────────────────────────────────
+
+type AlarmsResult = { ok: true; alarms?: number[] } | { ok: false; error: string };
+
+function normalizeAlarms(input: unknown): AlarmsResult {
+  if (input === undefined) return { ok: true };            // nicht mitgeschickt → unverändert
+  if (input === null) return { ok: true, alarms: [] };     // explizit alle entfernen
+  if (!Array.isArray(input)) return { ok: false, error: 'alarms muss ein Array von Minuten-Offsets sein' };
+  const out: number[] = [];
+  for (const v of input) {
+    if (typeof v !== 'number' || !Number.isInteger(v)) {
+      return { ok: false, error: 'alarms darf nur ganze Zahlen enthalten' };
+    }
+    if (v < -525600 || v > 525600) {
+      return { ok: false, error: 'alarms-Offset liegt außerhalb des erlaubten Bereichs (±1 Jahr)' };
+    }
+    if (!out.includes(v)) out.push(v);                     // Duplikate entfernen
+  }
+  if (out.length > 10) return { ok: false, error: 'Maximal 10 Erinnerungen pro Termin' };
+  out.sort((a, b) => a - b);
+  return { ok: true, alarms: out };
+}
 
 // GET /api/calendar/calendars — Alle Kalender (inkl. ausgeblendete) fuer Toggle-Chips
 router.get('/calendars', async (_req, res) => {
@@ -45,8 +68,8 @@ router.get('/events', async (req, res) => {
     await syncRange(defaultFrom, defaultTo);
     const rows = db.prepare(
       "SELECT * FROM calendar_events WHERE start_at >= ? AND start_at <= ? ORDER BY start_at"
-    ).all(`${defaultFrom}T00:00:00.000Z`, `${defaultTo}T23:59:59.000Z`);
-    return res.json(rows);
+    ).all(`${defaultFrom}T00:00:00.000Z`, `${defaultTo}T23:59:59.000Z`) as Record<string, unknown>[];
+    return res.json(rows.map(mapEventRow));
   }
 
   // Sync triggern (cached wenn < 5 Min alt)
@@ -54,15 +77,15 @@ router.get('/events', async (req, res) => {
 
   const rows = db.prepare(
     "SELECT * FROM calendar_events WHERE start_at >= ? AND start_at <= ? ORDER BY start_at"
-  ).all(`${from}T00:00:00.000Z`, `${to}T23:59:59.000Z`);
-  res.json(rows);
+  ).all(`${from}T00:00:00.000Z`, `${to}T23:59:59.000Z`) as Record<string, unknown>[];
+  res.json(rows.map(mapEventRow));
 });
 
 // POST /api/calendar/events — Neues Event erstellen
 router.post('/events', async (req, res) => {
   const {
     title, start_at, end_at, calendar_id,
-    is_all_day = false, location, notes, alarm_minutes,
+    is_all_day = false, location, notes, alarms,
   } = req.body as {
     title: string;
     start_at: string;
@@ -71,7 +94,7 @@ router.post('/events', async (req, res) => {
     is_all_day?: boolean;
     location?: string;
     notes?: string;
-    alarm_minutes?: number;
+    alarms?: number[] | null;
   };
 
   console.log('[calendar:create] incoming', { title, start_at, end_at, calendar_id, is_all_day });
@@ -81,8 +104,11 @@ router.post('/events', async (req, res) => {
     return res.status(400).json({ error: 'title, start_at, end_at, calendar_id required' });
   }
 
+  const a = normalizeAlarms(alarms);
+  if (!a.ok) return res.status(400).json({ error: a.error });
+
   try {
-    const event = await createEvent({ title, start_at, end_at, calendar_id, is_all_day, location, notes, alarm_minutes });
+    const event = await createEvent({ title, start_at, end_at, calendar_id, is_all_day, location, notes, alarms: a.alarms });
     console.log('[calendar:create] OK id=', event.id, 'apple_uid=', event.apple_uid);
     res.status(201).json({ ok: true, event });
   } catch (err) {
@@ -119,7 +145,7 @@ router.patch('/events/:id', async (req, res) => {
     return res.status(404).json({ error: 'Event not found' });
   }
 
-  const { title, start_at, end_at, calendar_id, is_all_day, location, notes, alarm_minutes } = req.body as {
+  const { title, start_at, end_at, calendar_id, is_all_day, location, notes, alarms } = req.body as {
     title?: string;
     start_at?: string;
     end_at?: string;
@@ -127,10 +153,13 @@ router.patch('/events/:id', async (req, res) => {
     is_all_day?: boolean;
     location?: string | null;
     notes?: string | null;
-    alarm_minutes?: number | null;
+    alarms?: number[] | null;
   };
 
-  const event = await updateEvent(row.apple_uid, { title, start_at, end_at, calendar_id, is_all_day, location, notes, alarm_minutes });
+  const a = normalizeAlarms(alarms);
+  if (!a.ok) return res.status(400).json({ error: a.error });
+
+  const event = await updateEvent(row.apple_uid, { title, start_at, end_at, calendar_id, is_all_day, location, notes, alarms: a.alarms });
   res.json({ ok: true, event });
 });
 

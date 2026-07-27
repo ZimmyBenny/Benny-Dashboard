@@ -27,6 +27,21 @@ export interface CalendarEvent {
   is_all_day: number;
   location: string | null;
   notes: string | null;
+  alarms: number[] | null;
+}
+
+// ── Mapper: DB-Zeile → API-Objekt (defensiv gegen kaputtes JSON) ─────────────
+
+export function mapEventRow<T extends Record<string, unknown>>(row: T): CalendarEvent {
+  let alarms: number[] | null = null;
+  const raw = row.alarms;
+  if (typeof raw === 'string' && raw.length > 0) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) alarms = parsed.filter((n) => Number.isInteger(n)) as number[];
+    } catch { alarms = null; }
+  }
+  return { ...(row as unknown as CalendarEvent), alarms };
 }
 
 export interface SyncResult {
@@ -121,6 +136,7 @@ interface RawEvent {
   isReminder?: boolean;
   location: string | null;
   notes: string | null;
+  alarmOffsets?: number[];
 }
 
 export async function syncRange(from: string, to: string, deleteStale = false): Promise<SyncResult> {
@@ -147,8 +163,8 @@ export async function syncRange(from: string, to: string, deleteStale = false): 
   let created = 0, updated = 0, skipped = 0;
 
   const upsert = db.prepare(`
-    INSERT INTO calendar_events (apple_uid, title, start_at, end_at, is_all_day, calendar_name, calendar_id, location, notes, sync_status, last_synced_at, updated_at, created_at)
-    VALUES (@uid, @title, @start_at, @end_at, @is_all_day, @calendar_name, @calendar_id, @location, @notes, 'synced', @now, @now, @now)
+    INSERT INTO calendar_events (apple_uid, title, start_at, end_at, is_all_day, calendar_name, calendar_id, location, notes, alarms, sync_status, last_synced_at, updated_at, created_at)
+    VALUES (@uid, @title, @start_at, @end_at, @is_all_day, @calendar_name, @calendar_id, @location, @notes, @alarms, 'synced', @now, @now, @now)
     ON CONFLICT(apple_uid, start_at) DO UPDATE SET
       title         = excluded.title,
       end_at        = excluded.end_at,
@@ -157,6 +173,7 @@ export async function syncRange(from: string, to: string, deleteStale = false): 
       calendar_id   = excluded.calendar_id,
       location      = excluded.location,
       notes         = excluded.notes,
+      alarms        = excluded.alarms,
       sync_status   = 'synced',
       last_synced_at = excluded.last_synced_at,
       updated_at     = excluded.updated_at
@@ -177,6 +194,7 @@ export async function syncRange(from: string, to: string, deleteStale = false): 
         calendar_id:   evt.calendarId,
         location:      evt.location ?? null,
         notes:         evt.notes ?? null,
+        alarms:        evt.alarmOffsets ? JSON.stringify(evt.alarmOffsets) : null,
         now:           new Date().toISOString(),
       });
 
@@ -218,6 +236,7 @@ export async function syncRange(from: string, to: string, deleteStale = false): 
           calendar_id:   r.calendarId,
           location:      null,
           notes:         r.notes ?? null,
+          alarms:        null,
           now:           new Date().toISOString(),
         });
         if (existing) updated++; else created++;
@@ -252,7 +271,7 @@ interface CreateEventData {
   is_all_day?: boolean;
   location?: string;
   notes?: string;
-  alarm_minutes?: number;
+  alarms?: number[];
 }
 
 export async function createEvent(data: CreateEventData): Promise<CalendarEvent> {
@@ -266,14 +285,14 @@ export async function createEvent(data: CreateEventData): Promise<CalendarEvent>
   if (data.is_all_day)    args.push('--all-day');
   if (data.notes)         args.push('--notes', data.notes);
   if (data.location)      args.push('--location', data.location);
-  if (data.alarm_minutes != null) args.push('--alarm-minutes', String(data.alarm_minutes));
+  if (data.alarms) args.push('--alarm-offsets', data.alarms.join(','));
 
   const created = await execBinary<RawEvent>(args);
 
   // In SQLite speichern
   const result = db.prepare(`
-    INSERT INTO calendar_events (apple_uid, title, start_at, end_at, is_all_day, calendar_name, calendar_id, location, notes, sync_status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')
+    INSERT INTO calendar_events (apple_uid, title, start_at, end_at, is_all_day, calendar_name, calendar_id, location, notes, alarms, sync_status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')
   `).run(
     created.id,
     created.title,
@@ -284,10 +303,11 @@ export async function createEvent(data: CreateEventData): Promise<CalendarEvent>
     created.calendarId,
     created.location ?? null,
     created.notes ?? null,
+    created.alarmOffsets ? JSON.stringify(created.alarmOffsets) : null,
   );
 
-  const row = db.prepare('SELECT * FROM calendar_events WHERE id = ?').get(result.lastInsertRowid) as CalendarEvent;
-  return row;
+  const row = db.prepare('SELECT * FROM calendar_events WHERE id = ?').get(result.lastInsertRowid) as Record<string, unknown>;
+  return mapEventRow(row);
 }
 
 // ── Event aktualisieren ───────────────────────────────────────────────────────
@@ -300,7 +320,7 @@ interface UpdateEventData {
   is_all_day?: boolean;
   location?: string | null;
   notes?: string | null;
-  alarm_minutes?: number | null;
+  alarms?: number[];
 }
 
 export async function updateEvent(appleUid: string, data: UpdateEventData): Promise<CalendarEvent> {
@@ -314,8 +334,7 @@ export async function updateEvent(appleUid: string, data: UpdateEventData): Prom
   else if (data.notes === null) args.push('--clear-notes');
   if (data.location)    args.push('--location', data.location);
   else if (data.location === null) args.push('--clear-location');
-  if (data.alarm_minutes != null) args.push('--alarm-minutes', String(data.alarm_minutes));
-  else if (data.alarm_minutes === null) args.push('--alarm-minutes', '-1'); // -1 = löschen
+  if (data.alarms) args.push('--alarm-offsets', data.alarms.join(','));
 
   const updated = await execBinary<RawEvent>(args);
 
@@ -329,6 +348,7 @@ export async function updateEvent(appleUid: string, data: UpdateEventData): Prom
       calendar_id   = ?,
       location      = ?,
       notes         = ?,
+      alarms        = ?,
       sync_status   = 'synced',
       updated_at    = ?
     WHERE apple_uid = ?
@@ -341,12 +361,13 @@ export async function updateEvent(appleUid: string, data: UpdateEventData): Prom
     updated.calendarId,
     updated.location ?? null,
     updated.notes ?? null,
+    updated.alarmOffsets ? JSON.stringify(updated.alarmOffsets) : null,
     new Date().toISOString(),
     appleUid,
   );
 
-  const row = db.prepare('SELECT * FROM calendar_events WHERE apple_uid = ?').get(appleUid) as CalendarEvent;
-  return row;
+  const row = db.prepare('SELECT * FROM calendar_events WHERE apple_uid = ?').get(appleUid) as Record<string, unknown>;
+  return mapEventRow(row);
 }
 
 // ── Event loeschen ────────────────────────────────────────────────────────────
