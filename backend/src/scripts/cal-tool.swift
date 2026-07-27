@@ -212,7 +212,13 @@ func runCreate(subArgs: [String]) {
     newEvent.isAllDay  = isAllDay
     if let n = notes    { newEvent.notes    = n }
     if let l = location { newEvent.location = l }
+    // Wenn --alarm-offsets uebergeben wurde, gilt AUSSCHLIESSLICH diese Liste.
+    // EKEvent erbt sonst die macOS-Standardwarnzeit (Kalender-Einstellungen ->
+    // Warnungen), wodurch z. B. bei "keine Erinnerung" trotzdem ein Alarm bei 0
+    // entstand und bei zwei gewaehlten Alarmen drei gespeichert wurden.
+    // Flag NICHT uebergeben = macOS-Default greift wie bisher.
     if let s = alarmOffsetsStr {
+      newEvent.alarms = nil
       for m in parseAlarmOffsets(s) {
         newEvent.addAlarm(EKAlarm(relativeOffset: TimeInterval(m * 60)))
       }
