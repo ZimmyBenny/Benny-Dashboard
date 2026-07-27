@@ -20,6 +20,7 @@ export interface CalendarEvent {
   is_all_day: number;   // 0 | 1
   location: string | null;
   notes: string | null;
+  alarms: number[] | null; // Minuten-Offsets relativ zum Start, negativ = vorher
   last_synced_at: string | null;
   created_at: string | null;
 }
@@ -32,7 +33,7 @@ export interface CreateEventPayload {
   is_all_day?: boolean;
   location?: string;
   notes?: string;
-  alarm_minutes?: number; // Minuten vor dem Event (z.B. 15 = 15 Min vorher)
+  alarms?: number[]; // Minuten-Offsets relativ zum Start, negativ = vorher
 }
 
 // ── API-Funktionen ─────────────────────────────────────────────────────────────
@@ -60,7 +61,7 @@ export interface UpdateEventPayload {
   is_all_day?: boolean;
   location?: string | null;
   notes?: string | null;
-  alarm_minutes?: number | null;
+  alarms?: number[];
 }
 
 export async function updateEvent(id: number, payload: UpdateEventPayload): Promise<CalendarEvent> {

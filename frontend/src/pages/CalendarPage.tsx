@@ -6,6 +6,7 @@ import {
   type CalendarEvent, type Calendar, type CreateEventPayload,
 } from '../api/calendar.api';
 import { isoDateLocal, parseLocalDate } from '../lib/dates';
+import { AlarmListEditor } from '../components/calendar/AlarmListEditor';
 
 // ── Konstanten ─────────────────────────────────────────────────────────────────
 
@@ -312,16 +313,6 @@ function DayView({ viewDate, filteredEvents, calendars, onNewEvent, onEventClick
 
 // ── EventForm ──────────────────────────────────────────────────────────────────
 
-const ALARM_PRESETS = [
-  { label: 'Keine', value: null },
-  { label: '5 Min vorher', value: 5 },
-  { label: '15 Min vorher', value: 15 },
-  { label: '30 Min vorher', value: 30 },
-  { label: '1 Std vorher', value: 60 },
-  { label: '1 Tag vorher', value: 1440 },
-  { label: 'Eigene Zeit', value: -1 },
-];
-
 interface EventFormProps {
   calendars: Calendar[];
   initialDate: string;
@@ -349,8 +340,7 @@ function EventForm({ calendars, initialDate, onSaved, onClose }: EventFormProps)
   const [isAllDay, setIsAllDay]   = useState(false);
   const [calId, setCalId]         = useState(calendars[0]?.id ?? '');
   const [location, setLocation]   = useState('');
-  const [alarmPreset, setAlarmPreset] = useState<number | null>(null); // null=Keine, -1=Eigene
-  const [alarmCustom, setAlarmCustom] = useState('');
+  const [alarms, setAlarms]       = useState<number[]>([]);
   const [saving, setSaving]       = useState(false);
   const [error, setError]         = useState<string | null>(null);
 
@@ -378,10 +368,6 @@ function EventForm({ calendars, initialDate, onSaved, onClose }: EventFormProps)
         end_at   = new Date(`${date}T${endTime}:00`).toISOString();
       }
 
-      const alarmMinutes = alarmPreset === -1
-        ? (parseInt(alarmCustom) > 0 ? parseInt(alarmCustom) : undefined)
-        : (alarmPreset ?? undefined);
-
       const payload: CreateEventPayload = {
         title: title.trim(),
         start_at,
@@ -389,7 +375,7 @@ function EventForm({ calendars, initialDate, onSaved, onClose }: EventFormProps)
         calendar_id: calId,
         is_all_day: isAllDay,
         location: location.trim() || undefined,
-        alarm_minutes: alarmMinutes,
+        alarms,
       };
 
       const evt = await createEvent(payload);
@@ -476,32 +462,8 @@ function EventForm({ calendars, initialDate, onSaved, onClose }: EventFormProps)
       </div>
 
       <div>
-        <label style={labelStyle}>Erinnerung</label>
-        <select
-          style={{ ...inputStyle, cursor: 'pointer' }}
-          value={alarmPreset ?? 'null'}
-          onChange={e => {
-            const v = e.target.value;
-            setAlarmPreset(v === 'null' ? null : parseInt(v));
-          }}
-        >
-          {ALARM_PRESETS.map(p => (
-            <option key={String(p.value)} value={String(p.value)}>{p.label}</option>
-          ))}
-        </select>
-        {alarmPreset === -1 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
-            <input
-              type="number"
-              min="1"
-              style={{ ...inputStyle, width: '100px' }}
-              value={alarmCustom}
-              onChange={e => setAlarmCustom(e.target.value)}
-              placeholder="z.B. 45"
-            />
-            <span style={{ fontSize: '0.8rem', color: 'var(--color-outline)' }}>Minuten vorher</span>
-          </div>
-        )}
+        <label style={labelStyle}>Erinnerungen</label>
+        <AlarmListEditor value={alarms} onChange={setAlarms} isAllDay={isAllDay} resetKey="new" inputStyle={inputStyle} />
       </div>
 
       {error && (
@@ -562,8 +524,7 @@ function DaySlideOver({ date, events, calendars, onClose, onEventDeleted, onEven
   const [editCalId, setEditCalId]       = useState('');
   const [editLocation, setEditLocation]       = useState('');
   const [editNotes, setEditNotes]             = useState('');
-  const [editAlarmPreset, setEditAlarmPreset] = useState<number | null>(null);
-  const [editAlarmCustom, setEditAlarmCustom] = useState('');
+  const [editAlarms, setEditAlarms]           = useState<number[]>([]);
   const [saving, setSaving]                   = useState(false);
   const [editError, setEditError]             = useState<string | null>(null);
 
@@ -590,8 +551,7 @@ function DaySlideOver({ date, events, calendars, onClose, onEventDeleted, onEven
     setEditCalId(evt.calendar_id ?? '');
     setEditLocation(evt.location ?? '');
     setEditNotes(evt.notes ?? '');
-    setEditAlarmPreset(null);
-    setEditAlarmCustom('');
+    setEditAlarms(evt.alarms ?? []);
     setEditError(null);
   }
 
@@ -608,10 +568,6 @@ function DaySlideOver({ date, events, calendars, onClose, onEventDeleted, onEven
         ? new Date(`${editDate}T23:59:59`).toISOString()
         : new Date(`${editDate}T${editEnd}:00`).toISOString();
 
-      const alarmMinutes = editAlarmPreset === -1
-        ? (parseInt(editAlarmCustom) > 0 ? parseInt(editAlarmCustom) : undefined)
-        : editAlarmPreset;
-
       const updated = await updateEvent(editingEvent.id, {
         title: editTitle.trim(),
         start_at,
@@ -620,7 +576,7 @@ function DaySlideOver({ date, events, calendars, onClose, onEventDeleted, onEven
         calendar_id: editCalId || undefined,
         location: editLocation.trim() || null,
         notes: editNotes.trim() || null,
-        alarm_minutes: alarmMinutes ?? null,
+        alarms: editAlarms,
       });
       onEventUpdated(updated);
       setEditingEvent(null);
@@ -770,22 +726,13 @@ function DaySlideOver({ date, events, calendars, onClose, onEventDeleted, onEven
 
                       <input style={inputStyle} value={editLocation} onChange={e => setEditLocation(e.target.value)} placeholder="Ort (optional)" />
 
-                      <select
-                        style={{ ...inputStyle, cursor: 'pointer' }}
-                        value={editAlarmPreset ?? 'null'}
-                        onChange={e => { const v = e.target.value; setEditAlarmPreset(v === 'null' ? null : parseInt(v)); }}
-                      >
-                        {ALARM_PRESETS.map(p => (
-                          <option key={String(p.value)} value={String(p.value)}>{p.label}</option>
-                        ))}
-                      </select>
-                      {editAlarmPreset === -1 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <input type="number" min="1" style={{ ...inputStyle, width: '80px' }}
-                            value={editAlarmCustom} onChange={e => setEditAlarmCustom(e.target.value)} placeholder="z.B. 45" />
-                          <span style={{ fontSize: '0.75rem', color: 'var(--color-outline)' }}>Minuten vorher</span>
-                        </div>
-                      )}
+                      <AlarmListEditor
+                        value={editAlarms}
+                        onChange={setEditAlarms}
+                        isAllDay={editAllDay}
+                        resetKey={String(evt.id)}
+                        inputStyle={inputStyle}
+                      />
 
                       {editError && <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-error)' }}>{editError}</p>}
 
