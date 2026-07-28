@@ -26,8 +26,10 @@ backend/dist/
 # Claude Code local settings
 .claude/
 
-# Cal-tool compiled binary (Swift EventKit CLI)
+# Cal-tool compiled binary (Swift EventKit CLI) + Rollback-Backup
+# Neu bauen: cd backend/src/scripts && swiftc -O cal-tool.swift -o cal-tool
 backend/src/scripts/cal-tool
+backend/src/scripts/cal-tool.bak
 
 # Tesseract OCR-Sprachdaten (~30 MB pro Datei, werden von tesseract.js bei Bedarf geladen)
 *.traineddata
