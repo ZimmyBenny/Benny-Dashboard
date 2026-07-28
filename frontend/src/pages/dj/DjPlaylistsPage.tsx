@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { useDraggableModal } from '../../hooks/useDraggableModal';
@@ -83,9 +83,39 @@ function isAllowedPlaylistFile(name: string): boolean {
   return ALLOWED_EXTENSIONS.some((ext) => lower.endsWith(ext));
 }
 
+/**
+ * Ansicht-Einstellungen (Sortierung + Filter) ueberleben das Schliessen der Seite.
+ * Rein clientseitig im localStorage — der Suchtext wird bewusst NICHT gemerkt
+ * (sonst waere die Liste beim naechsten Oeffnen unerklaerlich gefiltert).
+ */
+const VIEW_STORAGE_KEY = 'dj.playlists.view';
+const SORT_KEYS: SortKey[] = ['title', 'category_name', 'dj_name', 'year', 'created_at'];
+
+interface PersistedView {
+  sort?: { key: SortKey; dir: SortDir };
+  filterCategoryId?: number | null;
+  filterDjId?: number | null;
+}
+
+function loadView(): PersistedView {
+  try {
+    const raw = localStorage.getItem(VIEW_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as PersistedView;
+    // Defensiv: veraltete/ungueltige Werte (z. B. entfernte Spalte „type") verwerfen,
+    // sonst bliebe die Tabelle unsortiert.
+    if (parsed.sort && (!SORT_KEYS.includes(parsed.sort.key) || !['asc', 'desc'].includes(parsed.sort.dir))) {
+      delete parsed.sort;
+    }
+    return parsed;
+  } catch {
+    return {};
+  }
+}
+
 export function DjPlaylistsPage() {
   const [search, setSearch] = useState('');
-  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'title', dir: 'asc' });
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>(() => loadView().sort ?? { key: 'title', dir: 'asc' });
 
   // Upload-Flow
   const [uploadQueue, setUploadQueue] = useState<File[]>([]);
@@ -115,9 +145,21 @@ export function DjPlaylistsPage() {
   const [renameDjId, setRenameDjId] = useState<number | null>(null);
   const [renameDjName, setRenameDjName] = useState('');
 
-  // Filter
-  const [filterCategoryId, setFilterCategoryId] = useState<number | null>(null);
-  const [filterDjId, setFilterDjId] = useState<number | null>(null);
+  // Filter (werden wie die Sortierung gemerkt)
+  const [filterCategoryId, setFilterCategoryId] = useState<number | null>(() => loadView().filterCategoryId ?? null);
+  const [filterDjId, setFilterDjId] = useState<number | null>(() => loadView().filterDjId ?? null);
+
+  // Sortierung + Filter bei jeder Änderung sichern
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        VIEW_STORAGE_KEY,
+        JSON.stringify({ sort, filterCategoryId, filterDjId } satisfies PersistedView),
+      );
+    } catch {
+      // localStorage nicht verfügbar (privater Modus) — Ansicht bleibt dann flüchtig
+    }
+  }, [sort, filterCategoryId, filterDjId]);
 
   // Viewer
   const [viewerPlaylist, setViewerPlaylist] = useState<Playlist | null>(null);
