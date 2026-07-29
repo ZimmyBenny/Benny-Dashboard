@@ -45,7 +45,8 @@ export function DjOverviewPage() {
     end.setDate(today.getDate() + upcomingWeeks * 7);
     return (events ?? [])
       .filter(e => {
-        if (e.status === 'abgesagt') return false;
+        // Nur fest gebuchte Gigs — keine offenen Anfragen/Angebote aus der Pipeline.
+        if (e.status !== 'bestaetigt') return false;
         const d = new Date(e.event_date + 'T00:00:00');
         // upcomingWeeks === 0 → alle in der Zukunft, sonst bis zum Fenster-Ende
         return d >= today && (upcomingWeeks === 0 || d <= end);
