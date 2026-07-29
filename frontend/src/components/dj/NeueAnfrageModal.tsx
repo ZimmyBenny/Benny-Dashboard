@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useDraggableModal } from '../../hooks/useDraggableModal';
 import {
   createDjEvent, fetchDjCustomers, fetchDjEvent, fetchDjEvents, updateDjEvent, createDjTrip,
+  uploadEventAttachments,
   type DjCustomer, type DjEvent, type EventType, type EventStatus, type StatusHistoryEntry,
 } from '../../api/dj.api';
 import { createContact, type ContactDetail } from '../../api/contacts.api';
@@ -364,6 +365,9 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
 
   const isEdit = !!eventId;
 
+  // Anhaenge im Neu-Modus: erst sammeln, nach dem Anlegen hochladen
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+
   // Form-State
   const [sourceChannel, setSourceChannel] = useState('');
   const [customerId, setCustomerId] = useState<number | null>(null);
@@ -686,6 +690,23 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
         onUpdated?.();
       } else {
         const newEvent = await createDjEvent({ ...payload, status: 'anfrage' } as Parameters<typeof createDjEvent>[0]);
+
+        // Im Neu-Dialog gesammelte Anhaenge jetzt hochladen (Anfrage existiert erst ab hier).
+        // Fehler duerfen die gespeicherte Anfrage nicht entwerten — nur Hinweis, kein Abbruch.
+        if (newEvent?.id && pendingFiles.length > 0) {
+          try {
+            await uploadEventAttachments(newEvent.id, pendingFiles);
+            setPendingFiles([]);
+          } catch (upErr: unknown) {
+            const e = upErr as { response?: { data?: { error?: string } }; message?: string };
+            const msg = e?.response?.data?.error ?? e?.message ?? String(upErr);
+            window.alert(
+              `Die Anfrage wurde gespeichert, aber die Anhänge konnten nicht hochgeladen werden:\n${msg}\n\n` +
+              'Du kannst sie beim Bearbeiten der Anfrage erneut anhängen.',
+            );
+          }
+        }
+
         // Kalender-Eintrag anlegen
         let calendarSyncFailed = false;
         if (addToCalendar && eventDate) {
@@ -1545,21 +1566,27 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
             </div>
           )}
 
-          {/* Anhaenge (nur Edit-Modus) */}
-          {isEdit && eventId && (
-            <div style={{ borderTop: '1px solid rgba(148,170,255,0.1)', marginTop: '1.5rem', paddingTop: '1.25rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '1.25rem', color: '#94aaff' }}>attach_file</span>
-                <h3 style={{
-                  fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '1rem',
-                  color: 'var(--color-on-surface)', margin: 0,
-                }}>
-                  Dokumente & E-Mails
-                </h3>
-              </div>
-              <EventAttachmentsSection eventId={eventId} />
+          {/* Anhaenge — im Neu-Modus werden Dateien gesammelt und nach dem Anlegen hochgeladen */}
+          <div style={{ borderTop: '1px solid rgba(148,170,255,0.1)', marginTop: '1.5rem', paddingTop: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '1.25rem', color: '#94aaff' }}>attach_file</span>
+              <h3 style={{
+                fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '1rem',
+                color: 'var(--color-on-surface)', margin: 0,
+              }}>
+                Dokumente & E-Mails
+              </h3>
             </div>
-          )}
+            {isEdit && eventId ? (
+              <EventAttachmentsSection eventId={eventId} />
+            ) : (
+              <EventAttachmentsSection
+                pendingFiles={pendingFiles}
+                onAddFiles={files => setPendingFiles(prev => [...prev, ...files])}
+                onRemoveFile={index => setPendingFiles(prev => prev.filter((_, i) => i !== index))}
+              />
+            )}
+          </div>
 
           {/* Status-Verlauf (nur Edit-Modus) */}
           {isEdit && statusHistory.length > 0 && (

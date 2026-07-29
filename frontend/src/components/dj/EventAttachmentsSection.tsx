@@ -7,9 +7,20 @@ import {
   type DjEventAttachment,
 } from '../../api/dj.api';
 import apiClient from '../../api/client';
+import { useFilePreview, FilePreviewModal } from '../amazon/FilePreviewModal';
 
+/**
+ * Zwei Betriebsarten:
+ *  - **Gespeichert-Modus** (`eventId` gesetzt): laedt/uploadet/loescht direkt via API.
+ *  - **Entwurfs-Modus** (`eventId` fehlt, z. B. „Neue Anfrage" vor dem Speichern):
+ *    arbeitet nur auf `pendingFiles`; der Upload passiert im Eltern-Dialog, sobald
+ *    die Anfrage angelegt wurde. Kein API-Zugriff, keine verwaisten Dateien bei Abbruch.
+ */
 interface Props {
-  eventId: number;
+  eventId?: number;
+  pendingFiles?: File[];
+  onAddFiles?: (files: File[]) => void;
+  onRemoveFile?: (index: number) => void;
 }
 
 function formatBytes(n: number | null): string {
@@ -31,13 +42,18 @@ function iconForMime(mime: string | null, name: string): string {
   return 'attach_file';
 }
 
-export function EventAttachmentsSection({ eventId }: Props) {
+export function EventAttachmentsSection({ eventId, pendingFiles, onAddFiles, onRemoveFile }: Props) {
   const [items, setItems] = useState<DjEventAttachment[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const { preview, open: openPreview, close: closePreview } = useFilePreview();
+
+  const isDraft = !eventId;
+  const draftFiles = pendingFiles ?? [];
+  const count = isDraft ? draftFiles.length : items.length;
 
   useEffect(() => {
     if (!eventId) return;
@@ -50,11 +66,19 @@ export function EventAttachmentsSection({ eventId }: Props) {
 
   async function handleFiles(files: FileList | File[] | null) {
     if (!files || files.length === 0) return;
+    const arr = Array.from(files);
+
+    // Entwurfs-Modus: nur sammeln, der Upload folgt nach dem Anlegen der Anfrage.
+    if (isDraft) {
+      onAddFiles?.(arr);
+      if (fileInput.current) fileInput.current.value = '';
+      return;
+    }
+
     setUploading(true);
     setError(null);
     try {
-      const arr = Array.from(files);
-      const created = await uploadEventAttachments(eventId, arr);
+      const created = await uploadEventAttachments(eventId!, arr);
       setItems(prev => [...created, ...prev]);
     } catch {
       setError('Upload fehlgeschlagen.');
@@ -64,10 +88,49 @@ export function EventAttachmentsSection({ eventId }: Props) {
     }
   }
 
+  /** Vorschau eines bereits gespeicherten Anhangs (Blob via Download-Route laden). */
+  async function handlePreviewSaved(att: DjEventAttachment) {
+    try {
+      const url = downloadEventAttachmentUrl(eventId!, att.id);
+      const res = await apiClient.get(url.replace(apiClient.defaults.baseURL ?? '', ''), {
+        responseType: 'blob',
+      });
+      // close() im Modal gibt die URL wieder frei — daher bei jedem Oeffnen neu erzeugen.
+      openPreview(URL.createObjectURL(res.data as Blob), att.mime_type, att.original_name);
+    } catch {
+      setError('Vorschau konnte nicht geladen werden.');
+    }
+  }
+
+  /** Vorschau einer noch nicht hochgeladenen Datei (direkt aus dem File-Objekt). */
+  function handlePreviewDraft(file: File) {
+    openPreview(URL.createObjectURL(file), file.type || null, file.name);
+  }
+
+  /** Beide Modi auf eine gemeinsame Zeilen-Struktur bringen — ein Render-Pfad. */
+  const rows = isDraft
+    ? draftFiles.map((file, index) => ({
+        key: `draft-${index}-${file.name}`,
+        icon: iconForMime(file.type, file.name),
+        name: file.name,
+        meta: `${formatBytes(file.size)} · wird beim Speichern hochgeladen`,
+        onPreview: () => handlePreviewDraft(file),
+        onDownload: null as (() => void) | null,
+        onDelete: () => onRemoveFile?.(index),
+      }))
+    : items.map(att => ({
+        key: `att-${att.id}`,
+        icon: iconForMime(att.mime_type, att.original_name),
+        name: att.original_name,
+        meta: `${formatBytes(att.size_bytes)}${att.size_bytes != null ? ' · ' : ''}${new Date(att.uploaded_at).toLocaleDateString('de-DE')}`,
+        onPreview: () => { void handlePreviewSaved(att); },
+        onDownload: (() => { void handleDownload(att); }) as (() => void) | null,
+        onDelete: () => { void handleDelete(att); },
+      }));
+
   // Paste-Handler fuer Screenshots aus der Zwischenablage (Cmd+V).
   // Greift global, solange die Komponente gemounted ist (Modal offen).
   useEffect(() => {
-    if (!eventId) return;
     const onPaste = (e: ClipboardEvent) => {
       // Wenn aktiver Fokus auf Input/Textarea liegt: Paste dort durchlassen.
       const t = e.target as HTMLElement | null;
@@ -96,12 +159,12 @@ export function EventAttachmentsSection({ eventId }: Props) {
     window.addEventListener('paste', onPaste);
     return () => window.removeEventListener('paste', onPaste);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId]);
+  }, [eventId, isDraft]);
 
   async function handleDelete(att: DjEventAttachment) {
     if (!window.confirm(`„${att.original_name}" wirklich löschen?`)) return;
     try {
-      await deleteEventAttachment(eventId, att.id);
+      await deleteEventAttachment(eventId!, att.id);
       setItems(prev => prev.filter(x => x.id !== att.id));
     } catch {
       setError('Löschen fehlgeschlagen.');
@@ -111,7 +174,7 @@ export function EventAttachmentsSection({ eventId }: Props) {
   // Download mit Auth-Header (JWT) — wir laden die Datei via axios und triggern dann den Browser-Download
   async function handleDownload(att: DjEventAttachment) {
     try {
-      const url = downloadEventAttachmentUrl(eventId, att.id);
+      const url = downloadEventAttachmentUrl(eventId!, att.id);
       const res = await apiClient.get(url.replace(apiClient.defaults.baseURL ?? '', ''), {
         responseType: 'blob',
       });
@@ -144,7 +207,7 @@ export function EventAttachmentsSection({ eventId }: Props) {
           textTransform: 'uppercase',
           color: 'var(--color-on-surface-variant)',
         }}>
-          Anhänge {items.length > 0 && <span style={{ marginLeft: '0.25rem', color: '#94aaff' }}>({items.length})</span>}
+          Anhänge {count > 0 && <span style={{ marginLeft: '0.25rem', color: '#94aaff' }}>({count})</span>}
         </div>
         <button
           type="button"
@@ -193,7 +256,7 @@ export function EventAttachmentsSection({ eventId }: Props) {
 
       {loading ? (
         <div style={{ fontSize: '0.8rem', color: 'var(--color-on-surface-variant)', fontStyle: 'italic' }}>Lade…</div>
-      ) : items.length === 0 ? (
+      ) : count === 0 ? (
         <div
           onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
           onDragLeave={() => setIsDragOver(false)}
@@ -239,9 +302,11 @@ export function EventAttachmentsSection({ eventId }: Props) {
             transition: 'all 150ms',
           }}
         >
-          {items.map(att => (
+          {rows.map(row => (
             <div
-              key={att.id}
+              key={row.key}
+              onClick={row.onPreview}
+              title="Klicken für Vorschau"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -250,10 +315,11 @@ export function EventAttachmentsSection({ eventId }: Props) {
                 background: 'rgba(255,255,255,0.03)',
                 border: '1px solid rgba(148,170,255,0.12)',
                 borderRadius: '0.5rem',
+                cursor: 'pointer',
               }}
             >
               <span className="material-symbols-outlined" style={{ fontSize: 20, color: '#94aaff', flexShrink: 0 }}>
-                {iconForMime(att.mime_type, att.original_name)}
+                {row.icon}
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{
@@ -263,40 +329,40 @@ export function EventAttachmentsSection({ eventId }: Props) {
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
-                }} title={att.original_name}>
-                  {att.original_name}
+                }} title={row.name}>
+                  {row.name}
                 </div>
                 <div style={{
                   fontFamily: 'var(--font-body)',
                   fontSize: '0.7rem',
                   color: 'var(--color-on-surface-variant)',
                 }}>
-                  {formatBytes(att.size_bytes)}
-                  {att.size_bytes != null && ' · '}
-                  {new Date(att.uploaded_at).toLocaleDateString('de-DE')}
+                  {row.meta}
                 </div>
               </div>
+              {row.onDownload && (
+                <button
+                  type="button"
+                  onClick={e => { e.stopPropagation(); row.onDownload!(); }}
+                  title="Herunterladen"
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid rgba(148,170,255,0.25)',
+                    color: '#94aaff',
+                    borderRadius: '0.375rem',
+                    padding: '0.25rem 0.5rem',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>download</span>
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => { void handleDownload(att); }}
-                title="Herunterladen"
-                style={{
-                  background: 'transparent',
-                  border: '1px solid rgba(148,170,255,0.25)',
-                  color: '#94aaff',
-                  borderRadius: '0.375rem',
-                  padding: '0.25rem 0.5rem',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>download</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => { void handleDelete(att); }}
-                title="Löschen"
+                onClick={e => { e.stopPropagation(); row.onDelete(); }}
+                title={isDraft ? 'Entfernen' : 'Löschen'}
                 style={{
                   background: 'transparent',
                   border: '1px solid rgba(255,110,132,0.25)',
@@ -308,12 +374,14 @@ export function EventAttachmentsSection({ eventId }: Props) {
                   alignItems: 'center',
                 }}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{isDraft ? 'close' : 'delete'}</span>
               </button>
             </div>
           ))}
         </div>
       )}
+
+      <FilePreviewModal preview={preview} onClose={closePreview} />
     </div>
   );
 }
