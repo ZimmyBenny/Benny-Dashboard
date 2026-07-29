@@ -13,6 +13,14 @@ import apiClient from '../../api/client';
 
 const VORG_FILTER = '_vorgespraeche';
 
+/**
+ * „Offene Anfragen" vom DJ-Dashboard: umfasst drei Status und passt deshalb auf
+ * keinen einzelnen Reiter. Muss mit der Backend-Zaehlung in dj.routes.ts
+ * (openRequests) uebereinstimmen, sonst weicht die Kachel-Zahl von der Liste ab.
+ */
+const OFFENE_ANFRAGEN_FILTER = '_offene_anfragen';
+const OFFENE_ANFRAGEN_STATUS = ['anfrage', 'neu', 'vorgespraech_vereinbart'];
+
 const FILTER_TABS: { label: string; value: string }[] = [
   { label: 'Alle', value: '' },
   { label: 'Anfrage', value: 'anfrage' },
@@ -240,6 +248,7 @@ export function DjEventsPage() {
   const filtered = useMemo(() => {
     if (!statusFilter) return allEvents;
     if (statusFilter === VORG_FILTER) return allEvents.filter(e => e.vorgespraech_status === 'offen');
+    if (statusFilter === OFFENE_ANFRAGEN_FILTER) return allEvents.filter(e => OFFENE_ANFRAGEN_STATUS.includes(e.status));
     return allEvents.filter(e => e.status === statusFilter);
   }, [allEvents, statusFilter]);
 

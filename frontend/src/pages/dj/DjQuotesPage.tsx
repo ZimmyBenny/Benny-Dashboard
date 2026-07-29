@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import {
   fetchDjQuotes,
@@ -220,8 +220,12 @@ export function DjQuotesPage() {
   const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();
 
+  const [searchParams] = useSearchParams();
   const [selectedYear, setSelectedYear] = useState(currentYear);
-  const [statusFilter, setStatusFilter] = useState<QuoteStatus | ''>('');
+  // Status-Filter kann per URL vorbelegt werden (z. B. vom Dashboard: ?filter=gesendet)
+  const [statusFilter, setStatusFilter] = useState<QuoteStatus | ''>(
+    () => (searchParams.get('filter') as QuoteStatus | null) ?? '',
+  );
 
   // Datenladen
   const { data: allQuotes = [], isLoading } = useQuery<DjQuote[]>({
