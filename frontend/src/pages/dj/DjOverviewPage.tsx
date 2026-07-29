@@ -37,7 +37,8 @@ export function DjOverviewPage() {
     });
 
   // Nächste Events Widget
-  const [upcomingWeeks, setUpcomingWeeks] = useState<2 | 4>(2);
+  // 2 | 4 = Zeitfenster in Wochen, 0 = alle zukünftigen Events (kein Ende)
+  const [upcomingWeeks, setUpcomingWeeks] = useState<2 | 4 | 0>(2);
   const upcomingEvents = useMemo(() => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const end = new Date(today);
@@ -46,7 +47,8 @@ export function DjOverviewPage() {
       .filter(e => {
         if (e.status === 'abgesagt') return false;
         const d = new Date(e.event_date + 'T00:00:00');
-        return d >= today && d <= end;
+        // upcomingWeeks === 0 → alle in der Zukunft, sonst bis zum Fenster-Ende
+        return d >= today && (upcomingWeeks === 0 || d <= end);
       })
       .sort((a, b) => a.event_date.localeCompare(b.event_date));
   }, [events, upcomingWeeks]);
@@ -184,7 +186,7 @@ export function DjOverviewPage() {
               </div>
               {/* Toggle */}
               <div style={{ display: 'flex', gap: '0.375rem', background: 'rgba(0,0,0,0.2)', padding: '0.25rem', borderRadius: '999px' }}>
-                {([2, 4] as const).map(w => (
+                {([2, 4, 0] as const).map(w => (
                   <button
                     key={w}
                     type="button"
@@ -203,7 +205,7 @@ export function DjOverviewPage() {
                       boxShadow: upcomingWeeks === w ? '0 0 12px rgba(148,170,255,0.2)' : 'none',
                     }}
                   >
-                    {w} Wochen
+                    {w === 0 ? 'Alle' : `${w} Wochen`}
                   </button>
                 ))}
               </div>
@@ -213,7 +215,7 @@ export function DjOverviewPage() {
             {upcomingEvents.length === 0 ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.875rem' }}>
                 <span className="material-symbols-outlined" style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.75rem', opacity: 0.3, color: 'var(--color-primary)' }}>event_available</span>
-                Keine Veranstaltungen in den nächsten {upcomingWeeks} Wochen.
+                {upcomingWeeks === 0 ? 'Keine kommenden Veranstaltungen.' : `Keine Veranstaltungen in den nächsten ${upcomingWeeks} Wochen.`}
               </div>
             ) : (
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
