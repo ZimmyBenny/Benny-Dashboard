@@ -816,10 +816,13 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
             justifyContent: 'space-between',
             padding: '1.25rem 1.5rem',
             borderBottom: '1px solid rgba(148,170,255,0.12)',
-            background: 'rgba(148,170,255,0.03)',
+            // Deckend: der Header klebt beim Scrollen oben — mit der alten
+            // 3%-Tönung schien der Inhalt durch. Erste Ebene = bisherige Tönung,
+            // zweite Ebene = Modal-Grundfarbe, damit die Optik gleich bleibt.
+            background: 'linear-gradient(rgba(148,170,255,0.03), rgba(148,170,255,0.03)), rgb(6,14,32)',
             position: 'sticky',
             top: 0,
-            zIndex: 1,
+            zIndex: 2,
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
