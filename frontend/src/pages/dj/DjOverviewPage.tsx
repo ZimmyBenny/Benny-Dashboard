@@ -338,6 +338,11 @@ export function DjOverviewPage() {
             )}
           </div>
 
+          {/* ── Offene DJ-Aufgaben (volle Breite, direkt unter Nächste Veranstaltungen) ── */}
+          <div style={{ marginBottom: '1rem' }}>
+            <DjOpenTasks />
+          </div>
+
           {/* ── Reihe 1: 3 kompakte KPI-Kacheln ─────────────── */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
 
@@ -480,11 +485,6 @@ export function DjOverviewPage() {
               </p>
             </div>
 
-          </div>
-
-          {/* ── Offene DJ-Aufgaben (volle Breite) ───────────── */}
-          <div style={{ marginBottom: '1rem' }}>
-            <DjOpenTasks />
           </div>
 
           {/* ── Auslastung Wochenenden (volle Breite) ────────── */}
