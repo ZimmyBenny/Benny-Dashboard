@@ -44,6 +44,9 @@ export function UspSection({ productId, productName }: Props) {
   const [pdfHint, setPdfHint] = useState<string | null>(null);
   // Standard: KEIN Hersteller vorausgewaehlt -> Export bleibt neutral (ohne Marke), bis bewusst gewaehlt wird
   const activeMId = selectedMId;
+  // Ausgeblendete Hersteller (hidden=1) verschwinden aus Vergleich + Export-Auswahl.
+  // Die Kachelreihe (UspManufacturers) bekommt weiter die volle Liste zum Ein-/Ausblenden.
+  const sichtbareManufacturers = data ? data.manufacturers.filter(m => m.hidden !== 1) : [];
 
   function toggle() {
     setExpanded(prev => {
@@ -146,14 +149,14 @@ export function UspSection({ productId, productName }: Props) {
           {data && (
             <>
               <UspMetaForm productId={productId} meta={data.meta} finalMarke={data.final_marke} />
-              {data.manufacturers.length > 0 && (
+              {sichtbareManufacturers.length > 0 && (
                 <div className="flex items-center gap-2 mb-2 text-sm">
                   <span style={{ color: 'var(--color-on-surface-variant)' }}>PDF-Auswahl für Hersteller:</span>
                   <select value={activeMId ?? ''} onChange={(e) => { setSelectedMId(e.target.value === '' ? null : Number(e.target.value)); setPdfHint(null); }}
                     className="px-2 py-1 rounded-md text-sm"
                     style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)' }}>
                     <option value="">— kein Hersteller —</option>
-                    {data.manufacturers.map(m => <option key={m.id} value={m.id}>{m.name || 'Hersteller'}</option>)}
+                    {sichtbareManufacturers.map(m => <option key={m.id} value={m.id}>{m.name || 'Hersteller'}</option>)}
                   </select>
                 </div>
               )}
@@ -184,7 +187,7 @@ export function UspSection({ productId, productName }: Props) {
               <UspMatrix
                 productId={productId}
                 points={data.points}
-                manufacturers={data.manufacturers}
+                manufacturers={sichtbareManufacturers}
                 feasibility={data.feasibility}
               />
               <div className="flex items-center gap-2">
@@ -199,7 +202,7 @@ export function UspSection({ productId, productName }: Props) {
                   }}
                 >
                   <option value="">— kein Hersteller —</option>
-                  {data.manufacturers.map(m => (
+                  {sichtbareManufacturers.map(m => (
                     <option key={m.id} value={m.id}>{m.name || 'Hersteller'}</option>
                   ))}
                 </select>
