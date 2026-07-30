@@ -338,13 +338,51 @@ export function DjOverviewPage() {
             )}
           </div>
 
-          {/* ── Offene DJ-Aufgaben (volle Breite, direkt unter Nächste Veranstaltungen) ── */}
-          <div style={{ marginBottom: '1rem' }}>
+          {/* ── Offene Aufgaben (2/3) + Offene Vorgespräche (1/3), wie Amazon-Dashboard ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '1rem', marginBottom: '1rem', alignItems: 'stretch' }}>
             <DjOpenTasks />
+
+            {/* Offene Vorgespräche */}
+            <div
+              onClick={() => navigate('/dj/events?filter=_vorgespraeche')}
+              style={{ background: 'rgba(255,196,87,0.07)', borderRadius: '0.75rem', padding: '1.5rem', minHeight: '160px', cursor: 'pointer', border: '1px solid rgba(255,196,87,0.15)', transition: 'background 150ms' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,196,87,0.12)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,196,87,0.07)')}
+            >
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,196,87,0.7)', margin: 0, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '0.9rem' }}>forum</span>
+                Offene Vorgespräche
+              </p>
+              <p style={{ fontFamily: 'var(--font-headline)', fontSize: '2.5rem', fontWeight: 700, color: '#ffc457', lineHeight: 1, margin: 0, marginBottom: '0.5rem' }}>
+                {overviewLoading ? '–' : (overview?.open_vorgespraeche ?? 0)}
+              </p>
+              {offeneVorgespraeche.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginTop: '0.25rem', marginBottom: '0.85rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(255,196,87,0.18)' }}>
+                  {offeneVorgespraeche.map(vg => (
+                    <div key={vg.id} style={{ display: 'flex', gap: '0.5rem' }}>
+                      <span style={{ color: 'rgba(255,196,87,0.55)', fontSize: '0.8rem', lineHeight: '1.15rem', flexShrink: 0 }}>–</span>
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-on-surface)', margin: 0, lineHeight: '1.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {vg.kunde}
+                        </p>
+                        {vg.detail && (
+                          <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.72rem', color: 'rgba(255,196,87,0.75)', margin: 0, marginTop: '0.1rem' }}>
+                            {vg.detail}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'rgba(255,196,87,0.6)', margin: 0 }}>
+                → Zu den Events
+              </p>
+            </div>
           </div>
 
-          {/* ── Reihe 1: 3 kompakte KPI-Kacheln ─────────────── */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
+          {/* ── Reihe 1: 2 kompakte KPI-Kacheln ─────────────── */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
 
             {/* Offene Anfragen */}
             <div
@@ -384,44 +422,6 @@ export function DjOverviewPage() {
               <span className="material-symbols-outlined" style={{ fontSize: '28px', color: 'var(--color-tertiary)', opacity: 0.7 }}>
                 description
               </span>
-            </div>
-
-            {/* Offene Vorgespräche */}
-            <div
-              onClick={() => navigate('/dj/events?filter=_vorgespraeche')}
-              style={{ background: 'rgba(255,196,87,0.07)', borderRadius: '0.75rem', padding: '1.5rem', minHeight: '160px', cursor: 'pointer', border: '1px solid rgba(255,196,87,0.15)', transition: 'background 150ms' }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,196,87,0.12)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,196,87,0.07)')}
-            >
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,196,87,0.7)', margin: 0, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '0.9rem' }}>forum</span>
-                Offene Vorgespräche
-              </p>
-              <p style={{ fontFamily: 'var(--font-headline)', fontSize: '2.5rem', fontWeight: 700, color: '#ffc457', lineHeight: 1, margin: 0, marginBottom: '0.5rem' }}>
-                {overviewLoading ? '–' : (overview?.open_vorgespraeche ?? 0)}
-              </p>
-              {offeneVorgespraeche.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginTop: '0.25rem', marginBottom: '0.85rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(255,196,87,0.18)' }}>
-                  {offeneVorgespraeche.map(vg => (
-                    <div key={vg.id} style={{ display: 'flex', gap: '0.5rem' }}>
-                      <span style={{ color: 'rgba(255,196,87,0.55)', fontSize: '0.8rem', lineHeight: '1.15rem', flexShrink: 0 }}>–</span>
-                      <div style={{ minWidth: 0 }}>
-                        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-on-surface)', margin: 0, lineHeight: '1.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {vg.kunde}
-                        </p>
-                        {vg.detail && (
-                          <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.72rem', color: 'rgba(255,196,87,0.75)', margin: 0, marginTop: '0.1rem' }}>
-                            {vg.detail}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'rgba(255,196,87,0.6)', margin: 0 }}>
-                → Zu den Events
-              </p>
             </div>
 
           </div>
