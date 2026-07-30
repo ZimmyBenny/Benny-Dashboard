@@ -420,17 +420,20 @@ export function DjOverviewPage() {
                 {overviewLoading ? '–' : (overview?.open_vorgespraeche ?? 0)}
               </p>
               {offeneVorgespraeche.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginTop: '0.25rem', marginBottom: '0.85rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(255,196,87,0.18)' }}>
                   {offeneVorgespraeche.map(vg => (
-                    <div key={vg.id}>
-                      <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-on-surface)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {vg.kunde}
-                      </p>
-                      {vg.detail && (
-                        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.72rem', color: 'rgba(255,196,87,0.75)', margin: 0 }}>
-                          {vg.detail}
+                    <div key={vg.id} style={{ display: 'flex', gap: '0.5rem' }}>
+                      <span style={{ color: 'rgba(255,196,87,0.55)', fontSize: '0.8rem', lineHeight: '1.15rem', flexShrink: 0 }}>–</span>
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-on-surface)', margin: 0, lineHeight: '1.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {vg.kunde}
                         </p>
-                      )}
+                        {vg.detail && (
+                          <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.72rem', color: 'rgba(255,196,87,0.75)', margin: 0, marginTop: '0.1rem' }}>
+                            {vg.detail}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
