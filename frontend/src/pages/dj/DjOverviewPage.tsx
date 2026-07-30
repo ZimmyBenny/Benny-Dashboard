@@ -42,7 +42,10 @@ export function DjOverviewPage() {
   const upcomingEvents = useMemo(() => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const end = new Date(today);
-    end.setDate(today.getDate() + upcomingWeeks * 7);
+    // "4 Wochen" (Beschriftung bleibt) zeigt bewusst die nächsten 30 Tage — sonst fallen
+    // Gigs knapp jenseits von 28 Tagen (z. B. 29 Tage) unnötig raus. "2 Wochen" = 14 Tage.
+    const windowDays = upcomingWeeks === 4 ? 30 : upcomingWeeks * 7;
+    end.setDate(today.getDate() + windowDays);
     return (events ?? [])
       .filter(e => {
         // Nur fest gebuchte Gigs — keine offenen Anfragen/Angebote aus der Pipeline.
