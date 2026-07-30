@@ -109,9 +109,49 @@ function getOrCreateMeta(productId: number): MetaRow {
   db.prepare(`INSERT INTO amazon_usp (product_id) VALUES (?)`).run(productId);
   return db.prepare(`SELECT * FROM amazon_usp WHERE product_id = ?`).get(productId) as MetaRow;
 }
-function ensureDefaultManufacturer(productId: number): void {
-  const c = (db.prepare(`SELECT COUNT(*) AS c FROM amazon_usp_manufacturers WHERE product_id = ?`).get(productId) as { c: number }).c;
-  if (c === 0) db.prepare(`INSERT INTO amazon_usp_manufacturers (product_id, sort_order, name) VALUES (?, 1, '')`).run(productId);
+/**
+ * Spiegelt die Hersteller-Sektion (amazon_manufacturers) in die USP-eigene Liste
+ * (amazon_usp_manufacturers). „Eine Wahrheit": Hersteller werden nur noch in der
+ * Sektion gepflegt und erscheinen dadurch automatisch im USP-Dropdown/Matrix.
+ *
+ * Sicher & additiv: Feasibility-Daten (an amazon_usp_manufacturers gekoppelt)
+ * werden NIE zerstört — nur verknüpfte Rows aktualisiert, fehlende angelegt.
+ * Aufraeumung nur bei echten Leer-Platzhaltern ohne jegliche Daten.
+ */
+function syncManufacturersFromHersteller(productId: number): void {
+  const sync = db.transaction((pid: number) => {
+    const masters = db.prepare(
+      `SELECT id, name, ansprechpartner, sort_order FROM amazon_manufacturers WHERE product_id = ? ORDER BY sort_order, id`
+    ).all(pid) as { id: number; name: string; ansprechpartner: string | null; sort_order: number }[];
+
+    for (const m of masters) {
+      const existing = db.prepare(
+        `SELECT id FROM amazon_usp_manufacturers WHERE product_id = ? AND manufacturer_id = ?`
+      ).get(pid, m.id) as { id: number } | undefined;
+      if (existing) {
+        // Name/Ansprechpartner/Reihenfolge aus dem Master nachziehen; USP-eigenes
+        // datum/notes unangetastet lassen.
+        db.prepare(
+          `UPDATE amazon_usp_manufacturers SET name = ?, ansprechpartner = ?, sort_order = ?, updated_at = unixepoch() WHERE id = ?`
+        ).run(m.name, m.ansprechpartner ?? null, m.sort_order, existing.id);
+      } else {
+        db.prepare(
+          `INSERT INTO amazon_usp_manufacturers (product_id, sort_order, name, ansprechpartner, manufacturer_id) VALUES (?, ?, ?, ?, ?)`
+        ).run(pid, m.sort_order, m.name, m.ansprechpartner ?? null, m.id);
+      }
+    }
+
+    // Sichere Aufraeumung: nur echte Leer-Platzhalter (kein Name, keine Verknuepfung,
+    // keine Feasibility). Niemals Einträge mit Daten anfassen.
+    db.prepare(
+      `DELETE FROM amazon_usp_manufacturers
+       WHERE product_id = ?
+         AND manufacturer_id IS NULL
+         AND TRIM(name) = ''
+         AND id NOT IN (SELECT DISTINCT manufacturer_id FROM amazon_usp_feasibility)`
+    ).run(pid);
+  });
+  sync(productId);
 }
 function loadImages(pointId: number): ImageRow[] {
   return db.prepare(`SELECT * FROM amazon_usp_point_images WHERE point_id = ? ORDER BY sort_order, id`).all(pointId) as ImageRow[];
@@ -160,7 +200,7 @@ router.get('/products/:id/usp', (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'product not found' }); return; }
   const meta = getOrCreateMeta(id);
-  ensureDefaultManufacturer(id);
+  syncManufacturersFromHersteller(id);
   const finalRow = db.prepare(`SELECT name FROM amazon_brand_name_candidates WHERE product_id = ? AND is_final = 1 ORDER BY id LIMIT 1`).get(id) as { name: string } | undefined;
   const final_marke = finalRow?.name ?? null;
   res.json({ meta, points: loadPoints(id), manufacturers: loadManufacturers(id), feasibility: loadFeasibility(id), kaufgruende: loadKaufgruende(id), files: loadFiles(id), final_marke });
