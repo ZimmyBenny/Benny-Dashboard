@@ -17,7 +17,7 @@ const STATUS_CONFIG: Record<AnyStatus, { label: string; bg: string; text: string
   abgesagt:                  { label: 'Abgesagt',               bg: 'rgba(255,110,132,0.15)',          text: 'var(--color-error)',              dot: '#ff6e84' },
   // Quote-Status
   entwurf:                   { label: 'Entwurf',                bg: 'rgba(109,117,140,0.2)',           text: 'var(--color-on-surface-variant)', dot: 'rgba(109,117,140,0.6)' },
-  gesendet:                  { label: 'Gesendet',               bg: 'rgba(148,170,255,0.15)',          text: 'var(--color-primary)',            dot: '#94aaff' },
+  gesendet:                  { label: 'Offen',                  bg: 'rgba(148,170,255,0.15)',          text: 'var(--color-primary)',            dot: '#94aaff' },
   angenommen:                { label: 'Angenommen',             bg: 'rgba(92,253,128,0.15)',           text: 'var(--color-secondary)',          dot: '#5cfd80' },
   abgelehnt:                 { label: 'Abgelehnt',              bg: 'rgba(167,1,56,0.4)',              text: 'var(--color-on-surface)',         dot: '#ff6e84' },
   abgelaufen:                { label: 'Abgelaufen',             bg: 'rgba(109,117,140,0.2)',           text: 'var(--color-on-surface-variant)', dot: 'rgba(109,117,140,0.5)' },

@@ -15,7 +15,7 @@ import { formatDate, formatCurrency } from '../../lib/format';
 
 const STATUS_STYLES: Record<QuoteStatus, { bg: string; color: string; label: string }> = {
   entwurf:    { bg: 'rgba(148,170,255,0.15)', color: 'var(--color-primary)',          label: 'Entwurf' },
-  gesendet:   { bg: 'rgba(251,191,36,0.15)',  color: '#fbbf24',                       label: 'Versendet' },
+  gesendet:   { bg: 'rgba(251,191,36,0.15)',  color: '#fbbf24',                       label: 'Offen' },
   angenommen: { bg: 'rgba(92,253,128,0.15)',  color: 'var(--color-secondary)',         label: 'Angenommen' },
   abgelehnt:  { bg: 'rgba(239,68,68,0.15)',   color: 'var(--color-error)',             label: 'Abgelehnt' },
   abgelaufen: { bg: 'rgba(239,68,68,0.15)',   color: 'var(--color-error)',             label: 'Abgelaufen' },
@@ -24,7 +24,7 @@ const STATUS_STYLES: Record<QuoteStatus, { bg: string; color: string; label: str
 const FILTER_TABS: { label: string; value: QuoteStatus | '' }[] = [
   { label: 'Alle',       value: '' },
   { label: 'Entwurf',    value: 'entwurf' },
-  { label: 'Versendet',  value: 'gesendet' },
+  { label: 'Offen',      value: 'gesendet' },
   { label: 'Angenommen', value: 'angenommen' },
   { label: 'Abgelehnt',  value: 'abgelehnt' },
   { label: 'Abgelaufen', value: 'abgelaufen' },
@@ -367,11 +367,11 @@ export function DjQuotesPage() {
               <span className="material-symbols-outlined" style={{ fontSize: '28px', color: 'var(--color-primary)', opacity: 0.7 }}>edit_note</span>
             </div>
 
-            {/* Versendet */}
+            {/* Offen (versendete, noch offene Angebote) */}
             <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.375rem' }}>
-                  Versendet
+                  Offen
                 </p>
                 <p style={{ fontFamily: 'var(--font-headline)', fontSize: '2rem', fontWeight: 700, color: 'var(--color-tertiary)', lineHeight: 1, margin: 0 }}>
                   {isLoading ? '–' : kpiGesendet}
