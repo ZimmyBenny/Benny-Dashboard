@@ -23,7 +23,7 @@ const OFFENE_ANFRAGEN_STATUS = ['anfrage', 'neu', 'vorgespraech_vereinbart'];
 
 const FILTER_TABS: { label: string; value: string }[] = [
   { label: 'Alle', value: '' },
-  { label: 'Anfrage', value: 'anfrage' },
+  { label: 'Offene Anfragen', value: 'anfrage' },
   { label: 'Vorgespräch', value: 'vorgespraech_vereinbart' },
   { label: 'Offene Vorgespräche', value: VORG_FILTER },
   { label: 'Angebot', value: 'angebot_gesendet' },
@@ -281,7 +281,9 @@ export function DjEventsPage() {
   }, [allEvents]);
 
   // KPI-Berechnungen (aus allEvents, nicht filtered)
-  const kpiOffene = allEvents.filter(e => ['anfrage', 'neu', 'vorgespraech_vereinbart', 'angebot_gesendet'].includes(e.status)).length;
+  // "Offene Anfragen" = nur echte Anfragen (Status 'anfrage'), deckungsgleich mit dem
+  // gleichnamigen Filter-Chip. Angebote/Vorgespräche haben eigene Chips und zählen hier nicht mit.
+  const kpiOffene = allEvents.filter(e => e.status === 'anfrage').length;
   const kpiBestaetigt = allEvents.filter(e => e.status === 'bestaetigt').length;
   const kpiAbgeschlossen = allEvents.filter(e => e.status === 'abgeschlossen').length;
 
