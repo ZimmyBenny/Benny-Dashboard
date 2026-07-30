@@ -53,8 +53,11 @@ router.get('/', (req, res) => {
     sql += " AND strftime('%Y', e.event_date) = ?";
     params.push(year);
   } else {
-    // Zukünftige Events ODER offene Anfragen/Vorgespräche (unabhängig vom Datum)
-    sql += " AND (date(e.event_date) >= date('now') OR e.status IN ('anfrage','vorgespraech_vereinbart','angebot_gesendet','bestaetigt'))";
+    // Zukünftige Events ODER offene Anfragen/Vorgespräche (unabhängig vom Datum).
+    // 'bestaetigt' bewusst NICHT datums-unabhängig: ein bestätigter Gig ist ein fixer
+    // Termin — ist sein Datum vorbei, gehört er nicht mehr in "kommend" (sonst zählt
+    // die Bestätigt-KPI vergangene Gigs mit). Vergangene bestätigte Gigs → Jahres-Filter.
+    sql += " AND (date(e.event_date) >= date('now') OR e.status IN ('anfrage','vorgespraech_vereinbart','angebot_gesendet'))";
   }
   if (status) { sql += ' AND e.status = ?'; params.push(status); }
   if (event_type) { sql += ' AND e.event_type = ?'; params.push(event_type); }

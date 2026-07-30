@@ -214,3 +214,17 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 | 2026-07-15 | fast | DJ-Playlisten: Enter in allen Anlegen-Feldern | ✅ |
 | 2026-07-15 | fast | DJ-Playlisten: Anzahl-Anzeige (gesamt / X von Y) | ✅ |
 | 2026-07-15 | fast | DJ-Playlisten: Anzahl-Badge je Kategorie/DJ in Verwaltung | ✅ |
+| 2026-07-16 | fast | Verträge: Kündigungsfenster-SQL Jahrestag ≥ Start+1 Jahr (ARAG-Fix) | ✅ |
+| 2026-07-16 | fast | Dokumente-Suche: kompletter Pfad inkl. Bereich bei globaler Suche | ✅ |
+| 2026-07-17 | fast | Dokumente: Upload-Fehlergrund anzeigen + Limit 25→100 MB | ✅ |
+| 2026-07-17 | quick | Belege: Einfuhrumsatzsteuer abspalten (Auto-Split, UStVA-sicher) — 260717-ld7 | ✅ |
+| 2026-07-17 | fast | Belege: Datum sofort speichern + Bezahlt am nicht auto-füllen | ✅ |
+| 2026-07-20 | quick | Belege: Datei-Nachtrag nach Freigabe (GoBD append-only, Migr. 123) — 260720-bf9 | ✅ |
+| 2026-07-27 | quick | Kalender: mehrere Erinnerungen pro Termin (Migr. 124, cal-tool --alarm-offsets, Ganztägig-9:00-Optionen) — 260727-tj3 | ✅ |
+| 2026-07-28 | fast | DJ-Playlisten: Sortierung + Filter merken (localStorage) | ✅ |
+| 2026-07-29 | quick | DJ-Anfrage: Anhänge beim Anlegen + Vorschau (260728-o9e) | ✅ |
+| 2026-07-29 | fast | DJ-Modal: Sticky-Header deckend (Scroll-Überlagerung) | ✅ |
+| 2026-07-29 | fast | DJ-Dashboard: Nächste Veranstaltungen 'Alle'-Option | ✅ |
+| 2026-07-29 | fast | DJ-Dashboard: Nächste Veranstaltungen nur Status bestätigt | ✅ |
+| 2026-07-30 | quick | USP + Hersteller zusammengeführt (Spiegelung, 260730-am3) | ✅ |
+| 2026-07-30 | quick | USP-Hersteller aus-/einblenden (Auge-Icon, hidden-Flag) | ✅ |
