@@ -24,7 +24,6 @@ const OFFENE_ANFRAGEN_STATUS = ['anfrage', 'neu', 'vorgespraech_vereinbart'];
 const FILTER_TABS: { label: string; value: string }[] = [
   { label: 'Alle', value: '' },
   { label: 'Offene Anfragen', value: 'anfrage' },
-  { label: 'Vorgespräch', value: 'vorgespraech_vereinbart' },
   { label: 'Offene Vorgespräche', value: VORG_FILTER },
   { label: 'Angebot', value: 'angebot_gesendet' },
   { label: 'Bestätigt', value: 'bestaetigt' },
