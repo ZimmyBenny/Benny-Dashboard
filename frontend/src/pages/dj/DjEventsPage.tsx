@@ -292,7 +292,7 @@ export function DjEventsPage() {
   // Hilfsfunktion: Vorgespräch-Dialog öffnen
   const openVorgDialog = (ev: DjEvent) => {
     setVorgDatum(ev.vorgespraech_datum ?? '');
-    setVorgUhrzeit('');
+    setVorgUhrzeit(ev.vorgespraech_uhrzeit ?? '');
     setVorgPlz(ev.vorgespraech_plz ?? '');
     setVorgOrt(ev.vorgespraech_ort ?? '');
     setVorgNotizen(ev.vorgespraech_notizen ?? '');
@@ -353,6 +353,7 @@ export function DjEventsPage() {
       data: {
         action: 'offen',
         datum: vorgDatum || undefined,
+        uhrzeit: vorgUhrzeit || undefined,
         plz: vorgPlz || undefined,
         ort: vorgOrt || undefined,
         notizen: vorgNotizen || undefined,

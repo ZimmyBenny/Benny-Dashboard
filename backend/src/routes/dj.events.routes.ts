@@ -233,9 +233,10 @@ router.patch('/:id/vorgespraech', async (req, res) => {
   const event = db.prepare('SELECT * FROM dj_events WHERE id = ? AND deleted_at IS NULL').get(id) as Record<string, unknown> | undefined;
   if (!event) { res.status(404).json({ error: 'Event nicht gefunden' }); return; }
 
-  const { action, datum, ort, notizen, plz, km, calendar_uid } = req.body as {
+  const { action, datum, uhrzeit, ort, notizen, plz, km, calendar_uid } = req.body as {
     action: 'offen' | 'erledigt';
     datum?: string;
+    uhrzeit?: string;
     ort?: string;
     notizen?: string;
     plz?: string;
@@ -248,12 +249,13 @@ router.patch('/:id/vorgespraech', async (req, res) => {
       UPDATE dj_events SET
         vorgespraech_status = 'offen',
         vorgespraech_datum = ?,
+        vorgespraech_uhrzeit = ?,
         vorgespraech_ort = ?,
         vorgespraech_notizen = ?,
         vorgespraech_plz = COALESCE(?, vorgespraech_plz),
         vorgespraech_calendar_uid = COALESCE(?, vorgespraech_calendar_uid)
       WHERE id = ?
-    `).run(datum ?? null, ort ?? null, notizen ?? null, plz ?? null, calendar_uid ?? null, id);
+    `).run(datum ?? null, uhrzeit ?? null, ort ?? null, notizen ?? null, plz ?? null, calendar_uid ?? null, id);
   }
 
   if (action === 'erledigt') {

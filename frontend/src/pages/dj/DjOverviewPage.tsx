@@ -57,6 +57,23 @@ export function DjOverviewPage() {
       .sort((a, b) => a.event_date.localeCompare(b.event_date));
   }, [events, upcomingWeeks]);
 
+  // Offene Vorgespräche mit Details für die Dashboard-Kachel (max. 3, nach Datum sortiert).
+  const offeneVorgespraeche = useMemo(() => {
+    return (events ?? [])
+      .filter(e => e.vorgespraech_status === 'offen')
+      .sort((a, b) => (a.vorgespraech_datum ?? '').localeCompare(b.vorgespraech_datum ?? ''))
+      .slice(0, 3)
+      .map(e => ({
+        id: e.id,
+        kunde: e.customer_name?.trim() || e.customer_org?.trim() || e.customer_freetext?.trim() || 'Unbekannt',
+        detail: [
+          e.vorgespraech_datum ? formatDate(e.vorgespraech_datum) : '',
+          e.vorgespraech_uhrzeit ?? '',
+          e.vorgespraech_ort ?? '',
+        ].filter(Boolean).join(' · '),
+      }));
+  }, [events]);
+
   // Auslastung Wochenenden: kommt jetzt vom Backend-Endpoint /api/dj/overview
   // (Feld weekend_stats). Backend vereinigt zwei Quellen:
   //  - dj_events bestaetigt + Fr/Sa fuer Zukunft
@@ -402,6 +419,22 @@ export function DjOverviewPage() {
               <p style={{ fontFamily: 'var(--font-headline)', fontSize: '2.5rem', fontWeight: 700, color: '#ffc457', lineHeight: 1, margin: 0, marginBottom: '0.5rem' }}>
                 {overviewLoading ? '–' : (overview?.open_vorgespraeche ?? 0)}
               </p>
+              {offeneVorgespraeche.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  {offeneVorgespraeche.map(vg => (
+                    <div key={vg.id}>
+                      <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-on-surface)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {vg.kunde}
+                      </p>
+                      {vg.detail && (
+                        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.72rem', color: 'rgba(255,196,87,0.75)', margin: 0 }}>
+                          {vg.detail}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
               <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'rgba(255,196,87,0.6)', margin: 0 }}>
                 → Zu den Events
               </p>

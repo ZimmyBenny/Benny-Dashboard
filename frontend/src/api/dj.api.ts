@@ -52,6 +52,7 @@ export interface DjEvent {
   calendar_uid?: string | null;
   vorgespraech_status?: 'offen' | 'erledigt' | null;
   vorgespraech_datum?: string | null;
+  vorgespraech_uhrzeit?: string | null;
   vorgespraech_plz?: string | null;
   vorgespraech_ort?: string | null;
   vorgespraech_notizen?: string | null;
@@ -269,7 +270,7 @@ export const deleteDjEvent = (id: number): Promise<void> =>
 
 export const setDjEventVorgespraech = (
   id: number,
-  data: { action: 'offen' | 'erledigt'; datum?: string; plz?: string; ort?: string; notizen?: string; km?: number; calendar_uid?: string | null }
+  data: { action: 'offen' | 'erledigt'; datum?: string; uhrzeit?: string; plz?: string; ort?: string; notizen?: string; km?: number; calendar_uid?: string | null }
 ): Promise<DjEvent> =>
   apiClient.patch(`/dj/events/${id}/vorgespraech`, data).then(r => r.data);
 
