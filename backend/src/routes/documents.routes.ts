@@ -729,10 +729,13 @@ router.post('/files', upload.array('file', 20), async (req, res) => {
       return;
     }
 
+    // multer/busboy liefert originalname Latin-1-dekodiert -> UTF-8-Namen wiederherstellen,
+    // sonst werden Umlaute zu Mojibake ("über" -> "Ã¼ber"). Original-Schreibweise bleibt erhalten.
+    const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
     // Namens-Kollision -> " (2)", " (3)" ... anhaengen (am DB-Filename, Original bleibt sichtbar)
-    let dbFilename = file.originalname;
-    const ext = path.extname(file.originalname);
-    const base = path.basename(file.originalname, ext);
+    let dbFilename = originalName;
+    const ext = path.extname(originalName);
+    const base = path.basename(originalName, ext);
     let suffix = 1;
     while (
       db
