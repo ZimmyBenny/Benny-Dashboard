@@ -94,6 +94,8 @@ router.post('/upload', upload.array('file', 20), async (req, res, next) => {
     const created: UploadResultEntry[] = [];
 
     for (const file of files) {
+      // multer/busboy liefert originalname Latin-1-dekodiert -> UTF-8 (Umlaute korrekt in DB/Anzeige)
+      file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
       // 1. Settings-basiertes Limit nachtraeglich pruefen
       if (file.size > maxBytes) {
         await fs.unlink(file.path).catch(() => undefined);
@@ -214,6 +216,8 @@ router.post('/:id/files', upload.single('file'), async (req, res, next) => {
       res.status(400).json({ error: 'Keine Datei hochgeladen' });
       return;
     }
+    // multer/busboy liefert originalname Latin-1-dekodiert -> UTF-8 (Umlaute korrekt in DB/Anzeige)
+    file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
 
     const beleg = db
       .prepare(`SELECT id, freigegeben_at FROM receipts WHERE id = ?`)

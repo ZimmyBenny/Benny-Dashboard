@@ -20,8 +20,8 @@ const storage = multer.diskStorage({
   },
   filename: (_req, file, cb) => {
     const timestamp = Date.now();
-    // Sanitize original name (Path-Traversal-Schutz)
-    const safe = file.originalname.replace(/[/\\]+/g, '_');
+    // multer/busboy liefert originalname Latin-1-dekodiert -> UTF-8 (Umlaute), dann Path-Traversal-Schutz
+    const safe = Buffer.from(file.originalname, 'latin1').toString('utf8').replace(/[/\\]+/g, '_');
     cb(null, `${timestamp}_${safe}`);
   },
 });
@@ -74,6 +74,8 @@ router.post('/', upload.array('files', 10), (req, res) => {
 
   const inserted: AttachmentRow[] = [];
   for (const f of files) {
+    // originalname Latin-1 -> UTF-8 (Anzeige-Name mit Umlauten korrekt)
+    f.originalname = Buffer.from(f.originalname, 'latin1').toString('utf8');
     const relPath = path.relative(ATTACHMENTS_DIR, f.path);
     const result = insert.run(eventId, relPath, f.originalname, f.mimetype, f.size, label);
     const row = db.prepare('SELECT * FROM dj_event_attachments WHERE id = ?').get(result.lastInsertRowid) as AttachmentRow;

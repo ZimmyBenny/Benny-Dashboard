@@ -390,10 +390,12 @@ router.post('/playlists', upload.single('file'), async (req, res) => {
   const { absolute: folderAbs } = folderFsPath(folderId);
   await fsp.mkdir(folderAbs, { recursive: true });
 
+  // multer/busboy liefert originalname Latin-1-dekodiert -> UTF-8 wiederherstellen (Umlaute)
+  const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
   // Namens-Kollision -> " (2)", " (3)" ... anhaengen (analog documents.routes.ts POST /files)
-  let dbFilename = file.originalname;
-  const ext = path.extname(file.originalname);
-  const base = path.basename(file.originalname, ext);
+  let dbFilename = originalName;
+  const ext = path.extname(originalName);
+  const base = path.basename(originalName, ext);
   let suffix = 1;
   while (
     db.prepare(`SELECT id FROM doc_files WHERE folder_id = ? AND filename = ?`).get(folderId, dbFilename)
