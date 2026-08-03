@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Contract, ContractAttachment, ContractReceipt } from '../../api/contracts.api';
+import { createTask, type Task } from '../../api/tasks.api';
+import { TaskSlideOver } from '../tasks/TaskSlideOver';
 import {
   fetchContractAttachments,
   uploadContractAttachment,
@@ -180,6 +183,14 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
 
   // Arbeits-Contract (entweder aus Props oder nach Auto-Speichern eines neuen Eintrags)
   const [workingContract, setWorkingContract] = useState<Contract | null>(contract);
+
+  // Aufgabe zu diesem Vertrag anlegen (Titel + Bereich vorbelegt)
+  const queryClient = useQueryClient();
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  async function handleCreateTask(payload: Partial<Task> & { title: string }) {
+    await createTask(payload);
+    await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  }
 
   // Drag-to-move
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
@@ -1173,6 +1184,33 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
               </div>
             )}
 
+            {/* Aufgabe zu diesem Vertrag (full width) */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={LABEL_STYLE}>Aufgabe</label>
+              <button
+                type="button"
+                onClick={() => setTaskDialogOpen(true)}
+                disabled={!form.title.trim()}
+                title={form.title.trim() ? 'Aufgabe mit Titel und Bereich vorbelegt anlegen' : 'Bitte zuerst einen Titel eingeben'}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid var(--color-outline-variant)',
+                  borderRadius: '9999px',
+                  padding: '0.5rem 1.1rem',
+                  color: form.title.trim() ? 'var(--color-on-surface)' : 'var(--color-outline)',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '0.8rem',
+                  cursor: form.title.trim() ? 'pointer' : 'not-allowed',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>add_task</span>
+                Aufgabe zu diesem Vertrag
+              </button>
+            </div>
+
           </div>
 
           {/* Footer */}
@@ -1255,6 +1293,25 @@ export function ContractSlideOver({ isOpen, onClose, contract, onSave, onDelete 
           </div>
         </div>
       </div>
+
+      {/*
+        Aufgaben-Dialog liegt ueber dem Vertrags-Modal: eigener Stacking-Context mit
+        hoeherem z-index (Modal nutzt 50/51, TaskSlideOver intern nur 40/50).
+        TaskSlideOver selbst bleibt unveraendert — keine Nebenwirkung auf andere Aufrufer.
+      */}
+      {taskDialogOpen && (
+        <div style={{ position: 'relative', zIndex: 100 }}>
+          <TaskSlideOver
+            isOpen={taskDialogOpen}
+            onClose={() => setTaskDialogOpen(false)}
+            task={null}
+            onSave={handleCreateTask}
+            // Nie erreichbar: Loeschen wird nur bei vorhandenem Task gerendert (task={null}).
+            onDelete={async () => {}}
+            prefill={{ title: `Vertrag: ${form.title.trim()}`, area: form.area }}
+          />
+        </div>
+      )}
     </>
   );
 }

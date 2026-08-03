@@ -36,7 +36,8 @@ function buildReminderIso(date: string, time: string): string | null {
   return new Date(y, mo - 1, d, hh || 8, mm || 0, 0).toISOString();
 }
 
-const AREAS = ['DJ', 'Amazon', 'Finanzen', 'KI-Agenten', 'Privat', 'Sonstiges'];
+// 'Vermietung' ergaenzt, damit der Bereich aus Vertraegen & Fristen 1:1 uebernommen werden kann.
+const AREAS = ['DJ', 'Amazon', 'Finanzen', 'KI-Agenten', 'Privat', 'Vermietung', 'Sonstiges'];
 
 const INPUT_STYLE: React.CSSProperties = {
   width: '100%',
