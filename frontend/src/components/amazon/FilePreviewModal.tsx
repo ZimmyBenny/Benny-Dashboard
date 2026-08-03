@@ -179,12 +179,33 @@ function SpreadsheetPreview({ url, name }: { url: string; name: string }) {
 // ---------------------------------------------------------------------------
 
 export function FilePreviewModal({ preview, onClose }: { preview: FilePreviewState | null; onClose: () => void }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
     if (!preview) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [preview, onClose]);
+
+  // PDF/Text laufen in einem <iframe> (eigener Browsing-Context). Liegt der Fokus dort,
+  // erreichen Tastendrücke das Seiten-Dokument nie -> ESC wirkte nicht. Darum den Fokus
+  // beim Öffnen in den Modal-Container holen.
+  useEffect(() => {
+    if (!preview) return;
+    containerRef.current?.focus();
+  }, [preview]);
+
+  /**
+   * Holt den Fokus zurück, sobald der Zeiger wieder über dem Modal (ausserhalb des
+   * iframes) ist — nach einem Klick in die PDF-Ansicht wirkt ESC damit erneut.
+   * Eingabefelder (z. B. in der Tabellen-Vorschau) werden nie unterbrochen.
+   */
+  function restoreFocus() {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName)) return;
+    if (active !== containerRef.current) containerRef.current?.focus();
+  }
 
   if (!preview) return null;
 
@@ -207,7 +228,14 @@ export function FilePreviewModal({ preview, onClose }: { preview: FilePreviewSta
   const headerIcon = isImage ? 'image' : isPdf ? 'picture_as_pdf' : isSpreadsheet ? 'table_chart' : 'description';
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'rgba(0,0,0,0.85)' }} onClick={onClose}>
+    <div
+      ref={containerRef}
+      tabIndex={-1}
+      onMouseMove={restoreFocus}
+      className="fixed inset-0 z-50 flex flex-col"
+      style={{ background: 'rgba(0,0,0,0.85)', outline: 'none' }}
+      onClick={onClose}
+    >
       <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
         <span className="material-symbols-outlined" style={{ color: 'rgba(255,255,255,0.7)' }}>{headerIcon}</span>
         <span className="text-sm truncate flex-1" style={{ color: '#fff' }} title={preview.name}>{preview.name}</span>
