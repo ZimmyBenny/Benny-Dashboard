@@ -7,8 +7,10 @@ import { formatCurrency, formatDate } from '../../lib/format';
 import {
   fetchDjOverview,
   fetchDjEvents,
+  fetchDjQuotes,
   type DjOverview,
   type DjEvent,
+  type DjQuote,
 } from '../../api/dj.api';
 import { NeueAnfrageModal } from '../../components/dj/NeueAnfrageModal';
 import { StatusBadge, EVENT_TYPE_LABELS } from '../../components/dj/StatusBadge';
@@ -35,6 +37,13 @@ export function DjOverviewPage() {
     useQuery<DjEvent[]>({
       queryKey: ['dj-events-all'],
       queryFn: () => fetchDjEvents(),
+    });
+
+  // Ausstehende Angebote (Status 'gesendet') für die Namensliste auf der Kachel
+  const { data: pendingQuotes } =
+    useQuery<DjQuote[]>({
+      queryKey: ['dj-quotes-pending'],
+      queryFn: () => fetchDjQuotes({ status: 'gesendet' }),
     });
 
   // Nächste Events Widget
@@ -74,6 +83,39 @@ export function DjOverviewPage() {
         ].filter(Boolean).join(' · '),
       }));
   }, [events]);
+
+  // Offene Anfragen mit Details (gleiche Status-Definition wie der Zähler im Backend).
+  const offeneAnfragen = useMemo(() => {
+    const OFFEN = ['anfrage', 'neu', 'vorgespraech_vereinbart'];
+    return (events ?? [])
+      .filter(e => OFFEN.includes(e.status))
+      .sort((a, b) => (a.event_date ?? '').localeCompare(b.event_date ?? ''))
+      .slice(0, 3)
+      .map(e => ({
+        id: e.id,
+        kunde: e.customer_name?.trim() || e.customer_org?.trim() || e.customer_freetext?.trim() || 'Unbekannt',
+        detail: [
+          e.event_date ? formatDate(e.event_date) : '',
+          e.title?.trim() ?? '',
+        ].filter(Boolean).join(' · '),
+      }));
+  }, [events]);
+
+  // Ausstehende Angebote mit Details (Status 'gesendet' = offen beim Kunden).
+  const ausstehendeAngebote = useMemo(() => {
+    return (pendingQuotes ?? [])
+      .slice()
+      .sort((a, b) => (a.quote_date ?? '').localeCompare(b.quote_date ?? ''))
+      .slice(0, 3)
+      .map(q => ({
+        id: q.id,
+        kunde: q.customer_name?.trim() || q.customer_org?.trim() || 'Unbekannt',
+        detail: [
+          q.number ?? '',
+          formatCurrency(q.total_gross ?? 0),
+        ].filter(Boolean).join(' · '),
+      }));
+  }, [pendingQuotes]);
 
   // Auslastung Wochenenden: kommt jetzt vom Backend-Endpoint /api/dj/overview
   // (Feld weekend_stats). Backend vereinigt zwei Quellen:
@@ -387,41 +429,79 @@ export function DjOverviewPage() {
             {/* Offene Anfragen */}
             <div
               onClick={() => navigate('/dj/events?filter=_offene_anfragen')}
-              style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', transition: 'background 150ms' }}
+              style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', padding: '1.5rem', cursor: 'pointer', transition: 'background 150ms' }}
               onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
             >
-              <div>
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.375rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.375rem' }}>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0 }}>
                   Offene Anfragen
                 </p>
-                <p style={{ fontFamily: 'var(--font-headline)', fontSize: '2rem', fontWeight: 700, color: 'var(--color-tertiary)', lineHeight: 1, margin: 0 }}>
-                  {overviewLoading ? '–' : (overview?.open_requests ?? 0)}
-                </p>
+                <span className="material-symbols-outlined" style={{ fontSize: '28px', color: 'var(--color-tertiary)', opacity: 0.7 }}>
+                  mark_email_unread
+                </span>
               </div>
-              <span className="material-symbols-outlined" style={{ fontSize: '28px', color: 'var(--color-tertiary)', opacity: 0.7 }}>
-                mark_email_unread
-              </span>
+              <p style={{ fontFamily: 'var(--font-headline)', fontSize: '2rem', fontWeight: 700, color: 'var(--color-tertiary)', lineHeight: 1, margin: 0 }}>
+                {overviewLoading ? '–' : (overview?.open_requests ?? 0)}
+              </p>
+              {offeneAnfragen.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                  {offeneAnfragen.map(a => (
+                    <div key={a.id} style={{ display: 'flex', gap: '0.5rem' }}>
+                      <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.8rem', lineHeight: '1.15rem', flexShrink: 0 }}>–</span>
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-on-surface)', margin: 0, lineHeight: '1.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {a.kunde}
+                        </p>
+                        {a.detail && (
+                          <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.72rem', color: 'var(--color-on-surface-variant)', margin: 0, marginTop: '0.1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {a.detail}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Angebote ausstehend */}
             <div
               onClick={() => navigate('/dj/quotes?filter=gesendet')}
-              style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', transition: 'background 150ms' }}
+              style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '0.75rem', padding: '1.5rem', cursor: 'pointer', transition: 'background 150ms' }}
               onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
             >
-              <div>
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0, marginBottom: '0.375rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.375rem' }}>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-on-surface-variant)', margin: 0 }}>
                   Angebote ausstehend
                 </p>
-                <p style={{ fontFamily: 'var(--font-headline)', fontSize: '2rem', fontWeight: 700, color: 'var(--color-tertiary)', lineHeight: 1, margin: 0 }}>
-                  {overviewLoading ? '–' : (overview?.pending_quotes ?? 0)}
-                </p>
+                <span className="material-symbols-outlined" style={{ fontSize: '28px', color: 'var(--color-tertiary)', opacity: 0.7 }}>
+                  description
+                </span>
               </div>
-              <span className="material-symbols-outlined" style={{ fontSize: '28px', color: 'var(--color-tertiary)', opacity: 0.7 }}>
-                description
-              </span>
+              <p style={{ fontFamily: 'var(--font-headline)', fontSize: '2rem', fontWeight: 700, color: 'var(--color-tertiary)', lineHeight: 1, margin: 0 }}>
+                {overviewLoading ? '–' : (overview?.pending_quotes ?? 0)}
+              </p>
+              {ausstehendeAngebote.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                  {ausstehendeAngebote.map(q => (
+                    <div key={q.id} style={{ display: 'flex', gap: '0.5rem' }}>
+                      <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '0.8rem', lineHeight: '1.15rem', flexShrink: 0 }}>–</span>
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-on-surface)', margin: 0, lineHeight: '1.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {q.kunde}
+                        </p>
+                        {q.detail && (
+                          <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.72rem', color: 'var(--color-on-surface-variant)', margin: 0, marginTop: '0.1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {q.detail}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
           </div>
