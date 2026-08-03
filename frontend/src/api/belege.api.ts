@@ -48,6 +48,8 @@ export interface ReceiptListItem {
   primary_area: string | null;
   /** Gesetzt wenn dieser Beleg ein per split-eust abgespaltenes EUSt-Kind ist (Plan quick-260717-ld7). */
   eust_parent_receipt_id?: number | null;
+  /** Gesetzt wenn dieser Beleg ein per split-zoll abgespaltenes Zoll-Kind ist (Migr. 127). */
+  zoll_parent_receipt_id?: number | null;
 }
 
 /** Detail-Response inkl. Joins (files / area_links / ocr_results / audit_log). */
@@ -68,6 +70,8 @@ export interface ReceiptDetail extends ReceiptListItem {
   trip_rate_per_km_cents?: number | null;
   /** Abgespaltener EUSt-Kind-Beleg, falls vorhanden (Plan quick-260717-ld7). */
   eust_child?: { id: number; amount_gross_cents: number } | null;
+  /** Abgespaltener Zoll-Kind-Beleg, falls vorhanden (Migr. 127). */
+  zoll_child?: { id: number; amount_gross_cents: number } | null;
   files: Array<{
     id: number;
     original_filename: string;
@@ -266,6 +270,17 @@ export const splitEust = (
 /** POST /api/belege/:id/merge-eust — macht split-eust rückgängig. */
 export const mergeEust = (id: number): Promise<{ parent: ReceiptDetail }> =>
   apiClient.post(`/belege/${id}/merge-eust`).then((r) => r.data);
+
+/** POST /api/belege/:id/split-zoll — spaltet den Zoll (0 %, keine Vorsteuer) ab (Migr. 127). */
+export const splitZoll = (
+  id: number,
+  zoll_cents: number,
+): Promise<{ parent: ReceiptDetail; zoll_child: ReceiptDetail }> =>
+  apiClient.post(`/belege/${id}/split-zoll`, { zoll_cents }).then((r) => r.data);
+
+/** POST /api/belege/:id/merge-zoll — macht split-zoll rückgängig. */
+export const mergeZoll = (id: number): Promise<{ parent: ReceiptDetail }> =>
+  apiClient.post(`/belege/${id}/merge-zoll`).then((r) => r.data);
 
 /** GET /api/belege/areas — Picker-Quelle fuer den Upload-Bereichs-Selector (Plan 04-09). */
 export const fetchAreas = (): Promise<Area[]> =>

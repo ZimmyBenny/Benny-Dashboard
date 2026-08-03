@@ -41,6 +41,8 @@ import {
   fetchSupplierSuggest,
   splitEust,
   mergeEust,
+  splitZoll,
+  mergeZoll,
   addReceiptFile,
   type ReceiptDetail,
   type TaxCategory,
@@ -180,6 +182,31 @@ export function BelegeDetailPage() {
 
   const mergeEustMut = useMutation({
     mutationFn: () => mergeEust(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['belege', id] });
+      qc.invalidateQueries({ queryKey: ['belege'] });
+    },
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { error?: string } }; message?: string };
+      window.alert(e?.response?.data?.error ?? e?.message ?? 'Zusammenführen fehlgeschlagen');
+    },
+  });
+
+  // Zoll-Abspaltung (Migr. 127): Zoll (0 %, keine Vorsteuer) als eigenen Beleg abtrennen.
+  const splitZollMut = useMutation({
+    mutationFn: (zoll_cents: number) => splitZoll(id, zoll_cents),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['belege', id] });
+      qc.invalidateQueries({ queryKey: ['belege'] });
+    },
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { error?: string } }; message?: string };
+      window.alert(e?.response?.data?.error ?? e?.message ?? 'Zoll-Abspaltung fehlgeschlagen');
+    },
+  });
+
+  const mergeZollMut = useMutation({
+    mutationFn: () => mergeZoll(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['belege', id] });
       qc.invalidateQueries({ queryKey: ['belege'] });
@@ -714,13 +741,24 @@ export function BelegeDetailPage() {
                 >
                   Netto und USt-Betrag werden automatisch aus Brutto + USt-Satz berechnet.
                 </p>
-                <EustSplitControls
+                <SplitControls
+                  kind="eust"
                   receipt={r}
                   isLocked={isLocked}
                   onSplit={(cents) => splitEustMut.mutate(cents)}
                   splitPending={splitEustMut.isPending}
                   onMerge={() => mergeEustMut.mutate()}
                   mergePending={mergeEustMut.isPending}
+                  onNavigate={(targetId) => navigate(`/belege/${targetId}`)}
+                />
+                <SplitControls
+                  kind="zoll"
+                  receipt={r}
+                  isLocked={isLocked}
+                  onSplit={(cents) => splitZollMut.mutate(cents)}
+                  splitPending={splitZollMut.isPending}
+                  onMerge={() => mergeZollMut.mutate()}
+                  mergePending={mergeZollMut.isPending}
                   onNavigate={(targetId) => navigate(`/belege/${targetId}`)}
                 />
               </Section>
@@ -2140,14 +2178,17 @@ function AreaPicker({
 }
 
 /**
- * EUSt-Abspalten-/Zusammenführen-Steuerung (Plan quick-260717-ld7).
+ * Abspalten-/Zusammenführen-Steuerung für EUSt (Plan quick-260717-ld7) UND Zoll (Migr. 127).
+ * Über `kind` parametrisiert — beide teilen dieselbe Mechanik, nur eigene Verknüpfungs-
+ * Spalte/-Kind und Beschriftung. EUSt-Verhalten bleibt identisch zu vorher.
  *
  * Drei Zustände, jeweils exklusiv:
- *  1. Dieser Beleg IST ein EUSt-Kind (eust_parent_receipt_id gesetzt) → Rück-Link.
- *  2. Original MIT abgespaltenem Kind (eust_child gesetzt) → Info-Zeile + Zusammenführen.
+ *  1. Dieser Beleg IST ein Kind (<kind>_parent_receipt_id gesetzt) → Rück-Link.
+ *  2. Original MIT abgespaltenem Kind (<kind>_child gesetzt) → Info-Zeile + Zusammenführen.
  *  3. Original OHNE Kind & nicht gesperrt → Eingabefeld + Abspalten-Button.
  */
-function EustSplitControls({
+function SplitControls({
+  kind,
   receipt,
   isLocked,
   onSplit,
@@ -2156,6 +2197,7 @@ function EustSplitControls({
   mergePending,
   onNavigate,
 }: {
+  kind: 'eust' | 'zoll';
   receipt: ReceiptDetail;
   isLocked: boolean;
   onSplit: (cents: number) => void;
@@ -2164,7 +2206,11 @@ function EustSplitControls({
   mergePending: boolean;
   onNavigate: (id: number) => void;
 }) {
-  const [eustInput, setEustInput] = useState('');
+  const [input, setInput] = useState('');
+
+  const label = kind === 'eust' ? 'EUSt' : 'Zoll';
+  const parentId = kind === 'eust' ? receipt.eust_parent_receipt_id : receipt.zoll_parent_receipt_id;
+  const child = kind === 'eust' ? receipt.eust_child : receipt.zoll_child;
 
   const linkButtonStyle: React.CSSProperties = {
     background: 'none',
@@ -2178,31 +2224,31 @@ function EustSplitControls({
     textAlign: 'left',
   };
 
-  // Zustand 1: dieser Beleg ist selbst das EUSt-Kind.
-  if (receipt.eust_parent_receipt_id != null) {
+  // Zustand 1: dieser Beleg ist selbst das Kind.
+  if (parentId != null) {
     return (
       <p style={{ fontSize: '0.8rem', color: 'var(--color-tertiary)', fontFamily: 'var(--font-body)', margin: '0.25rem 0' }}>
         <button
           type="button"
-          onClick={() => onNavigate(receipt.eust_parent_receipt_id!)}
+          onClick={() => onNavigate(parentId)}
           style={linkButtonStyle}
         >
-          gehört zu Beleg #{receipt.eust_parent_receipt_id} →
+          gehört zu Beleg #{parentId} →
         </button>
       </p>
     );
   }
 
-  // Zustand 2: Original mit bereits abgespaltenem EUSt-Kind.
-  if (receipt.eust_child) {
+  // Zustand 2: Original mit bereits abgespaltenem Kind.
+  if (child) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
         <button
           type="button"
-          onClick={() => onNavigate(receipt.eust_child!.id)}
+          onClick={() => onNavigate(child.id)}
           style={linkButtonStyle}
         >
-          {formatCurrencyFromCents(receipt.eust_child.amount_gross_cents)} EUSt als verknüpften Beleg abgespalten →
+          {formatCurrencyFromCents(child.amount_gross_cents)} {label} als verknüpften Beleg abgespalten →
         </button>
         {!isLocked && (
           <button
@@ -2210,7 +2256,7 @@ function EustSplitControls({
             onClick={() => {
               if (
                 window.confirm(
-                  'EUSt-Beleg wieder mit diesem Beleg zusammenführen? Der abgespaltene EUSt-Beleg wird gelöscht.',
+                  `${label}-Beleg wieder mit diesem Beleg zusammenführen? Der abgespaltene ${label}-Beleg wird gelöscht.`,
                 )
               ) {
                 onMerge();
@@ -2244,7 +2290,7 @@ function EustSplitControls({
   // Zustand 3: Original ohne Kind — Eingabefeld + Abspalten-Button (nur wenn nicht gesperrt).
   if (isLocked) return null;
 
-  const cents = parseCents(eustInput);
+  const cents = parseCents(input);
   const validCents = cents !== null && cents > 0 && cents < receipt.amount_gross_cents;
 
   return (
@@ -2266,14 +2312,14 @@ function EustSplitControls({
           fontWeight: 500,
         }}
       >
-        davon EUSt
+        davon {label}
       </span>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
         <input
           type="text"
           inputMode="decimal"
-          value={eustInput}
-          onChange={(e) => setEustInput(e.target.value)}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
           placeholder="0,00"
           style={{
             width: '7rem',
@@ -2312,7 +2358,7 @@ function EustSplitControls({
           }}
         >
           <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>call_split</span>
-          EUSt abspalten
+          {label} abspalten
         </button>
       </div>
     </div>

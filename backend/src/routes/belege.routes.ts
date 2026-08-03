@@ -1500,6 +1500,12 @@ router.get('/:id', (req, res) => {
       .prepare(`SELECT id, amount_gross_cents FROM receipts WHERE eust_parent_receipt_id = ?`)
       .get(id) ?? null;
 
+  // Zoll-Abspaltung (Migr. 127): analog zum EUSt-Kind, eigene Verknüpfungs-Spalte.
+  const zollChild =
+    db
+      .prepare(`SELECT id, amount_gross_cents FROM receipts WHERE zoll_parent_receipt_id = ?`)
+      .get(id) ?? null;
+
   res.json({
     ...receipt,
     files,
@@ -1513,6 +1519,7 @@ router.get('/:id', (req, res) => {
     trip_distance_km: trip?.distance_km ?? null,
     trip_rate_per_km_cents: trip?.rate_per_km_cents ?? null,
     eust_child: eustChild,
+    zoll_child: zollChild,
   });
 });
 
@@ -1880,6 +1887,185 @@ router.post('/:id/merge-eust', (req, res) => {
     .get(id) as { id: number; amount_gross_cents: number; freigegeben_at: string | null } | undefined;
   if (!child) {
     res.status(404).json({ error: 'Kein abgespaltener EUSt-Beleg vorhanden.' });
+    return;
+  }
+
+  if (orig.freigegeben_at || child.freigegeben_at) {
+    res.status(409).json({ error: 'Freigegebene Belege können nicht zusammengeführt werden.' });
+    return;
+  }
+
+  const tx = db.transaction(() => {
+    receiptService.update(req, id, {
+      amount_gross_cents: orig.amount_gross_cents + child.amount_gross_cents,
+    });
+    logAudit(req, 'receipt', child.id, 'delete', undefined, { merged_into: id });
+    db.prepare(`DELETE FROM receipts WHERE id = ?`).run(child.id);
+  });
+
+  try {
+    tx();
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+    return;
+  }
+
+  belegeMirror.syncReceipt(id);
+
+  const parent = db.prepare(`SELECT * FROM receipts WHERE id = ?`).get(id);
+  res.json({ parent });
+});
+
+/**
+ * POST /api/belege/:id/split-zoll
+ *
+ * Spaltet den Zoll-Anteil eines gemischten Zollbelegs (z.B. FedEx/DHL Express) in
+ * einen eigenen verknüpften Beleg ab — analog zu split-eust, aber: Zoll ist 0 % USt
+ * UND NICHT vorsteuerabziehbar (import_eust=0, input_tax_deductible=0), also reine
+ * Betriebsausgabe. Damit faellt der Zoll aus KZ 62 (EUSt) UND KZ 66 (Vorsteuer)
+ * heraus — taxCalcService bleibt unveraendert. Eigene Spalte zoll_parent_receipt_id,
+ * damit die EUSt-Abspaltung voellig unberuehrt bleibt (ein Beleg kann beides haben).
+ *
+ * Body: { zoll_cents: number }
+ */
+router.post('/:id/split-zoll', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: 'Ungueltige id' });
+    return;
+  }
+
+  const orig = db
+    .prepare(
+      `SELECT id, amount_gross_cents, vat_rate, supplier_name, receipt_date,
+              due_date, payment_date, currency, status, freigegeben_at
+       FROM receipts WHERE id = ?`,
+    )
+    .get(id) as
+    | {
+        id: number;
+        amount_gross_cents: number;
+        vat_rate: number;
+        supplier_name: string | null;
+        receipt_date: string;
+        due_date: string | null;
+        payment_date: string | null;
+        currency: string;
+        status: Receipt['status'];
+        freigegeben_at: string | null;
+      }
+    | undefined;
+  if (!orig) {
+    res.status(404).end();
+    return;
+  }
+  if (orig.freigegeben_at) {
+    res.status(409).json({ error: 'Freigegebener Beleg kann nicht gesplittet werden.' });
+    return;
+  }
+
+  const zollCents = Number((req.body ?? {}).zoll_cents);
+  if (!Number.isInteger(zollCents) || zollCents <= 0 || zollCents >= orig.amount_gross_cents) {
+    res.status(400).json({ error: 'Zoll muss größer 0 und kleiner als der Brutto-Betrag sein.' });
+    return;
+  }
+
+  const existingChild = db
+    .prepare(`SELECT id FROM receipts WHERE zoll_parent_receipt_id = ?`)
+    .get(id) as { id: number } | undefined;
+  if (existingChild) {
+    res.status(409).json({ error: 'Für diesen Beleg wurde bereits Zoll abgespalten.' });
+    return;
+  }
+
+  const zollCategory = db
+    .prepare(`SELECT id FROM tax_categories WHERE name = 'Zoll' LIMIT 1`)
+    .get() as { id: number } | undefined;
+
+  let childId = 0;
+  const tx = db.transaction(() => {
+    receiptService.update(req, id, {
+      amount_gross_cents: orig.amount_gross_cents - zollCents,
+    });
+
+    const child = receiptService.create(req, {
+      type: 'beleg',
+      source: 'manual_upload',
+      created_via: 'zoll_split',
+      import_eust: 0,
+      vat_rate: 0,
+      amount_gross_cents: zollCents,
+      amount_net_cents: zollCents,
+      vat_amount_cents: 0,
+      input_tax_deductible: 0,
+      steuerrelevant: 1,
+      tax_category_id: zollCategory?.id ?? null,
+      tax_category: 'Zoll',
+      status: orig.status,
+      supplier_name: orig.supplier_name,
+      receipt_date: orig.receipt_date,
+      due_date: orig.due_date,
+      payment_date: orig.payment_date,
+      currency: orig.currency,
+      title: `Zoll — ${orig.supplier_name ?? 'Zollrechnung'}`,
+    });
+    childId = child.id;
+
+    db.prepare(`UPDATE receipts SET zoll_parent_receipt_id = ? WHERE id = ?`).run(id, childId);
+
+    db.prepare(
+      `INSERT INTO receipt_files (receipt_id, original_filename, storage_path, sha256, mime_type, file_size_bytes, thumbnail_path, page_count)
+       SELECT ?, original_filename, storage_path, sha256, mime_type, file_size_bytes, thumbnail_path, page_count
+       FROM receipt_files WHERE receipt_id = ?`,
+    ).run(childId, id);
+
+    db.prepare(
+      `INSERT INTO receipt_area_links (receipt_id, area_id, is_primary, share_percent)
+       SELECT ?, area_id, is_primary, share_percent
+       FROM receipt_area_links WHERE receipt_id = ?`,
+    ).run(childId, id);
+  });
+
+  try {
+    tx();
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+    return;
+  }
+
+  belegeMirror.syncReceipt(id);
+
+  const parent = db.prepare(`SELECT * FROM receipts WHERE id = ?`).get(id);
+  const zollChild = db.prepare(`SELECT * FROM receipts WHERE id = ?`).get(childId);
+  res.status(201).json({ parent, zoll_child: zollChild });
+});
+
+/**
+ * POST /api/belege/:id/merge-zoll
+ *
+ * Macht split-zoll rückgängig: löscht den abgespaltenen Zoll-Kind-Beleg und
+ * addiert dessen Brutto-Betrag zurück auf den Ursprungs-Beleg (spiegelt merge-eust).
+ */
+router.post('/:id/merge-zoll', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: 'Ungueltige id' });
+    return;
+  }
+
+  const orig = db
+    .prepare(`SELECT id, amount_gross_cents, freigegeben_at FROM receipts WHERE id = ?`)
+    .get(id) as { id: number; amount_gross_cents: number; freigegeben_at: string | null } | undefined;
+  if (!orig) {
+    res.status(404).end();
+    return;
+  }
+
+  const child = db
+    .prepare(`SELECT id, amount_gross_cents, freigegeben_at FROM receipts WHERE zoll_parent_receipt_id = ?`)
+    .get(id) as { id: number; amount_gross_cents: number; freigegeben_at: string | null } | undefined;
+  if (!child) {
+    res.status(404).json({ error: 'Kein abgespaltener Zoll-Beleg vorhanden.' });
     return;
   }
 
