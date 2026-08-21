@@ -8,9 +8,11 @@ const AUTOSAVE_DELAY_MS = 600;
 // Feld-Definitionen: Schlüssel, sichtbares Label (echte Umlaute), Byte-Limit
 // (undefined = kein hartes Limit, Zähler wird nie rot), mehrzeilig?
 type FieldKey = keyof Omit<ListingFields, 'product_id'>;
-interface FieldDef { key: FieldKey; label: string; limit?: number; rows: number; placeholder?: string; }
+// `single` = einzeiliges <input> ohne Byte-Zähler (internes Feld ohne Amazon-Limit).
+interface FieldDef { key: FieldKey; label: string; limit?: number; rows: number; placeholder?: string; single?: boolean; }
 
 const FIELDS: FieldDef[] = [
+  { key: 'category', label: 'Kategorie', rows: 1, single: true, placeholder: 'z. B. Baby › Sicherheit im Haus › Bettgitter' },
   { key: 'title', label: 'Titel', limit: 200, rows: 2, placeholder: 'Produkt-Titel …' },
   { key: 'bullet_1', label: 'Bullet 1', limit: 249, rows: 2 },
   { key: 'bullet_2', label: 'Bullet 2', limit: 249, rows: 2 },
@@ -80,24 +82,42 @@ export function ListingEditor({ productId, initial }: { productId: number; initi
             <label className="text-xs font-medium" style={{ color: 'var(--color-on-surface-variant)' }}>
               {f.label}
             </label>
-            <ByteCounter value={values[f.key]} limit={f.limit} />
+            {!f.single && <ByteCounter value={values[f.key]} limit={f.limit} />}
           </div>
-          <textarea
-            value={values[f.key]}
-            onChange={(e) => onChange(f.key, e.target.value)}
-            onBlur={() => onBlur(f.key)}
-            rows={f.rows}
-            placeholder={f.placeholder}
-            spellCheck={false}
-            className="w-full rounded-lg px-3 py-2 text-sm resize-y"
-            style={{
-              background: 'var(--color-surface-container-low)',
-              color: 'var(--color-on-surface)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              fontFamily: 'inherit',
-              lineHeight: '1.5',
-            }}
-          />
+          {f.single ? (
+            <input
+              type="text"
+              value={values[f.key]}
+              onChange={(e) => onChange(f.key, e.target.value)}
+              onBlur={() => onBlur(f.key)}
+              placeholder={f.placeholder}
+              spellCheck={false}
+              className="w-full rounded-lg px-3 py-2 text-sm"
+              style={{
+                background: 'var(--color-surface-container-low)',
+                color: 'var(--color-on-surface)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                fontFamily: 'inherit',
+              }}
+            />
+          ) : (
+            <textarea
+              value={values[f.key]}
+              onChange={(e) => onChange(f.key, e.target.value)}
+              onBlur={() => onBlur(f.key)}
+              rows={f.rows}
+              placeholder={f.placeholder}
+              spellCheck={false}
+              className="w-full rounded-lg px-3 py-2 text-sm resize-y"
+              style={{
+                background: 'var(--color-surface-container-low)',
+                color: 'var(--color-on-surface)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                fontFamily: 'inherit',
+                lineHeight: '1.5',
+              }}
+            />
+          )}
         </div>
       ))}
       <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)', opacity: 0.7 }}>

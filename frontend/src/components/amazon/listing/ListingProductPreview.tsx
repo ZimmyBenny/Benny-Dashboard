@@ -70,6 +70,12 @@ export function ListingProductPreview({
 
   return (
     <div style={{ background: '#fff', borderRadius: 10, padding: 24, fontFamily: AZ_FONT, color: AZ_INK }}>
+      {/* Kategorie-Breadcrumb (wie oben auf einer Amazon-Detailseite), nur wenn gesetzt */}
+      {listing.category?.trim() && (
+        <div style={{ fontSize: 12, color: AZ_LINK, marginBottom: 14, lineHeight: 1.4 }}>
+          {listing.category.trim()}
+        </div>
+      )}
       {/* echtes 3-Spalten-Amazon-Detaillayout — Kaufbox wrappt auf schmaler Breite */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 28 }}>
 
