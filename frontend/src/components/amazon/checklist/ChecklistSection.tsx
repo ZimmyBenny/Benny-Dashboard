@@ -13,15 +13,17 @@ import { SectionHeader } from '../SectionHeader';
 import { ChecklistSectionBlock } from './ChecklistSectionBlock';
 import { AddSectionForm } from './AddSectionForm';
 import { EditItemDialog } from './EditItemDialog';
+import { exportChecklistPdf } from '../../../lib/amazon/exportChecklistPdf';
 
 const ACCENT = '#a3e635';
 const STORAGE_KEY = (productId: number) => `amazon.checklist.expanded.${productId}`;
 
 interface Props {
   productId: number;
+  productName: string;
 }
 
-export function ChecklistSection({ productId }: Props) {
+export function ChecklistSection({ productId, productName }: Props) {
   const { data, isLoading, isError, refetch } = useChecklistProduct(productId);
   const createSection = useCreateProductSection(productId);
   const updateSection = useUpdateProductSection(productId);
@@ -61,12 +63,26 @@ export function ChecklistSection({ productId }: Props) {
         expanded={expanded}
         onToggleExpand={toggle}
         rightSlot={
-          <span
-            className="text-xs px-2 py-0.5 rounded-full"
-            style={{ background: `${ACCENT}33`, color: ACCENT }}
-          >
-            {doneItems} / {totalItems}
-          </span>
+          <div className="flex items-center gap-2">
+            {data && data.sections.length > 0 && (
+              <button
+                type="button"
+                title="Gesamte Checkliste als PDF exportieren"
+                onClick={(e) => { e.stopPropagation(); exportChecklistPdf(productName, data.sections); }}
+                className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
+                style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--color-on-surface-variant)', border: '1px solid rgba(255,255,255,0.1)' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>picture_as_pdf</span>
+                PDF
+              </button>
+            )}
+            <span
+              className="text-xs px-2 py-0.5 rounded-full"
+              style={{ background: `${ACCENT}33`, color: ACCENT }}
+            >
+              {doneItems} / {totalItems}
+            </span>
+          </div>
         }
       />
       {expanded && (
@@ -91,6 +107,7 @@ export function ChecklistSection({ productId }: Props) {
                 <ChecklistSectionBlock
                   key={section.id}
                   section={section}
+                  productName={productName}
                   onUpdateSection={(patch) => updateSection.mutate({ sectionId: section.id, patch })}
                   onDeleteSection={() => {
                     if (confirm(`Section „${section.title}" inklusive aller Punkte löschen?`)) {

@@ -5,9 +5,12 @@ import {
 } from '../../../api/amazon.api';
 import { ChecklistItemRow } from './ChecklistItemRow';
 import { AddItemForm } from './AddItemForm';
+import { exportChecklistPdf } from '../../../lib/amazon/exportChecklistPdf';
 
 interface Props {
   section: ChecklistSection;
+  /** Für den PDF-Export der Produkt-Checkliste. Fehlt auf der Master-Vorlagen-Seite → kein PDF-Knopf. */
+  productName?: string;
   onUpdateSection: (patch: ChecklistSectionPatch) => void;
   onDeleteSection: () => void;
   onCreateItem: (input: ChecklistItemCreate) => void;
@@ -26,7 +29,7 @@ const TH_STYLE: React.CSSProperties = {
 };
 
 export function ChecklistSectionBlock({
-  section, onUpdateSection, onDeleteSection,
+  section, productName, onUpdateSection, onDeleteSection,
   onCreateItem, onUpdateItem, onRequestEditItem, onRequestDeleteItem,
 }: Props) {
   const [title, setTitle] = useState(section.title);
@@ -70,6 +73,17 @@ export function ChecklistSectionBlock({
         >
           {doneCount} / {section.items.length}
         </span>
+        {productName && (
+          <button
+            type="button"
+            onClick={() => exportChecklistPdf(productName, [section])}
+            title="Diesen Bereich als PDF exportieren"
+            aria-label="Bereich als PDF exportieren"
+            className="p-1 rounded hover:bg-white/10"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#bef264' }}>picture_as_pdf</span>
+          </button>
+        )}
         <button
           type="button"
           onClick={onDeleteSection}

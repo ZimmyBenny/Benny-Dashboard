@@ -234,7 +234,7 @@ export function AmazonProductDetailPage() {
               if (id === 'listing') return <ListingSection productId={product.id} productName={product.name} />;
               if (id === 'design_druck') return <DesignDruckSection productId={product.id} />;
               if (id === 'packaging') return <PackagingSection productId={product.id} productName={product.name} />;
-              return <ChecklistSection productId={product.id} />;
+              return <ChecklistSection productId={product.id} productName={product.name} />;
             },
           }))}
           onReorder={moveSection}
