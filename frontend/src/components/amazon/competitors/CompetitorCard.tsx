@@ -24,6 +24,7 @@ export function CompetitorCard({ productId, competitor, onRequestDelete }: {
   const [asin, setAsin] = useState(competitor.asin);
   const [url, setUrl] = useState(competitor.url);
   const [title, setTitle] = useState(competitor.title);
+  const [brand, setBrand] = useState(competitor.brand);
   const [price, setPrice] = useState(competitor.price);
   const [rating, setRating] = useState(competitor.rating == null ? '' : String(competitor.rating));
   const [reviews, setReviews] = useState(competitor.reviews == null ? '' : String(competitor.reviews));
@@ -33,7 +34,7 @@ export function CompetitorCard({ productId, competitor, onRequestDelete }: {
 
   // Bei Server-Änderung (z.B. Reorder/Reload) nachziehen.
   useEffect(() => {
-    setAsin(competitor.asin); setUrl(competitor.url); setTitle(competitor.title); setPrice(competitor.price);
+    setAsin(competitor.asin); setUrl(competitor.url); setTitle(competitor.title); setBrand(competitor.brand); setPrice(competitor.price);
     setRating(competitor.rating == null ? '' : String(competitor.rating));
     setReviews(competitor.reviews == null ? '' : String(competitor.reviews));
     setStrengths(competitor.strengths); setWeaknesses(competitor.weaknesses); setDifferentiation(competitor.differentiation);
@@ -72,6 +73,8 @@ export function CompetitorCard({ productId, competitor, onRequestDelete }: {
       <div className="flex flex-wrap gap-2 mb-2">
         <input value={asin} onChange={(e) => { setAsin(e.target.value); saveDebounced({ asin: e.target.value }); }}
           placeholder="ASIN" spellCheck={false} className="rounded-md px-2.5 py-1.5 text-sm" style={{ ...inputStyle, width: 140 }} />
+        <input value={brand} onChange={(e) => { setBrand(e.target.value); saveDebounced({ brand: e.target.value }); }}
+          placeholder="Marke / Verkäufer" spellCheck={false} className="rounded-md px-2.5 py-1.5 text-sm" style={{ ...inputStyle, width: 180 }} />
         <input value={url} onChange={(e) => { setUrl(e.target.value); saveDebounced({ url: e.target.value }); }}
           placeholder="Amazon-Link (https://…)" spellCheck={false} className="flex-1 rounded-md px-2.5 py-1.5 text-sm" style={{ ...inputStyle, minWidth: 180 }} />
         {url.trim() && (

@@ -24,6 +24,15 @@ export function CompetitorsSection({ productId }: { productId: number }) {
   }
 
   const count = data?.length ?? 0;
+  const asins = (data ?? []).map(c => c.asin.trim()).filter(Boolean);
+  const [copied, setCopied] = useState(false);
+  async function copyAsins() {
+    try {
+      await navigator.clipboard.writeText(asins.join('\n'));
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch { /* Clipboard nicht verfügbar */ }
+  }
 
   return (
     <section className="rounded-xl" style={{ background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -35,6 +44,18 @@ export function CompetitorsSection({ productId }: { productId: number }) {
         onToggleExpand={toggle}
         rightSlot={
           <div className="flex items-center gap-2">
+            {asins.length > 0 && (
+              <button
+                type="button"
+                title={`${asins.length} ASIN(s) in die Zwischenablage kopieren`}
+                onClick={(e) => { e.stopPropagation(); copyAsins(); }}
+                className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
+                style={{ background: 'rgba(255,255,255,0.06)', color: copied ? '#5cfd80' : 'var(--color-on-surface-variant)', border: '1px solid rgba(255,255,255,0.1)' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>{copied ? 'check' : 'content_copy'}</span>
+                {copied ? 'Kopiert' : 'ASINs kopieren'}
+              </button>
+            )}
             <button
               type="button"
               title="Mitbewerber hinzufügen"
