@@ -28,6 +28,7 @@ import amazonChecklistRoutes from './routes/amazon.checklist.routes';
 import amazonUspRoutes from './routes/amazon.usp.routes';
 import amazonManufacturersRoutes from './routes/amazon.manufacturers.routes';
 import amazonResearchRoutes from './routes/amazon.research.routes';
+import amazonCompetitorsRoutes from './routes/amazon.competitors.routes';
 import amazonListingRoutes from './routes/amazon.listing.routes';
 import amazonProductDocsRoutes from './routes/amazon.productdocs.routes';
 import amazonPackagingRoutes from './routes/amazon.packaging.routes';
@@ -87,6 +88,7 @@ export function createApp() {
   app.use('/api/amazon', amazonUspRoutes);
   app.use('/api/amazon', amazonManufacturersRoutes);
   app.use('/api/amazon', amazonResearchRoutes);
+  app.use('/api/amazon', amazonCompetitorsRoutes);
   app.use('/api/amazon', amazonListingRoutes);
   app.use('/api/amazon', amazonProductDocsRoutes);
   app.use('/api/amazon', amazonPackagingRoutes);

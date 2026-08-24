@@ -1141,3 +1141,53 @@ export async function downloadPackagingBriefing(productId: number, filename: str
   a.remove();
   window.setTimeout(() => URL.revokeObjectURL(objUrl), 60_000);
 }
+
+// ===== Amazon Mitbewerber (Migr. 129) =====
+export interface CompetitorFile { id: number; competitor_id: number; sort_order: number; file_path: string; original_name: string | null; mime: string | null; created_at: number; }
+export interface Competitor {
+  id: number; product_id: number; sort_order: number;
+  asin: string; url: string; title: string; price: string;
+  rating: number | null; reviews: number | null;
+  strengths: string; weaknesses: string; differentiation: string;
+  is_main: number;
+  created_at: number; updated_at: number;
+  files: CompetitorFile[];
+}
+export type CompetitorPatch = Partial<{
+  asin: string; url: string; title: string; price: string;
+  rating: number | null; reviews: number | null;
+  strengths: string; weaknesses: string; differentiation: string;
+  is_main: 0 | 1;
+}>;
+
+export async function fetchCompetitors(productId: number): Promise<Competitor[]> {
+  const r = await apiClient.get<{ competitors: Competitor[] }>(`/amazon/products/${productId}/competitors`);
+  return r.data.competitors;
+}
+export async function createCompetitor(productId: number): Promise<Competitor> {
+  const r = await apiClient.post<{ competitor: Competitor }>(`/amazon/products/${productId}/competitors`, {});
+  return r.data.competitor;
+}
+export async function updateCompetitor(productId: number, cid: number, patch: CompetitorPatch): Promise<Competitor> {
+  const r = await apiClient.patch<{ competitor: Competitor }>(`/amazon/products/${productId}/competitors/${cid}`, patch);
+  return r.data.competitor;
+}
+export async function deleteCompetitor(productId: number, cid: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/competitors/${cid}`);
+}
+export async function reorderCompetitors(productId: number, order: number[]): Promise<void> {
+  await apiClient.patch(`/amazon/products/${productId}/competitors/reorder`, { order });
+}
+export async function uploadCompetitorFile(productId: number, cid: number, file: File): Promise<CompetitorFile> {
+  const fd = new FormData();
+  fd.append('file', file);
+  const r = await apiClient.post<{ file: CompetitorFile }>(`/amazon/products/${productId}/competitors/${cid}/files`, fd);
+  return r.data.file;
+}
+export async function deleteCompetitorFile(productId: number, fid: number): Promise<void> {
+  await apiClient.delete(`/amazon/products/${productId}/competitors/files/${fid}`);
+}
+export async function getCompetitorFileObjectUrl(productId: number, fid: number): Promise<string> {
+  const r = await apiClient.get(`/amazon/products/${productId}/competitors/files/${fid}/blob`, { responseType: 'blob' });
+  return URL.createObjectURL(r.data as Blob);
+}

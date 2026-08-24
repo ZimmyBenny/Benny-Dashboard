@@ -13,6 +13,7 @@ import {
 import { ProductStatusBadge } from '../../components/amazon/ProductStatusBadge';
 import { SourcingSection } from '../../components/amazon/SourcingSection';
 import { ChecklistSection } from '../../components/amazon/checklist/ChecklistSection';
+import { CompetitorsSection } from '../../components/amazon/competitors/CompetitorsSection';
 import { ProductNotes } from '../../components/amazon/ProductNotes';
 import { AutosaveIndicator } from '../../components/amazon/AutosaveIndicator';
 import { DraggableSectionList } from '../../components/amazon/DraggableSectionList';
@@ -231,6 +232,7 @@ export function AmazonProductDetailPage() {
               if (id === 'usp') return <UspSection productId={product.id} productName={product.name} />;
               if (id === 'manufacturers') return <ManufacturersSection productId={product.id} />;
               if (id === 'research') return <ResearchSection scope={product.id} />;
+              if (id === 'competitors') return <CompetitorsSection productId={product.id} />;
               if (id === 'listing') return <ListingSection productId={product.id} productName={product.name} />;
               if (id === 'design_druck') return <DesignDruckSection productId={product.id} />;
               if (id === 'packaging') return <PackagingSection productId={product.id} productName={product.name} />;
