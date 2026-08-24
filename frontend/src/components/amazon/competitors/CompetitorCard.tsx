@@ -87,6 +87,7 @@ export function CompetitorCard({ productId, competitor, onRequestDelete }: {
   const [price, setPrice] = useState(competitor.price);
   const [rating, setRating] = useState(competitor.rating == null ? '' : String(competitor.rating));
   const [reviews, setReviews] = useState(competitor.reviews == null ? '' : String(competitor.reviews));
+  const [checkedOn, setCheckedOn] = useState(competitor.checked_on);
   const [strengths, setStrengths] = useState(competitor.strengths);
   const [weaknesses, setWeaknesses] = useState(competitor.weaknesses);
   const [differentiation, setDifferentiation] = useState(competitor.differentiation);
@@ -96,6 +97,7 @@ export function CompetitorCard({ productId, competitor, onRequestDelete }: {
     setAsin(competitor.asin); setUrl(competitor.url); setTitle(competitor.title); setBrand(competitor.brand); setPrice(competitor.price);
     setRating(competitor.rating == null ? '' : String(competitor.rating));
     setReviews(competitor.reviews == null ? '' : String(competitor.reviews));
+    setCheckedOn(competitor.checked_on);
     setStrengths(competitor.strengths); setWeaknesses(competitor.weaknesses); setDifferentiation(competitor.differentiation);
   }, [competitor]);
 
@@ -109,9 +111,11 @@ export function CompetitorCard({ productId, competitor, onRequestDelete }: {
   const isMain = competitor.is_main === 1;
 
   return (
-    <div className="rounded-xl p-3 mb-3" style={{
-      background: 'var(--color-surface-container-low)',
-      border: `1px solid ${isMain ? 'rgba(251,113,133,0.45)' : 'rgba(255,255,255,0.07)'}`,
+    <div className="rounded-xl p-4 mb-6" style={{
+      background: 'var(--color-surface-container)',
+      border: `1px solid ${isMain ? 'rgba(251,113,133,0.5)' : 'rgba(255,255,255,0.12)'}`,
+      borderLeft: `3px solid ${isMain ? ACCENT : 'rgba(251,113,133,0.4)'}`,
+      boxShadow: '0 2px 10px rgba(0,0,0,0.25)',
     }}>
       {/* Kopf: Vorschaubild · Stern · Marke (oben, prominent) · Löschen */}
       <div className="flex items-center gap-2 mb-2">
@@ -164,6 +168,14 @@ export function CompetitorCard({ productId, competitor, onRequestDelete }: {
           Bewertungen
           <input value={reviews} inputMode="numeric" onChange={(e) => { setReviews(e.target.value); saveDebounced({ reviews: e.target.value === '' ? null : Number(e.target.value) }); }}
             placeholder="Anzahl" className="rounded-md px-2 py-1 text-sm" style={{ ...inputStyle, width: 90 }} />
+        </label>
+        <label className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--color-on-surface-variant)' }} title="Wann hast du diese Zahlen abgelesen?">
+          Stand
+          <input type="date" value={checkedOn} onChange={(e) => { setCheckedOn(e.target.value); saveDebounced({ checked_on: e.target.value }); }}
+            className="rounded-md px-2 py-1 text-sm" style={inputStyle} />
+          <button type="button" title="Heutiges Datum eintragen"
+            onClick={() => { const t = new Date(); const today = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`; setCheckedOn(today); saveDebounced({ checked_on: today }); }}
+            className="rounded-md px-2 py-1 text-xs" style={{ ...inputStyle, cursor: 'pointer' }}>heute</button>
         </label>
       </div>
 

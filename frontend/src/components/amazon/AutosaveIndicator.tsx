@@ -34,21 +34,36 @@ export function AutosaveIndicator() {
     : { at: 0, message: '' };
   const latestErrorAt = latest.at;
 
+  // Zeitpunkt der letzten ERFOLGREICHEN Mutation — ein Erfolg soll eine alte
+  // Fehlermeldung sofort löschen (sonst „klebt" sie, obwohl schon wieder alles ok ist).
+  const successAts = useMutationState<number>({
+    filters: { status: 'success' },
+    select: (m) => m.state.submittedAt,
+  });
+  const latestSuccessAt = successAts.length > 0 ? Math.max(...successAts) : 0;
+
   const [lastSeenError, setLastSeenError] = useState(latestErrorAt);
   const [showError, setShowError] = useState(false);
   const [currentMessage, setCurrentMessage] = useState('');
   const [showSaved, setShowSaved] = useState(false);
 
-  // Neue Fehler-Mutation → rote Anzeige fuer 8 s
+  // Neue Fehler-Mutation → rote Anzeige fuer 8 s (nur wenn nicht schon ein neuerer Erfolg da ist)
   useEffect(() => {
     if (latestErrorAt > lastSeenError) {
       setLastSeenError(latestErrorAt);
-      setCurrentMessage(latest.message);
-      setShowError(true);
-      const t = setTimeout(() => setShowError(false), 8000);
-      return () => clearTimeout(t);
+      if (latestErrorAt >= latestSuccessAt) {
+        setCurrentMessage(latest.message);
+        setShowError(true);
+        const t = setTimeout(() => setShowError(false), 8000);
+        return () => clearTimeout(t);
+      }
     }
-  }, [latestErrorAt, lastSeenError, latest.message]);
+  }, [latestErrorAt, lastSeenError, latest.message, latestSuccessAt]);
+
+  // Späterer Erfolg → alte Fehlermeldung sofort ausblenden.
+  useEffect(() => {
+    if (latestSuccessAt > latestErrorAt) setShowError(false);
+  }, [latestSuccessAt, latestErrorAt]);
 
   // Mutation gerade fertig (ohne neuen Fehler) → "Gespeichert" fuer 1.5 s
   useEffect(() => {

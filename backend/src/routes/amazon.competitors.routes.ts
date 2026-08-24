@@ -27,7 +27,7 @@ function deleteFileFromDisk(filename: string | null | undefined) {
 interface CompetitorRow {
   id: number; product_id: number; sort_order: number;
   asin: string; url: string; title: string; brand: string; price: string;
-  rating: number | null; reviews: number | null;
+  rating: number | null; reviews: number | null; checked_on: string;
   strengths: string; weaknesses: string; differentiation: string;
   is_main: number; created_at: number; updated_at: number;
 }
@@ -102,7 +102,7 @@ router.patch('/products/:id/competitors/reorder', (req: Request, res: Response) 
 });
 
 // ── PATCH: Feld-Update ──
-const TEXT_FIELDS = ['asin', 'url', 'title', 'brand', 'price', 'strengths', 'weaknesses', 'differentiation'] as const;
+const TEXT_FIELDS = ['asin', 'url', 'title', 'brand', 'price', 'checked_on', 'strengths', 'weaknesses', 'differentiation'] as const;
 router.patch('/products/:id/competitors/:cid', (req: Request, res: Response) => {
   const id = Number(req.params.id); const cid = Number(req.params.cid);
   if (!Number.isInteger(id) || !Number.isInteger(cid) || !loadCompetitor(id, cid)) { res.status(404).json({ error: 'not found' }); return; }

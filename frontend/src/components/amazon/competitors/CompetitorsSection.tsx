@@ -25,12 +25,13 @@ export function CompetitorsSection({ productId }: { productId: number }) {
 
   const count = data?.length ?? 0;
   const asins = (data ?? []).map(c => c.asin.trim()).filter(Boolean);
-  const [copied, setCopied] = useState(false);
-  async function copyAsins() {
+  const links = (data ?? []).map(c => c.url.trim()).filter(Boolean);
+  const [copied, setCopied] = useState<'asins' | 'links' | null>(null);
+  async function copy(kind: 'asins' | 'links', values: string[]) {
     try {
-      await navigator.clipboard.writeText(asins.join('\n'));
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
+      await navigator.clipboard.writeText(values.join('\n'));
+      setCopied(kind);
+      window.setTimeout(() => setCopied(null), 1800);
     } catch { /* Clipboard nicht verfügbar */ }
   }
 
@@ -48,12 +49,24 @@ export function CompetitorsSection({ productId }: { productId: number }) {
               <button
                 type="button"
                 title={`${asins.length} ASIN(s) in die Zwischenablage kopieren`}
-                onClick={(e) => { e.stopPropagation(); copyAsins(); }}
+                onClick={(e) => { e.stopPropagation(); copy('asins', asins); }}
                 className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
-                style={{ background: 'rgba(255,255,255,0.06)', color: copied ? '#5cfd80' : 'var(--color-on-surface-variant)', border: '1px solid rgba(255,255,255,0.1)' }}
+                style={{ background: 'rgba(255,255,255,0.06)', color: copied === 'asins' ? '#5cfd80' : 'var(--color-on-surface-variant)', border: '1px solid rgba(255,255,255,0.1)' }}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>{copied ? 'check' : 'content_copy'}</span>
-                {copied ? 'Kopiert' : 'ASINs kopieren'}
+                <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>{copied === 'asins' ? 'check' : 'content_copy'}</span>
+                {copied === 'asins' ? 'Kopiert' : 'ASINs kopieren'}
+              </button>
+            )}
+            {links.length > 0 && (
+              <button
+                type="button"
+                title={`${links.length} Link(s) in die Zwischenablage kopieren`}
+                onClick={(e) => { e.stopPropagation(); copy('links', links); }}
+                className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
+                style={{ background: 'rgba(255,255,255,0.06)', color: copied === 'links' ? '#5cfd80' : 'var(--color-on-surface-variant)', border: '1px solid rgba(255,255,255,0.1)' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>{copied === 'links' ? 'check' : 'link'}</span>
+                {copied === 'links' ? 'Kopiert' : 'Links kopieren'}
               </button>
             )}
             <button
