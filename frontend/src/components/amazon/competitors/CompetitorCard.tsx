@@ -65,6 +65,16 @@ function CardThumb({ productId, files }: { productId: number; files: CompetitorF
 const ACCENT = '#fb7185';
 const AUTOSAVE_MS = 600;
 
+/** "YYYY-MM-DD" -> "DD.MM.YYYY" (leer bleibt leer). */
+function fmtDate(iso: string): string {
+  const [y, m, d] = iso.split('-');
+  return d && m && y ? `${d}.${m}.${y}` : iso;
+}
+function todayIso(): string {
+  const t = new Date();
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+}
+
 const inputStyle: React.CSSProperties = {
   background: 'var(--color-surface-container-low)',
   color: 'var(--color-on-surface)',
@@ -101,6 +111,7 @@ export function CompetitorCard({ productId, competitor, onRequestDelete }: {
     setStrengths(competitor.strengths); setWeaknesses(competitor.weaknesses); setDifferentiation(competitor.differentiation);
   }, [competitor]);
 
+  const dateRef = useRef<HTMLInputElement | null>(null);
   const timer = useRef<number | null>(null);
   function saveDebounced(patch: CompetitorPatch) {
     if (timer.current !== null) window.clearTimeout(timer.current);
@@ -169,14 +180,36 @@ export function CompetitorCard({ productId, competitor, onRequestDelete }: {
           <input value={reviews} inputMode="numeric" onChange={(e) => { setReviews(e.target.value); saveDebounced({ reviews: e.target.value === '' ? null : Number(e.target.value) }); }}
             placeholder="Anzahl" className="rounded-md px-2 py-1 text-sm" style={{ ...inputStyle, width: 90 }} />
         </label>
-        <label className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--color-on-surface-variant)' }} title="Wann hast du diese Zahlen abgelesen?">
-          Stand
-          <input type="date" value={checkedOn} onChange={(e) => { setCheckedOn(e.target.value); saveDebounced({ checked_on: e.target.value }); }}
-            className="rounded-md px-2 py-1 text-sm" style={inputStyle} />
+        {/* Stand: leer = nichts anzeigen. Kalender-Knopf (manuell) + schöner „heute"-Knopf. */}
+        <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--color-on-surface-variant)' }} title="Wann hast du diese Zahlen abgelesen?">
+          <span>Stand</span>
+          {checkedOn && (
+            <span className="inline-flex items-center gap-1 rounded-md px-2 py-1" style={{ ...inputStyle, color: 'var(--color-on-surface)' }}>
+              {fmtDate(checkedOn)}
+              <button type="button" title="Datum entfernen"
+                onClick={() => { setCheckedOn(''); saveDebounced({ checked_on: '' }); }}
+                className="inline-flex leading-none">
+                <span className="material-symbols-outlined" style={{ fontSize: 14, color: 'var(--color-on-surface-variant)' }}>close</span>
+              </button>
+            </span>
+          )}
+          {/* verstecktes natives Datumsfeld — nur für den Picker (manuelle Eingabe) */}
+          <input ref={dateRef} type="date" value={checkedOn} tabIndex={-1} aria-hidden
+            onChange={(e) => { setCheckedOn(e.target.value); saveDebounced({ checked_on: e.target.value }); }}
+            style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }} />
+          <button type="button" title="Datum wählen"
+            onClick={() => { const el = dateRef.current as (HTMLInputElement & { showPicker?: () => void }) | null; try { el?.showPicker?.(); } catch { el?.focus(); } }}
+            className="inline-flex items-center rounded-md px-1.5 py-1" style={{ ...inputStyle, cursor: 'pointer' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>calendar_month</span>
+          </button>
           <button type="button" title="Heutiges Datum eintragen"
-            onClick={() => { const t = new Date(); const today = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`; setCheckedOn(today); saveDebounced({ checked_on: today }); }}
-            className="rounded-md px-2 py-1 text-xs" style={{ ...inputStyle, cursor: 'pointer' }}>heute</button>
-        </label>
+            onClick={() => { const t = todayIso(); setCheckedOn(t); saveDebounced({ checked_on: t }); }}
+            className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 font-medium"
+            style={{ background: `${ACCENT}22`, color: ACCENT, border: `1px solid ${ACCENT}55`, cursor: 'pointer' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>today</span>
+            heute
+          </button>
+        </div>
       </div>
 
       {/* Analyse: Stärken · Schwächen · Differenzierung */}
