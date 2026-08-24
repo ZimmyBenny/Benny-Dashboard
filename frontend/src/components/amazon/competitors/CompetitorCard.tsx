@@ -1,7 +1,66 @@
 import { useEffect, useRef, useState } from 'react';
-import { type Competitor, type CompetitorPatch } from '../../../api/amazon.api';
+import { createPortal } from 'react-dom';
+import { getCompetitorFileObjectUrl, type Competitor, type CompetitorFile, type CompetitorPatch } from '../../../api/amazon.api';
 import { useUpdateCompetitor } from '../../../hooks/amazon/useCompetitors';
 import { CompetitorFiles } from './CompetitorFiles';
+
+/**
+ * Kleines Vorschaubild (44x44) des ersten Bild-Anhangs — zum schnellen Wiedererkennen
+ * des Listings. 2 Sekunden mit der Maus draufbleiben → große Vorschau (Portal, nicht geclippt).
+ */
+function CardThumb({ productId, files }: { productId: number; files: CompetitorFile[] }) {
+  const first = files.find(f => (f.mime ?? '').startsWith('image/'));
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    if (!first) { setSrc(null); return; }
+    let revoked = false; let url: string | null = null;
+    getCompetitorFileObjectUrl(productId, first.id).then(u => { if (revoked) { URL.revokeObjectURL(u); return; } url = u; setSrc(u); }).catch(() => setSrc(null));
+    return () => { revoked = true; if (url) URL.revokeObjectURL(url); };
+  }, [productId, first]);
+
+  // Hover-Vergrößerung nach 2 s
+  const ref = useRef<HTMLDivElement | null>(null);
+  const timer = useRef<number | null>(null);
+  const [big, setBig] = useState<{ left: number; top: number } | null>(null);
+  const BIG = 380;
+  function onEnter() {
+    if (!src) return;
+    timer.current = window.setTimeout(() => {
+      const r = ref.current?.getBoundingClientRect();
+      if (!r) return;
+      let left = r.right + 8;
+      if (left + BIG > window.innerWidth - 8) left = Math.max(8, r.left - BIG - 8); // links, wenn rechts kein Platz
+      const top = Math.min(Math.max(8, r.top), window.innerHeight - BIG - 8);
+      setBig({ left, top });
+    }, 2000);
+  }
+  function onLeave() {
+    if (timer.current !== null) { window.clearTimeout(timer.current); timer.current = null; }
+    setBig(null);
+  }
+  useEffect(() => () => { if (timer.current !== null) window.clearTimeout(timer.current); }, []);
+
+  return (
+    <>
+      <div ref={ref} onMouseEnter={onEnter} onMouseLeave={onLeave}
+        className="shrink-0 flex items-center justify-center rounded-md overflow-hidden"
+        style={{ width: 44, height: 44, background: 'var(--color-surface-container-low)', border: '1px solid rgba(255,255,255,0.08)', cursor: src ? 'zoom-in' : 'default' }}>
+        {src
+          ? <img src={src} alt="" className="w-full h-full object-cover" />
+          : <span className="material-symbols-outlined" style={{ fontSize: 20, color: 'var(--color-on-surface-variant)', opacity: 0.5 }}>image</span>}
+      </div>
+      {big && src && createPortal(
+        <div style={{ position: 'fixed', left: big.left, top: big.top, zIndex: 200, pointerEvents: 'none' }}>
+          <img src={src} alt="" style={{
+            maxWidth: BIG, maxHeight: BIG, objectFit: 'contain', background: '#fff',
+            borderRadius: 10, border: '1px solid rgba(255,255,255,0.15)', boxShadow: '0 12px 40px rgba(0,0,0,0.55)',
+          }} />
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+}
 
 const ACCENT = '#fb7185';
 const AUTOSAVE_MS = 600;
@@ -54,27 +113,31 @@ export function CompetitorCard({ productId, competitor, onRequestDelete }: {
       background: 'var(--color-surface-container-low)',
       border: `1px solid ${isMain ? 'rgba(251,113,133,0.45)' : 'rgba(255,255,255,0.07)'}`,
     }}>
-      {/* Kopf: Stern · Titel · Löschen */}
+      {/* Kopf: Vorschaubild · Stern · Marke (oben, prominent) · Löschen */}
       <div className="flex items-center gap-2 mb-2">
+        <CardThumb productId={productId} files={competitor.files} />
         <button type="button" title={isMain ? 'Hauptkonkurrent (aktiv)' : 'Als Hauptkonkurrent markieren'}
           onClick={() => update.mutate({ cid: competitor.id, patch: { is_main: isMain ? 0 : 1 } })}
           className="shrink-0 rounded p-1" style={{ color: isMain ? ACCENT : 'var(--color-on-surface-variant)' }}>
           <span className="material-symbols-outlined" style={{ fontSize: 20, fontVariationSettings: isMain ? "'FILL' 1" : "'FILL' 0" }}>star</span>
         </button>
-        <input value={title} onChange={(e) => { setTitle(e.target.value); saveDebounced({ title: e.target.value }); }}
-          placeholder="Titel des Konkurrenzprodukts" spellCheck={false}
-          className="flex-1 rounded-md px-2.5 py-1.5 text-sm font-medium" style={inputStyle} />
+        <input value={brand} onChange={(e) => { setBrand(e.target.value); saveDebounced({ brand: e.target.value }); }}
+          placeholder="Marke / Verkäufer" spellCheck={false}
+          className="flex-1 rounded-md px-2.5 py-1.5 text-base font-semibold" style={inputStyle} />
         <button type="button" onClick={onRequestDelete} aria-label="Mitbewerber löschen" className="shrink-0 rounded p-1 hover:bg-white/10">
           <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#fca5a5' }}>delete</span>
         </button>
       </div>
 
+      {/* Titel (volle Breite) */}
+      <input value={title} onChange={(e) => { setTitle(e.target.value); saveDebounced({ title: e.target.value }); }}
+        placeholder="Titel des Konkurrenzprodukts" spellCheck={false}
+        className="w-full rounded-md px-2.5 py-1.5 text-sm mb-2" style={inputStyle} />
+
       {/* ASIN + Link */}
       <div className="flex flex-wrap gap-2 mb-2">
         <input value={asin} onChange={(e) => { setAsin(e.target.value); saveDebounced({ asin: e.target.value }); }}
           placeholder="ASIN" spellCheck={false} className="rounded-md px-2.5 py-1.5 text-sm" style={{ ...inputStyle, width: 140 }} />
-        <input value={brand} onChange={(e) => { setBrand(e.target.value); saveDebounced({ brand: e.target.value }); }}
-          placeholder="Marke / Verkäufer" spellCheck={false} className="rounded-md px-2.5 py-1.5 text-sm" style={{ ...inputStyle, width: 180 }} />
         <input value={url} onChange={(e) => { setUrl(e.target.value); saveDebounced({ url: e.target.value }); }}
           placeholder="Amazon-Link (https://…)" spellCheck={false} className="flex-1 rounded-md px-2.5 py-1.5 text-sm" style={{ ...inputStyle, minWidth: 180 }} />
         {url.trim() && (
