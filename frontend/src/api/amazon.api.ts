@@ -1181,7 +1181,12 @@ export async function reorderCompetitors(productId: number, order: number[]): Pr
 export async function uploadCompetitorFile(productId: number, cid: number, file: File): Promise<CompetitorFile> {
   const fd = new FormData();
   fd.append('file', file);
-  const r = await apiClient.post<{ file: CompetitorFile }>(`/amazon/products/${productId}/competitors/${cid}/files`, fd);
+  // WICHTIG: apiClient-Default ist application/json -> für Multipart überschreiben,
+  // sonst parst multer nichts (400 "no file"). Wie uploadResearchImage.
+  const r = await apiClient.post<{ file: CompetitorFile }>(
+    `/amazon/products/${productId}/competitors/${cid}/files`, fd,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
   return r.data.file;
 }
 export async function deleteCompetitorFile(productId: number, fid: number): Promise<void> {
