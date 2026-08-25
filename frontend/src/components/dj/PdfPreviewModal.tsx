@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 interface Props {
   pdfUrl: string;
@@ -8,14 +8,24 @@ interface Props {
 }
 
 export function PdfPreviewModal({ pdfUrl, onClose, onDownload, logoUrl }: Props) {
-  // ESC-Taste schließt Modal
+  // ESC schließt. PDF läuft im <iframe> (eigener Browsing-Context) — liegt dort der Fokus,
+  // erreichen Tastendrücke die Seite nie. Darum Fokus in den Overlay-Container holen
+  // (beim Öffnen + bei Mausbewegung zurück). Wie FilePreviewModal/PlaylistViewerOverlay.
+  const containerRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
     }
     document.addEventListener('keydown', onKeyDown);
+    containerRef.current?.focus();
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [onClose]);
+
+  function restoreFocus() {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName)) return;
+    if (active !== containerRef.current) containerRef.current?.focus();
+  }
 
   const overlayStyle: React.CSSProperties = {
     position: 'fixed',
@@ -75,7 +85,10 @@ export function PdfPreviewModal({ pdfUrl, onClose, onDownload, logoUrl }: Props)
 
   return (
     <div
-      style={overlayStyle}
+      ref={containerRef}
+      tabIndex={-1}
+      onMouseMove={restoreFocus}
+      style={{ ...overlayStyle, outline: 'none' }}
       onClick={onClose}
     >
       {/* Panel fängt Klicks ab */}

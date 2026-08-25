@@ -26,13 +26,24 @@ export function PlaylistViewerOverlay({ playlist, onClose }: PlaylistViewerOverl
 
   const type = playlistFileType(playlist.filename);
 
+  // ESC schließt. PDF/HTML laufen im <iframe> (eigener Browsing-Context) — liegt dort der
+  // Fokus, erreichen Tastendrücke die Seite nie. Darum den Fokus in den Overlay-Container
+  // holen (beim Öffnen + bei Mausbewegung zurück über das Overlay). Wie FilePreviewModal.
+  const containerRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKey);
+    containerRef.current?.focus();
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+
+  function restoreFocus() {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName)) return;
+    if (active !== containerRef.current) containerRef.current?.focus();
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -102,7 +113,8 @@ export function PlaylistViewerOverlay({ playlist, onClose }: PlaylistViewerOverl
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column' }}>
+    <div ref={containerRef} tabIndex={-1} onMouseMove={restoreFocus}
+      style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column', outline: 'none' }}>
       {/* Kopf */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.875rem 1.25rem',
