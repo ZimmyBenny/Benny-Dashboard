@@ -13,7 +13,7 @@ interface KpiDef {
 }
 
 const KPIS: KpiDef[] = [
-  { key: 'warteliste',  label: 'Warteliste',  icon: 'schedule',      color: 'var(--color-tertiary)' },
+  { key: 'warteliste',  label: 'Produktideen', icon: 'schedule',      color: 'var(--color-tertiary)' },
   { key: 'interessant', label: 'Interessant', icon: 'lightbulb',    color: 'var(--color-primary)' },
   { key: 'aktiv',       label: 'Aktiv',       icon: 'rocket_launch', color: 'var(--color-secondary)' },
   { key: 'bestehend',   label: 'Bestehend',   icon: 'inventory_2',   color: 'var(--color-tertiary)' },

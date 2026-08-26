@@ -85,7 +85,7 @@ export function AmazonDashboardPage() {
           }}
         >
           <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>add</span>
-          Produkt direkt entwickeln
+          Produkt anlegen
         </button>
       </div>
 

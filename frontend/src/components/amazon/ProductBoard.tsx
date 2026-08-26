@@ -17,9 +17,9 @@ export function ProductBoard({ products, showDiscarded, onRequestDelete }: Props
   };
   return (
     <div className={`grid gap-4 ${showDiscarded ? 'grid-cols-5' : 'grid-cols-4'}`}>
-      <ProductColumn title="Warteliste" icon="schedule" accent="#fbbf24"
+      <ProductColumn title="Produktideen" icon="schedule" accent="#fbbf24"
         products={byStatus.warteliste} status="warteliste"
-        emptyText="Keine Produkte auf der Warteliste" onRequestDelete={onRequestDelete} />
+        emptyText="Noch keine Produktideen" onRequestDelete={onRequestDelete} />
       <ProductColumn title="Interessant" icon="star" accent="#60a5fa"
         products={byStatus.interessant} status="interessant"
         emptyText="Keine interessanten Produkte" onRequestDelete={onRequestDelete} />

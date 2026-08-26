@@ -31,7 +31,7 @@ export function AmazonOverviewPage() {
             className="text-2xl font-bold leading-tight"
             style={{ fontFamily: 'var(--font-headline)', color: 'var(--color-on-surface)' }}
           >
-            ECO-Dashboard
+            Entwicklungs-Dashboard
           </h1>
           <p style={{ color: 'var(--color-on-surface-variant)' }}>
             Übersicht für Produktentwicklung
@@ -51,7 +51,7 @@ export function AmazonOverviewPage() {
           }}
         >
           <span className="material-symbols-outlined text-base">add</span>
-          Produkt direkt entwickeln
+          Produkt anlegen
         </button>
       </div>
 

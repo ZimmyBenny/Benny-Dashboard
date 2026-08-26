@@ -4,7 +4,7 @@ import { useUpdateAmazonProductStatus } from '../../hooks/amazon/useAmazonProduc
 
 const LABEL: Record<AmazonProductStatus, string> = {
   interessant: 'Interessant',
-  warteliste:  'Warteliste',
+  warteliste:  'Produktideen',
   aktiv:       'Aktiv',
   bestehend:   'Bestehend',
   verworfen:   'Verworfen',
