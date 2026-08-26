@@ -1146,7 +1146,7 @@ export async function downloadPackagingBriefing(productId: number, filename: str
 export interface CompetitorFile { id: number; competitor_id: number; sort_order: number; file_path: string; original_name: string | null; mime: string | null; created_at: number; }
 export interface Competitor {
   id: number; product_id: number; sort_order: number;
-  asin: string; url: string; title: string; brand: string; price: string;
+  asin: string; url: string; title: string; subtitle: string; brand: string; price: string;
   rating: number | null; reviews: number | null; checked_on: string;
   strengths: string; weaknesses: string; differentiation: string;
   is_main: number;
@@ -1154,7 +1154,7 @@ export interface Competitor {
   files: CompetitorFile[];
 }
 export type CompetitorPatch = Partial<{
-  asin: string; url: string; title: string; brand: string; price: string;
+  asin: string; url: string; title: string; subtitle: string; brand: string; price: string;
   rating: number | null; reviews: number | null; checked_on: string;
   strengths: string; weaknesses: string; differentiation: string;
   is_main: 0 | 1;

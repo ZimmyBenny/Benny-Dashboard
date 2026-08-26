@@ -13,7 +13,7 @@ interface FieldDef { key: FieldKey; label: string; limit?: number; rows: number;
 
 const FIELDS: FieldDef[] = [
   { key: 'category', label: 'Kategorie', rows: 1, single: true, placeholder: 'z. B. Baby › Sicherheit im Haus › Bettgitter' },
-  { key: 'title', label: 'Titel', limit: 200, rows: 2, placeholder: 'Produkt-Titel …' },
+  { key: 'title', label: 'Titel', rows: 2, placeholder: 'Produkt-Titel …' }, // kein festes Limit (Amazon variiert je Kategorie) -> nur Byte-Zähler
   { key: 'bullet_1', label: 'Bullet 1', limit: 249, rows: 2 },
   { key: 'bullet_2', label: 'Bullet 2', limit: 249, rows: 2 },
   { key: 'bullet_3', label: 'Bullet 3', limit: 249, rows: 2 },

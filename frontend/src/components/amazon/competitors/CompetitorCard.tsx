@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { getCompetitorFileObjectUrl, type Competitor, type CompetitorFile, type CompetitorPatch } from '../../../api/amazon.api';
 import { useUpdateCompetitor } from '../../../hooks/amazon/useCompetitors';
 import { CompetitorFiles } from './CompetitorFiles';
+import { ByteCounter } from '../listing/ByteCounter';
 
 /**
  * Kleines Vorschaubild (44x44) des ersten Bild-Anhangs — zum schnellen Wiedererkennen
@@ -93,6 +94,7 @@ export function CompetitorCard({ productId, competitor, onRequestDelete }: {
   const [asin, setAsin] = useState(competitor.asin);
   const [url, setUrl] = useState(competitor.url);
   const [title, setTitle] = useState(competitor.title);
+  const [subtitle, setSubtitle] = useState(competitor.subtitle);
   const [brand, setBrand] = useState(competitor.brand);
   const [price, setPrice] = useState(competitor.price);
   const [rating, setRating] = useState(competitor.rating == null ? '' : String(competitor.rating));
@@ -104,7 +106,7 @@ export function CompetitorCard({ productId, competitor, onRequestDelete }: {
 
   // Bei Server-Änderung (z.B. Reorder/Reload) nachziehen.
   useEffect(() => {
-    setAsin(competitor.asin); setUrl(competitor.url); setTitle(competitor.title); setBrand(competitor.brand); setPrice(competitor.price);
+    setAsin(competitor.asin); setUrl(competitor.url); setTitle(competitor.title); setSubtitle(competitor.subtitle); setBrand(competitor.brand); setPrice(competitor.price);
     setRating(competitor.rating == null ? '' : String(competitor.rating));
     setReviews(competitor.reviews == null ? '' : String(competitor.reviews));
     setCheckedOn(competitor.checked_on);
@@ -144,10 +146,25 @@ export function CompetitorCard({ productId, competitor, onRequestDelete }: {
         </button>
       </div>
 
-      {/* Titel (volle Breite) */}
-      <input value={title} onChange={(e) => { setTitle(e.target.value); saveDebounced({ title: e.target.value }); }}
-        placeholder="Titel des Konkurrenzprodukts" spellCheck={false}
-        className="w-full rounded-md px-2.5 py-1.5 text-sm mb-2" style={inputStyle} />
+      {/* Titel + Untertitel (volle Breite), je mit Byte-Zähler (nur zählen, kein Limit) */}
+      <div className="mb-1.5">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>Titel</span>
+          <ByteCounter value={title} />
+        </div>
+        <input value={title} onChange={(e) => { setTitle(e.target.value); saveDebounced({ title: e.target.value }); }}
+          placeholder="Titel des Konkurrenzprodukts" spellCheck={false}
+          className="w-full rounded-md px-2.5 py-1.5 text-sm" style={inputStyle} />
+      </div>
+      <div className="mb-2">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>Untertitel</span>
+          <ByteCounter value={subtitle} />
+        </div>
+        <textarea value={subtitle} onChange={(e) => { setSubtitle(e.target.value); saveDebounced({ subtitle: e.target.value }); }}
+          placeholder="Zweite Amazon-Zeile (Bullet-Zusammenfassung) …" spellCheck={false} rows={2}
+          className="w-full rounded-md px-2.5 py-1.5 text-sm resize-y" style={inputStyle} />
+      </div>
 
       {/* ASIN + Link */}
       <div className="flex flex-wrap gap-2 mb-2">
