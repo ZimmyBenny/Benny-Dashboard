@@ -159,6 +159,15 @@ function FieldGroup({ productId, field, items, onDelete }: {
         )}
       </div>
       <div className="px-2 py-1">
+        {/* Spalten-Überschrift — Breiten exakt wie in KeywordRow */}
+        <div className="flex items-center gap-2 px-2 pb-1 text-xs font-medium" style={{ color: 'var(--color-on-surface-variant)' }}>
+          <span style={{ width: '28px' }} className="text-center">★</span>
+          <span className="flex-1 min-w-0">Keyword</span>
+          <span style={{ width: '110px' }} className="text-right">Suchvolumen</span>
+          <span style={{ width: '120px' }}>Quelle</span>
+          <span style={{ width: '130px' }}>Ziel-Feld</span>
+          <span style={{ width: '28px' }} />
+        </div>
         {items.map(k => (
           <KeywordRow key={k.id} productId={productId} keyword={k} onDelete={() => onDelete(k)} />
         ))}
