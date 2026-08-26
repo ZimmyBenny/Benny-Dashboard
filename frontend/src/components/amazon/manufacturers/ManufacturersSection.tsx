@@ -24,7 +24,7 @@ export function ManufacturersSection({ productId }: Props) {
   const reorder = useReorderManufacturers(productId);
   const updateSettings = useUpdateManufacturerSettings(productId);
 
-  const { expanded, toggle } = useSectionExpanded(productId, 'manufacturers', true);
+  const { expanded, toggle } = useSectionExpanded(productId, 'manufacturers', false);
   const [order, setOrder] = useState<number[] | null>(null);
   const [rateInput, setRateInput] = useState<string | null>(null);
   const [fxLoading, setFxLoading] = useState(false);

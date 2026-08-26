@@ -21,9 +21,9 @@ function expandKey(p: number) {
 function readExpanded(p: number): boolean {
   try {
     const v = localStorage.getItem(expandKey(p));
-    return v === null ? true : v === '1';
+    return v === null ? false : v === '1';
   } catch {
-    return true;
+    return false;
   }
 }
 

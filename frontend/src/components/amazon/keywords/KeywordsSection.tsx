@@ -15,7 +15,7 @@ export function KeywordsSection({ productId, productName }: { productId: number;
 
   const [expanded, setExpanded] = useState<boolean>(() => {
     const v = typeof window !== 'undefined' ? window.localStorage.getItem(STORAGE_KEY(productId)) : null;
-    return v === null ? true : v === '1';
+    return v === null ? false : v === '1';
   });
   function toggle() {
     setExpanded(prev => {

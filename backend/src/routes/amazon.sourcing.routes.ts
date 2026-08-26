@@ -41,7 +41,8 @@ function ensureProduct(id: number): boolean {
 function getOrCreateSourcing(productId: number): SourcingRow {
   let row = db.prepare(`SELECT * FROM amazon_sourcing WHERE product_id = ?`).get(productId) as SourcingRow | undefined;
   if (!row) {
-    db.prepare(`INSERT INTO amazon_sourcing (product_id) VALUES (?)`).run(productId);
+    // Sektion startet zugeklappt (is_expanded=0) — wie alle Detail-Sektionen bei neuen Produkten.
+    db.prepare(`INSERT INTO amazon_sourcing (product_id, is_expanded) VALUES (?, 0)`).run(productId);
     row = db.prepare(`SELECT * FROM amazon_sourcing WHERE product_id = ?`).get(productId) as SourcingRow;
   }
   return row;
