@@ -28,6 +28,7 @@ import { AmazonChecklistMasterPage } from '../pages/amazon/AmazonChecklistMaster
 import { AmazonBrandPage } from '../pages/amazon/AmazonBrandPage';
 import { AmazonMyDataPage } from '../pages/amazon/AmazonMyDataPage';
 import { AmazonResearchGlobalPage } from '../pages/amazon/AmazonResearchGlobalPage';
+import { AmazonKeywordsPage } from '../pages/amazon/AmazonKeywordsPage';
 import { ManufacturerDetailPage } from '../pages/amazon/ManufacturerDetailPage';
 import { KiAgentsPage } from '../pages/KiAgentsPage';
 import { SettingsPage } from '../pages/SettingsPage';
@@ -89,6 +90,7 @@ export const router = createBrowserRouter([
           { path: '/amazon/entwicklung/checkliste', element: <AmazonChecklistMasterPage /> },
           { path: '/amazon/entwicklung/markenname', element: <AmazonBrandPage /> },
           { path: '/amazon/recherche-wissen', element: <AmazonResearchGlobalPage /> },
+          { path: '/amazon/keyword-recherche', element: <AmazonKeywordsPage /> },
           { path: '/amazon/meine-daten', element: <AmazonMyDataPage /> },
           { path: '/ki-agenten',     element: <KiAgentsPage /> },
           { path: '/settings',       element: <SettingsPage /> },
