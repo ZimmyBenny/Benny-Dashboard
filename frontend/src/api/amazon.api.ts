@@ -807,7 +807,9 @@ export interface ListingImage {
 export interface ListingFields {
   product_id: number;
   category: string; // Amazon-Produktkategorie (Migr. 128)
+  ean_gtin: string; // Produkt-Barcode EAN/GTIN (Migr. 133)
   title: string;
+  article_highlight: string; // Amazon-Highlight, sichtbar bei Titel < 75 Zeichen (Migr. 133)
   bullet_1: string; bullet_2: string; bullet_3: string; bullet_4: string; bullet_5: string;
   description: string;
   keywords_main: string;

@@ -9,11 +9,14 @@ const AUTOSAVE_DELAY_MS = 600;
 // (undefined = kein hartes Limit, Zähler wird nie rot), mehrzeilig?
 type FieldKey = keyof Omit<ListingFields, 'product_id'>;
 // `single` = einzeiliges <input> ohne Byte-Zähler (internes Feld ohne Amazon-Limit).
-interface FieldDef { key: FieldKey; label: string; limit?: number; rows: number; placeholder?: string; single?: boolean; }
+interface FieldDef { key: FieldKey; label: string; limit?: number; rows: number; placeholder?: string; single?: boolean; hint?: string; }
 
 const FIELDS: FieldDef[] = [
   { key: 'category', label: 'Kategorie', rows: 1, single: true, placeholder: 'z. B. Baby › Sicherheit im Haus › Bettgitter' },
+  { key: 'ean_gtin', label: 'EAN / GTIN', rows: 1, single: true, placeholder: 'z. B. 4260123456789' },
   { key: 'title', label: 'Titel', rows: 2, placeholder: 'Produkt-Titel …' }, // kein festes Limit (Amazon variiert je Kategorie) -> nur Byte-Zähler
+  { key: 'article_highlight', label: 'Artikel-Highlight', rows: 2, placeholder: 'z. B. Atmungsaktives Material', // nur zählen, kein Limit
+    hint: 'Erscheint bei Amazon nur, wenn der Titel unter 75 Zeichen liegt — nutzenorientierte Phrasen, keine ganzen Sätze, nichts aus dem Titel wiederholen.' },
   { key: 'bullet_1', label: 'Bullet 1', limit: 249, rows: 2 },
   { key: 'bullet_2', label: 'Bullet 2', limit: 249, rows: 2 },
   { key: 'bullet_3', label: 'Bullet 3', limit: 249, rows: 2 },
@@ -117,6 +120,11 @@ export function ListingEditor({ productId, initial }: { productId: number; initi
                 lineHeight: '1.5',
               }}
             />
+          )}
+          {f.hint && (
+            <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)', opacity: 0.7 }}>
+              {f.hint}
+            </p>
           )}
         </div>
       ))}

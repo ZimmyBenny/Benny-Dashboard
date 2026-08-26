@@ -36,7 +36,9 @@ type ListingKind = 'listing' | 'competitor';
 interface ListingRow {
   product_id: number;
   category: string; // Amazon-Produktkategorie (Migr. 128)
+  ean_gtin: string; // Produkt-Barcode EAN/GTIN (Migr. 133)
   title: string;
+  article_highlight: string; // Amazon-Highlight, sichtbar bei Titel < 75 Zeichen (Migr. 133)
   bullet_1: string; bullet_2: string; bullet_3: string; bullet_4: string; bullet_5: string;
   description: string;
   keywords_main: string;
@@ -66,7 +68,7 @@ const router = Router();
 // Großzügige Obergrenze zur DoS-Absicherung — KEIN fachliches Byte-Limit
 // (die Byte-Limits sind rein visuell im Frontend; User darf technisch drüber).
 const MAX_FIELD = 10000;
-const TEXT_FIELDS = ['category', 'title', 'bullet_1', 'bullet_2', 'bullet_3', 'bullet_4', 'bullet_5', 'description', 'keywords_main', 'keywords_backend'] as const;
+const TEXT_FIELDS = ['category', 'ean_gtin', 'title', 'article_highlight', 'bullet_1', 'bullet_2', 'bullet_3', 'bullet_4', 'bullet_5', 'description', 'keywords_main', 'keywords_backend'] as const;
 
 function ensureProduct(id: number): boolean {
   return db.prepare(`SELECT 1 FROM amazon_products WHERE id = ?`).get(id) !== undefined;
@@ -90,8 +92,8 @@ function clampReviews(v: unknown): number | null {
 function emptyListing(productId: number): ListingRow {
   return {
     product_id: productId,
-    category: '',
-    title: '', bullet_1: '', bullet_2: '', bullet_3: '', bullet_4: '', bullet_5: '',
+    category: '', ean_gtin: '',
+    title: '', article_highlight: '', bullet_1: '', bullet_2: '', bullet_3: '', bullet_4: '', bullet_5: '',
     description: '', keywords_main: '', keywords_backend: '',
     comp_own_title: null, comp_own_price: null, comp_own_rating: null, comp_own_reviews: null,
     comp_own_sold: null, comp_search_term: null, comp_own_image: null,
@@ -150,13 +152,15 @@ router.put('/products/:id/listing', (req: Request, res: Response) => {
 
   db.prepare(`
     INSERT INTO amazon_listing
-      (product_id, category, title, bullet_1, bullet_2, bullet_3, bullet_4, bullet_5, description, keywords_main, keywords_backend,
+      (product_id, category, ean_gtin, title, article_highlight, bullet_1, bullet_2, bullet_3, bullet_4, bullet_5, description, keywords_main, keywords_backend,
        comp_own_title, comp_own_price, comp_own_rating, comp_own_reviews, comp_own_sold, comp_search_term)
-    VALUES (@product_id, @category, @title, @bullet_1, @bullet_2, @bullet_3, @bullet_4, @bullet_5, @description, @keywords_main, @keywords_backend,
+    VALUES (@product_id, @category, @ean_gtin, @title, @article_highlight, @bullet_1, @bullet_2, @bullet_3, @bullet_4, @bullet_5, @description, @keywords_main, @keywords_backend,
        @comp_own_title, @comp_own_price, @comp_own_rating, @comp_own_reviews, @comp_own_sold, @comp_search_term)
     ON CONFLICT(product_id) DO UPDATE SET
       category = excluded.category,
+      ean_gtin = excluded.ean_gtin,
       title = excluded.title,
+      article_highlight = excluded.article_highlight,
       bullet_1 = excluded.bullet_1,
       bullet_2 = excluded.bullet_2,
       bullet_3 = excluded.bullet_3,
