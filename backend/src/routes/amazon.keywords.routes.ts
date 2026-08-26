@@ -38,8 +38,15 @@ function clampVolume(v: unknown): number | null {
   if (!Number.isFinite(n)) return null;
   return Math.max(0, Math.trunc(n));
 }
-function listKeywords(productId: number): KeywordRow[] {
-  return db.prepare(`SELECT * FROM amazon_keywords WHERE product_id = ? ORDER BY is_main DESC, sort_order, id`).all(productId) as KeywordRow[];
+// Keywords inkl. Abdeckung: coverage = wie viele Quellen-ASINs für das Keyword ranken,
+// coverage_total = Anzahl Quellen des Produkts gesamt (für die Anzeige „5 / 7").
+function listKeywords(productId: number): (KeywordRow & { coverage: number; coverage_total: number })[] {
+  const total = (db.prepare(`SELECT COUNT(*) AS c FROM amazon_keyword_sources WHERE product_id = ?`).get(productId) as { c: number }).c;
+  const rows = db.prepare(
+    `SELECT k.*, (SELECT COUNT(*) FROM amazon_keyword_source_links l WHERE l.keyword_id = k.id) AS coverage
+     FROM amazon_keywords k WHERE k.product_id = ? ORDER BY k.is_main DESC, k.sort_order, k.id`,
+  ).all(productId) as (KeywordRow & { coverage: number })[];
+  return rows.map(r => ({ ...r, coverage_total: total }));
 }
 
 // ═══════════════════════ Quellen ═══════════════════════
@@ -203,6 +210,66 @@ router.delete('/products/:id/keywords/:kid', (req: Request, res: Response) => {
   if (!Number.isInteger(id) || !Number.isInteger(kid) || !loadKeyword(id, kid)) { res.status(404).json({ error: 'not found' }); return; }
   db.prepare(`DELETE FROM amazon_keywords WHERE id = ?`).run(kid);
   res.status(204).end();
+});
+
+// ── Helium-10-Import (Massen-Schreiben -> Backup) ──
+// Body: { source_label, min_volume, rows: [{ phrase, search_volume, asins[] }] }
+// - vorhandene Keywords: Suchvolumen aktualisieren + Links ergänzen (immer)
+// - neue Keywords: nur ab min_volume anlegen, dann Volumen + Links
+interface ImportRow { phrase: string; search_volume: number | null; asins: string[] }
+router.post('/products/:id/keywords/import', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const sourceLabel = String(body.source_label ?? 'Helium 10').slice(0, MAX_SHORT);
+  const minVolume = Math.max(0, Math.trunc(Number(body.min_volume) || 0));
+  const rawRows = Array.isArray(body.rows) ? (body.rows as unknown[]) : [];
+  if (rawRows.length === 0) { res.json({ updated: 0, added: 0, linked: 0, keywords: listKeywords(id) }); return; }
+  if (rawRows.length > 20000) { res.status(400).json({ error: 'zu viele Zeilen (max. 20000)' }); return; }
+
+  // Quellen des Produkts nach ASIN (kleingeschrieben) -> source_id.
+  const sourceByAsin = new Map<string, number>();
+  for (const s of db.prepare(`SELECT id, asin FROM amazon_keyword_sources WHERE product_id = ?`).all(id) as { id: number; asin: string }[]) {
+    const a = s.asin.trim().toLowerCase();
+    if (a) sourceByAsin.set(a, s.id);
+  }
+
+  createBackup('keywords-helium10-import');
+  const findKw = db.prepare(`SELECT id FROM amazon_keywords WHERE product_id = ? AND phrase = ? COLLATE NOCASE`);
+  const updVol = db.prepare(`UPDATE amazon_keywords SET search_volume = ?, updated_at = unixepoch() WHERE id = ?`);
+  const insKw = db.prepare(`INSERT OR IGNORE INTO amazon_keywords (product_id, phrase, search_volume, source, sort_order) VALUES (?, ?, ?, ?, ?)`);
+  const insLink = db.prepare(`INSERT OR IGNORE INTO amazon_keyword_source_links (keyword_id, source_id) VALUES (?, ?)`);
+  let order = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_keywords WHERE product_id = ?`).get(id) as { m: number }).m;
+  let updated = 0, added = 0, linked = 0;
+
+  const tx = db.transaction((rows: ImportRow[]) => {
+    for (const r of rows) {
+      const phrase = String(r.phrase ?? '').trim().slice(0, MAX_PHRASE);
+      if (!phrase) continue;
+      const vol = r.search_volume == null ? null : Math.max(0, Math.trunc(Number(r.search_volume) || 0));
+      const sourceIds = (Array.isArray(r.asins) ? r.asins : [])
+        .map(a => sourceByAsin.get(String(a).trim().toLowerCase()))
+        .filter((x): x is number => typeof x === 'number');
+
+      const existing = findKw.get(id, phrase) as { id: number } | undefined;
+      let kid: number;
+      if (existing) {
+        kid = existing.id;
+        if (vol != null) updVol.run(vol, kid);
+        updated++;
+      } else {
+        if (vol == null || vol < minVolume) continue; // neue nur ab Schwelle
+        const info = insKw.run(id, phrase, vol, sourceLabel, ++order);
+        // INSERT OR IGNORE könnte bei paralleler Dublette nichts einfügen -> id nachschlagen
+        kid = info.changes > 0 ? Number(info.lastInsertRowid) : (findKw.get(id, phrase) as { id: number }).id;
+        added++;
+      }
+      for (const sid of sourceIds) { if (insLink.run(kid, sid).changes > 0) linked++; }
+    }
+  });
+  tx(rawRows as ImportRow[]);
+
+  res.json({ updated, added, linked, keywords: listKeywords(id) });
 });
 
 export default router;
