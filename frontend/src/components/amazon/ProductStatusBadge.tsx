@@ -57,8 +57,9 @@ export function ProductStatusBadge({
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); e.preventDefault(); setOpen(o => !o); }}
-        className="px-2.5 py-1 rounded-full text-xs flex items-center gap-1 backdrop-blur-sm cursor-pointer"
-        style={{ background: `${color}33`, color }}
+        className="px-2.5 py-1 rounded-full text-xs font-medium flex items-center gap-1 backdrop-blur-sm cursor-pointer"
+        // Deckender dunkler Chip -> Text bleibt auch über hellen Produktbildern lesbar; Farbe nur in Text/Rand.
+        style={{ background: 'rgba(12,14,18,0.82)', color, border: `1px solid ${color}66`, boxShadow: '0 1px 5px rgba(0,0,0,0.45)' }}
         aria-haspopup="menu"
         aria-expanded={open}
       >

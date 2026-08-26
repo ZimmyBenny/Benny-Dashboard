@@ -77,8 +77,9 @@ router.post('/products', (req: Request, res: Response) => {
   const name = validateName((req.body as { name?: unknown })?.name);
   if (!name.ok) { res.status(400).json({ error: 'name length invalid' }); return; }
 
+  // Neue Produkte starten als Produktidee (warteliste), nicht als "interessant".
   const result = db.prepare(
-    `INSERT INTO amazon_products (name) VALUES (?)`
+    `INSERT INTO amazon_products (name, status) VALUES (?, 'warteliste')`
   ).run(name.value);
   const row = db.prepare(`SELECT * FROM amazon_products WHERE id = ?`).get(result.lastInsertRowid) as ProductRow;
   res.status(201).json(row);
