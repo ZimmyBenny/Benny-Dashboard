@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useDraggableModal } from '../../../hooks/useDraggableModal';
 import { useCompetitors } from '../../../hooks/amazon/useCompetitors';
 import { useListing } from '../../../hooks/amazon/useListing';
-import { useKeywords } from '../../../hooks/amazon/useKeywords';
+import { useKeywords, useKeywordSources } from '../../../hooks/amazon/useKeywords';
 import { KEYWORDS_ACCENT } from './targetFields';
 
 interface Props {
@@ -18,6 +18,7 @@ export function ClaudePromptModal({ open, onClose, productId, productName }: Pro
   const competitors = useCompetitors(productId);
   const listing = useListing(productId);
   const keywords = useKeywords(productId);
+  const sources = useKeywordSources(productId);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -36,6 +37,16 @@ export function ClaudePromptModal({ open, onClose, productId, productName }: Pro
       .filter(Boolean);
     const existing = (keywords.data ?? []).map(k => k.phrase);
 
+    // ASINs aus den Mitbewerber-Karten (zum Entdoppeln der Quellen-Liste).
+    const compAsins = new Set(
+      (competitors.data ?? []).map(c => c.asin?.trim().toLowerCase()).filter(Boolean),
+    );
+    // Quellen (Keyword-Recherche): ASIN + Link, ohne Dubletten zu den Mitbewerbern.
+    const srcLines = (sources.data ?? [])
+      .filter(s => s.asin?.trim() || s.url?.trim())
+      .filter(s => !compAsins.has(s.asin?.trim().toLowerCase()))
+      .map(s => [s.asin?.trim(), s.url?.trim()].filter(Boolean).join(' — '));
+
     const lines: string[] = [];
     lines.push(`Ich mache Amazon-Keyword-Recherche für mein Produkt „${productName}".`);
     if (category) lines.push(`Kategorie: ${category}`);
@@ -43,6 +54,11 @@ export function ClaudePromptModal({ open, onClose, productId, productName }: Pro
     if (comps.length > 0) {
       lines.push('Mitbewerber (Titel / Untertitel / ASIN):');
       comps.forEach(c => lines.push(`- ${c}`));
+      lines.push('');
+    }
+    if (srcLines.length > 0) {
+      lines.push('Weitere Konkurrenz-Quellen (ASIN / Link):');
+      srcLines.forEach(s => lines.push(`- ${s}`));
       lines.push('');
     }
     if (existing.length > 0) {
@@ -54,7 +70,7 @@ export function ClaudePromptModal({ open, onClose, productId, productName }: Pro
     lines.push('Clustere nach Themen, markiere die stärksten, keine Dubletten zu den bestehenden.');
     lines.push('Gib das Ergebnis am Ende als einfache Liste zurück — ein Keyword pro Zeile, ohne Nummerierung —, damit ich sie direkt in mein System einfügen kann.');
     return lines.join('\n');
-  }, [listing.data, competitors.data, keywords.data, productName]);
+  }, [listing.data, competitors.data, keywords.data, sources.data, productName]);
 
   async function copy() {
     try {
