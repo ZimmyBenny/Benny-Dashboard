@@ -26,9 +26,9 @@ export function ProductBoard({ products, showDiscarded, onRequestDelete }: Props
       <ProductColumn title="Aktiv am entwickeln" icon="settings" accent="#60a5fa"
         products={byStatus.aktiv} status="aktiv"
         emptyText="Noch keine aktiven Produkte" onRequestDelete={onRequestDelete} />
-      <ProductColumn title="Meine bestehenden Produkte" icon="check_circle" accent="#34d399"
+      <ProductColumn title="Produkt ist LIVE" icon="check_circle" accent="#34d399"
         products={byStatus.bestehend} status="bestehend"
-        emptyText="Noch keine bestehenden Produkte" onRequestDelete={onRequestDelete} />
+        emptyText="Noch keine Live-Produkte" onRequestDelete={onRequestDelete} />
       {showDiscarded && (
         <ProductColumn title="Verworfen" icon="archive" accent="#fdba74"
           products={byStatus.verworfen} status="verworfen"

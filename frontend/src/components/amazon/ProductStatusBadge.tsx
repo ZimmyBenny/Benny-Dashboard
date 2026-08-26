@@ -6,7 +6,7 @@ const LABEL: Record<AmazonProductStatus, string> = {
   interessant: 'Interessant',
   warteliste:  'Produktideen',
   aktiv:       'Aktiv',
-  bestehend:   'Bestehend',
+  bestehend:   'LIVE',
   verworfen:   'Verworfen',
 };
 const ICON: Record<AmazonProductStatus, string> = {
