@@ -16,8 +16,14 @@ export interface Keyword {
   id: number; product_id: number; phrase: string;
   search_volume: number | null; source: string; is_main: number;
   target_field: KeywordTargetField; sort_order: number;
+  coverage: number;        // wie viele Quellen-ASINs für dieses Keyword ranken (Migr. 135)
+  coverage_total: number;  // Anzahl Quellen des Produkts gesamt -> Anzeige „coverage / total"
   created_at: number; updated_at: number;
 }
+
+// Eine geparste Import-Zeile (Client parst die Helium-10-Datei, schickt strukturiert).
+export interface Helium10ImportRow { phrase: string; search_volume: number | null; asins: string[] }
+export interface Helium10ImportResult { updated: number; added: number; linked: number; keywords: Keyword[] }
 export type KeywordPatch = Partial<{
   phrase: string; search_volume: number | null; source: string;
   is_main: 0 | 1; target_field: KeywordTargetField;
@@ -63,4 +69,13 @@ export async function updateKeyword(productId: number, kid: number, patch: Keywo
 }
 export async function deleteKeyword(productId: number, kid: number): Promise<void> {
   await apiClient.delete(`/amazon/products/${productId}/keywords/${kid}`);
+}
+export async function importHelium10(
+  productId: number, sourceLabel: string, minVolume: number, rows: Helium10ImportRow[],
+): Promise<Helium10ImportResult> {
+  const r = await apiClient.post<Helium10ImportResult>(
+    `/amazon/products/${productId}/keywords/import`,
+    { source_label: sourceLabel, min_volume: minVolume, rows },
+  );
+  return r.data;
 }

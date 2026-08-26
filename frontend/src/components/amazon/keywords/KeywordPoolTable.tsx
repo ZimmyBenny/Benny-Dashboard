@@ -120,6 +120,7 @@ export function KeywordPoolTable({ productId }: { productId: number }) {
             <button type="button" onClick={() => toggleSort('search_volume')} className="flex items-center gap-0.5" style={{ width: '110px' }}>
               Suchvolumen <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>{sortIcon('search_volume')}</span>
             </button>
+            <span style={{ width: '90px' }} className="text-right">Konkurrenten</span>
             <span style={{ width: '120px' }}>Quelle</span>
             <span style={{ width: '130px' }}>Ziel-Feld</span>
             <span style={{ width: '28px' }} />

@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   fetchKeywordSources, createKeywordSource, importCompetitorsAsSources, updateKeywordSource, deleteKeywordSource,
-  fetchKeywords, addKeyword, addKeywordsBulk, updateKeyword, deleteKeyword,
-  type KeywordSourcePatch, type KeywordPatch,
+  fetchKeywords, addKeyword, addKeywordsBulk, updateKeyword, deleteKeyword, importHelium10,
+  type KeywordSourcePatch, type KeywordPatch, type Helium10ImportRow,
 } from '../../api/amazon.keywords.api';
 
 export const keywordSourcesKey = (productId: number) => ['amazon', 'products', productId, 'keyword-sources'] as const;
@@ -60,6 +60,14 @@ export function useAddKeywordsBulk(productId: number) {
 export function useUpdateKeyword(productId: number) {
   const inv = useInvalidateKeywords(productId);
   return useMutation({ mutationFn: (v: { kid: number; patch: KeywordPatch }) => updateKeyword(productId, v.kid, v.patch), onSettled: inv });
+}
+export function useImportHelium10(productId: number) {
+  const inv = useInvalidateKeywords(productId);
+  return useMutation({
+    mutationFn: (v: { sourceLabel: string; minVolume: number; rows: Helium10ImportRow[] }) =>
+      importHelium10(productId, v.sourceLabel, v.minVolume, v.rows),
+    onSettled: inv,
+  });
 }
 export function useDeleteKeyword(productId: number) {
   const inv = useInvalidateKeywords(productId);

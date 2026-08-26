@@ -11,7 +11,8 @@ const cellInput: React.CSSProperties = {
 };
 
 // Eine editierbare Keyword-Zeile — geteilt zwischen Produkt-Pool und Hauptseite.
-export function KeywordRow({ productId, keyword, onDelete }: { productId: number; keyword: Keyword; onDelete: () => void }) {
+// highlightTop: vom Aufrufer berechnet (Volumen + Abdeckung über Schwelle) -> Top-Markierung.
+export function KeywordRow({ productId, keyword, onDelete, highlightTop = false }: { productId: number; keyword: Keyword; onDelete: () => void; highlightTop?: boolean }) {
   const update = useUpdateKeyword(productId);
   const [phrase, setPhrase] = useState(keyword.phrase);
   const [volume, setVolume] = useState(keyword.search_volume == null ? '' : String(keyword.search_volume));
@@ -45,10 +46,16 @@ export function KeywordRow({ productId, keyword, onDelete }: { productId: number
     update.mutate({ kid: keyword.id, patch: { target_field: tf } });
   }
 
+  const coverageText = keyword.coverage_total > 0 ? `${keyword.coverage} / ${keyword.coverage_total}` : '—';
+
   return (
     <div
       className="flex items-center gap-2 px-2 py-1.5"
-      style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
+      style={{
+        borderTop: '1px solid rgba(255,255,255,0.05)',
+        borderLeft: highlightTop ? `3px solid ${KEYWORDS_ACCENT}` : '3px solid transparent',
+        background: highlightTop ? `${KEYWORDS_ACCENT}0d` : 'transparent',
+      }}
     >
       <button
         type="button" onClick={toggleMain}
@@ -57,18 +64,30 @@ export function KeywordRow({ productId, keyword, onDelete }: { productId: number
       >
         <span className="material-symbols-outlined" style={{ fontSize: '18px', color: keyword.is_main ? '#fbbf24' : 'var(--color-on-surface-variant)', fontVariationSettings: keyword.is_main ? "'FILL' 1" : "'FILL' 0" }}>star</span>
       </button>
-      <input
-        type="text" value={phrase}
-        onChange={(e) => setPhrase(e.target.value)} onBlur={commitPhrase}
-        spellCheck={false}
-        className="flex-1 min-w-0 rounded px-2 py-1 text-sm" style={cellInput}
-      />
+      <div className="flex-1 min-w-0 flex items-center gap-2">
+        <input
+          type="text" value={phrase}
+          onChange={(e) => setPhrase(e.target.value)} onBlur={commitPhrase}
+          spellCheck={false}
+          className="flex-1 min-w-0 rounded px-2 py-1 text-sm" style={cellInput}
+        />
+        {highlightTop && (
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: KEYWORDS_ACCENT, color: '#06231f' }}>TOP</span>
+        )}
+      </div>
       <input
         type="text" inputMode="numeric" value={volume}
         onChange={(e) => setVolume(e.target.value.replace(/[^\d]/g, ''))} onBlur={commitVolume}
         placeholder="—"
         className="rounded px-2 py-1 text-sm text-right tabular-nums" style={{ ...cellInput, width: '110px' }}
       />
+      <span
+        title="Wie viele deiner Quellen-ASINs für dieses Keyword ranken"
+        className="text-sm text-right tabular-nums flex-shrink-0"
+        style={{ width: '90px', color: keyword.coverage > 0 ? 'var(--color-on-surface)' : 'var(--color-on-surface-variant)' }}
+      >
+        {coverageText}
+      </span>
       <input
         type="text" value={source}
         onChange={(e) => setSource(e.target.value)} onBlur={commitSource}
