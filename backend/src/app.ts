@@ -42,9 +42,10 @@ import { verifyToken, type AuthenticatedRequest } from './middleware/auth';
 export function createApp() {
   const app = express();
 
-  // Body parsing
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  // Body parsing — Limit hochgesetzt (Default 100kb zu klein für Massen-Importe
+  // wie Helium-10-Keyword-Exporte mit tausenden Zeilen, lokale Single-User-App).
+  app.use(express.json({ limit: '15mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
   // CORS — explicit origin only; never omit the options object
   app.use(cors({

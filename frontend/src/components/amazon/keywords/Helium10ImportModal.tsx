@@ -18,6 +18,7 @@ export function Helium10ImportModal({ open, onClose, productId }: Props) {
   const [dragOver, setDragOver] = useState(false);
   const [result, setResult] = useState<{ updated: number; added: number; linked: number } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -64,6 +65,7 @@ export function Helium10ImportModal({ open, onClose, productId }: Props) {
   async function confirmImport() {
     if (!parsed || parsed.rows.length === 0) return;
     setBusy(true);
+    setImportError(null);
     try {
       const res = await doImport.mutateAsync({
         sourceLabel: parsed.type === 'cerebro' ? 'Cerebro' : 'Magnet',
@@ -71,6 +73,11 @@ export function Helium10ImportModal({ open, onClose, productId }: Props) {
         rows: parsed.rows,
       });
       setResult({ updated: res.updated, added: res.added, linked: res.linked });
+    } catch (e) {
+      const status = (e as { response?: { status?: number } })?.response?.status;
+      setImportError(status === 413
+        ? 'Import zu groß für den Server. Bitte Backend-Neustart abwarten und erneut versuchen.'
+        : `Import fehlgeschlagen${status ? ` (HTTP ${status})` : ''}. Bitte erneut versuchen.`);
     } finally {
       setBusy(false);
     }
@@ -144,6 +151,8 @@ export function Helium10ImportModal({ open, onClose, productId }: Props) {
                       <b>{preview.updated}</b> vorhandene aktualisiert · <b>{preview.added}</b> neu (ab ≥ {minVol}) · {preview.skipped} unter Schwelle verworfen <span style={{ color: 'var(--color-on-surface-variant)' }}>(von {preview.total} Keywords)</span>
                     </p>
                   )}
+
+                  {importError && <p className="text-sm" style={{ color: '#fca5a5' }}>{importError}</p>}
 
                   <div className="flex justify-end gap-2">
                     <button type="button" onClick={onClose} className="px-4 py-2 rounded-md text-sm" style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}>Abbrechen</button>
