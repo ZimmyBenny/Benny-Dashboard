@@ -212,6 +212,17 @@ router.delete('/products/:id/keywords/:kid', (req: Request, res: Response) => {
   res.status(204).end();
 });
 
+// ── DELETE alle Keywords eines Produkts (Massen-Delete -> Backup) ──
+router.delete('/products/:id/keywords', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  const count = (db.prepare(`SELECT COUNT(*) AS c FROM amazon_keywords WHERE product_id = ?`).get(id) as { c: number }).c;
+  if (count === 0) { res.json({ deleted: 0 }); return; }
+  createBackup('keywords-delete-all');
+  db.prepare(`DELETE FROM amazon_keywords WHERE product_id = ?`).run(id); // Links cascaden
+  res.json({ deleted: count });
+});
+
 // ── Helium-10-Import (Massen-Schreiben -> Backup) ──
 // Body: { source_label, min_volume, rows: [{ phrase, search_volume, asins[] }] }
 // - vorhandene Keywords: Suchvolumen aktualisieren + Links ergänzen (immer)

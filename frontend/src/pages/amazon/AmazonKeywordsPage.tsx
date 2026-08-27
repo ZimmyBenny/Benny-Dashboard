@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { useAmazonProducts } from '../../hooks/amazon/useAmazonProducts';
-import { useKeywords, useDeleteKeyword } from '../../hooks/amazon/useKeywords';
+import { useKeywords, useDeleteKeyword, useDeleteAllKeywords } from '../../hooks/amazon/useKeywords';
 import type { Keyword, KeywordTargetField } from '../../api/amazon.keywords.api';
 import { KeywordRow } from '../../components/amazon/keywords/KeywordRow';
 import { Helium10ImportModal } from '../../components/amazon/keywords/Helium10ImportModal';
@@ -37,6 +37,16 @@ export function AmazonKeywordsPage() {
 
   const { data: keywords, isLoading } = useKeywords(productId);
   const del = useDeleteKeyword(productId);
+  const delAll = useDeleteAllKeywords(productId);
+
+  function deleteAll() {
+    const n = keywords?.length ?? 0;
+    if (n === 0) return;
+    const name = products.data?.find(p => p.id === productId)?.name ?? 'dieses Produkt';
+    if (confirm(`Wirklich ALLE ${n} Keywords von „${name}" löschen? Das kann nicht rückgängig gemacht werden (ein Backup wird vorher erstellt).`)) {
+      delAll.mutate();
+    }
+  }
 
   // Filter
   const [search, setSearch] = useState('');
@@ -110,14 +120,27 @@ export function AmazonKeywordsPage() {
           {(products.data ?? []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
         {productId > 0 && (
-          <button
-            type="button" onClick={() => setImportOpen(true)}
-            className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md ml-auto"
-            style={{ background: `${KEYWORDS_ACCENT}22`, color: KEYWORDS_ACCENT, border: `1px solid ${KEYWORDS_ACCENT}55` }}
-          >
-            <span className="material-symbols-outlined" style={{ fontSize: '17px' }}>upload_file</span>
-            Helium 10 importieren
-          </button>
+          <div className="flex items-center gap-2 ml-auto">
+            {(keywords?.length ?? 0) > 0 && (
+              <button
+                type="button" onClick={deleteAll} disabled={delAll.isPending}
+                title="Alle Keywords dieses Produkts löschen"
+                className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md disabled:opacity-50"
+                style={{ background: 'rgba(248,113,113,0.12)', color: '#f87171', border: '1px solid rgba(248,113,113,0.4)' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '17px' }}>delete_sweep</span>
+                {delAll.isPending ? 'Lösche…' : 'Alle löschen'}
+              </button>
+            )}
+            <button
+              type="button" onClick={() => setImportOpen(true)}
+              className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md"
+              style={{ background: `${KEYWORDS_ACCENT}22`, color: KEYWORDS_ACCENT, border: `1px solid ${KEYWORDS_ACCENT}55` }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '17px' }}>upload_file</span>
+              Helium 10 importieren
+            </button>
+          </div>
         )}
       </div>
 

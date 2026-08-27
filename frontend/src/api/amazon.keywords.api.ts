@@ -70,6 +70,10 @@ export async function updateKeyword(productId: number, kid: number, patch: Keywo
 export async function deleteKeyword(productId: number, kid: number): Promise<void> {
   await apiClient.delete(`/amazon/products/${productId}/keywords/${kid}`);
 }
+export async function deleteAllKeywords(productId: number): Promise<{ deleted: number }> {
+  const r = await apiClient.delete<{ deleted: number }>(`/amazon/products/${productId}/keywords`);
+  return r.data;
+}
 export async function importHelium10(
   productId: number, sourceLabel: string, minVolume: number, rows: Helium10ImportRow[],
 ): Promise<Helium10ImportResult> {
