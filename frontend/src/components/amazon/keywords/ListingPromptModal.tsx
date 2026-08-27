@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useDraggableModal } from '../../../hooks/useDraggableModal';
-import { useKeywords } from '../../../hooks/amazon/useKeywords';
+import { useKeywords, useKeywordImportFile } from '../../../hooks/amazon/useKeywords';
 import { useListing } from '../../../hooks/amazon/useListing';
-import type { Keyword, KeywordTargetField } from '../../../api/amazon.keywords.api';
+import { getKeywordImportFileObjectUrl, type Keyword, type KeywordTargetField } from '../../../api/amazon.keywords.api';
 import { KEYWORDS_ACCENT } from './targetFields';
 
 interface Props { open: boolean; onClose: () => void; productId: number; productName: string }
@@ -14,7 +14,19 @@ export function ListingPromptModal({ open, onClose, productId, productName }: Pr
   const { onMouseDown, modalStyle, headerStyle } = useDraggableModal();
   const keywords = useKeywords(productId);
   const listing = useListing(productId);
+  const importFile = useKeywordImportFile(productId);
   const [copied, setCopied] = useState(false);
+
+  async function downloadImportFile() {
+    try {
+      const url = await getKeywordImportFileObjectUrl(productId);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = importFile.data?.original_name || 'helium10-import';
+      document.body.appendChild(a); a.click(); a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch { /* Datei evtl. weg */ }
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -75,6 +87,21 @@ export function ListingPromptModal({ open, onClose, productId, productName }: Pr
           <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
             Text kopieren, im Claude-Chat einfügen. Claude liefert Titel + 5 Bullets + Backend-Search-Terms, die du ins Listing überträgst.
           </p>
+          {importFile.data && (
+            <div className="rounded-lg px-3 py-2 flex items-center gap-2 flex-wrap" style={{ background: `${KEYWORDS_ACCENT}12`, border: `1px solid ${KEYWORDS_ACCENT}44` }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '18px', color: KEYWORDS_ACCENT }}>attach_file</span>
+              <span className="text-sm flex-1 min-w-0 truncate" style={{ color: 'var(--color-on-surface)' }}>
+                Import-Datei: {importFile.data.original_name}
+              </span>
+              <button type="button" onClick={downloadImportFile} className="text-xs px-2 py-1 rounded-md flex items-center gap-1"
+                style={{ background: `${KEYWORDS_ACCENT}22`, color: KEYWORDS_ACCENT, border: `1px solid ${KEYWORDS_ACCENT}55` }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>download</span>Herunterladen
+              </button>
+              <span className="text-xs w-full" style={{ color: 'var(--color-on-surface-variant)' }}>
+                Diese Datei zusätzlich in den Claude-Chat ziehen — dann sieht Claude alle Zahlen.
+              </span>
+            </div>
+          )}
           <textarea readOnly value={prompt} rows={16}
             className="w-full rounded-lg px-3 py-2 text-sm resize-y"
             style={{ background: 'var(--color-surface-container-low)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.08)', fontFamily: 'inherit', lineHeight: '1.5' }}

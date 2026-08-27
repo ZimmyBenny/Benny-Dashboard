@@ -1,6 +1,28 @@
 import { Router, type Request, type Response } from 'express';
 import db from '../db/connection';
 import { createBackup } from '../db/backup';
+import multer from 'multer';
+import path from 'path';
+import os from 'os';
+import fs from 'fs';
+import crypto from 'crypto';
+
+// ── Import-Datei-Speicher (multer) — je Produkt die aktuellste Helium-10-Datei ──
+const IMPORT_FILES_DIR = path.join(os.homedir(), '.local', 'share', 'benny-dashboard', 'amazon-keyword-import-files');
+if (!fs.existsSync(IMPORT_FILES_DIR)) fs.mkdirSync(IMPORT_FILES_DIR, { recursive: true });
+const importFileUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, IMPORT_FILES_DIR),
+    filename: (_req, file, cb) => cb(null, `${crypto.randomUUID()}${path.extname(file.originalname) || ''}`),
+  }),
+  limits: { fileSize: 30 * 1024 * 1024 },
+});
+function deleteImportFileFromDisk(filename: string | null | undefined) {
+  if (!filename) return;
+  const abs = path.resolve(IMPORT_FILES_DIR, filename);
+  if (!abs.startsWith(path.resolve(IMPORT_FILES_DIR) + path.sep)) return;
+  try { fs.unlinkSync(abs); } catch { /* schon weg */ }
+}
 
 // ── Typen ──
 interface KeywordSourceRow {
@@ -315,6 +337,51 @@ router.post('/products/:id/keywords/assign-fields', (req: Request, res: Response
   });
   tx(assignments);
   res.json({ updated, keywords: listKeywords(id) });
+});
+
+// ── Import-Datei: hochladen (ersetzt die vorherige je Produkt) ──
+interface ImportFileRow { product_id: number; file_path: string; original_name: string; mime: string; size: number; imported_at: number }
+router.post('/products/:id/keyword-import-file', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  importFileUpload.single('file')(req, res, (err: unknown) => {
+    if (err) { res.status(400).json({ error: err instanceof Error ? err.message : 'upload failed' }); return; }
+    const file = (req as Request & { file?: { filename: string; originalname: string; mimetype: string; size: number } }).file;
+    if (!file) { res.status(400).json({ error: 'no file' }); return; }
+    // multer/busboy liefert originalname latin1-dekodiert -> UTF-8 wiederherstellen (Umlaute)
+    const original = Buffer.from(file.originalname, 'latin1').toString('utf8').slice(0, 300);
+    const prev = db.prepare(`SELECT file_path FROM amazon_keyword_import_files WHERE product_id = ?`).get(id) as { file_path: string } | undefined;
+    db.prepare(
+      `INSERT INTO amazon_keyword_import_files (product_id, file_path, original_name, mime, size, imported_at)
+       VALUES (?, ?, ?, ?, ?, unixepoch())
+       ON CONFLICT(product_id) DO UPDATE SET file_path=excluded.file_path, original_name=excluded.original_name,
+         mime=excluded.mime, size=excluded.size, imported_at=excluded.imported_at`,
+    ).run(id, file.filename, original, file.mimetype.slice(0, 200), file.size);
+    if (prev && prev.file_path !== file.filename) deleteImportFileFromDisk(prev.file_path);
+    res.status(201).json({ file: db.prepare(`SELECT * FROM amazon_keyword_import_files WHERE product_id = ?`).get(id) as ImportFileRow });
+  });
+});
+
+// ── Import-Datei: Metadaten ──
+router.get('/products/:id/keyword-import-file', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  const row = db.prepare(`SELECT * FROM amazon_keyword_import_files WHERE product_id = ?`).get(id) as ImportFileRow | undefined;
+  res.json({ file: row ?? null });
+});
+
+// ── Import-Datei: Download ──
+router.get('/products/:id/keyword-import-file/blob', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) { res.status(404).end(); return; }
+  const row = db.prepare(`SELECT * FROM amazon_keyword_import_files WHERE product_id = ?`).get(id) as ImportFileRow | undefined;
+  if (!row) { res.status(404).end(); return; }
+  const abs = path.resolve(IMPORT_FILES_DIR, row.file_path);
+  if (!abs.startsWith(path.resolve(IMPORT_FILES_DIR) + path.sep) || !fs.existsSync(abs)) { res.status(404).end(); return; }
+  res.setHeader('Content-Type', row.mime || 'application/octet-stream');
+  const ascii = (row.original_name || 'import').replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '');
+  res.setHeader('Content-Disposition', `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(row.original_name || 'import')}`);
+  fs.createReadStream(abs).pipe(res);
 });
 
 export default router;

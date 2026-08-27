@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { useAmazonProducts } from '../../hooks/amazon/useAmazonProducts';
 import { useKeywords, useDeleteKeyword, useDeleteAllKeywords, useAssignKeywordFields } from '../../hooks/amazon/useKeywords';
-import type { Keyword, KeywordTargetField } from '../../api/amazon.keywords.api';
+import type { Keyword, KeywordTargetField, FieldAssignment } from '../../api/amazon.keywords.api';
 import { KeywordRow } from '../../components/amazon/keywords/KeywordRow';
 import { Helium10ImportModal } from '../../components/amazon/keywords/Helium10ImportModal';
 import { ListingPromptModal } from '../../components/amazon/keywords/ListingPromptModal';
@@ -50,12 +50,20 @@ export function AmazonKeywordsPage() {
     [keywords],
   );
 
+  // Snapshot des Zuordnungs-Zustands vor dem letzten Auto-Vorschlag (für „Rückgängig").
+  const [undoSnapshot, setUndoSnapshot] = useState<FieldAssignment[] | null>(null);
+
   function autoAssign() {
     const n = keywords?.length ?? 0;
     if (n === 0) return;
     if (confirm('Ziel-Felder automatisch vorschlagen? Das überschreibt bestehende Feld-Zuordnungen (ein Backup wird vorher erstellt).')) {
+      setUndoSnapshot((keywords ?? []).map(k => ({ id: k.id, target_field: k.target_field })));
       assign.mutate(suggestFieldAssignments(keywords ?? []));
     }
+  }
+  function undoAssign() {
+    if (!undoSnapshot) return;
+    assign.mutate(undoSnapshot, { onSuccess: () => setUndoSnapshot(null) });
   }
 
   function deleteAll() {
@@ -151,6 +159,17 @@ export function AmazonKeywordsPage() {
                   <span className="material-symbols-outlined" style={{ fontSize: '17px' }}>auto_fix_high</span>
                   {assign.isPending ? 'Ordne zu…' : 'Felder automatisch vorschlagen'}
                 </button>
+                {undoSnapshot && (
+                  <button
+                    type="button" onClick={undoAssign} disabled={assign.isPending}
+                    title="Den letzten automatischen Feld-Vorschlag zurücknehmen"
+                    className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md disabled:opacity-50"
+                    style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid rgba(255,255,255,0.12)' }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '17px' }}>undo</span>
+                    Rückgängig
+                  </button>
+                )}
                 <button
                   type="button" onClick={() => setListingPromptOpen(true)}
                   title="Claude-Prompt für Titel + Bullets + Backend erzeugen"

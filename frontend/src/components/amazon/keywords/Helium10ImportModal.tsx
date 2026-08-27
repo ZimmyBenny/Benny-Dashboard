@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useDraggableModal } from '../../../hooks/useDraggableModal';
-import { useKeywords, useKeywordSources, useImportHelium10 } from '../../../hooks/amazon/useKeywords';
+import { useKeywords, useKeywordSources, useImportHelium10, useUploadKeywordImportFile } from '../../../hooks/amazon/useKeywords';
 import { parseHelium10, type ParsedHelium10 } from '../../../lib/amazon/parseHelium10';
 import { KEYWORDS_ACCENT } from './targetFields';
 
@@ -11,8 +11,10 @@ export function Helium10ImportModal({ open, onClose, productId }: Props) {
   const sources = useKeywordSources(productId);
   const keywords = useKeywords(productId);
   const doImport = useImportHelium10(productId);
+  const uploadFile = useUploadKeywordImportFile(productId);
 
   const [parsed, setParsed] = useState<ParsedHelium10 | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [minVolume, setMinVolume] = useState('200');
   const [dragOver, setDragOver] = useState(false);
@@ -29,7 +31,7 @@ export function Helium10ImportModal({ open, onClose, productId }: Props) {
   }, [open, onClose]);
 
   // Beim Öffnen/Schließen zurücksetzen.
-  useEffect(() => { if (!open) { setParsed(null); setFileName(null); setResult(null); setBusy(false); } }, [open]);
+  useEffect(() => { if (!open) { setParsed(null); setFile(null); setFileName(null); setResult(null); setBusy(false); } }, [open]);
 
   const knownAsins = useMemo(
     () => (sources.data ?? []).map(s => s.asin.trim()).filter(Boolean),
@@ -38,6 +40,7 @@ export function Helium10ImportModal({ open, onClose, productId }: Props) {
 
   async function handleFile(file: File) {
     setResult(null);
+    setFile(file);
     setFileName(file.name);
     try {
       const buf = await file.arrayBuffer();
@@ -73,6 +76,8 @@ export function Helium10ImportModal({ open, onClose, productId }: Props) {
         rows: parsed.rows,
       });
       setResult({ updated: res.updated, added: res.added, linked: res.linked });
+      // Rohdatei mitspeichern, damit man sie zum Claude-Prompt anhängen kann (Fehler hier nicht blockierend).
+      if (file) { try { await uploadFile.mutateAsync(file); } catch { /* Upload optional */ } }
     } catch (e) {
       const status = (e as { response?: { status?: number } })?.response?.status;
       setImportError(status === 413

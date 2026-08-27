@@ -76,6 +76,27 @@ export async function deleteAllKeywords(productId: number): Promise<{ deleted: n
   const r = await apiClient.delete<{ deleted: number }>(`/amazon/products/${productId}/keywords`);
   return r.data;
 }
+// Gespeicherte Helium-10-Import-Datei je Produkt (Migr. 137).
+export interface KeywordImportFile { product_id: number; file_path: string; original_name: string; mime: string; size: number; imported_at: number }
+export async function uploadKeywordImportFile(productId: number, file: File): Promise<KeywordImportFile> {
+  const fd = new FormData();
+  fd.append('file', file);
+  // apiClient-Default ist application/json -> für Multipart überschreiben, sonst 400.
+  const r = await apiClient.post<{ file: KeywordImportFile }>(
+    `/amazon/products/${productId}/keyword-import-file`, fd,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
+  return r.data.file;
+}
+export async function fetchKeywordImportFile(productId: number): Promise<KeywordImportFile | null> {
+  const r = await apiClient.get<{ file: KeywordImportFile | null }>(`/amazon/products/${productId}/keyword-import-file`);
+  return r.data.file;
+}
+export async function getKeywordImportFileObjectUrl(productId: number): Promise<string> {
+  const r = await apiClient.get(`/amazon/products/${productId}/keyword-import-file/blob`, { responseType: 'blob' });
+  return URL.createObjectURL(r.data as Blob);
+}
+
 export interface FieldAssignment { id: number; target_field: KeywordTargetField }
 export async function assignKeywordFields(productId: number, assignments: FieldAssignment[]): Promise<{ updated: number; keywords: Keyword[] }> {
   const r = await apiClient.post<{ updated: number; keywords: Keyword[] }>(

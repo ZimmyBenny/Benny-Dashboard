@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   fetchKeywordSources, createKeywordSource, importCompetitorsAsSources, updateKeywordSource, deleteKeywordSource,
   fetchKeywords, addKeyword, addKeywordsBulk, updateKeyword, deleteKeyword, deleteAllKeywords, importHelium10, assignKeywordFields,
+  fetchKeywordImportFile, uploadKeywordImportFile,
   type KeywordSourcePatch, type KeywordPatch, type Helium10ImportRow, type FieldAssignment,
 } from '../../api/amazon.keywords.api';
 
@@ -75,6 +76,23 @@ export function useImportHelium10(productId: number) {
     mutationFn: (v: { sourceLabel: string; minVolume: number; rows: Helium10ImportRow[] }) =>
       importHelium10(productId, v.sourceLabel, v.minVolume, v.rows),
     onSettled: inv,
+  });
+}
+
+// ── Gespeicherte Import-Datei ──
+export const keywordImportFileKey = (productId: number) => ['amazon', 'products', productId, 'keyword-import-file'] as const;
+export function useKeywordImportFile(productId: number) {
+  return useQuery({
+    queryKey: keywordImportFileKey(productId),
+    queryFn: () => fetchKeywordImportFile(productId),
+    enabled: Number.isInteger(productId) && productId > 0,
+  });
+}
+export function useUploadKeywordImportFile(productId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (file: File) => uploadKeywordImportFile(productId, file),
+    onSettled: () => qc.invalidateQueries({ queryKey: keywordImportFileKey(productId) }),
   });
 }
 export function useDeleteKeyword(productId: number) {
