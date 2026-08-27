@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { useAmazonProducts } from '../../hooks/amazon/useAmazonProducts';
-import { useKeywords, useDeleteKeyword, useDeleteAllKeywords } from '../../hooks/amazon/useKeywords';
+import { useKeywords, useDeleteKeyword, useDeleteAllKeywords, useAssignKeywordFields } from '../../hooks/amazon/useKeywords';
 import type { Keyword, KeywordTargetField } from '../../api/amazon.keywords.api';
 import { KeywordRow } from '../../components/amazon/keywords/KeywordRow';
 import { Helium10ImportModal } from '../../components/amazon/keywords/Helium10ImportModal';
+import { ListingPromptModal } from '../../components/amazon/keywords/ListingPromptModal';
+import { suggestFieldAssignments } from '../../lib/amazon/suggestKeywordFields';
 import { TARGET_FIELD_GROUPS, TARGET_FIELD_LABEL, KEYWORDS_ACCENT } from '../../components/amazon/keywords/targetFields';
 
 const LAST_PRODUCT_KEY = 'amazon.keywords.lastProduct';
@@ -20,6 +22,7 @@ export function AmazonKeywordsPage() {
   const products = useAmazonProducts(false);
   const [productId, setProductId] = useState<number>(0);
   const [importOpen, setImportOpen] = useState(false);
+  const [listingPromptOpen, setListingPromptOpen] = useState(false);
 
   // Zuletzt gewähltes Produkt merken; sonst erstes.
   useEffect(() => {
@@ -38,6 +41,22 @@ export function AmazonKeywordsPage() {
   const { data: keywords, isLoading } = useKeywords(productId);
   const del = useDeleteKeyword(productId);
   const delAll = useDeleteAllKeywords(productId);
+  const assign = useAssignKeywordFields(productId);
+
+  const productName = products.data?.find(p => p.id === productId)?.name ?? '';
+  // Pflicht-Keywords = die dem Titel zugewiesenen (nach Volumen).
+  const titleKeywords = useMemo(
+    () => (keywords ?? []).filter(k => k.target_field === 'title').sort((a, b) => (b.search_volume ?? 0) - (a.search_volume ?? 0)),
+    [keywords],
+  );
+
+  function autoAssign() {
+    const n = keywords?.length ?? 0;
+    if (n === 0) return;
+    if (confirm('Ziel-Felder automatisch vorschlagen? Das überschreibt bestehende Feld-Zuordnungen (ein Backup wird vorher erstellt).')) {
+      assign.mutate(suggestFieldAssignments(keywords ?? []));
+    }
+  }
 
   function deleteAll() {
     const n = keywords?.length ?? 0;
@@ -120,7 +139,29 @@ export function AmazonKeywordsPage() {
           {(products.data ?? []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
         {productId > 0 && (
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center gap-2 ml-auto flex-wrap justify-end">
+            {(keywords?.length ?? 0) > 0 && (
+              <>
+                <button
+                  type="button" onClick={autoAssign} disabled={assign.isPending}
+                  title="Ziel-Felder aus den Zahlen automatisch vorschlagen"
+                  className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md disabled:opacity-50"
+                  style={{ background: `${KEYWORDS_ACCENT}22`, color: KEYWORDS_ACCENT, border: `1px solid ${KEYWORDS_ACCENT}55` }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '17px' }}>auto_fix_high</span>
+                  {assign.isPending ? 'Ordne zu…' : 'Felder automatisch vorschlagen'}
+                </button>
+                <button
+                  type="button" onClick={() => setListingPromptOpen(true)}
+                  title="Claude-Prompt für Titel + Bullets + Backend erzeugen"
+                  className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-md"
+                  style={{ background: `${KEYWORDS_ACCENT}22`, color: KEYWORDS_ACCENT, border: `1px solid ${KEYWORDS_ACCENT}55` }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '17px' }}>edit_note</span>
+                  Listing-Prompt (Claude)
+                </button>
+              </>
+            )}
             {(keywords?.length ?? 0) > 0 && (
               <button
                 type="button" onClick={deleteAll} disabled={delAll.isPending}
@@ -191,6 +232,14 @@ export function AmazonKeywordsPage() {
             </label>
           </div>
 
+          {/* Auswertung: Pflicht-Keywords (Titel) */}
+          {titleKeywords.length > 0 && (
+            <div className="rounded-lg px-3 py-2 mb-4" style={{ background: `${KEYWORDS_ACCENT}12`, border: `1px solid ${KEYWORDS_ACCENT}44` }}>
+              <span className="text-sm font-semibold" style={{ color: KEYWORDS_ACCENT }}>Pflicht-Keywords (Titel): </span>
+              <span className="text-sm" style={{ color: 'var(--color-on-surface)' }}>{titleKeywords.map(k => k.phrase).join(' · ')}</span>
+            </div>
+          )}
+
           {isLoading && <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>Lade Keywords …</p>}
           {!isLoading && (keywords?.length ?? 0) === 0 && (
             <p className="text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>
@@ -212,6 +261,7 @@ export function AmazonKeywordsPage() {
       )}
 
       <Helium10ImportModal open={importOpen} onClose={() => setImportOpen(false)} productId={productId} />
+      <ListingPromptModal open={listingPromptOpen} onClose={() => setListingPromptOpen(false)} productId={productId} productName={productName} />
     </PageWrapper>
   );
 }
@@ -254,6 +304,7 @@ function FieldGroup({ productId, field, items, topIds, onDelete }: {
           <span className="flex-1 min-w-0">Keyword</span>
           <span style={{ width: '110px' }} className="text-right">Suchvolumen</span>
           <span style={{ width: '90px' }} className="text-right">Konkurrenten</span>
+          <span style={{ width: '70px' }} className="text-right" title="Bester Konkurrenz-Rang">Rang</span>
           <span style={{ width: '120px' }}>Quelle</span>
           <span style={{ width: '130px' }}>Ziel-Feld</span>
           <span style={{ width: '28px' }} />

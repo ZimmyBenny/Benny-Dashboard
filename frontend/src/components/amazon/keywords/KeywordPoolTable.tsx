@@ -121,6 +121,7 @@ export function KeywordPoolTable({ productId }: { productId: number }) {
               Suchvolumen <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>{sortIcon('search_volume')}</span>
             </button>
             <span style={{ width: '90px' }} className="text-right">Konkurrenten</span>
+            <span style={{ width: '70px' }} className="text-right" title="Bester Konkurrenz-Rang">Rang</span>
             <span style={{ width: '120px' }}>Quelle</span>
             <span style={{ width: '130px' }}>Ziel-Feld</span>
             <span style={{ width: '28px' }} />

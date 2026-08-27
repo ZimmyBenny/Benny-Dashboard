@@ -22,6 +22,24 @@ Hauptseite (`/amazon/keyword-recherche`).
 1. Umfang: **Priorität + Feld-Vorschlag** (nicht nur Anzeige, nicht nur Claude).
 2. Defaults der Verteilung bestätigt: Titel 5 · Bullets ~20 · Backend ~50.
 
+## Nachtrag (2026-08-27): Organischer Rang als Signal
+
+Der **beste (niedrigste) organische Konkurrenz-Rang** je Keyword fließt in die
+Priorität ein.
+- **Migration 136:** `ALTER TABLE amazon_keyword_source_links ADD COLUMN rank INTEGER;`
+  (Rang des jeweiligen Konkurrenten für dieses Keyword, nullable).
+- **Parser** liest die Rang-Zahl je ASIN-Spalte (statt nur „rankt/rankt nicht").
+  Import-Zeile: `{ phrase, search_volume, competitors: { asin, rank|null }[] }`.
+- **Import-Endpoint** schreibt `rank` in den Link (Upsert `ON CONFLICT DO UPDATE`).
+- **`listKeywords`** liefert zusätzlich `best_rank = MIN(rank)` über die Links.
+- **Anzeige:** neue Spalte **„Bester Rang"** (KeywordRow + Header), „—" wenn keiner.
+- **Priorität (gewichtet, intern, nur zur Sortierung):**
+  `0.5·volNorm + 0.3·covFrac + 0.2·rankScore`
+  mit `volNorm = volume / maxVolume`, `covFrac = coverage/coverage_total`,
+  `rankScore = best_rank==null ? 0 : max(0,(50−min(best_rank,50))/50)`.
+  Kandidaten = `search_volume>0` oder `coverage>0`. Sortierung nach Priorität desc.
+  (Ersetzt die einfache „coverage desc, volume desc"-Sortierung unten.)
+
 ## Teil 1 — „Felder automatisch vorschlagen" (Zahlen)
 
 Ein Knopf auf der Hauptseite. Berechnet **im Browser** eine Priorität und weist

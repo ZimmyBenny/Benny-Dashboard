@@ -16,13 +16,15 @@ export interface Keyword {
   id: number; product_id: number; phrase: string;
   search_volume: number | null; source: string; is_main: number;
   target_field: KeywordTargetField; sort_order: number;
-  coverage: number;        // wie viele Quellen-ASINs für dieses Keyword ranken (Migr. 135)
-  coverage_total: number;  // Anzahl Quellen des Produkts gesamt -> Anzeige „coverage / total"
+  coverage: number;            // wie viele Quellen-ASINs für dieses Keyword ranken (Migr. 135)
+  coverage_total: number;      // Anzahl Quellen des Produkts gesamt -> Anzeige „coverage / total"
+  best_rank: number | null;    // bester (niedrigster) organischer Konkurrenz-Rang (Migr. 136)
   created_at: number; updated_at: number;
 }
 
 // Eine geparste Import-Zeile (Client parst die Helium-10-Datei, schickt strukturiert).
-export interface Helium10ImportRow { phrase: string; search_volume: number | null; asins: string[] }
+export interface Helium10Competitor { asin: string; rank: number | null }
+export interface Helium10ImportRow { phrase: string; search_volume: number | null; competitors: Helium10Competitor[] }
 export interface Helium10ImportResult { updated: number; added: number; linked: number; keywords: Keyword[] }
 export type KeywordPatch = Partial<{
   phrase: string; search_volume: number | null; source: string;
@@ -72,6 +74,13 @@ export async function deleteKeyword(productId: number, kid: number): Promise<voi
 }
 export async function deleteAllKeywords(productId: number): Promise<{ deleted: number }> {
   const r = await apiClient.delete<{ deleted: number }>(`/amazon/products/${productId}/keywords`);
+  return r.data;
+}
+export interface FieldAssignment { id: number; target_field: KeywordTargetField }
+export async function assignKeywordFields(productId: number, assignments: FieldAssignment[]): Promise<{ updated: number; keywords: Keyword[] }> {
+  const r = await apiClient.post<{ updated: number; keywords: Keyword[] }>(
+    `/amazon/products/${productId}/keywords/assign-fields`, { assignments },
+  );
   return r.data;
 }
 export async function importHelium10(

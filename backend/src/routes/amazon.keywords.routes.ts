@@ -40,12 +40,14 @@ function clampVolume(v: unknown): number | null {
 }
 // Keywords inkl. Abdeckung: coverage = wie viele Quellen-ASINs für das Keyword ranken,
 // coverage_total = Anzahl Quellen des Produkts gesamt (für die Anzeige „5 / 7").
-function listKeywords(productId: number): (KeywordRow & { coverage: number; coverage_total: number })[] {
+function listKeywords(productId: number): (KeywordRow & { coverage: number; coverage_total: number; best_rank: number | null })[] {
   const total = (db.prepare(`SELECT COUNT(*) AS c FROM amazon_keyword_sources WHERE product_id = ?`).get(productId) as { c: number }).c;
   const rows = db.prepare(
-    `SELECT k.*, (SELECT COUNT(*) FROM amazon_keyword_source_links l WHERE l.keyword_id = k.id) AS coverage
+    `SELECT k.*,
+       (SELECT COUNT(*) FROM amazon_keyword_source_links l WHERE l.keyword_id = k.id) AS coverage,
+       (SELECT MIN(l.rank) FROM amazon_keyword_source_links l WHERE l.keyword_id = k.id) AS best_rank
      FROM amazon_keywords k WHERE k.product_id = ? ORDER BY k.is_main DESC, k.sort_order, k.id`,
-  ).all(productId) as (KeywordRow & { coverage: number })[];
+  ).all(productId) as (KeywordRow & { coverage: number; best_rank: number | null })[];
   return rows.map(r => ({ ...r, coverage_total: total }));
 }
 
@@ -224,10 +226,10 @@ router.delete('/products/:id/keywords', (req: Request, res: Response) => {
 });
 
 // ── Helium-10-Import (Massen-Schreiben -> Backup) ──
-// Body: { source_label, min_volume, rows: [{ phrase, search_volume, asins[] }] }
+// Body: { source_label, min_volume, rows: [{ phrase, search_volume, competitors:[{asin,rank}] }] }
 // - vorhandene Keywords: Suchvolumen aktualisieren + Links ergänzen (immer)
 // - neue Keywords: nur ab min_volume anlegen, dann Volumen + Links
-interface ImportRow { phrase: string; search_volume: number | null; asins: string[] }
+interface ImportRow { phrase: string; search_volume: number | null; competitors: { asin: string; rank: number | null }[] }
 router.post('/products/:id/keywords/import', (req: Request, res: Response) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
@@ -249,7 +251,13 @@ router.post('/products/:id/keywords/import', (req: Request, res: Response) => {
   const findKw = db.prepare(`SELECT id FROM amazon_keywords WHERE product_id = ? AND phrase = ? COLLATE NOCASE`);
   const updVol = db.prepare(`UPDATE amazon_keywords SET search_volume = ?, updated_at = unixepoch() WHERE id = ?`);
   const insKw = db.prepare(`INSERT OR IGNORE INTO amazon_keywords (product_id, phrase, search_volume, source, sort_order) VALUES (?, ?, ?, ?, ?)`);
-  const insLink = db.prepare(`INSERT OR IGNORE INTO amazon_keyword_source_links (keyword_id, source_id) VALUES (?, ?)`);
+  const insLink = db.prepare(`
+    INSERT INTO amazon_keyword_source_links (keyword_id, source_id, rank) VALUES (?, ?, ?)
+    ON CONFLICT(keyword_id, source_id) DO UPDATE SET rank =
+      CASE WHEN excluded.rank IS NULL THEN rank
+           WHEN rank IS NULL THEN excluded.rank
+           WHEN excluded.rank < rank THEN excluded.rank
+           ELSE rank END`);
   let order = (db.prepare(`SELECT COALESCE(MAX(sort_order),0) AS m FROM amazon_keywords WHERE product_id = ?`).get(id) as { m: number }).m;
   let updated = 0, added = 0, linked = 0;
 
@@ -258,9 +266,11 @@ router.post('/products/:id/keywords/import', (req: Request, res: Response) => {
       const phrase = String(r.phrase ?? '').trim().slice(0, MAX_PHRASE);
       if (!phrase) continue;
       const vol = r.search_volume == null ? null : Math.max(0, Math.trunc(Number(r.search_volume) || 0));
-      const sourceIds = (Array.isArray(r.asins) ? r.asins : [])
-        .map(a => sourceByAsin.get(String(a).trim().toLowerCase()))
-        .filter((x): x is number => typeof x === 'number');
+      const comps: { sid: number; rank: number | null }[] = [];
+      for (const c of (Array.isArray(r.competitors) ? r.competitors : [])) {
+        const sid = sourceByAsin.get(String(c?.asin ?? '').trim().toLowerCase());
+        if (typeof sid === 'number') comps.push({ sid, rank: c?.rank == null ? null : Math.max(0, Math.trunc(Number(c.rank) || 0)) });
+      }
 
       const existing = findKw.get(id, phrase) as { id: number } | undefined;
       let kid: number;
@@ -275,12 +285,36 @@ router.post('/products/:id/keywords/import', (req: Request, res: Response) => {
         kid = info.changes > 0 ? Number(info.lastInsertRowid) : (findKw.get(id, phrase) as { id: number }).id;
         added++;
       }
-      for (const sid of sourceIds) { if (insLink.run(kid, sid).changes > 0) linked++; }
+      for (const c of comps) { if (insLink.run(kid, c.sid, c.rank).changes > 0) linked++; }
     }
   });
   tx(rawRows as ImportRow[]);
 
   res.json({ updated, added, linked, keywords: listKeywords(id) });
+});
+
+// ── Felder-Zuordnung in einem Rutsch setzen (Auto-Vorschlag; Massen-Update -> Backup) ──
+// Body: { assignments: [{ id, target_field }] }
+router.post('/products/:id/keywords/assign-fields', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || !ensureProduct(id)) { res.status(404).json({ error: 'not found' }); return; }
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const assignments = Array.isArray(body.assignments) ? (body.assignments as { id: unknown; target_field: unknown }[]) : [];
+  if (assignments.length === 0) { res.json({ updated: 0, keywords: listKeywords(id) }); return; }
+
+  createBackup('keywords-auto-assign');
+  const stmt = db.prepare(`UPDATE amazon_keywords SET target_field = ?, updated_at = unixepoch() WHERE id = ? AND product_id = ?`);
+  let updated = 0;
+  const tx = db.transaction((rows: { id: unknown; target_field: unknown }[]) => {
+    for (const a of rows) {
+      const kid = Number(a.id);
+      if (!Number.isInteger(kid)) continue;
+      const tf = TARGET_FIELDS.has(String(a.target_field)) ? String(a.target_field) : '';
+      updated += stmt.run(tf, kid, id).changes;
+    }
+  });
+  tx(assignments);
+  res.json({ updated, keywords: listKeywords(id) });
 });
 
 export default router;

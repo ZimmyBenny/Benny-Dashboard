@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import type { Helium10ImportRow } from '../../api/amazon.keywords.api';
+import type { Helium10ImportRow, Helium10Competitor } from '../../api/amazon.keywords.api';
 
 // Ergebnis des Parsens einer Helium-10-Datei (Cerebro oder Magnet).
 export interface ParsedHelium10 {
@@ -29,6 +29,21 @@ function isRanked(v: unknown): boolean {
   if (v == null) return false;
   const s = String(v).trim();
   return s !== '' && s !== '-' && s !== '0';
+}
+
+// Zwei Konkurrenz-Listen nach ASIN zusammenführen; je ASIN der kleinste (beste) Rang.
+function mergeCompetitors(a: Helium10Competitor[], b: Helium10Competitor[]): Helium10Competitor[] {
+  const map = new Map<string, number | null>();
+  for (const c of [...a, ...b]) {
+    const key = c.asin.toLowerCase();
+    const prev = map.get(key);
+    if (!map.has(key)) map.set(key, c.rank);
+    else if (c.rank != null && (prev == null || c.rank < prev)) map.set(key, c.rank);
+  }
+  // Original-Schreibweise der ASIN behalten (erste Sichtung).
+  const seen = new Map<string, string>();
+  for (const c of [...a, ...b]) if (!seen.has(c.asin.toLowerCase())) seen.set(c.asin.toLowerCase(), c.asin);
+  return Array.from(map.entries()).map(([key, rank]) => ({ asin: seen.get(key) ?? key, rank }));
 }
 
 /**
@@ -81,17 +96,20 @@ export function parseHelium10(data: ArrayBuffer, knownAsins: string[]): ParsedHe
     const phrase = String(row[keywordCol] ?? '').trim();
     if (!phrase) continue;
     const vol = volumeCol >= 0 ? toNumber(row[volumeCol]) : null;
-    const asins: string[] = [];
-    for (const c of asinCols) if (isRanked(row[c.idx])) asins.push(c.asin);
+    const competitors: Helium10Competitor[] = [];
+    for (const c of asinCols) {
+      if (!isRanked(row[c.idx])) continue;
+      competitors.push({ asin: c.asin, rank: toNumber(row[c.idx]) }); // Rang-Zahl (z.B. ">306" -> 306), sonst null
+    }
 
     const key = phrase.toLowerCase();
     const prev = byPhrase.get(key);
     if (prev) {
       const a = prev.search_volume, b = vol;
       prev.search_volume = a == null ? b : b == null ? a : Math.max(a, b); // max. bekanntes Volumen
-      prev.asins = Array.from(new Set([...prev.asins, ...asins]));
+      prev.competitors = mergeCompetitors(prev.competitors, competitors);
     } else {
-      byPhrase.set(key, { phrase, search_volume: vol, asins: Array.from(new Set(asins)) });
+      byPhrase.set(key, { phrase, search_volume: vol, competitors: mergeCompetitors([], competitors) });
     }
   }
 

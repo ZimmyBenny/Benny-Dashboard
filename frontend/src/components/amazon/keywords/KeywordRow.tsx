@@ -88,6 +88,13 @@ export function KeywordRow({ productId, keyword, onDelete, highlightTop = false 
       >
         {coverageText}
       </span>
+      <span
+        title="Bester (niedrigster) organischer Rang deiner Konkurrenten für dieses Keyword"
+        className="text-sm text-right tabular-nums flex-shrink-0"
+        style={{ width: '70px', color: keyword.best_rank != null ? 'var(--color-on-surface)' : 'var(--color-on-surface-variant)' }}
+      >
+        {keyword.best_rank != null ? keyword.best_rank : '—'}
+      </span>
       <input
         type="text" value={source}
         onChange={(e) => setSource(e.target.value)} onBlur={commitSource}
