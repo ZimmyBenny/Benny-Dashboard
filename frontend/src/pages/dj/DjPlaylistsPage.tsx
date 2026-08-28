@@ -135,6 +135,8 @@ export function DjPlaylistsPage() {
   const [editCategoryId, setEditCategoryId] = useState<number | null>(null);
   const [editDjId, setEditDjId] = useState<number | null>(null);
   const [editYear, setEditYear] = useState('');
+  const [editNewCatName, setEditNewCatName] = useState('');
+  const [editNewDjName, setEditNewDjName] = useState('');
 
   // Kategorien- & DJs-Dialog
   const [showCategories, setShowCategories] = useState(false);
@@ -322,6 +324,24 @@ export function DjPlaylistsPage() {
     },
   });
 
+  // Inline-Anlage im Bearbeiten-Dialog — schreibt in die Edit-Auswahl.
+  const editCreateCategoryMutation = useMutation({
+    mutationFn: (name: string) => createPlaylistCategory(name),
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ['dj-playlist-categories'] });
+      setEditCategoryId(created.id);
+      setEditNewCatName('');
+    },
+  });
+  const editCreateDjMutation = useMutation({
+    mutationFn: (name: string) => createPlaylistDj(name),
+    onSuccess: (created) => {
+      queryClient.invalidateQueries({ queryKey: ['dj-playlist-djs'] });
+      setEditDjId(created.id);
+      setEditNewDjName('');
+    },
+  });
+
   const updateMutation = useMutation({
     mutationFn: (data: { title?: string; category_id?: number | null; dj_id?: number | null; year?: number | null }) =>
       updatePlaylist(editTarget!.id, data),
@@ -437,6 +457,8 @@ export function DjPlaylistsPage() {
     setEditCategoryId(p.category_id);
     setEditDjId(p.dj_id);
     setEditYear(p.year !== null ? String(p.year) : '');
+    setEditNewCatName('');
+    setEditNewDjName('');
   }
 
   function handleDelete(p: Playlist) {
@@ -944,6 +966,30 @@ export function DjPlaylistsPage() {
                   ))}
                 </select>
               </label>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input
+                  type="text"
+                  placeholder="Neue Kategorie anlegen…"
+                  value={editNewCatName}
+                  onChange={(e) => setEditNewCatName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const name = editNewCatName.trim();
+                      if (name && !editCreateCategoryMutation.isPending) editCreateCategoryMutation.mutate(name);
+                    }
+                  }}
+                  style={inputStyle}
+                />
+                <button
+                  type="button"
+                  onClick={() => { const name = editNewCatName.trim(); if (name) editCreateCategoryMutation.mutate(name); }}
+                  disabled={!editNewCatName.trim() || editCreateCategoryMutation.isPending}
+                  style={{ ...secondaryBtn, whiteSpace: 'nowrap' }}
+                >
+                  Anlegen
+                </button>
+              </div>
               <label style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
                 <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)', fontWeight: 500 }}>DJ</span>
                 <select
@@ -957,6 +1003,30 @@ export function DjPlaylistsPage() {
                   ))}
                 </select>
               </label>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input
+                  type="text"
+                  placeholder="Neuen DJ anlegen…"
+                  value={editNewDjName}
+                  onChange={(e) => setEditNewDjName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const name = editNewDjName.trim();
+                      if (name && !editCreateDjMutation.isPending) editCreateDjMutation.mutate(name);
+                    }
+                  }}
+                  style={inputStyle}
+                />
+                <button
+                  type="button"
+                  onClick={() => { const name = editNewDjName.trim(); if (name) editCreateDjMutation.mutate(name); }}
+                  disabled={!editNewDjName.trim() || editCreateDjMutation.isPending}
+                  style={{ ...secondaryBtn, whiteSpace: 'nowrap' }}
+                >
+                  Anlegen
+                </button>
+              </div>
               <label style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
                 <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--color-on-surface-variant)', fontWeight: 500 }}>Jahr</span>
                 <input
