@@ -18,7 +18,8 @@ function Controls({ anno, left, top, onCommit, onDelete }: { anno: PageAnnotatio
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
       style={{
-        position: 'absolute', left, top: top - 34, zIndex: 60,
+        // Nie über den oberen Rand rutschen -> Löschen/Farbe bleibt erreichbar.
+        position: 'absolute', left: Math.max(2, left), top: Math.max(2, top - 34), zIndex: 60,
         display: 'flex', alignItems: 'center', gap: 4, padding: '3px 5px', borderRadius: 8,
         background: 'var(--color-surface-container-high)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
       }}
