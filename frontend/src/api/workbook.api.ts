@@ -225,6 +225,13 @@ export async function getAttachmentObjectUrl(id: number): Promise<string> {
   const response = await apiClient.get(`/workbook/attachments/${id}/download`, { responseType: 'blob' });
   return URL.createObjectURL(response.data as Blob);
 }
+// Als Data-URL (stabil im React-State) — nötig für html-to-image (PNG-Export),
+// das Blob-URLs nicht zuverlässig einbettet.
+export async function getAttachmentDataUrl(id: number): Promise<string> {
+  const response = await apiClient.get(`/workbook/attachments/${id}/download`, { responseType: 'blob' });
+  const blob = response.data as Blob;
+  return new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = rej; r.readAsDataURL(blob); });
+}
 
 // Frei platzierbare Bilder (Migr. 138)
 export interface PageImage {

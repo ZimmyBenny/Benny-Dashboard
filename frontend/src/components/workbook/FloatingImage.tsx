@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getAttachmentObjectUrl, type PageImage } from '../../api/workbook.api';
+import { getAttachmentDataUrl, type PageImage } from '../../api/workbook.api';
 
 interface Props {
   image: PageImage;
@@ -19,13 +19,14 @@ export function FloatingImage({ image, selected, onSelect, onCommit, onDelete }:
   const [pos, setPos] = useState({ x: image.x, y: image.y, width: image.width, height: image.height });
   const drag = useRef<DragState>(null);
 
-  // Blob mit Auth laden.
+  // Bild mit Auth als Data-URL laden — stabil für Anzeige UND html-to-image-Export
+  // (Blob-URLs werden von html-to-image nicht zuverlässig eingebettet -> leerer Kasten).
   useEffect(() => {
-    let active = true; let obj: string | null = null;
-    getAttachmentObjectUrl(image.attachment_id)
-      .then((u) => { if (active) { obj = u; setUrl(u); } else URL.revokeObjectURL(u); })
+    let active = true;
+    getAttachmentDataUrl(image.attachment_id)
+      .then((u) => { if (active) setUrl(u); })
       .catch(() => {});
-    return () => { active = false; if (obj) URL.revokeObjectURL(obj); };
+    return () => { active = false; };
   }, [image.attachment_id]);
 
   // Bei externer Änderung (z.B. Neuladen) Position übernehmen — außer während Drag.
