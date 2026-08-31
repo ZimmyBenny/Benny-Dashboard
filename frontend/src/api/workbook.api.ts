@@ -255,12 +255,13 @@ export async function deletePageImage(imgId: number): Promise<void> {
 }
 
 // Freie Annotationen (Pfeile & Textlabels, Migr. 139)
+export type AnnotationKind = 'arrow' | 'text' | 'marker' | 'rect';
 export interface PageAnnotation {
-  id: number; page_id: number; kind: 'arrow' | 'text';
+  id: number; page_id: number; kind: AnnotationKind;
   x1: number; y1: number; x2: number; y2: number;
   text: string; color: string; size: number; z: number; created_at: number;
 }
-export type AnnotationCreate = { kind: 'arrow' | 'text'; x1: number; y1: number; x2?: number; y2?: number; text?: string; color?: string; size?: number };
+export type AnnotationCreate = { kind: AnnotationKind; x1: number; y1: number; x2?: number; y2?: number; text?: string; color?: string; size?: number };
 export type AnnotationPatch = Partial<Pick<PageAnnotation, 'x1' | 'y1' | 'x2' | 'y2' | 'text' | 'color' | 'size' | 'z'>>;
 export async function fetchAnnotations(pageId: number): Promise<PageAnnotation[]> {
   const { data } = await apiClient.get<PageAnnotation[]>(`/workbook/pages/${pageId}/annotations`);

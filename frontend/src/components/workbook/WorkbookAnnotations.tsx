@@ -50,7 +50,8 @@ export function ArrowAnnotation({ anno, selected, onSelect, onCommit, onDelete }
   const drag = useRef<{ mode: 'move' | 'p1' | 'p2'; px: number; py: number; o: typeof p } | null>(null);
   useEffect(() => { if (!drag.current) setP({ x1: anno.x1, y1: anno.y1, x2: anno.x2, y2: anno.y2 }); }, [anno.x1, anno.y1, anno.x2, anno.y2]);
 
-  const pad = 18;
+  const isMarker = anno.kind === 'marker';
+  const pad = Math.max(18, anno.size);
   const bx = Math.min(p.x1, p.x2) - pad, by = Math.min(p.y1, p.y2) - pad;
   const w = Math.abs(p.x2 - p.x1) + 2 * pad, h = Math.abs(p.y2 - p.y1) + 2 * pad;
   const sx = p.x1 - bx, sy = p.y1 - by, ex = p.x2 - bx, ey = p.y2 - by;
@@ -82,8 +83,14 @@ export function ArrowAnnotation({ anno, selected, onSelect, onCommit, onDelete }
   return (
     <>
       <svg style={{ position: 'absolute', left: bx, top: by, width: w, height: h, overflow: 'visible', pointerEvents: 'none', zIndex: selected ? 50 : 20 }}>
-        <line x1={sx} y1={sy} x2={bxp} y2={byp} stroke={anno.color} strokeWidth={anno.size} strokeLinecap="round" />
-        <polygon points={head} fill={anno.color} />
+        {isMarker ? (
+          <line x1={sx} y1={sy} x2={ex} y2={ey} stroke={anno.color} strokeWidth={anno.size} strokeLinecap="round" opacity={0.4} />
+        ) : (
+          <>
+            <line x1={sx} y1={sy} x2={bxp} y2={byp} stroke={anno.color} strokeWidth={anno.size} strokeLinecap="round" />
+            <polygon points={head} fill={anno.color} />
+          </>
+        )}
         {/* Trefferlinie */}
         <line x1={sx} y1={sy} x2={ex} y2={ey} stroke="transparent" strokeWidth={Math.max(16, anno.size + 12)} style={{ pointerEvents: 'stroke', cursor: 'move' }}
           onClick={(e) => e.stopPropagation()}
@@ -146,6 +153,55 @@ export function TextAnnotation({ anno, selected, onSelect, onCommit, onDelete }:
         >{anno.text}</div>
       </div>
       {selected && <Controls anno={anno} left={pos.x} top={pos.y} onCommit={onCommit} onDelete={onDelete} />}
+    </>
+  );
+}
+
+// Halbtransparentes Markier-Rechteck (Bereich einrahmen, auch über Bildern).
+export function RectAnnotation({ anno, selected, onSelect, onCommit, onDelete }: Props) {
+  const [p, setP] = useState({ x1: anno.x1, y1: anno.y1, x2: anno.x2, y2: anno.y2 });
+  const drag = useRef<{ mode: 'move' | 'resize'; px: number; py: number; o: typeof p } | null>(null);
+  useEffect(() => { if (!drag.current) setP({ x1: anno.x1, y1: anno.y1, x2: anno.x2, y2: anno.y2 }); }, [anno.x1, anno.y1, anno.x2, anno.y2]);
+
+  const left = Math.min(p.x1, p.x2), top = Math.min(p.y1, p.y2), w = Math.abs(p.x2 - p.x1), h = Math.abs(p.y2 - p.y1);
+  function start(mode: 'move' | 'resize', e: React.PointerEvent) {
+    e.stopPropagation(); onSelect();
+    drag.current = { mode, px: e.clientX, py: e.clientY, o: { ...p } };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); e.preventDefault();
+  }
+  function move(e: React.PointerEvent) {
+    const d = drag.current; if (!d) return;
+    const dx = e.clientX - d.px, dy = e.clientY - d.py;
+    if (d.mode === 'move') setP({ x1: d.o.x1 + dx, y1: d.o.y1 + dy, x2: d.o.x2 + dx, y2: d.o.y2 + dy });
+    else setP((q) => ({ ...q, x2: d.o.x2 + dx, y2: d.o.y2 + dy }));
+  }
+  function up(e: React.PointerEvent) {
+    if (!drag.current) return;
+    (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId); drag.current = null;
+    onCommit({ x1: Math.round(p.x1), y1: Math.round(p.y1), x2: Math.round(p.x2), y2: Math.round(p.y2) });
+  }
+  return (
+    <>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => start('move', e)} onPointerMove={move} onPointerUp={up}
+        style={{
+          position: 'absolute', left, top, width: w, height: h,
+          background: `${anno.color}33`, border: `2px solid ${anno.color}`, borderRadius: 4,
+          cursor: 'move', zIndex: selected ? 40 : 15, touchAction: 'none',
+          outline: selected ? '1px dashed var(--color-primary)' : 'none', outlineOffset: 2,
+        }}
+      >
+        {selected && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => start('resize', e)} onPointerMove={move} onPointerUp={up}
+            title="Größe ändern"
+            style={{ position: 'absolute', right: -7, bottom: -7, width: 15, height: 15, background: 'var(--color-primary)', borderRadius: 3, cursor: 'nwse-resize', touchAction: 'none' }}
+          />
+        )}
+      </div>
+      {selected && <Controls anno={anno} left={left} top={top} onCommit={onCommit} onDelete={onDelete} />}
     </>
   );
 }

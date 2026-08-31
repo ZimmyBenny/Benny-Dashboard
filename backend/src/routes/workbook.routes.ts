@@ -785,7 +785,7 @@ router.delete('/pages/images/:imgId', (req: Request, res: Response) => {
 
 // ── Freie Annotationen: Pfeile & Textlabels (Migr. 139) ───────────────────────
 interface AnnotationRow { id: number; page_id: number; kind: string; x1: number; y1: number; x2: number; y2: number; text: string; color: string; size: number; z: number; created_at: number }
-const ANNO_KINDS = new Set(['arrow', 'text']);
+const ANNO_KINDS = new Set(['arrow', 'text', 'marker', 'rect']);
 
 router.get('/pages/:id/annotations', (req: Request, res: Response) => {
   const pageId = Number(req.params.id);

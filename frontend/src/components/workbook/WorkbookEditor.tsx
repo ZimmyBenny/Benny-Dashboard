@@ -22,7 +22,7 @@ import {
   type Page, type Attachment, type PageImage, type PageAnnotation, type AnnotationPatch,
 } from '../../api/workbook.api';
 import { FloatingImage } from './FloatingImage';
-import { ArrowAnnotation, TextAnnotation } from './WorkbookAnnotations';
+import { ArrowAnnotation, TextAnnotation, RectAnnotation } from './WorkbookAnnotations';
 import { toPng } from 'html-to-image';
 import { fetchContact } from '../../api/contacts.api';
 import { ContactPicker } from './ContactPicker';
@@ -83,7 +83,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
   // Annotationen (Pfeile & Text)
   const [annotations, setAnnotations] = useState<PageAnnotation[]>([]);
   const [selectedAnnoId, setSelectedAnnoId] = useState<number | null>(null);
-  const [annoMode, setAnnoMode] = useState<'none' | 'arrow' | 'text'>('none');
+  const [annoMode, setAnnoMode] = useState<'none' | 'arrow' | 'text' | 'marker' | 'rect'>('none');
   const drawStart = useRef<{ x: number; y: number } | null>(null);
   const [whiteBg, setWhiteBg] = useState(false);
   function toggleWhiteBg() {
@@ -291,12 +291,14 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
   function drawPointerUp(e: React.PointerEvent) {
-    if (annoMode !== 'arrow' || !drawStart.current) return;
+    const kind = annoMode;
+    if (!drawStart.current || !(kind === 'arrow' || kind === 'marker' || kind === 'rect')) return;
     const end = computeDropAt(e.clientX, e.clientY);
     const s = drawStart.current; drawStart.current = null;
     (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
     if (end && (Math.abs(end.x - s.x) > 6 || Math.abs(end.y - s.y) > 6)) {
-      createAnnotation(page.id, { kind: 'arrow', x1: s.x, y1: s.y, x2: end.x, y2: end.y, color: '#ef4444', size: 3 })
+      const def = kind === 'marker' ? { color: '#fde047', size: 16 } : kind === 'rect' ? { color: '#fde047', size: 2 } : { color: '#ef4444', size: 3 };
+      createAnnotation(page.id, { kind, x1: s.x, y1: s.y, x2: end.x, y2: end.y, ...def })
         .then((a) => { setAnnotations((prev) => [...prev, a]); setSelectedAnnoId(a.id); }).catch(() => {});
     }
     setAnnoMode('none');
@@ -593,6 +595,8 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         {iconBtn(false, handleExportPng, 'image', 'Diese Seite als PNG')}
         {iconBtn(annoMode === 'arrow', () => setAnnoMode((m) => (m === 'arrow' ? 'none' : 'arrow')), 'arrow_outward', 'Pfeil zeichnen')}
         {iconBtn(annoMode === 'text', () => setAnnoMode((m) => (m === 'text' ? 'none' : 'text')), 'title', 'Text hinzufügen')}
+        {iconBtn(annoMode === 'marker', () => setAnnoMode((m) => (m === 'marker' ? 'none' : 'marker')), 'ink_pen', 'Marker-Streifen (überall, auch auf Bildern)')}
+        {iconBtn(annoMode === 'rect', () => setAnnoMode((m) => (m === 'rect' ? 'none' : 'rect')), 'crop_square', 'Markier-Rechteck')}
         {iconBtn(whiteBg, toggleWhiteBg, 'contrast', 'Weißer Hintergrund')}
 
         {/* Kontakt-Zuordnung */}
@@ -734,14 +738,14 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
             }}
           />
         ))}
-        {/* Annotationen: Pfeile & Text */}
-        {annotations.map((a) => (a.kind === 'arrow' ? (
-          <ArrowAnnotation key={a.id} anno={a} selected={selectedAnnoId === a.id}
-            onSelect={() => setSelectedAnnoId(a.id)} onCommit={(p) => commitAnnotation(a.id, p)} onDelete={() => removeAnnotation(a.id)} />
-        ) : (
-          <TextAnnotation key={a.id} anno={a} selected={selectedAnnoId === a.id}
-            onSelect={() => setSelectedAnnoId(a.id)} onCommit={(p) => commitAnnotation(a.id, p)} onDelete={() => removeAnnotation(a.id)} />
-        )))}
+        {/* Annotationen: Pfeile, Marker, Rechtecke & Text */}
+        {annotations.map((a) => {
+          const common = { key: a.id, anno: a, selected: selectedAnnoId === a.id,
+            onSelect: () => setSelectedAnnoId(a.id), onCommit: (p: AnnotationPatch) => commitAnnotation(a.id, p), onDelete: () => removeAnnotation(a.id) };
+          if (a.kind === 'rect') return <RectAnnotation {...common} />;
+          if (a.kind === 'text') return <TextAnnotation {...common} />;
+          return <ArrowAnnotation {...common} />; // arrow + marker
+        })}
         </div>
         {/* Zeichnen-Fläche (nur im Pfeil-/Text-Modus) */}
         {annoMode !== 'none' && (
