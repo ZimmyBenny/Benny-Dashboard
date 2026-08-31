@@ -82,7 +82,7 @@ export function ArrowAnnotation({ anno, selected, onSelect, onCommit, onDelete }
   return (
     <>
       <svg style={{ position: 'absolute', left: bx, top: by, width: w, height: h, overflow: 'visible', pointerEvents: 'none', zIndex: selected ? 50 : 20 }}>
-        <line x1={sx} y1={sy} x2={ex} y2={ey} stroke={anno.color} strokeWidth={anno.size} strokeLinecap="round" />
+        <line x1={sx} y1={sy} x2={bxp} y2={byp} stroke={anno.color} strokeWidth={anno.size} strokeLinecap="round" />
         <polygon points={head} fill={anno.color} />
         {/* Trefferlinie */}
         <line x1={sx} y1={sy} x2={ex} y2={ey} stroke="transparent" strokeWidth={Math.max(16, anno.size + 12)} style={{ pointerEvents: 'stroke', cursor: 'move' }}
