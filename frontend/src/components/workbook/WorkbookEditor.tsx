@@ -464,18 +464,25 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     };
   }, [page.id, doSave]);
 
-  // Entf/Backspace löscht das ausgewählte Element (nicht beim Text-Tippen).
+  // Entf/Backspace löscht das ausgewählte Element. Nur wenn wirklich etwas ausgewählt ist,
+  // und nicht beim Tippen in einer Textbox oder im Titel/Tags-Feld.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+      if (selectedAnnoId == null && selectedImageId == null) return; // nichts ausgewählt -> normal editieren
       const el = document.activeElement as HTMLElement | null;
-      if (el && (el.isContentEditable || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return;
-      if (selectedAnnoId != null) { e.preventDefault(); removeAnnotation(selectedAnnoId); }
-      else if (selectedImageId != null) { e.preventDefault(); removeImage(selectedImageId); }
+      // Titel/Tags-Eingabefeld -> normal löschen.
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return;
+      // In einer Text-Annotation getippt (eigenes contentEditable, nicht der Haupt-Editor) -> Text editieren.
+      const sel = annotations.find((a) => a.id === selectedAnnoId);
+      if (sel?.kind === 'text' && el?.isContentEditable && !el.closest?.('.ProseMirror')) return;
+      e.preventDefault();
+      if (selectedAnnoId != null) removeAnnotation(selectedAnnoId);
+      else if (selectedImageId != null) removeImage(selectedImageId);
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [selectedAnnoId, selectedImageId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedAnnoId, selectedImageId, annotations]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleTogglePin() {
     const updated = await togglePin(page.id);
