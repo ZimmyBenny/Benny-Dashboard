@@ -30,6 +30,7 @@
     "@tiptap/starter-kit": "^3.22.3",
     "axios": "^1.15.0",
     "exceljs": "^4.4.0",
+    "html-to-image": "^1.11.13",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
     "mammoth": "^1.12.0",

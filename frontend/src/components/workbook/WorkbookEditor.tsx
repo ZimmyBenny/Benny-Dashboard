@@ -14,6 +14,7 @@ import {
   type Page, type Attachment, type PageImage,
 } from '../../api/workbook.api';
 import { FloatingImage } from './FloatingImage';
+import { toPng } from 'html-to-image';
 import { fetchContact } from '../../api/contacts.api';
 import { ContactPicker } from './ContactPicker';
 import type { SaveStatus } from '../../pages/WorkbookPage';
@@ -191,6 +192,28 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
       setUploading(false);
       nextDropAt.current = null;
     }
+  }
+
+  // Ganze Seite (Text + freie Bilder) als PNG exportieren.
+  async function handleExportPng() {
+    const el = scrollRef.current;
+    if (!el) return;
+    setSelectedImageId(null);
+    await new Promise((r) => setTimeout(r, 60)); // Auswahl-Handles ausblenden lassen
+    try {
+      const bg = getComputedStyle(el).backgroundColor || '#0f161e';
+      const dataUrl = await toPng(el, {
+        backgroundColor: bg,
+        width: el.scrollWidth,
+        height: el.scrollHeight,
+        pixelRatio: 2,
+        style: { overflow: 'visible' },
+      });
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `${(page.title || 'seite').replace(/[/\\:*?"<>|]/g, '').trim() || 'seite'}.png`;
+      document.body.appendChild(a); a.click(); a.remove();
+    } catch { /* Rendern fehlgeschlagen — ignorieren */ }
   }
 
   // Drop-/Cursor-Position relativ zum Scroll-Container (inkl. Scroll-Offset).
@@ -451,6 +474,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         {iconBtn(page.is_archived === 1, handleToggleArchive, 'archive', page.is_archived ? 'Archivierung aufheben' : 'Archivieren')}
         {iconBtn(page.is_template === 1, handleToggleTemplate, 'bookmark', page.is_template ? 'Vorlage entfernen' : 'Als Vorlage')}
         {iconBtn(false, () => { exportWorkbook({ format: 'pdf', page_id: page.id }).catch(() => {}); }, 'picture_as_pdf', 'Diese Seite als PDF')}
+        {iconBtn(false, handleExportPng, 'image', 'Diese Seite als PNG')}
 
         {/* Kontakt-Zuordnung */}
         <div style={{ width: '1px', height: '1.2rem', background: 'var(--color-outline-variant)', margin: '0 0.2rem' }} />
