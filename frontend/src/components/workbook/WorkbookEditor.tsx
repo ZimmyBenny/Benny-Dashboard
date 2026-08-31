@@ -11,9 +11,11 @@ import {
   fetchAttachments, uploadAttachment, deleteAttachment, getAttachmentDownloadUrl,
   updatePageContact, exportWorkbook,
   fetchPageImages, createPageImage, updatePageImage, deletePageImage,
-  type Page, type Attachment, type PageImage,
+  fetchAnnotations, createAnnotation, updateAnnotation, deleteAnnotation,
+  type Page, type Attachment, type PageImage, type PageAnnotation, type AnnotationPatch,
 } from '../../api/workbook.api';
 import { FloatingImage } from './FloatingImage';
+import { ArrowAnnotation, TextAnnotation } from './WorkbookAnnotations';
 import { toPng } from 'html-to-image';
 import { fetchContact } from '../../api/contacts.api';
 import { ContactPicker } from './ContactPicker';
@@ -71,6 +73,11 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
   const [selectedImageId, setSelectedImageId] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const nextDropAt = useRef<{ x: number; y: number } | null>(null);
+  // Annotationen (Pfeile & Text)
+  const [annotations, setAnnotations] = useState<PageAnnotation[]>([]);
+  const [selectedAnnoId, setSelectedAnnoId] = useState<number | null>(null);
+  const [annoMode, setAnnoMode] = useState<'none' | 'arrow' | 'text'>('none');
+  const drawStart = useRef<{ x: number; y: number } | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
   const [taskSlideOverOpen, setTaskSlideOverOpen] = useState(false);
@@ -131,7 +138,10 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
   useEffect(() => {
     fetchAttachments(page.id).then(setAttachments).catch(() => {});
     fetchPageImages(page.id).then(setPageImages).catch(() => setPageImages([]));
+    fetchAnnotations(page.id).then(setAnnotations).catch(() => setAnnotations([]));
     setSelectedImageId(null);
+    setSelectedAnnoId(null);
+    setAnnoMode('none');
   }, [page.id]);
 
   async function handleUploadFiles(files: FileList | File[]) {
@@ -222,6 +232,41 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     if (!el) return null;
     const rect = el.getBoundingClientRect();
     return { x: clientX - rect.left + el.scrollLeft, y: clientY - rect.top + el.scrollTop };
+  }
+
+  // ── Annotationen ──
+  function commitAnnotation(id: number, patch: AnnotationPatch) {
+    setAnnotations((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
+    updateAnnotation(id, patch).catch(() => {});
+  }
+  function removeAnnotation(id: number) {
+    setAnnotations((prev) => prev.filter((a) => a.id !== id));
+    setSelectedAnnoId(null);
+    deleteAnnotation(id).catch(() => {});
+  }
+  function drawPointerDown(e: React.PointerEvent) {
+    if (annoMode === 'none') return;
+    const at = computeDropAt(e.clientX, e.clientY);
+    if (!at) return;
+    if (annoMode === 'text') {
+      createAnnotation(page.id, { kind: 'text', x1: at.x, y1: at.y, color: '#111827', size: 18 })
+        .then((a) => { setAnnotations((prev) => [...prev, a]); setSelectedAnnoId(a.id); }).catch(() => {});
+      setAnnoMode('none');
+      return;
+    }
+    drawStart.current = at;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }
+  function drawPointerUp(e: React.PointerEvent) {
+    if (annoMode !== 'arrow' || !drawStart.current) return;
+    const end = computeDropAt(e.clientX, e.clientY);
+    const s = drawStart.current; drawStart.current = null;
+    (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+    if (end && (Math.abs(end.x - s.x) > 6 || Math.abs(end.y - s.y) > 6)) {
+      createAnnotation(page.id, { kind: 'arrow', x1: s.x, y1: s.y, x2: end.x, y2: end.y, color: '#ef4444', size: 3 })
+        .then((a) => { setAnnotations((prev) => [...prev, a]); setSelectedAnnoId(a.id); }).catch(() => {});
+    }
+    setAnnoMode('none');
   }
 
   async function handleDeleteAttachment(id: number) {
@@ -475,6 +520,8 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         {iconBtn(page.is_template === 1, handleToggleTemplate, 'bookmark', page.is_template ? 'Vorlage entfernen' : 'Als Vorlage')}
         {iconBtn(false, () => { exportWorkbook({ format: 'pdf', page_id: page.id }).catch(() => {}); }, 'picture_as_pdf', 'Diese Seite als PDF')}
         {iconBtn(false, handleExportPng, 'image', 'Diese Seite als PNG')}
+        {iconBtn(annoMode === 'arrow', () => setAnnoMode((m) => (m === 'arrow' ? 'none' : 'arrow')), 'arrow_outward', 'Pfeil zeichnen')}
+        {iconBtn(annoMode === 'text', () => setAnnoMode((m) => (m === 'text' ? 'none' : 'text')), 'title', 'Text hinzufügen')}
 
         {/* Kontakt-Zuordnung */}
         <div style={{ width: '1px', height: '1.2rem', background: 'var(--color-outline-variant)', margin: '0 0.2rem' }} />
@@ -582,7 +629,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         style={{ flex: 1, overflowY: 'auto', position: 'relative' }}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false); }}
-        onClick={() => setSelectedImageId(null)}
+        onClick={() => { setSelectedImageId(null); setSelectedAnnoId(null); }}
         onDrop={(e) => {
           setDragOver(false);
           const files = extractDropFiles(e.dataTransfer);
@@ -613,6 +660,27 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
             }}
           />
         ))}
+        {/* Annotationen: Pfeile & Text */}
+        {annotations.map((a) => (a.kind === 'arrow' ? (
+          <ArrowAnnotation key={a.id} anno={a} selected={selectedAnnoId === a.id}
+            onSelect={() => setSelectedAnnoId(a.id)} onCommit={(p) => commitAnnotation(a.id, p)} onDelete={() => removeAnnotation(a.id)} />
+        ) : (
+          <TextAnnotation key={a.id} anno={a} selected={selectedAnnoId === a.id}
+            onSelect={() => setSelectedAnnoId(a.id)} onCommit={(p) => commitAnnotation(a.id, p)} onDelete={() => removeAnnotation(a.id)} />
+        )))}
+        {/* Zeichnen-Fläche (nur im Pfeil-/Text-Modus) */}
+        {annoMode !== 'none' && (
+          <div
+            onPointerDown={drawPointerDown}
+            onPointerUp={drawPointerUp}
+            style={{
+              position: 'absolute', top: 0, left: 0,
+              width: scrollRef.current?.scrollWidth ?? '100%',
+              height: scrollRef.current?.scrollHeight ?? '100%',
+              zIndex: 45, cursor: 'crosshair', touchAction: 'none',
+            }}
+          />
+        )}
         {dragOver && (
           <div style={{
             position: 'absolute', inset: 0, zIndex: 10,

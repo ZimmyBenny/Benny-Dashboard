@@ -783,4 +783,52 @@ router.delete('/pages/images/:imgId', (req: Request, res: Response) => {
   res.status(204).end();
 });
 
+// ── Freie Annotationen: Pfeile & Textlabels (Migr. 139) ───────────────────────
+interface AnnotationRow { id: number; page_id: number; kind: string; x1: number; y1: number; x2: number; y2: number; text: string; color: string; size: number; z: number; created_at: number }
+const ANNO_KINDS = new Set(['arrow', 'text']);
+
+router.get('/pages/:id/annotations', (req: Request, res: Response) => {
+  const pageId = Number(req.params.id);
+  res.json(db.prepare('SELECT * FROM workbook_page_annotations WHERE page_id = ? ORDER BY z, id').all(pageId) as AnnotationRow[]);
+});
+
+router.post('/pages/:id/annotations', (req: Request, res: Response) => {
+  const pageId = Number(req.params.id);
+  const b = (req.body ?? {}) as Record<string, unknown>;
+  const kind = String(b.kind ?? '');
+  if (!ANNO_KINDS.has(kind)) { res.status(400).json({ error: 'kind muss arrow oder text sein' }); return; }
+  const maxZ = (db.prepare('SELECT COALESCE(MAX(z),0) AS m FROM workbook_page_annotations WHERE page_id = ?').get(pageId) as { m: number }).m;
+  const r = db.prepare(
+    `INSERT INTO workbook_page_annotations (page_id, kind, x1, y1, x2, y2, text, color, size, z)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    pageId, kind, num(b.x1, 0), num(b.y1, 0), num(b.x2, 0), num(b.y2, 0),
+    String(b.text ?? '').slice(0, 2000), String(b.color ?? '#ef4444').slice(0, 20),
+    Math.max(1, num(b.size, kind === 'text' ? 16 : 3)), maxZ + 1,
+  );
+  res.status(201).json(db.prepare('SELECT * FROM workbook_page_annotations WHERE id = ?').get(r.lastInsertRowid) as AnnotationRow);
+});
+
+router.patch('/pages/annotations/:aid', (req: Request, res: Response) => {
+  const id = Number(req.params.aid);
+  const cur = db.prepare('SELECT * FROM workbook_page_annotations WHERE id = ?').get(id) as AnnotationRow | undefined;
+  if (!cur) { res.status(404).json({ error: 'not found' }); return; }
+  const b = (req.body ?? {}) as Record<string, unknown>;
+  const sets: string[] = []; const vals: unknown[] = [];
+  for (const f of ['x1', 'y1', 'x2', 'y2'] as const) if (f in b) { sets.push(`${f} = ?`); vals.push(num(b[f], cur[f])); }
+  if ('text' in b) { sets.push('text = ?'); vals.push(String(b.text ?? '').slice(0, 2000)); }
+  if ('color' in b) { sets.push('color = ?'); vals.push(String(b.color ?? '').slice(0, 20)); }
+  if ('size' in b) { sets.push('size = ?'); vals.push(Math.max(1, num(b.size, cur.size))); }
+  if ('z' in b) { sets.push('z = ?'); vals.push(Math.trunc(num(b.z, cur.z))); }
+  if (sets.length === 0) { res.json(cur); return; }
+  db.prepare(`UPDATE workbook_page_annotations SET ${sets.join(', ')} WHERE id = ?`).run(...vals, id);
+  res.json(db.prepare('SELECT * FROM workbook_page_annotations WHERE id = ?').get(id) as AnnotationRow);
+});
+
+router.delete('/pages/annotations/:aid', (req: Request, res: Response) => {
+  const id = Number(req.params.aid);
+  db.prepare('DELETE FROM workbook_page_annotations WHERE id = ?').run(id);
+  res.status(204).end();
+});
+
 export default router;

@@ -247,6 +247,30 @@ export async function deletePageImage(imgId: number): Promise<void> {
   await apiClient.delete(`/workbook/pages/images/${imgId}`);
 }
 
+// Freie Annotationen (Pfeile & Textlabels, Migr. 139)
+export interface PageAnnotation {
+  id: number; page_id: number; kind: 'arrow' | 'text';
+  x1: number; y1: number; x2: number; y2: number;
+  text: string; color: string; size: number; z: number; created_at: number;
+}
+export type AnnotationCreate = { kind: 'arrow' | 'text'; x1: number; y1: number; x2?: number; y2?: number; text?: string; color?: string; size?: number };
+export type AnnotationPatch = Partial<Pick<PageAnnotation, 'x1' | 'y1' | 'x2' | 'y2' | 'text' | 'color' | 'size' | 'z'>>;
+export async function fetchAnnotations(pageId: number): Promise<PageAnnotation[]> {
+  const { data } = await apiClient.get<PageAnnotation[]>(`/workbook/pages/${pageId}/annotations`);
+  return data;
+}
+export async function createAnnotation(pageId: number, body: AnnotationCreate): Promise<PageAnnotation> {
+  const { data } = await apiClient.post<PageAnnotation>(`/workbook/pages/${pageId}/annotations`, body);
+  return data;
+}
+export async function updateAnnotation(aid: number, patch: AnnotationPatch): Promise<PageAnnotation> {
+  const { data } = await apiClient.patch<PageAnnotation>(`/workbook/pages/annotations/${aid}`, patch);
+  return data;
+}
+export async function deleteAnnotation(aid: number): Promise<void> {
+  await apiClient.delete(`/workbook/pages/annotations/${aid}`);
+}
+
 // Export
 export interface ExportParams {
   format: 'csv' | 'pdf';
