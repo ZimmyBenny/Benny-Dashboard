@@ -277,6 +277,11 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     setSelectedAnnoId(null);
     deleteAnnotation(id).catch(() => {});
   }
+  function removeImage(id: number) {
+    setPageImages((prev) => prev.filter((p) => p.id !== id));
+    setSelectedImageId(null);
+    deletePageImage(id).catch(() => {});
+  }
   function drawPointerDown(e: React.PointerEvent) {
     if (annoMode === 'none') return;
     const at = computeDropAt(e.clientX, e.clientY);
@@ -458,6 +463,19 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
       }
     };
   }, [page.id, doSave]);
+
+  // Entf/Backspace löscht das ausgewählte Element (nicht beim Text-Tippen).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+      const el = document.activeElement as HTMLElement | null;
+      if (el && (el.isContentEditable || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return;
+      if (selectedAnnoId != null) { e.preventDefault(); removeAnnotation(selectedAnnoId); }
+      else if (selectedImageId != null) { e.preventDefault(); removeImage(selectedImageId); }
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [selectedAnnoId, selectedImageId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleTogglePin() {
     const updated = await togglePin(page.id);
