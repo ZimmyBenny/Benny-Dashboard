@@ -10,6 +10,9 @@ import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
 import { TableHeader } from '@tiptap/extension-table-header';
 import { TableCell } from '@tiptap/extension-table-cell';
+import { TextStyle } from '@tiptap/extension-text-style';
+import { Color } from '@tiptap/extension-color';
+import { Highlight } from '@tiptap/extension-highlight';
 import {
   updatePage, togglePin, toggleArchive, toggleTemplate,
   fetchAttachments, uploadAttachment, deleteAttachment, getAttachmentDownloadUrl,
@@ -402,6 +405,9 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
       TableRow,
       TableHeader,
       TableCell,
+      TextStyle,
+      Color,
+      Highlight.configure({ multicolor: true }),
       EmailCardExtension,
       ImageAttachmentExtension,
     ],
@@ -567,6 +573,14 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
             {iconBtn(false, () => editor?.chain().focus().deleteTable().run(), 'grid_off', 'Tabelle löschen')}
           </>
         )}
+
+        <div style={{ width: '1px', height: '1.2rem', background: 'var(--color-outline-variant)', margin: '0 0.2rem' }} />
+        {iconBtn(editor?.isActive('highlight') ?? false, () => editor?.chain().focus().toggleHighlight({ color: '#fde047' }).run(), 'ink_highlighter', 'Textmarker (gelb)')}
+        {['#ef4444', '#3b82f6', '#22c55e', '#eab308'].map((c) => (
+          <button key={c} type="button" title={`Textfarbe ${c}`} onClick={() => editor?.chain().focus().setColor(c).run()}
+            style={{ width: 15, height: 15, borderRadius: '50%', background: c, border: '1px solid rgba(255,255,255,0.35)', cursor: 'pointer', margin: '0 1px', flexShrink: 0 }} />
+        ))}
+        {iconBtn(false, () => editor?.chain().focus().unsetColor().unsetHighlight().run(), 'format_color_reset', 'Farbe & Marker zurücksetzen')}
 
         {/* Spacer */}
         <div style={{ flex: 1 }} />
