@@ -32,6 +32,9 @@ export function WorkbookPage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [sectionSlideOpen, setSectionSlideOpen] = useState(false);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  // Bereiche & Seiten einklappen (mehr Platz für den Editor), gemerkt
+  const [panelsCollapsed, setPanelsCollapsed] = useState(() => { try { return localStorage.getItem('workbook.panelsCollapsed') === '1'; } catch { return false; } });
+  function togglePanels() { setPanelsCollapsed((v) => { const n = !v; try { localStorage.setItem('workbook.panelsCollapsed', n ? '1' : '0'); } catch { /* ignore */ } return n; }); }
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState<'csv' | 'pdf'>('csv');
   const [exportSectionId, setExportSectionId] = useState<number | null>(null);
@@ -112,6 +115,18 @@ export function WorkbookPage() {
         alignItems: 'center',
         flexShrink: 0,
       }}>
+        <button
+          onClick={togglePanels}
+          title={panelsCollapsed ? 'Bereiche & Seiten einblenden' : 'Bereiche & Seiten ausblenden (mehr Platz)'}
+          style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: '2rem', height: '2rem', marginRight: '0.6rem',
+            background: 'var(--color-surface-container)', color: 'var(--color-on-surface-variant)',
+            border: '1px solid var(--color-outline-variant)', borderRadius: '0.5rem', cursor: 'pointer',
+          }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '1.2rem' }}>{panelsCollapsed ? 'left_panel_open' : 'left_panel_close'}</span>
+        </button>
         <span className="gradient-text" style={{
           fontFamily: 'var(--font-headline)',
           fontWeight: 800,
@@ -146,13 +161,13 @@ export function WorkbookPage() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '240px 280px 1fr',
+          gridTemplateColumns: panelsCollapsed ? '1fr' : '240px 280px 1fr',
           flex: 1,
           overflow: 'hidden',
           background: 'var(--color-surface)',
         }}
       >
-        <SectionList
+        {!panelsCollapsed && (<SectionList
           sections={sections}
           activeId={activeSectionId}
           onSelect={(id) => {
@@ -170,9 +185,9 @@ export function WorkbookPage() {
               setActivePage(null);
             }
           }).catch(() => {})}
-        />
+        />)}
 
-        <PageList
+        {!panelsCollapsed && (<PageList
           pages={pages}
           activeId={activePageId}
           onSelect={setActivePageId}
@@ -190,7 +205,7 @@ export function WorkbookPage() {
               fetchPages({ section_id: activeSectionId }).then(setPages).catch(() => {});
             }
           }}
-        />
+        />)}
 
         {activePage ? (
           <WorkbookEditor
