@@ -473,6 +473,17 @@ body {
   min-height: 400px;
   padding: 1.5rem 2rem;
 }
+/* Weißer-Hintergrund-Umschalter (Arbeitsmappe) — Inhalt auf Weiß mit dunkler Schrift */
+[data-white-bg] { background: #ffffff !important; }
+[data-white-bg] .ProseMirror { color: #1f2937; }
+[data-white-bg] .ProseMirror h1, [data-white-bg] .ProseMirror h2, [data-white-bg] .ProseMirror h3 { color: #111827; }
+[data-white-bg] .ProseMirror a { color: #1d4ed8; }
+[data-white-bg] .ProseMirror blockquote { color: #4b5563; }
+[data-white-bg] .ProseMirror code { background: rgba(0,0,0,0.06); color: #111827; }
+[data-white-bg] .ProseMirror p.is-editor-empty:first-child::before, [data-white-bg] .ProseMirror .is-empty::before { color: #9ca3af; }
+/* Beim PNG-Export den Platzhaltertext ausblenden */
+[data-exporting] .ProseMirror p.is-editor-empty:first-child::before, [data-exporting] .ProseMirror .is-empty::before { content: '' !important; }
+
 .ProseMirror h1 { font-family: var(--font-headline); font-weight: 800; font-size: 2rem; margin: 1.5rem 0 0.75rem; letter-spacing: -0.02em; }
 .ProseMirror h2 { font-family: var(--font-headline); font-weight: 700; font-size: 1.5rem; margin: 1.25rem 0 0.5rem; }
 .ProseMirror h3 { font-family: var(--font-headline); font-weight: 700; font-size: 1.15rem; margin: 1rem 0 0.4rem; }

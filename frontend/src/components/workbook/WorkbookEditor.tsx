@@ -78,6 +78,10 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
   const [selectedAnnoId, setSelectedAnnoId] = useState<number | null>(null);
   const [annoMode, setAnnoMode] = useState<'none' | 'arrow' | 'text'>('none');
   const drawStart = useRef<{ x: number; y: number } | null>(null);
+  const [whiteBg, setWhiteBg] = useState(false);
+  function toggleWhiteBg() {
+    setWhiteBg((v) => { const n = !v; try { window.localStorage.setItem(`workbook.whiteBg.${page.id}`, n ? '1' : '0'); } catch { /* ignore */ } return n; });
+  }
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
   const [taskSlideOverOpen, setTaskSlideOverOpen] = useState(false);
@@ -142,6 +146,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     setSelectedImageId(null);
     setSelectedAnnoId(null);
     setAnnoMode('none');
+    try { setWhiteBg(window.localStorage.getItem(`workbook.whiteBg.${page.id}`) === '1'); } catch { setWhiteBg(false); }
   }, [page.id]);
 
   async function handleUploadFiles(files: FileList | File[]) {
@@ -209,7 +214,24 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     const el = scrollRef.current;
     if (!el) return;
     setSelectedImageId(null);
-    await new Promise((r) => setTimeout(r, 60)); // Auswahl-Handles ausblenden lassen
+    setSelectedAnnoId(null);
+    await new Promise((r) => setTimeout(r, 80)); // Auswahl-Handles ausblenden lassen
+
+    // Blob-/API-Bilder vorab als Data-URL einbetten (html-to-image kann Blob-URLs
+    // sonst nicht rendern -> leerer Kasten).
+    const imgs = Array.from(el.querySelectorAll('img')) as HTMLImageElement[];
+    const originals = imgs.map((im) => im.src);
+    await Promise.all(imgs.map(async (im) => {
+      if (im.src.startsWith('blob:') || im.src.startsWith('http') || im.src.startsWith('/')) {
+        try {
+          const blob = await (await fetch(im.src)).blob();
+          im.src = await new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = rej; r.readAsDataURL(blob); });
+        } catch { /* Bild bleibt wie es ist */ }
+      }
+    }));
+    await Promise.all(imgs.map((im) => im.decode().catch(() => {})));
+
+    el.setAttribute('data-exporting', ''); // blendet den Editor-Platzhalter aus
     try {
       const bg = getComputedStyle(el).backgroundColor || '#0f161e';
       const dataUrl = await toPng(el, {
@@ -224,6 +246,10 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
       a.download = `${(page.title || 'seite').replace(/[/\\:*?"<>|]/g, '').trim() || 'seite'}.png`;
       document.body.appendChild(a); a.click(); a.remove();
     } catch { /* Rendern fehlgeschlagen — ignorieren */ }
+    finally {
+      el.removeAttribute('data-exporting');
+      imgs.forEach((im, i) => { im.src = originals[i]; }); // Blob-URLs wiederherstellen
+    }
   }
 
   // Drop-/Cursor-Position relativ zum Scroll-Container (inkl. Scroll-Offset).
@@ -522,6 +548,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         {iconBtn(false, handleExportPng, 'image', 'Diese Seite als PNG')}
         {iconBtn(annoMode === 'arrow', () => setAnnoMode((m) => (m === 'arrow' ? 'none' : 'arrow')), 'arrow_outward', 'Pfeil zeichnen')}
         {iconBtn(annoMode === 'text', () => setAnnoMode((m) => (m === 'text' ? 'none' : 'text')), 'title', 'Text hinzufügen')}
+        {iconBtn(whiteBg, toggleWhiteBg, 'contrast', 'Weißer Hintergrund')}
 
         {/* Kontakt-Zuordnung */}
         <div style={{ width: '1px', height: '1.2rem', background: 'var(--color-outline-variant)', margin: '0 0.2rem' }} />
@@ -626,6 +653,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
       {/* Editor with drag-and-drop */}
       <div
         ref={scrollRef}
+        data-white-bg={whiteBg ? '' : undefined}
         style={{ flex: 1, overflowY: 'auto', position: 'relative' }}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false); }}
