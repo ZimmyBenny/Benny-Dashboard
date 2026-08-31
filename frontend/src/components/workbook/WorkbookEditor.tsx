@@ -179,6 +179,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
             );
             setPageImages((prev) => [...prev, created]);
             setSelectedImageId(created.id);
+            pushUndo(async () => { setPageImages((f) => f.filter((x) => x.id !== created.id)); setSelectedImageId(null); await deletePageImage(created.id).catch(() => {}); });
             if (at) nextDropAt.current = { x: at.x + 18, y: at.y + 18 }; // mehrere Bilder kaskadieren
           } catch { /* Anlegen fehlgeschlagen — Anhang bleibt */ }
           continue;
@@ -277,8 +278,18 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
       ctx.scale(ratio, ratio);
       ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
       for (const pi of pageImages) {
-        try { const im = await loadImg(await getAttachmentDataUrl(pi.attachment_id)); drawContain(ctx, im, pi.x, pi.y, pi.width, pi.height); }
-        catch { /* Bild überspringen */ }
+        try {
+          const im = await loadImg(await getAttachmentDataUrl(pi.attachment_id));
+          const deg = pi.rotation ?? 0;
+          if (deg) {
+            const ccx = pi.x + pi.width / 2, ccy = pi.y + pi.height / 2;
+            ctx.save(); ctx.translate(ccx, ccy); ctx.rotate(deg * Math.PI / 180); ctx.translate(-ccx, -ccy);
+            drawContain(ctx, im, pi.x, pi.y, pi.width, pi.height);
+            ctx.restore();
+          } else {
+            drawContain(ctx, im, pi.x, pi.y, pi.width, pi.height);
+          }
+        } catch { /* Bild überspringen */ }
       }
       const dom = await loadImg(domUrl);
       ctx.drawImage(dom, 0, 0, W, H);
@@ -304,20 +315,92 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     return { x: clientX - rect.left + el.scrollLeft, y: clientY - rect.top + el.scrollTop };
   }
 
+  // ── Rückgängig (Undo) für freie Elemente: jede Aktion legt ihre Umkehr-Aktion ab ──
+  const undoStack = useRef<Array<() => void | Promise<void>>>([]);
+  const [undoCount, setUndoCount] = useState(0);
+  function pushUndo(fn: () => void | Promise<void>) {
+    undoStack.current.push(fn);
+    if (undoStack.current.length > 60) undoStack.current.shift();
+    setUndoCount(undoStack.current.length);
+  }
+  async function undoLast() {
+    const fn = undoStack.current.pop();
+    setUndoCount(undoStack.current.length);
+    if (fn) { try { await fn(); } catch { /* Umkehr fehlgeschlagen — ignorieren */ } }
+  }
+
   // ── Annotationen ──
-  function commitAnnotation(id: number, patch: AnnotationPatch) {
+  function commitAnnotation(id: number, patch: AnnotationPatch, record = true) {
+    if (record) {
+      const prev = annotations.find((a) => a.id === id);
+      if (prev) {
+        const inv: AnnotationPatch = {};
+        (Object.keys(patch) as (keyof AnnotationPatch)[]).forEach((k) => { (inv as Record<string, unknown>)[k] = (prev as unknown as Record<string, unknown>)[k]; });
+        pushUndo(() => commitAnnotation(id, inv, false));
+      }
+    }
     setAnnotations((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
     updateAnnotation(id, patch).catch(() => {});
   }
-  function removeAnnotation(id: number) {
-    setAnnotations((prev) => prev.filter((a) => a.id !== id));
+  function removeAnnotation(id: number, record = true) {
+    const prev = annotations.find((a) => a.id === id);
+    setAnnotations((p) => p.filter((a) => a.id !== id));
     setSelectedAnnoId(null);
     deleteAnnotation(id).catch(() => {});
+    if (record && prev) pushUndo(async () => {
+      const re = await createAnnotation(page.id, { kind: prev.kind, x1: prev.x1, y1: prev.y1, x2: prev.x2, y2: prev.y2, text: prev.text, color: prev.color, size: prev.size });
+      setAnnotations((p) => [...p, re]); setSelectedAnnoId(re.id); setSelectedImageId(null);
+    });
   }
-  function removeImage(id: number) {
-    setPageImages((prev) => prev.filter((p) => p.id !== id));
+  function commitImage(id: number, patch: Partial<Pick<PageImage, 'x' | 'y' | 'width' | 'height' | 'rotation'>>, record = true) {
+    if (record) {
+      const prev = pageImages.find((p) => p.id === id);
+      if (prev) {
+        const inv: Record<string, unknown> = {};
+        Object.keys(patch).forEach((k) => { inv[k] = (prev as unknown as Record<string, unknown>)[k]; });
+        pushUndo(() => commitImage(id, inv, false));
+      }
+    }
+    setPageImages((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+    updatePageImage(id, patch).catch(() => {});
+  }
+  function removeImage(id: number, record = true) {
+    const prev = pageImages.find((p) => p.id === id);
+    setPageImages((p) => p.filter((x) => x.id !== id));
     setSelectedImageId(null);
     deletePageImage(id).catch(() => {});
+    if (record && prev) pushUndo(async () => {
+      const re = await createPageImage(page.id, { attachment_id: prev.attachment_id, x: prev.x, y: prev.y, width: prev.width, height: prev.height });
+      let created = re;
+      if (prev.rotation) { try { created = await updatePageImage(re.id, { rotation: prev.rotation }); } catch { /* Rotation-Restore optional */ } }
+      setPageImages((p) => [...p, created]); setSelectedImageId(created.id); setSelectedAnnoId(null);
+    });
+  }
+  // Ausgewähltes Element duplizieren (leicht versetzt).
+  async function duplicateSelected() {
+    if (selectedAnnoId != null) {
+      const a = annotations.find((x) => x.id === selectedAnnoId);
+      if (!a) return;
+      const o = 16;
+      const body = a.kind === 'text'
+        ? { kind: a.kind, x1: a.x1 + o, y1: a.y1 + o, text: a.text, color: a.color, size: a.size }
+        : { kind: a.kind, x1: a.x1 + o, y1: a.y1 + o, x2: a.x2 + o, y2: a.y2 + o, color: a.color, size: a.size };
+      try {
+        const re = await createAnnotation(page.id, body);
+        setAnnotations((p) => [...p, re]); setSelectedAnnoId(re.id); setSelectedImageId(null);
+        pushUndo(async () => { setAnnotations((f) => f.filter((x) => x.id !== re.id)); setSelectedAnnoId(null); await deleteAnnotation(re.id).catch(() => {}); });
+      } catch { /* Duplizieren fehlgeschlagen */ }
+    } else if (selectedImageId != null) {
+      const im = pageImages.find((x) => x.id === selectedImageId);
+      if (!im) return;
+      try {
+        const re = await createPageImage(page.id, { attachment_id: im.attachment_id, x: im.x + 16, y: im.y + 16, width: im.width, height: im.height });
+        let created = re;
+        if (im.rotation) { try { created = await updatePageImage(re.id, { rotation: im.rotation }); } catch { /* optional */ } }
+        setPageImages((p) => [...p, created]); setSelectedImageId(created.id); setSelectedAnnoId(null);
+        pushUndo(async () => { setPageImages((f) => f.filter((x) => x.id !== created.id)); setSelectedImageId(null); await deletePageImage(created.id).catch(() => {}); });
+      } catch { /* Duplizieren fehlgeschlagen */ }
+    }
   }
   function drawPointerDown(e: React.PointerEvent) {
     if (annoMode === 'none') return;
@@ -325,7 +408,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     if (!at) return;
     if (annoMode === 'text') {
       createAnnotation(page.id, { kind: 'text', x1: at.x, y1: at.y, color: '#111827', size: 18 })
-        .then((a) => { setAnnotations((prev) => [...prev, a]); setSelectedAnnoId(a.id); }).catch(() => {});
+        .then((a) => { setAnnotations((prev) => [...prev, a]); setSelectedAnnoId(a.id); pushUndo(async () => { setAnnotations((f) => f.filter((x) => x.id !== a.id)); setSelectedAnnoId(null); await deleteAnnotation(a.id).catch(() => {}); }); }).catch(() => {});
       setAnnoMode('none');
       return;
     }
@@ -341,7 +424,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     if (end && (Math.abs(end.x - s.x) > 6 || Math.abs(end.y - s.y) > 6)) {
       const def = kind === 'marker' ? { color: '#fde047', size: 16 } : kind === 'rect' ? { color: '#fde047', size: 2 } : { color: '#ef4444', size: 3 };
       createAnnotation(page.id, { kind, x1: s.x, y1: s.y, x2: end.x, y2: end.y, ...def })
-        .then((a) => { setAnnotations((prev) => [...prev, a]); setSelectedAnnoId(a.id); }).catch(() => {});
+        .then((a) => { setAnnotations((prev) => [...prev, a]); setSelectedAnnoId(a.id); pushUndo(async () => { setAnnotations((f) => f.filter((x) => x.id !== a.id)); setSelectedAnnoId(null); await deleteAnnotation(a.id).catch(() => {}); }); }).catch(() => {});
     }
     setAnnoMode('none');
   }
@@ -505,21 +588,36 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
   // und nicht beim Tippen in einer Textbox oder im Titel/Tags-Feld.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
-      if (selectedAnnoId == null && selectedImageId == null) return; // nichts ausgewählt -> normal editieren
       const el = document.activeElement as HTMLElement | null;
-      // Titel/Tags-Eingabefeld -> normal löschen.
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return;
-      // In einer Text-Annotation getippt (eigenes contentEditable, nicht der Haupt-Editor) -> Text editieren.
-      const sel = annotations.find((a) => a.id === selectedAnnoId);
-      if (sel?.kind === 'text' && el?.isContentEditable && !el.closest?.('.ProseMirror')) return;
-      e.preventDefault();
-      if (selectedAnnoId != null) removeAnnotation(selectedAnnoId);
-      else if (selectedImageId != null) removeImage(selectedImageId);
+      const inField = !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
+      const inProse = !!el?.closest?.('.ProseMirror');
+      const editingText = !!el?.isContentEditable && !inProse; // Textbox-Annotation editieren
+      const meta = e.metaKey || e.ctrlKey;
+
+      // Cmd/Ctrl+D -> ausgewähltes Element duplizieren
+      if (meta && (e.key === 'd' || e.key === 'D')) {
+        if (selectedAnnoId != null || selectedImageId != null) { e.preventDefault(); duplicateSelected(); }
+        return;
+      }
+      // Cmd/Ctrl+Z -> Rückgängig (nur außerhalb von Textfeldern/Editor; dort greift die native Undo)
+      if (meta && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
+        if (!inField && !inProse && !editingText) { e.preventDefault(); undoLast(); }
+        return;
+      }
+      // Entf/Backspace -> ausgewähltes Element löschen
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedAnnoId == null && selectedImageId == null) return; // nichts ausgewählt -> normal editieren
+        if (inField) return; // Titel/Tags-Eingabefeld -> normal löschen
+        const sel = annotations.find((a) => a.id === selectedAnnoId);
+        if (sel?.kind === 'text' && editingText) return; // in Text-Annotation getippt -> Text editieren
+        e.preventDefault();
+        if (selectedAnnoId != null) removeAnnotation(selectedAnnoId);
+        else if (selectedImageId != null) removeImage(selectedImageId);
+      }
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [selectedAnnoId, selectedImageId, annotations]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedAnnoId, selectedImageId, annotations, pageImages]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleTogglePin() {
     const updated = await togglePin(page.id);
@@ -672,6 +770,17 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         {/* Spacer */}
         <div style={{ flex: 1 }} />
 
+        {/* Rückgängig + Duplizieren (freie Elemente) */}
+        <button
+          type="button" onClick={undoLast} disabled={undoCount === 0} title="Rückgängig (Cmd/Ctrl+Z)"
+          style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', background: 'transparent', border: 'none', borderRadius: '0.3rem', cursor: undoCount === 0 ? 'default' : 'pointer', color: undoCount === 0 ? 'var(--color-outline-variant)' : 'var(--color-on-surface-variant)' }}
+        ><span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>undo</span></button>
+        <button
+          type="button" onClick={duplicateSelected} disabled={selectedAnnoId == null && selectedImageId == null} title="Duplizieren (Cmd/Ctrl+D)"
+          style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', background: 'transparent', border: 'none', borderRadius: '0.3rem', cursor: (selectedAnnoId == null && selectedImageId == null) ? 'default' : 'pointer', color: (selectedAnnoId == null && selectedImageId == null) ? 'var(--color-outline-variant)' : 'var(--color-on-surface-variant)' }}
+        ><span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>content_copy</span></button>
+        <div style={{ width: '1px', height: '1.2rem', background: 'var(--color-outline-variant)', margin: '0 0.2rem' }} />
+
         {/* Page actions */}
         {iconBtn(page.is_pinned === 1, handleTogglePin, 'push_pin', page.is_pinned ? 'Pin entfernen' : 'Pinnen')}
         {iconBtn(page.is_archived === 1, handleToggleArchive, 'archive', page.is_archived ? 'Archivierung aufheben' : 'Archivieren')}
@@ -812,15 +921,8 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
             image={img}
             selected={selectedImageId === img.id}
             onSelect={() => setSelectedImageId(img.id)}
-            onCommit={(patch) => {
-              setPageImages((prev) => prev.map((p) => (p.id === img.id ? { ...p, ...patch } : p)));
-              updatePageImage(img.id, patch).catch(() => {});
-            }}
-            onDelete={() => {
-              setPageImages((prev) => prev.filter((p) => p.id !== img.id));
-              setSelectedImageId(null);
-              deletePageImage(img.id).catch(() => {});
-            }}
+            onCommit={(patch) => commitImage(img.id, patch)}
+            onDelete={() => removeImage(img.id)}
             onSnap={(b, opts) => snapFor(`img:${img.id}`, b, opts)}
             onSnapEnd={endSnap}
           />

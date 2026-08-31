@@ -731,7 +731,7 @@ router.delete('/attachments/:id', (req: Request, res: Response) => {
 });
 
 // ── Frei platzierbare Bilder je Seite (Migr. 138) ─────────────────────────────
-interface PageImageRow { id: number; page_id: number; attachment_id: number; x: number; y: number; width: number; height: number; z: number; created_at: number }
+interface PageImageRow { id: number; page_id: number; attachment_id: number; x: number; y: number; width: number; height: number; z: number; rotation: number; created_at: number }
 const num = (v: unknown, d: number) => { const n = Number(v); return Number.isFinite(n) ? n : d; };
 
 router.get('/pages/:id/images', (req: Request, res: Response) => {
@@ -764,6 +764,7 @@ router.patch('/pages/images/:imgId', (req: Request, res: Response) => {
   if ('width' in b) { sets.push('width = ?'); vals.push(Math.max(40, num(b.width, cur.width))); }
   if ('height' in b) { sets.push('height = ?'); vals.push(Math.max(40, num(b.height, cur.height))); }
   if ('z' in b) { sets.push('z = ?'); vals.push(Math.trunc(num(b.z, cur.z))); }
+  if ('rotation' in b) { sets.push('rotation = ?'); vals.push(((num(b.rotation, cur.rotation) % 360) + 360) % 360); }
   if (sets.length === 0) { res.json(cur); return; }
   db.prepare(`UPDATE workbook_page_images SET ${sets.join(', ')} WHERE id = ?`).run(...vals, id);
   res.json(db.prepare('SELECT * FROM workbook_page_images WHERE id = ?').get(id) as PageImageRow);

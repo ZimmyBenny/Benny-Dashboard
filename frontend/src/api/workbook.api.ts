@@ -236,7 +236,7 @@ export async function getAttachmentDataUrl(id: number): Promise<string> {
 // Frei platzierbare Bilder (Migr. 138)
 export interface PageImage {
   id: number; page_id: number; attachment_id: number;
-  x: number; y: number; width: number; height: number; z: number; created_at: number;
+  x: number; y: number; width: number; height: number; z: number; rotation: number; created_at: number;
 }
 export async function fetchPageImages(pageId: number): Promise<PageImage[]> {
   const { data } = await apiClient.get<PageImage[]>(`/workbook/pages/${pageId}/images`);
@@ -246,7 +246,7 @@ export async function createPageImage(pageId: number, body: { attachment_id: num
   const { data } = await apiClient.post<PageImage>(`/workbook/pages/${pageId}/images`, body);
   return data;
 }
-export async function updatePageImage(imgId: number, patch: Partial<Pick<PageImage, 'x' | 'y' | 'width' | 'height' | 'z'>>): Promise<PageImage> {
+export async function updatePageImage(imgId: number, patch: Partial<Pick<PageImage, 'x' | 'y' | 'width' | 'height' | 'z' | 'rotation'>>): Promise<PageImage> {
   const { data } = await apiClient.patch<PageImage>(`/workbook/pages/images/${imgId}`, patch);
   return data;
 }
