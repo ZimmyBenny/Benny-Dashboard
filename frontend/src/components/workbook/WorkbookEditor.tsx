@@ -9,7 +9,7 @@ import CharacterCount from '@tiptap/extension-character-count';
 import {
   updatePage, togglePin, toggleArchive, toggleTemplate,
   fetchAttachments, uploadAttachment, deleteAttachment, getAttachmentDownloadUrl,
-  updatePageContact,
+  updatePageContact, exportWorkbook,
   type Page, type Attachment,
 } from '../../api/workbook.api';
 import { fetchContact } from '../../api/contacts.api';
@@ -396,6 +396,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         {iconBtn(page.is_pinned === 1, handleTogglePin, 'push_pin', page.is_pinned ? 'Pin entfernen' : 'Pinnen')}
         {iconBtn(page.is_archived === 1, handleToggleArchive, 'archive', page.is_archived ? 'Archivierung aufheben' : 'Archivieren')}
         {iconBtn(page.is_template === 1, handleToggleTemplate, 'bookmark', page.is_template ? 'Vorlage entfernen' : 'Als Vorlage')}
+        {iconBtn(false, () => { exportWorkbook({ format: 'pdf', page_id: page.id }).catch(() => {}); }, 'picture_as_pdf', 'Diese Seite als PDF')}
 
         {/* Kontakt-Zuordnung */}
         <div style={{ width: '1px', height: '1.2rem', background: 'var(--color-outline-variant)', margin: '0 0.2rem' }} />

@@ -39,7 +39,7 @@ router.get('/export', (req: Request, res: Response) => {
 
   // Seiten + Section-Name in einem JOIN laden (nur non-archived)
   let sql = `
-    SELECT p.id, p.title, p.content_text, p.tags, p.created_at, p.updated_at,
+    SELECT p.id, p.title, p.content, p.content_text, p.tags, p.created_at, p.updated_at,
            s.name AS section_name
     FROM workbook_pages p
     LEFT JOIN workbook_sections s ON s.id = p.section_id
@@ -60,6 +60,7 @@ router.get('/export', (req: Request, res: Response) => {
   const rows = db.prepare(sql).all(...params) as Array<{
     id: number;
     title: string;
+    content: string | null;
     content_text: string | null;
     tags: string | null;
     created_at: string;
@@ -138,13 +139,142 @@ router.get('/export', (req: Request, res: Response) => {
     doc.fillColor('black');
     doc.moveDown(0.3);
 
-    const body = (r.content_text ?? '').trim() || '(leer)';
-    doc.fontSize(11).text(body, { align: 'left' });
+    renderPageBody(doc, r.content, r.content_text);
     doc.moveDown(0.8);
   }
 
   doc.end();
 });
+
+// ── Strukturierter Renderer: Tiptap-JSON -> PDF ───────────────────────────────
+type TT = { type?: string; text?: string; content?: TT[]; attrs?: Record<string, unknown>; marks?: { type: string; attrs?: Record<string, unknown> }[] };
+type Run = { text: string; bold: boolean; italic: boolean; link?: string };
+
+function fontFor(bold: boolean, italic: boolean): string {
+  if (bold && italic) return 'Helvetica-BoldOblique';
+  if (bold) return 'Helvetica-Bold';
+  if (italic) return 'Helvetica-Oblique';
+  return 'Helvetica';
+}
+
+// Inline-Inhalt eines Blocks in Text-Runs (mit Marks) zerlegen.
+function inlineRuns(node: TT): Run[] {
+  const runs: Run[] = [];
+  const walk = (n: TT) => {
+    if (typeof n.text === 'string') {
+      const marks = n.marks ?? [];
+      runs.push({
+        text: n.text,
+        bold: marks.some(m => m.type === 'bold'),
+        italic: marks.some(m => m.type === 'italic'),
+        link: marks.find(m => m.type === 'link')?.attrs?.href as string | undefined,
+      });
+    } else if (n.type === 'hardBreak') {
+      runs.push({ text: '\n', bold: false, italic: false });
+    } else if (n.content) {
+      n.content.forEach(walk);
+    }
+  };
+  (node.content ?? []).forEach(walk);
+  return runs;
+}
+
+// Runs in einer Zeile ausgeben (pdfkit continued-Verkettung für gemischte Marks).
+function writeInline(doc: PDFKit.PDFDocument, runs: Run[], size: number, forceBold = false, indent = 0) {
+  doc.fontSize(size);
+  if (runs.length === 0) { doc.font('Helvetica').fillColor('black').text('', { indent }); return; }
+  runs.forEach((r, i) => {
+    const last = i === runs.length - 1;
+    doc.font(fontFor(forceBold || r.bold, r.italic));
+    doc.fillColor(r.link ? '#1a56db' : 'black');
+    doc.text(r.text, { continued: !last, underline: !!r.link, indent: i === 0 ? indent : undefined });
+  });
+  doc.font('Helvetica').fillColor('black');
+}
+
+function plainText(node: TT): string {
+  if (typeof node.text === 'string') return node.text;
+  if (node.type === 'hardBreak') return '\n';
+  return (node.content ?? []).map(plainText).join('');
+}
+
+function renderListItem(doc: PDFKit.PDFDocument, li: TT, prefix: string) {
+  const runs: Run[] = [];
+  (li.content ?? []).forEach(child => { runs.push(...inlineRuns(child)); });
+  writeInline(doc, [{ text: prefix, bold: false, italic: false }, ...runs], 11, false, 8);
+}
+
+function renderBlocks(doc: PDFKit.PDFDocument, nodes: TT[]) {
+  for (const node of nodes) {
+    switch (node.type) {
+      case 'heading': {
+        const level = Number(node.attrs?.level ?? 1);
+        const size = level === 1 ? 16 : level === 2 ? 13.5 : 12;
+        doc.moveDown(0.35);
+        writeInline(doc, inlineRuns(node), size, true);
+        doc.moveDown(0.15);
+        break;
+      }
+      case 'paragraph':
+        writeInline(doc, inlineRuns(node), 11);
+        doc.moveDown(0.35);
+        break;
+      case 'bulletList':
+        (node.content ?? []).forEach(li => renderListItem(doc, li, '•  '));
+        doc.moveDown(0.2);
+        break;
+      case 'orderedList':
+        (node.content ?? []).forEach((li, idx) => renderListItem(doc, li, `${idx + 1}.  `));
+        doc.moveDown(0.2);
+        break;
+      case 'taskList':
+        (node.content ?? []).forEach(ti => {
+          const checked = ti.attrs?.checked === true || ti.attrs?.checked === 'true';
+          renderListItem(doc, ti, checked ? '[x]  ' : '[ ]  ');
+        });
+        doc.moveDown(0.2);
+        break;
+      case 'blockquote':
+        doc.fillColor('#555');
+        renderBlocks(doc, node.content ?? []);
+        doc.fillColor('black');
+        break;
+      case 'codeBlock':
+        doc.font('Courier').fontSize(10).fillColor('#333').text(plainText(node), { indent: 8 });
+        doc.font('Helvetica').fillColor('black');
+        doc.moveDown(0.3);
+        break;
+      case 'horizontalRule':
+        doc.moveDown(0.2);
+        doc.strokeColor('#ccc').lineWidth(0.5).moveTo(doc.x, doc.y).lineTo(doc.page.width - doc.page.margins.right, doc.y).stroke();
+        doc.strokeColor('black').moveDown(0.4);
+        break;
+      case 'emailCard': {
+        const a = node.attrs ?? {};
+        doc.fontSize(10).fillColor('#444').font('Helvetica-Bold')
+          .text(`E-Mail: ${String(a.subject ?? '')}${a.from ? ' — ' + String(a.from) : ''}`);
+        if (a.fileName) doc.font('Helvetica').fillColor('#888').text(`Anhang: ${String(a.fileName)}`);
+        doc.font('Helvetica').fillColor('black').moveDown(0.3);
+        break;
+      }
+      default:
+        if (node.content) renderBlocks(doc, node.content);
+    }
+  }
+}
+
+// Seiten-Body rendern; Fallback auf platten Text, wenn JSON leer/kaputt.
+function renderPageBody(doc: PDFKit.PDFDocument, contentJson: string | null, contentText: string | null) {
+  let root: TT | null = null;
+  try { root = contentJson ? (JSON.parse(contentJson) as TT) : null; } catch { root = null; }
+  const blocks = root?.content ?? [];
+  if (blocks.length === 0) {
+    const fallback = (contentText ?? '').trim();
+    doc.font('Helvetica').fontSize(11).fillColor('black').text(fallback || '(leer)');
+    return;
+  }
+  renderBlocks(doc, blocks);
+}
 
 // ── Helper: TipTap-JSON -> plain text ─────────────────────────────────────────
 type TipTapNode = {
