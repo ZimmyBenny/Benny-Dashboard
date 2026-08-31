@@ -509,8 +509,16 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     </button>
   );
 
+  // Unterster Rand aller frei platzierten Elemente -> Scroll-Bereich mindestens so hoch,
+  // damit man sie erreichen kann (absolute Elemente erweitern scrollHeight nicht von selbst).
+  const contentBottom = Math.max(
+    0,
+    ...pageImages.map((i) => i.y + i.height),
+    ...annotations.map((a) => Math.max(a.y1, a.y2) + (a.kind === 'text' ? a.size + 30 : 30)),
+  );
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--color-surface)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: 'var(--color-surface)' }}>
       {/* Toolbar — bleibt beim Scrollen oben fixiert */}
       <div
         style={{
@@ -658,7 +666,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
       <div
         ref={scrollRef}
         data-white-bg={whiteBg ? '' : undefined}
-        style={{ flex: 1, overflowY: 'auto', position: 'relative' }}
+        style={{ flex: 1, minHeight: 0, overflowY: 'auto', position: 'relative' }}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false); }}
         onClick={() => { setSelectedImageId(null); setSelectedAnnoId(null); }}
@@ -673,6 +681,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
           // kein preventDefault bei reinen Text-Drops → TipTap fügt Text normal ein
         }}
       >
+        <div style={{ position: 'relative', minHeight: contentBottom > 0 ? contentBottom : undefined }}>
         <EditorContent editor={editor} />
         {/* Frei platzierbare Bilder */}
         {pageImages.map((img) => (
@@ -700,6 +709,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
           <TextAnnotation key={a.id} anno={a} selected={selectedAnnoId === a.id}
             onSelect={() => setSelectedAnnoId(a.id)} onCommit={(p) => commitAnnotation(a.id, p)} onDelete={() => removeAnnotation(a.id)} />
         )))}
+        </div>
         {/* Zeichnen-Fläche (nur im Pfeil-/Text-Modus) */}
         {annoMode !== 'none' && (
           <div
