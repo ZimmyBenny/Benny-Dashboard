@@ -4,7 +4,7 @@ import { getAttachmentObjectUrl } from '../../api/workbook.api';
 
 // Rendert ein Inline-Bild: lädt den Anhang mit Auth als Object-URL (ein reines
 // <img src="/api/…"> würde am JWT-Header scheitern). Content speichert nur die attachmentId.
-export function ImageNodeView({ node, selected }: NodeViewProps) {
+export function ImageNodeView({ node, selected, deleteNode }: NodeViewProps) {
   const attachmentId = node.attrs.attachmentId as number | null;
   const alt = (node.attrs.alt as string) || '';
   const [url, setUrl] = useState<string | null>(null);
@@ -38,8 +38,14 @@ export function ImageNodeView({ node, selected }: NodeViewProps) {
           }}
         />
       ) : error ? (
-        <div style={{ padding: '0.5rem 0.75rem', border: '1px dashed var(--color-outline-variant)', borderRadius: '0.5rem', color: 'var(--color-on-surface-variant)', fontSize: '0.85rem' }}>
-          Bild konnte nicht geladen werden
+        <div style={{ padding: '0.4rem 0.6rem', border: '1px dashed var(--color-outline-variant)', borderRadius: '0.5rem', color: 'var(--color-on-surface-variant)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <span style={{ flex: 1 }}>Bild nicht mehr verfügbar (Anhang gelöscht)</span>
+          <button
+            type="button"
+            onClick={() => deleteNode()}
+            title="Diesen Platzhalter entfernen"
+            style={{ border: 'none', background: 'rgba(248,113,113,0.15)', color: '#f87171', borderRadius: '0.35rem', padding: '0.15rem 0.5rem', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
+          >Entfernen</button>
         </div>
       ) : (
         <div style={{ padding: '0.5rem 0.75rem', color: 'var(--color-on-surface-variant)', fontSize: '0.85rem' }}>
