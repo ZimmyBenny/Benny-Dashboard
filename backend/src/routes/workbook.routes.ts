@@ -706,12 +706,17 @@ router.post('/pages/:id/attachments', upload.single('file'), (req: Request, res:
 
 router.get('/attachments/:id/download', (req: Request, res: Response) => {
   const row = db.prepare('SELECT * FROM workbook_attachments WHERE id = ?').get(Number(req.params.id)) as {
-    file_name: string; storage_path: string;
+    file_name: string; file_type: string; storage_path: string;
   } | undefined;
   if (!row) { res.status(404).json({ error: 'Anhang nicht gefunden' }); return; }
   const filePath = path.join(UPLOADS_DIR, row.storage_path);
   if (!fs.existsSync(filePath)) { res.status(404).json({ error: 'Datei nicht gefunden' }); return; }
-  res.download(filePath, row.file_name);
+  // res.download scheitert hier (Express 5/send: 404 trotz existierender Datei) ->
+  // stattdessen streamen, wie alle anderen Datei-Routen im Projekt.
+  res.setHeader('Content-Type', row.file_type || 'application/octet-stream');
+  const ascii = (row.file_name || 'datei').replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '');
+  res.setHeader('Content-Disposition', `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(row.file_name || 'datei')}`);
+  fs.createReadStream(filePath).pipe(res);
 });
 
 router.delete('/attachments/:id', (req: Request, res: Response) => {
