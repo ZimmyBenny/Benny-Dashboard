@@ -257,6 +257,24 @@ function renderBlocks(doc: PDFKit.PDFDocument, nodes: TT[]) {
         doc.font('Helvetica').fillColor('black').moveDown(0.3);
         break;
       }
+      case 'imageAttachment': {
+        const attId = Number(node.attrs?.attachmentId);
+        if (Number.isInteger(attId)) {
+          const att = db.prepare('SELECT storage_path FROM workbook_attachments WHERE id = ?').get(attId) as { storage_path: string } | undefined;
+          if (att) {
+            const p = path.join(UPLOADS_DIR, att.storage_path);
+            if (fs.existsSync(p)) {
+              try {
+                const contentWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+                doc.moveDown(0.2);
+                doc.image(p, { fit: [contentWidth, 400] }); // pdfkit: nur PNG/JPEG, links (Default)
+                doc.moveDown(0.4);
+              } catch { /* nicht unterstütztes Bildformat -> überspringen */ }
+            }
+          }
+        }
+        break;
+      }
       default:
         if (node.content) renderBlocks(doc, node.content);
     }

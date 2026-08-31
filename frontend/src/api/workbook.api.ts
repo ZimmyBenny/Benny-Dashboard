@@ -219,6 +219,13 @@ export function getAttachmentDownloadUrl(id: number): string {
   return `/api/workbook/attachments/${id}/download`;
 }
 
+// Anhang mit Auth als Object-URL laden (für Inline-Bilder — <img src> kann keinen
+// JWT-Header senden, deshalb via apiClient holen).
+export async function getAttachmentObjectUrl(id: number): Promise<string> {
+  const response = await apiClient.get(`/workbook/attachments/${id}/download`, { responseType: 'blob' });
+  return URL.createObjectURL(response.data as Blob);
+}
+
 // Export
 export interface ExportParams {
   format: 'csv' | 'pdf';

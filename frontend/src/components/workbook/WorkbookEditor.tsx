@@ -19,6 +19,7 @@ import { createTask, deleteTask } from '../../api/tasks.api';
 import type { Task } from '../../api/tasks.api';
 import { TaskSlideOver } from '../tasks/TaskSlideOver';
 import { EmailCardExtension } from '../../lib/EmailCardExtension';
+import { ImageAttachmentExtension } from '../../lib/ImageAttachmentExtension';
 import { parseEml } from '../../lib/parseEml';
 
 interface WorkbookEditorProps {
@@ -132,6 +133,15 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         const att = await uploadAttachment(page.id, file);
         setAttachments((prev) => [...prev, att]);
 
+        // Bild-Dateien: inline als Bild-Node in den Editor einfügen
+        if (file.type.startsWith('image/') && editorRef.current) {
+          editorRef.current
+            .chain().focus()
+            .insertContent({ type: 'imageAttachment', attrs: { attachmentId: att.id, alt: file.name } })
+            .run();
+          continue;
+        }
+
         // .eml-Dateien: zusätzlich als Email-Vorschau-Card in den Editor einfügen
         const isEml =
           file.name.toLowerCase().endsWith('.eml') ||
@@ -236,6 +246,24 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         }
         return false;
       },
+      handlePaste: (_view, event) => {
+        const items = event.clipboardData?.items;
+        if (!items) return false;
+        const imgs: File[] = [];
+        for (let i = 0; i < items.length; i++) {
+          const it = items[i];
+          if (it.kind === 'file' && it.type.startsWith('image/')) {
+            const f = it.getAsFile();
+            if (f) imgs.push(f);
+          }
+        }
+        if (imgs.length > 0) {
+          event.preventDefault();
+          handleUploadFiles(imgs);
+          return true;
+        }
+        return false;
+      },
     },
     extensions: [
       StarterKit,
@@ -248,6 +276,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
       Placeholder.configure({ placeholder: 'Hier tippen — Seite bearbeiten...' }),
       CharacterCount,
       EmailCardExtension,
+      ImageAttachmentExtension,
     ],
     content: (() => {
       try {
