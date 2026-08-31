@@ -226,6 +226,27 @@ export async function getAttachmentObjectUrl(id: number): Promise<string> {
   return URL.createObjectURL(response.data as Blob);
 }
 
+// Frei platzierbare Bilder (Migr. 138)
+export interface PageImage {
+  id: number; page_id: number; attachment_id: number;
+  x: number; y: number; width: number; height: number; z: number; created_at: number;
+}
+export async function fetchPageImages(pageId: number): Promise<PageImage[]> {
+  const { data } = await apiClient.get<PageImage[]>(`/workbook/pages/${pageId}/images`);
+  return data;
+}
+export async function createPageImage(pageId: number, body: { attachment_id: number; x?: number; y?: number; width?: number; height?: number }): Promise<PageImage> {
+  const { data } = await apiClient.post<PageImage>(`/workbook/pages/${pageId}/images`, body);
+  return data;
+}
+export async function updatePageImage(imgId: number, patch: Partial<Pick<PageImage, 'x' | 'y' | 'width' | 'height' | 'z'>>): Promise<PageImage> {
+  const { data } = await apiClient.patch<PageImage>(`/workbook/pages/images/${imgId}`, patch);
+  return data;
+}
+export async function deletePageImage(imgId: number): Promise<void> {
+  await apiClient.delete(`/workbook/pages/images/${imgId}`);
+}
+
 // Export
 export interface ExportParams {
   format: 'csv' | 'pdf';

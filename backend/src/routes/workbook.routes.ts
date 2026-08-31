@@ -140,6 +140,21 @@ router.get('/export', (req: Request, res: Response) => {
     doc.moveDown(0.3);
 
     renderPageBody(doc, r.content, r.content_text);
+    // Frei platzierte Bilder der Seite anhängen (pixelgenaue Position im PDF: später)
+    const pageImgs = db.prepare(
+      `SELECT a.storage_path FROM workbook_page_images pi
+       JOIN workbook_attachments a ON a.id = pi.attachment_id
+       WHERE pi.page_id = ? ORDER BY pi.z, pi.id`,
+    ).all(r.id) as { storage_path: string }[];
+    for (const im of pageImgs) {
+      const p = path.join(UPLOADS_DIR, im.storage_path);
+      if (fs.existsSync(p)) {
+        try {
+          doc.moveDown(0.3);
+          doc.image(p, { fit: [doc.page.width - doc.page.margins.left - doc.page.margins.right, 400] });
+        } catch { /* nicht unterstütztes Format */ }
+      }
+    }
     doc.moveDown(0.8);
   }
 
@@ -707,6 +722,59 @@ router.delete('/attachments/:id', (req: Request, res: Response) => {
   const filePath = path.join(UPLOADS_DIR, row.storage_path);
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
   db.prepare('DELETE FROM workbook_attachments WHERE id = ?').run(Number(req.params.id));
+  res.status(204).end();
+});
+
+// ── Frei platzierbare Bilder je Seite (Migr. 138) ─────────────────────────────
+interface PageImageRow { id: number; page_id: number; attachment_id: number; x: number; y: number; width: number; height: number; z: number; created_at: number }
+const num = (v: unknown, d: number) => { const n = Number(v); return Number.isFinite(n) ? n : d; };
+
+router.get('/pages/:id/images', (req: Request, res: Response) => {
+  const pageId = Number(req.params.id);
+  const rows = db.prepare('SELECT * FROM workbook_page_images WHERE page_id = ? ORDER BY z, id').all(pageId) as PageImageRow[];
+  res.json(rows);
+});
+
+router.post('/pages/:id/images', (req: Request, res: Response) => {
+  const pageId = Number(req.params.id);
+  const b = (req.body ?? {}) as Record<string, unknown>;
+  const attId = Number(b.attachment_id);
+  if (!Number.isInteger(attId)) { res.status(400).json({ error: 'attachment_id fehlt' }); return; }
+  const maxZ = (db.prepare('SELECT COALESCE(MAX(z),0) AS m FROM workbook_page_images WHERE page_id = ?').get(pageId) as { m: number }).m;
+  const r = db.prepare(
+    `INSERT INTO workbook_page_images (page_id, attachment_id, x, y, width, height, z)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run(pageId, attId, Math.max(0, num(b.x, 20)), Math.max(0, num(b.y, 20)), Math.max(40, num(b.width, 300)), Math.max(40, num(b.height, 200)), maxZ + 1);
+  res.status(201).json(db.prepare('SELECT * FROM workbook_page_images WHERE id = ?').get(r.lastInsertRowid) as PageImageRow);
+});
+
+router.patch('/pages/images/:imgId', (req: Request, res: Response) => {
+  const id = Number(req.params.imgId);
+  const cur = db.prepare('SELECT * FROM workbook_page_images WHERE id = ?').get(id) as PageImageRow | undefined;
+  if (!cur) { res.status(404).json({ error: 'not found' }); return; }
+  const b = (req.body ?? {}) as Record<string, unknown>;
+  const sets: string[] = []; const vals: unknown[] = [];
+  if ('x' in b) { sets.push('x = ?'); vals.push(Math.max(0, num(b.x, cur.x))); }
+  if ('y' in b) { sets.push('y = ?'); vals.push(Math.max(0, num(b.y, cur.y))); }
+  if ('width' in b) { sets.push('width = ?'); vals.push(Math.max(40, num(b.width, cur.width))); }
+  if ('height' in b) { sets.push('height = ?'); vals.push(Math.max(40, num(b.height, cur.height))); }
+  if ('z' in b) { sets.push('z = ?'); vals.push(Math.trunc(num(b.z, cur.z))); }
+  if (sets.length === 0) { res.json(cur); return; }
+  db.prepare(`UPDATE workbook_page_images SET ${sets.join(', ')} WHERE id = ?`).run(...vals, id);
+  res.json(db.prepare('SELECT * FROM workbook_page_images WHERE id = ?').get(id) as PageImageRow);
+});
+
+// Löscht Bild-Zeile UND den zugehörigen Anhang (Datei + Zeile; page_image cascaded).
+router.delete('/pages/images/:imgId', (req: Request, res: Response) => {
+  const id = Number(req.params.imgId);
+  const img = db.prepare('SELECT attachment_id FROM workbook_page_images WHERE id = ?').get(id) as { attachment_id: number } | undefined;
+  if (!img) { res.status(404).json({ error: 'not found' }); return; }
+  const att = db.prepare('SELECT storage_path FROM workbook_attachments WHERE id = ?').get(img.attachment_id) as { storage_path: string } | undefined;
+  if (att) {
+    const fp = path.join(UPLOADS_DIR, att.storage_path);
+    if (fs.existsSync(fp)) { try { fs.unlinkSync(fp); } catch { /* schon weg */ } }
+  }
+  db.prepare('DELETE FROM workbook_attachments WHERE id = ?').run(img.attachment_id); // cascaded page_image
   res.status(204).end();
 });
 

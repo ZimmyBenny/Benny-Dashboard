@@ -10,8 +10,10 @@ import {
   updatePage, togglePin, toggleArchive, toggleTemplate,
   fetchAttachments, uploadAttachment, deleteAttachment, getAttachmentDownloadUrl,
   updatePageContact, exportWorkbook,
-  type Page, type Attachment,
+  fetchPageImages, createPageImage, updatePageImage, deletePageImage,
+  type Page, type Attachment, type PageImage,
 } from '../../api/workbook.api';
+import { FloatingImage } from './FloatingImage';
 import { fetchContact } from '../../api/contacts.api';
 import { ContactPicker } from './ContactPicker';
 import type { SaveStatus } from '../../pages/WorkbookPage';
@@ -63,6 +65,11 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const uploadingRef = useRef(false);
+  // Frei platzierbare Bilder
+  const [pageImages, setPageImages] = useState<PageImage[]>([]);
+  const [selectedImageId, setSelectedImageId] = useState<number | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const nextDropAt = useRef<{ x: number; y: number } | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
   const [taskSlideOverOpen, setTaskSlideOverOpen] = useState(false);
@@ -122,6 +129,8 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
   // Load attachments when page changes
   useEffect(() => {
     fetchAttachments(page.id).then(setAttachments).catch(() => {});
+    fetchPageImages(page.id).then(setPageImages).catch(() => setPageImages([]));
+    setSelectedImageId(null);
   }, [page.id]);
 
   async function handleUploadFiles(files: FileList | File[]) {
@@ -133,12 +142,18 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         const att = await uploadAttachment(page.id, file);
         setAttachments((prev) => [...prev, att]);
 
-        // Bild-Dateien: inline als Bild-Node in den Editor einfügen
-        if (file.type.startsWith('image/') && editorRef.current) {
-          editorRef.current
-            .chain().focus()
-            .insertContent({ type: 'imageAttachment', attrs: { attachmentId: att.id, alt: file.name } })
-            .run();
+        // Bild-Dateien: als frei platzierbares Bild an der Drop-Stelle anlegen
+        if (file.type.startsWith('image/')) {
+          const at = nextDropAt.current;
+          try {
+            const created = await createPageImage(
+              page.id,
+              at ? { attachment_id: att.id, x: Math.round(at.x), y: Math.round(at.y) } : { attachment_id: att.id },
+            );
+            setPageImages((prev) => [...prev, created]);
+            setSelectedImageId(created.id);
+            if (at) nextDropAt.current = { x: at.x + 18, y: at.y + 18 }; // mehrere Bilder kaskadieren
+          } catch { /* Anlegen fehlgeschlagen — Anhang bleibt */ }
           continue;
         }
 
@@ -174,7 +189,16 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     } finally {
       uploadingRef.current = false;
       setUploading(false);
+      nextDropAt.current = null;
     }
+  }
+
+  // Drop-/Cursor-Position relativ zum Scroll-Container (inkl. Scroll-Offset).
+  function computeDropAt(clientX: number, clientY: number): { x: number; y: number } | null {
+    const el = scrollRef.current;
+    if (!el) return null;
+    const rect = el.getBoundingClientRect();
+    return { x: clientX - rect.left + el.scrollLeft, y: clientY - rect.top + el.scrollTop };
   }
 
   async function handleDeleteAttachment(id: number) {
@@ -241,6 +265,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         if (files.length > 0) {
           event.preventDefault();
           setDragOver(false);
+          nextDropAt.current = computeDropAt(event.clientX, event.clientY);
           handleUploadFiles(files);
           return true;
         }
@@ -529,20 +554,41 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
 
       {/* Editor with drag-and-drop */}
       <div
+        ref={scrollRef}
         style={{ flex: 1, overflowY: 'auto', position: 'relative' }}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false); }}
+        onClick={() => setSelectedImageId(null)}
         onDrop={(e) => {
           setDragOver(false);
           const files = extractDropFiles(e.dataTransfer);
           if (files.length > 0) {
             e.preventDefault(); // nur verhindern wenn wir selbst verarbeiten
+            nextDropAt.current = computeDropAt(e.clientX, e.clientY);
             handleUploadFiles(files);
           }
           // kein preventDefault bei reinen Text-Drops → TipTap fügt Text normal ein
         }}
       >
         <EditorContent editor={editor} />
+        {/* Frei platzierbare Bilder */}
+        {pageImages.map((img) => (
+          <FloatingImage
+            key={img.id}
+            image={img}
+            selected={selectedImageId === img.id}
+            onSelect={() => setSelectedImageId(img.id)}
+            onCommit={(patch) => {
+              setPageImages((prev) => prev.map((p) => (p.id === img.id ? { ...p, ...patch } : p)));
+              updatePageImage(img.id, patch).catch(() => {});
+            }}
+            onDelete={() => {
+              setPageImages((prev) => prev.filter((p) => p.id !== img.id));
+              setSelectedImageId(null);
+              deletePageImage(img.id).catch(() => {});
+            }}
+          />
+        ))}
         {dragOver && (
           <div style={{
             position: 'absolute', inset: 0, zIndex: 10,
