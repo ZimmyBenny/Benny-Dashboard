@@ -6,6 +6,10 @@ import TaskItem from '@tiptap/extension-task-item';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import CharacterCount from '@tiptap/extension-character-count';
+import { Table } from '@tiptap/extension-table';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TableHeader } from '@tiptap/extension-table-header';
+import { TableCell } from '@tiptap/extension-table-cell';
 import {
   updatePage, togglePin, toggleArchive, toggleTemplate,
   fetchAttachments, uploadAttachment, deleteAttachment, getAttachmentDownloadUrl,
@@ -394,6 +398,10 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
       }),
       Placeholder.configure({ placeholder: 'Hier tippen — Seite bearbeiten...' }),
       CharacterCount,
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableHeader,
+      TableCell,
       EmailCardExtension,
       ImageAttachmentExtension,
     ],
@@ -548,6 +556,17 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         {iconBtn(editor?.isActive('blockquote') ?? false, () => editor?.chain().focus().toggleBlockquote().run(), 'format_quote', 'Zitat')}
         {iconBtn(editor?.isActive('code') ?? false, () => editor?.chain().focus().toggleCode().run(), 'code', 'Code')}
         {iconBtn(editor?.isActive('link') ?? false, handleAddLink, 'link', 'Link einfügen')}
+        <div style={{ width: '1px', height: '1.2rem', background: 'var(--color-outline-variant)', margin: '0 0.2rem' }} />
+        {iconBtn(false, () => editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(), 'grid_on', 'Tabelle einfügen')}
+        {editor?.isActive('table') && (
+          <>
+            {iconBtn(false, () => editor?.chain().focus().addColumnAfter().run(), 'view_column', 'Spalte hinzufügen')}
+            {iconBtn(false, () => editor?.chain().focus().addRowAfter().run(), 'table_rows', 'Zeile hinzufügen')}
+            {iconBtn(false, () => editor?.chain().focus().deleteColumn().run(), 'variables', 'Spalte löschen')}
+            {iconBtn(false, () => editor?.chain().focus().deleteRow().run(), 'delete_sweep', 'Zeile löschen')}
+            {iconBtn(false, () => editor?.chain().focus().deleteTable().run(), 'grid_off', 'Tabelle löschen')}
+          </>
+        )}
 
         {/* Spacer */}
         <div style={{ flex: 1 }} />
