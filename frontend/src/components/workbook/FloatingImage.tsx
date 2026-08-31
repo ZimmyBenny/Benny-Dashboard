@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { getAttachmentDataUrl, type PageImage } from '../../api/workbook.api';
+import type { Bounds, SnapOpts } from './alignGuides';
 
 interface Props {
   image: PageImage;
@@ -7,6 +8,8 @@ interface Props {
   onSelect: () => void;
   onCommit: (patch: Partial<Pick<PageImage, 'x' | 'y' | 'width' | 'height'>>) => void;
   onDelete: () => void;
+  onSnap?: (b: Bounds, opts?: SnapOpts) => { dx: number; dy: number };
+  onSnapEnd?: () => void;
 }
 
 type DragState =
@@ -14,7 +17,7 @@ type DragState =
   | { mode: 'resize'; px: number; ow: number; oh: number; ratio: number }
   | null;
 
-export function FloatingImage({ image, selected, onSelect, onCommit, onDelete }: Props) {
+export function FloatingImage({ image, selected, onSelect, onCommit, onDelete, onSnap, onSnapEnd }: Props) {
   const [url, setUrl] = useState<string | null>(null);
   const [pos, setPos] = useState({ x: image.x, y: image.y, width: image.width, height: image.height });
   const drag = useRef<DragState>(null);
@@ -53,9 +56,13 @@ export function FloatingImage({ image, selected, onSelect, onCommit, onDelete }:
     const d = drag.current;
     if (!d) return;
     if (d.mode === 'move') {
-      setPos((p) => ({ ...p, x: Math.max(0, d.ox + (e.clientX - d.px)), y: Math.max(0, d.oy + (e.clientY - d.py)) }));
+      let nx = Math.max(0, d.ox + (e.clientX - d.px));
+      let ny = Math.max(0, d.oy + (e.clientY - d.py));
+      if (onSnap) { const s = onSnap({ left: nx, top: ny, right: nx + pos.width, bottom: ny + pos.height }); nx = Math.max(0, nx + s.dx); ny = Math.max(0, ny + s.dy); }
+      setPos((p) => ({ ...p, x: nx, y: ny }));
     } else {
-      const w = Math.max(40, d.ow + (e.clientX - d.px));
+      let w = Math.max(40, d.ow + (e.clientX - d.px));
+      if (onSnap) { const s = onSnap({ left: pos.x, top: pos.y, right: pos.x + w, bottom: pos.y + Math.round(w * d.ratio) }, { xEdges: ['right'], yEdges: [] }); w = Math.max(40, w + s.dx); }
       setPos((p) => ({ ...p, width: w, height: Math.max(40, Math.round(w * d.ratio)) }));
     }
   }
@@ -64,12 +71,14 @@ export function FloatingImage({ image, selected, onSelect, onCommit, onDelete }:
     if (!d) return;
     (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
     drag.current = null;
+    onSnapEnd?.();
     if (d.mode === 'move') onCommit({ x: Math.round(pos.x), y: Math.round(pos.y) });
     else onCommit({ width: Math.round(pos.width), height: Math.round(pos.height) });
   }
 
   return (
     <div
+      data-floating-image=""
       onPointerDown={onMovePointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -78,12 +87,15 @@ export function FloatingImage({ image, selected, onSelect, onCommit, onDelete }:
         position: 'absolute',
         left: pos.x, top: pos.y, width: pos.width, height: pos.height,
         cursor: 'move', touchAction: 'none', userSelect: 'none',
-        outline: selected ? '2px solid var(--color-primary)' : '1px solid rgba(255,255,255,0.12)',
+        outline: selected ? '2px solid var(--color-primary)' : '1px solid rgba(127,127,127,0.25)',
         outlineOffset: '1px', borderRadius: '0.4rem', overflow: 'hidden',
-        zIndex: selected ? 30 : 10, background: 'var(--color-surface-container)',
+        zIndex: selected ? 30 : 10,
+        // Bild als background-image (kein <img>): html-to-image bettet Data-URL-
+        // Hintergründe zuverlässig ein (<img object-fit> kam im Export schwarz raus).
+        // Hintergrund transparent -> kein schwarzer Rahmen/Letterbox mehr.
+        background: url ? `transparent center / contain no-repeat url("${url}")` : 'transparent',
       }}
     >
-      {url && <img src={url} draggable={false} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', pointerEvents: 'none' }} />}
 
       {selected && (
         <>

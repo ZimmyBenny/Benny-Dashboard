@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PageAnnotation, AnnotationPatch } from '../../api/workbook.api';
+import type { Bounds, SnapOpts } from './alignGuides';
 
 export const ANNO_PALETTE = ['#ef4444', '#3b82f6', '#22c55e', '#eab308', '#ffffff', '#111827'];
 
@@ -9,6 +10,8 @@ interface Props {
   onSelect: () => void;
   onCommit: (patch: AnnotationPatch) => void;
   onDelete: () => void;
+  onSnap?: (b: Bounds, opts?: SnapOpts) => { dx: number; dy: number };
+  onSnapEnd?: () => void;
 }
 
 // Kompakte Steuerleiste (Farben, optional Schriftgröße, Löschen) über dem Element.
@@ -46,7 +49,7 @@ function Controls({ anno, left, top, onCommit, onDelete }: { anno: PageAnnotatio
 }
 const ctrlBtn: React.CSSProperties = { background: 'none', border: 'none', color: 'var(--color-on-surface)', cursor: 'pointer', fontSize: 12, fontWeight: 700, padding: '0 3px' };
 
-export function ArrowAnnotation({ anno, selected, onSelect, onCommit, onDelete }: Props) {
+export function ArrowAnnotation({ anno, selected, onSelect, onCommit, onDelete, onSnap, onSnapEnd }: Props) {
   const [p, setP] = useState({ x1: anno.x1, y1: anno.y1, x2: anno.x2, y2: anno.y2 });
   const drag = useRef<{ mode: 'move' | 'p1' | 'p2'; px: number; py: number; o: typeof p } | null>(null);
   useEffect(() => { if (!drag.current) setP({ x1: anno.x1, y1: anno.y1, x2: anno.x2, y2: anno.y2 }); }, [anno.x1, anno.y1, anno.x2, anno.y2]);
@@ -69,8 +72,15 @@ export function ArrowAnnotation({ anno, selected, onSelect, onCommit, onDelete }
   }
   function move(e: React.PointerEvent) {
     const d = drag.current; if (!d) return;
-    const dx = e.clientX - d.px, dy = e.clientY - d.py;
-    if (d.mode === 'move') setP({ x1: d.o.x1 + dx, y1: d.o.y1 + dy, x2: d.o.x2 + dx, y2: d.o.y2 + dy });
+    let dx = e.clientX - d.px, dy = e.clientY - d.py;
+    if (d.mode === 'move') {
+      if (onSnap) {
+        const L = Math.min(d.o.x1, d.o.x2) + dx, T = Math.min(d.o.y1, d.o.y2) + dy;
+        const R = Math.max(d.o.x1, d.o.x2) + dx, B = Math.max(d.o.y1, d.o.y2) + dy;
+        const s = onSnap({ left: L, top: T, right: R, bottom: B }); dx += s.dx; dy += s.dy;
+      }
+      setP({ x1: d.o.x1 + dx, y1: d.o.y1 + dy, x2: d.o.x2 + dx, y2: d.o.y2 + dy });
+    }
     else if (d.mode === 'p1') setP((q) => ({ ...q, x1: Math.max(0, d.o.x1 + dx), y1: Math.max(0, d.o.y1 + dy) }));
     else setP((q) => ({ ...q, x2: Math.max(0, d.o.x2 + dx), y2: Math.max(0, d.o.y2 + dy) }));
   }
@@ -78,6 +88,7 @@ export function ArrowAnnotation({ anno, selected, onSelect, onCommit, onDelete }
     if (!drag.current) return;
     (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
     drag.current = null;
+    onSnapEnd?.();
     onCommit({ x1: Math.round(p.x1), y1: Math.round(p.y1), x2: Math.round(p.x2), y2: Math.round(p.y2) });
   }
 
@@ -108,7 +119,7 @@ export function ArrowAnnotation({ anno, selected, onSelect, onCommit, onDelete }
   );
 }
 
-export function TextAnnotation({ anno, selected, onSelect, onCommit, onDelete }: Props) {
+export function TextAnnotation({ anno, selected, onSelect, onCommit, onDelete, onSnap, onSnapEnd }: Props) {
   const [pos, setPos] = useState({ x: anno.x1, y: anno.y1 });
   const drag = useRef<{ px: number; py: number; ox: number; oy: number } | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -123,11 +134,17 @@ export function TextAnnotation({ anno, selected, onSelect, onCommit, onDelete }:
   }
   function gripMove(e: React.PointerEvent) {
     const d = drag.current; if (!d) return;
-    setPos({ x: Math.max(0, d.ox + (e.clientX - d.px)), y: Math.max(0, d.oy + (e.clientY - d.py)) });
+    let nx = Math.max(0, d.ox + (e.clientX - d.px)), ny = Math.max(0, d.oy + (e.clientY - d.py));
+    if (onSnap && bodyRef.current) {
+      const w = bodyRef.current.offsetWidth, h = bodyRef.current.offsetHeight;
+      const s = onSnap({ left: nx, top: ny, right: nx + w, bottom: ny + h }); nx = Math.max(0, nx + s.dx); ny = Math.max(0, ny + s.dy);
+    }
+    setPos({ x: nx, y: ny });
   }
   function gripUp(e: React.PointerEvent) {
     if (!drag.current) return;
     (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId); drag.current = null;
+    onSnapEnd?.();
     onCommit({ x1: Math.round(pos.x), y1: Math.round(pos.y) });
   }
 
@@ -159,7 +176,7 @@ export function TextAnnotation({ anno, selected, onSelect, onCommit, onDelete }:
 }
 
 // Halbtransparentes Markier-Rechteck (Bereich einrahmen, auch über Bildern).
-export function RectAnnotation({ anno, selected, onSelect, onCommit, onDelete }: Props) {
+export function RectAnnotation({ anno, selected, onSelect, onCommit, onDelete, onSnap, onSnapEnd }: Props) {
   const [p, setP] = useState({ x1: anno.x1, y1: anno.y1, x2: anno.x2, y2: anno.y2 });
   const drag = useRef<{ mode: 'move' | 'resize'; px: number; py: number; o: typeof p } | null>(null);
   useEffect(() => { if (!drag.current) setP({ x1: anno.x1, y1: anno.y1, x2: anno.x2, y2: anno.y2 }); }, [anno.x1, anno.y1, anno.x2, anno.y2]);
@@ -172,13 +189,27 @@ export function RectAnnotation({ anno, selected, onSelect, onCommit, onDelete }:
   }
   function move(e: React.PointerEvent) {
     const d = drag.current; if (!d) return;
-    const dx = e.clientX - d.px, dy = e.clientY - d.py;
-    if (d.mode === 'move') setP({ x1: d.o.x1 + dx, y1: d.o.y1 + dy, x2: d.o.x2 + dx, y2: d.o.y2 + dy });
-    else setP((q) => ({ ...q, x2: d.o.x2 + dx, y2: d.o.y2 + dy }));
+    let dx = e.clientX - d.px, dy = e.clientY - d.py;
+    if (d.mode === 'move') {
+      if (onSnap) {
+        const L = Math.min(d.o.x1, d.o.x2) + dx, T = Math.min(d.o.y1, d.o.y2) + dy;
+        const R = Math.max(d.o.x1, d.o.x2) + dx, B = Math.max(d.o.y1, d.o.y2) + dy;
+        const s = onSnap({ left: L, top: T, right: R, bottom: B }); dx += s.dx; dy += s.dy;
+      }
+      setP({ x1: d.o.x1 + dx, y1: d.o.y1 + dy, x2: d.o.x2 + dx, y2: d.o.y2 + dy });
+    } else {
+      let nx2 = d.o.x2 + dx, ny2 = d.o.y2 + dy;
+      if (onSnap) {
+        const L = Math.min(d.o.x1, nx2), T = Math.min(d.o.y1, ny2), R = Math.max(d.o.x1, nx2), B = Math.max(d.o.y1, ny2);
+        const s = onSnap({ left: L, top: T, right: R, bottom: B }, { xEdges: ['right'], yEdges: ['bottom'] }); nx2 += s.dx; ny2 += s.dy;
+      }
+      setP((q) => ({ ...q, x2: nx2, y2: ny2 }));
+    }
   }
   function up(e: React.PointerEvent) {
     if (!drag.current) return;
     (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId); drag.current = null;
+    onSnapEnd?.();
     onCommit({ x1: Math.round(p.x1), y1: Math.round(p.y1), x2: Math.round(p.x2), y2: Math.round(p.y2) });
   }
   return (

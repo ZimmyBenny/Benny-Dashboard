@@ -19,10 +19,12 @@ import {
   updatePageContact, exportWorkbook,
   fetchPageImages, createPageImage, updatePageImage, deletePageImage,
   fetchAnnotations, createAnnotation, updateAnnotation, deleteAnnotation,
+  getAttachmentDataUrl,
   type Page, type Attachment, type PageImage, type PageAnnotation, type AnnotationPatch,
 } from '../../api/workbook.api';
 import { FloatingImage } from './FloatingImage';
 import { ArrowAnnotation, TextAnnotation, RectAnnotation } from './WorkbookAnnotations';
+import { snapBounds, type Bounds, type Guide, type SnapOpts } from './alignGuides';
 import { toPng } from 'html-to-image';
 import { fetchContact } from '../../api/contacts.api';
 import { ContactPicker } from './ContactPicker';
@@ -85,6 +87,8 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
   const [selectedAnnoId, setSelectedAnnoId] = useState<number | null>(null);
   const [annoMode, setAnnoMode] = useState<'none' | 'arrow' | 'text' | 'marker' | 'rect'>('none');
   const drawStart = useRef<{ x: number; y: number } | null>(null);
+  // Smart-Guides: Ausrichtungslinien beim Ziehen frei platzierter Elemente.
+  const [guides, setGuides] = useState<Guide[]>([]);
   const [whiteBg, setWhiteBg] = useState(false);
   function toggleWhiteBg() {
     setWhiteBg((v) => { const n = !v; try { window.localStorage.setItem(`workbook.whiteBg.${page.id}`, n ? '1' : '0'); } catch { /* ignore */ } return n; });
@@ -217,6 +221,17 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
   }
 
   // Ganze Seite (Text + freie Bilder) als PNG exportieren.
+  function loadImg(src: string): Promise<HTMLImageElement> {
+    return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+  }
+  // Ein Bild mit "contain"-Logik in eine Box zeichnen (wie objectFit: contain).
+  function drawContain(ctx: CanvasRenderingContext2D, im: HTMLImageElement, x: number, y: number, w: number, h: number) {
+    const ar = im.naturalWidth / im.naturalHeight || 1, boxAr = w / h;
+    let dw: number, dh: number;
+    if (ar > boxAr) { dw = w; dh = w / ar; } else { dh = h; dw = h * ar; }
+    ctx.drawImage(im, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+  }
+
   async function handleExportPng() {
     const el = scrollRef.current;
     if (!el) return;
@@ -224,8 +239,22 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     setSelectedAnnoId(null);
     await new Promise((r) => setTimeout(r, 80)); // Auswahl-Handles ausblenden lassen
 
-    // Blob-/API-Bilder vorab als Data-URL einbetten (html-to-image kann Blob-URLs
-    // sonst nicht rendern -> leerer Kasten).
+    const W = el.scrollWidth, H = el.scrollHeight, ratio = 2;
+    const bg = getComputedStyle(el).backgroundColor || '#0f161e';
+
+    // Frei platzierte Fotos zeichnet html-to-image bei großen Bildern nicht ins
+    // foreignObject -> stattdessen später per Canvas darunter zeichnen. Deshalb
+    // hier ausblenden und die Text-/Annotationsebene TRANSPARENT abgreifen.
+    const floatEls = Array.from(el.querySelectorAll('[data-floating-image]')) as HTMLElement[];
+    const prevVis = floatEls.map((f) => f.style.visibility);
+    floatEls.forEach((f) => { f.style.visibility = 'hidden'; });
+    // Container-Hintergrund transparent erzwingen (Weiß-Modus nutzt !important) —
+    // sonst würde das DOM-Bild die darunter gezeichneten Fotos zudecken.
+    const prevBg = el.style.background;
+    el.style.setProperty('background', 'transparent', 'important');
+    el.setAttribute('data-exporting', ''); // blendet den Editor-Platzhalter aus
+
+    // Inline-Bilder im Text als Data-URL einbetten (Blob-URLs rendert es nicht).
     const imgs = Array.from(el.querySelectorAll('img')) as HTMLImageElement[];
     const originals = imgs.map((im) => im.src);
     await Promise.all(imgs.map(async (im) => {
@@ -236,26 +265,34 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         } catch { /* Bild bleibt wie es ist */ }
       }
     }));
-    await Promise.all(imgs.map((im) => im.decode().catch(() => {})));
 
-    el.setAttribute('data-exporting', ''); // blendet den Editor-Platzhalter aus
     try {
-      const bg = getComputedStyle(el).backgroundColor || '#0f161e';
-      const dataUrl = await toPng(el, {
-        backgroundColor: bg,
-        width: el.scrollWidth,
-        height: el.scrollHeight,
-        pixelRatio: 2,
-        style: { overflow: 'visible' },
-      });
+      // 1) Text + Annotationen transparent abgreifen
+      const domUrl = await toPng(el, { width: W, height: H, pixelRatio: ratio, style: { overflow: 'visible' } });
+
+      // 2) Canvas komponieren: Hintergrund -> Fotos -> Text/Annotationen darüber
+      const canvas = document.createElement('canvas');
+      canvas.width = W * ratio; canvas.height = H * ratio;
+      const ctx = canvas.getContext('2d')!;
+      ctx.scale(ratio, ratio);
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+      for (const pi of pageImages) {
+        try { const im = await loadImg(await getAttachmentDataUrl(pi.attachment_id)); drawContain(ctx, im, pi.x, pi.y, pi.width, pi.height); }
+        catch { /* Bild überspringen */ }
+      }
+      const dom = await loadImg(domUrl);
+      ctx.drawImage(dom, 0, 0, W, H);
+
       const a = document.createElement('a');
-      a.href = dataUrl;
+      a.href = canvas.toDataURL('image/png');
       a.download = `${(page.title || 'seite').replace(/[/\\:*?"<>|]/g, '').trim() || 'seite'}.png`;
       document.body.appendChild(a); a.click(); a.remove();
     } catch { /* Rendern fehlgeschlagen — ignorieren */ }
     finally {
       el.removeAttribute('data-exporting');
-      imgs.forEach((im, i) => { im.src = originals[i]; }); // Blob-URLs wiederherstellen
+      if (prevBg) el.style.background = prevBg; else el.style.removeProperty('background');
+      floatEls.forEach((f, i) => { f.style.visibility = prevVis[i]; });
+      imgs.forEach((im, i) => { im.src = originals[i]; });
     }
   }
 
@@ -558,6 +595,29 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     ...annotations.map((a) => Math.max(a.y1, a.y2) + (a.kind === 'text' ? a.size + 30 : 30)),
   );
 
+  // Bounding-Boxen aller frei platzierten Elemente (mit UID) für die Smart-Guides.
+  function elementBounds(): { uid: string; b: Bounds }[] {
+    const out: { uid: string; b: Bounds }[] = [];
+    for (const i of pageImages) out.push({ uid: `img:${i.id}`, b: { left: i.x, top: i.y, right: i.x + i.width, bottom: i.y + i.height } });
+    for (const a of annotations) {
+      if (a.kind === 'text') {
+        const w = Math.max(20, (a.text.length || 3) * a.size * 0.5), h = a.size * 1.4;
+        out.push({ uid: `ann:${a.id}`, b: { left: a.x1, top: a.y1, right: a.x1 + w, bottom: a.y1 + h } });
+      } else {
+        out.push({ uid: `ann:${a.id}`, b: { left: Math.min(a.x1, a.x2), top: Math.min(a.y1, a.y2), right: Math.max(a.x1, a.x2), bottom: Math.max(a.y1, a.y2) } });
+      }
+    }
+    return out;
+  }
+  // Während des Ziehens gegen alle anderen Elemente einrasten + Linien setzen.
+  function snapFor(uid: string, moving: Bounds, opts?: SnapOpts): { dx: number; dy: number } {
+    const targets = elementBounds().filter((t) => t.uid !== uid).map((t) => t.b);
+    const res = snapBounds(moving, targets, opts);
+    setGuides(res.guides);
+    return { dx: res.dx, dy: res.dy };
+  }
+  function endSnap() { setGuides([]); }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: 'var(--color-surface)' }}>
       {/* Toolbar — bleibt beim Scrollen oben fixiert */}
@@ -761,16 +821,27 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
               setSelectedImageId(null);
               deletePageImage(img.id).catch(() => {});
             }}
+            onSnap={(b, opts) => snapFor(`img:${img.id}`, b, opts)}
+            onSnapEnd={endSnap}
           />
         ))}
         {/* Annotationen: Pfeile, Marker, Rechtecke & Text */}
         {annotations.map((a) => {
           const common = { key: a.id, anno: a, selected: selectedAnnoId === a.id,
-            onSelect: () => setSelectedAnnoId(a.id), onCommit: (p: AnnotationPatch) => commitAnnotation(a.id, p), onDelete: () => removeAnnotation(a.id) };
+            onSelect: () => setSelectedAnnoId(a.id), onCommit: (p: AnnotationPatch) => commitAnnotation(a.id, p), onDelete: () => removeAnnotation(a.id),
+            onSnap: (b: Bounds, opts?: SnapOpts) => snapFor(`ann:${a.id}`, b, opts), onSnapEnd: endSnap };
           if (a.kind === 'rect') return <RectAnnotation {...common} />;
           if (a.kind === 'text') return <TextAnnotation {...common} />;
           return <ArrowAnnotation {...common} />; // arrow + marker
         })}
+        {/* Smart-Guides: Ausrichtungslinien beim Ziehen */}
+        {guides.length > 0 && (
+          <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', overflow: 'visible', pointerEvents: 'none', zIndex: 70 }}>
+            {guides.map((g, i) => g.axis === 'v'
+              ? <line key={i} x1={g.pos} y1={g.start} x2={g.pos} y2={g.end} stroke="#ff2d95" strokeWidth={1} shapeRendering="crispEdges" />
+              : <line key={i} x1={g.start} y1={g.pos} x2={g.end} y2={g.pos} stroke="#ff2d95" strokeWidth={1} shapeRendering="crispEdges" />)}
+          </svg>
+        )}
         </div>
         {/* Zeichnen-Fläche (nur im Pfeil-/Text-Modus) */}
         {annoMode !== 'none' && (
