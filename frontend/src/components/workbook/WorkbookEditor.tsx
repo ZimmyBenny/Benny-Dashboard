@@ -511,9 +511,13 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--color-surface)' }}>
-      {/* Toolbar */}
+      {/* Toolbar — bleibt beim Scrollen oben fixiert */}
       <div
         style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 30,
+          background: 'var(--color-surface)',
           borderBottom: '1px solid var(--color-outline-variant)',
           padding: '0.5rem 1rem',
           display: 'flex',
