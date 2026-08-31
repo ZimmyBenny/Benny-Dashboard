@@ -16,6 +16,7 @@ function Controls({ anno, left, top, onCommit, onDelete }: { anno: PageAnnotatio
   return (
     <div
       onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
       style={{
         position: 'absolute', left, top: top - 34, zIndex: 60,
         display: 'flex', alignItems: 'center', gap: 4, padding: '3px 5px', borderRadius: 8,
@@ -26,10 +27,16 @@ function Controls({ anno, left, top, onCommit, onDelete }: { anno: PageAnnotatio
         <button key={c} type="button" title={c} onClick={() => onCommit({ color: c })}
           style={{ width: 16, height: 16, borderRadius: '50%', background: c, cursor: 'pointer', border: anno.color === c ? '2px solid var(--color-primary)' : '1px solid rgba(255,255,255,0.3)' }} />
       ))}
-      {anno.kind === 'text' && (
+      {anno.kind === 'text' ? (
         <>
           <button type="button" title="Kleiner" onClick={() => onCommit({ size: Math.max(10, anno.size - 2) })} style={ctrlBtn}>A−</button>
           <button type="button" title="Größer" onClick={() => onCommit({ size: Math.min(72, anno.size + 2) })} style={ctrlBtn}>A+</button>
+        </>
+      ) : (
+        <>
+          <button type="button" title="Dünner" onClick={() => onCommit({ size: Math.max(1, anno.size - 1) })} style={ctrlBtn}>–</button>
+          <span style={{ fontSize: 11, color: 'var(--color-on-surface-variant)', minWidth: 22, textAlign: 'center' }}>{anno.size}px</span>
+          <button type="button" title="Dicker" onClick={() => onCommit({ size: Math.min(16, anno.size + 1) })} style={ctrlBtn}>+</button>
         </>
       )}
       <button type="button" title="Löschen" onClick={onDelete} style={{ ...ctrlBtn, color: '#f87171' }}>✕</button>
@@ -79,10 +86,12 @@ export function ArrowAnnotation({ anno, selected, onSelect, onCommit, onDelete }
         <polygon points={head} fill={anno.color} />
         {/* Trefferlinie */}
         <line x1={sx} y1={sy} x2={ex} y2={ey} stroke="transparent" strokeWidth={Math.max(16, anno.size + 12)} style={{ pointerEvents: 'stroke', cursor: 'move' }}
+          onClick={(e) => e.stopPropagation()}
           onPointerDown={(e) => start('move', e)} onPointerMove={move} onPointerUp={up} />
         {selected && (['p1', 'p2'] as const).map((k) => {
           const cx = k === 'p1' ? sx : ex, cy = k === 'p1' ? sy : ey;
           return <circle key={k} cx={cx} cy={cy} r={7} fill="var(--color-primary)" stroke="#fff" strokeWidth={1.5} style={{ pointerEvents: 'auto', cursor: 'grab' }}
+            onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => start(k, e)} onPointerMove={move} onPointerUp={up} />;
         })}
       </svg>
@@ -119,6 +128,7 @@ export function TextAnnotation({ anno, selected, onSelect, onCommit, onDelete }:
       <div style={{ position: 'absolute', left: pos.x, top: pos.y, zIndex: selected ? 50 : 20, pointerEvents: 'auto' }}>
         {selected && (
           <div onPointerDown={gripDown} onPointerMove={gripMove} onPointerUp={gripUp}
+            onClick={(e) => e.stopPropagation()}
             title="Verschieben"
             style={{ position: 'absolute', left: -18, top: 0, width: 16, height: 16, borderRadius: 4, background: 'var(--color-primary)', cursor: 'move', touchAction: 'none' }} />
         )}
