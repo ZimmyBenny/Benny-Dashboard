@@ -189,8 +189,8 @@ export async function generateEventPdf(eventId: number): Promise<Buffer> {
   const contact = event.customer_id
     ? (db.prepare(
         `SELECT id, contact_kind, salutation, first_name, last_name, organization_name, customer_number,
-                (SELECT value FROM contact_emails WHERE contact_id = c.id AND is_primary = 1 LIMIT 1) AS email,
-                (SELECT value FROM contact_phones WHERE contact_id = c.id AND is_primary = 1 LIMIT 1) AS phone
+                (SELECT email FROM contact_emails WHERE contact_id = c.id AND is_primary = 1 LIMIT 1) AS email,
+                (SELECT phone FROM contact_phones WHERE contact_id = c.id AND is_primary = 1 LIMIT 1) AS phone
          FROM contacts c WHERE id = ?`
       ).get(event.customer_id) as ContactRow | undefined)
     : undefined;
