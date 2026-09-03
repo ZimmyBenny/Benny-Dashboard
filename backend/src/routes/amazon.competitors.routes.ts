@@ -28,7 +28,7 @@ interface CompetitorRow {
   id: number; product_id: number; sort_order: number;
   asin: string; url: string; title: string; subtitle: string; brand: string; price: string;
   rating: number | null; reviews: number | null; checked_on: string;
-  strengths: string; weaknesses: string; differentiation: string;
+  strengths: string; weaknesses: string; differentiation: string; neutral: string;
   is_main: number; created_at: number; updated_at: number;
 }
 interface FileRow { id: number; competitor_id: number; sort_order: number; file_path: string; original_name: string | null; mime: string | null; created_at: number; }
@@ -102,7 +102,7 @@ router.patch('/products/:id/competitors/reorder', (req: Request, res: Response) 
 });
 
 // ── PATCH: Feld-Update ──
-const TEXT_FIELDS = ['asin', 'url', 'title', 'subtitle', 'brand', 'price', 'checked_on', 'strengths', 'weaknesses', 'differentiation'] as const;
+const TEXT_FIELDS = ['asin', 'url', 'title', 'subtitle', 'brand', 'price', 'checked_on', 'strengths', 'weaknesses', 'differentiation', 'neutral'] as const;
 router.patch('/products/:id/competitors/:cid', (req: Request, res: Response) => {
   const id = Number(req.params.id); const cid = Number(req.params.cid);
   if (!Number.isInteger(id) || !Number.isInteger(cid) || !loadCompetitor(id, cid)) { res.status(404).json({ error: 'not found' }); return; }
@@ -110,7 +110,7 @@ router.patch('/products/:id/competitors/:cid', (req: Request, res: Response) => 
   const sets: string[] = []; const vals: unknown[] = [];
   for (const f of TEXT_FIELDS) {
     if (f in body) {
-      const limit = (f === 'subtitle' || f === 'strengths' || f === 'weaknesses' || f === 'differentiation') ? MAX_LONG : MAX_SHORT;
+      const limit = (f === 'subtitle' || f === 'strengths' || f === 'weaknesses' || f === 'differentiation' || f === 'neutral') ? MAX_LONG : MAX_SHORT;
       sets.push(`${f} = ?`); vals.push(String(body[f] ?? '').slice(0, limit));
     }
   }

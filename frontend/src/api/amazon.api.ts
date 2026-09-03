@@ -1150,7 +1150,7 @@ export interface Competitor {
   id: number; product_id: number; sort_order: number;
   asin: string; url: string; title: string; subtitle: string; brand: string; price: string;
   rating: number | null; reviews: number | null; checked_on: string;
-  strengths: string; weaknesses: string; differentiation: string;
+  strengths: string; weaknesses: string; differentiation: string; neutral: string;
   is_main: number;
   created_at: number; updated_at: number;
   files: CompetitorFile[];
@@ -1158,7 +1158,7 @@ export interface Competitor {
 export type CompetitorPatch = Partial<{
   asin: string; url: string; title: string; subtitle: string; brand: string; price: string;
   rating: number | null; reviews: number | null; checked_on: string;
-  strengths: string; weaknesses: string; differentiation: string;
+  strengths: string; weaknesses: string; differentiation: string; neutral: string;
   is_main: 0 | 1;
 }>;
 

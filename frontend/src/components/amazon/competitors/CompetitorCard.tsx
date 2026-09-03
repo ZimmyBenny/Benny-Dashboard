@@ -102,6 +102,7 @@ export function CompetitorCard({ productId, competitor, onRequestDelete }: {
   const [checkedOn, setCheckedOn] = useState(competitor.checked_on);
   const [strengths, setStrengths] = useState(competitor.strengths);
   const [weaknesses, setWeaknesses] = useState(competitor.weaknesses);
+  const [neutral, setNeutral] = useState(competitor.neutral);
   const [differentiation, setDifferentiation] = useState(competitor.differentiation);
 
   // Bei Server-Änderung (z.B. Reorder/Reload) nachziehen.
@@ -110,7 +111,7 @@ export function CompetitorCard({ productId, competitor, onRequestDelete }: {
     setRating(competitor.rating == null ? '' : String(competitor.rating));
     setReviews(competitor.reviews == null ? '' : String(competitor.reviews));
     setCheckedOn(competitor.checked_on);
-    setStrengths(competitor.strengths); setWeaknesses(competitor.weaknesses); setDifferentiation(competitor.differentiation);
+    setStrengths(competitor.strengths); setWeaknesses(competitor.weaknesses); setNeutral(competitor.neutral); setDifferentiation(competitor.differentiation);
   }, [competitor]);
 
   const dateRef = useRef<HTMLInputElement | null>(null);
@@ -229,10 +230,11 @@ export function CompetitorCard({ productId, competitor, onRequestDelete }: {
         </div>
       </div>
 
-      {/* Analyse: Stärken · Schwächen · Differenzierung */}
+      {/* Analyse: Stärken · Schwächen · Neutral · Differenzierung */}
       <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
         <Field label="Stärken" value={strengths} onChange={(v) => { setStrengths(v); saveDebounced({ strengths: v }); }} />
         <Field label="Schwächen" value={weaknesses} onChange={(v) => { setWeaknesses(v); saveDebounced({ weaknesses: v }); }} />
+        <Field label="Neutral (z.B. Kartonstärke, Maße)" value={neutral} onChange={(v) => { setNeutral(v); saveDebounced({ neutral: v }); }} />
         <Field label="Meine Differenzierung" value={differentiation} onChange={(v) => { setDifferentiation(v); saveDebounced({ differentiation: v }); }} />
       </div>
 
