@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { deleteSection, updateSection, reorderSections, type Section } from '../../api/workbook.api';
+import { deleteSection, updateSection, reorderSections, duplicateSection, type Section } from '../../api/workbook.api';
 
 interface SectionListProps {
   sections: Section[];
@@ -28,6 +28,13 @@ export function SectionList({ sections, activeId, onSelect, onNew, onReload }: S
     e.stopPropagation();
     if (!window.confirm(`Bereich "${name}" und alle Seiten darin wirklich löschen?`)) return;
     await deleteSection(id);
+    onReload();
+  }
+
+  async function handleDuplicate(e: React.MouseEvent, section: Section) {
+    e.stopPropagation();
+    if (!window.confirm(`Bereich "${section.name}" mit allen Seiten duplizieren?`)) return;
+    await duplicateSection(section.id);
     onReload();
   }
 
@@ -229,6 +236,20 @@ export function SectionList({ sections, activeId, onSelect, onNew, onReload }: S
               </span>
               <button
                 className="section-action-btn"
+                title="Bereich duplizieren"
+                onClick={(e) => handleDuplicate(e, section)}
+                style={{
+                  opacity: 0, background: 'transparent', border: 'none',
+                  cursor: 'pointer', padding: '0.1rem', display: 'flex',
+                  alignItems: 'center', color: 'var(--color-on-surface-variant)',
+                  transition: 'opacity 0.15s', flexShrink: 0,
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '0.9rem' }}>content_copy</span>
+              </button>
+              <button
+                className="section-action-btn"
+                title="Umbenennen"
                 onClick={(e) => handleRename(e, section)}
                 style={{
                   opacity: 0, background: 'transparent', border: 'none',

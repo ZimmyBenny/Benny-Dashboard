@@ -19,11 +19,11 @@ import {
   updatePageContact, exportWorkbook,
   fetchPageImages, createPageImage, updatePageImage, deletePageImage,
   fetchAnnotations, createAnnotation, updateAnnotation, deleteAnnotation,
-  getAttachmentDataUrl,
+  getAttachmentDataUrl, setPageSent,
   type Page, type Attachment, type PageImage, type PageAnnotation, type AnnotationPatch,
 } from '../../api/workbook.api';
 import { FloatingImage } from './FloatingImage';
-import { ArrowAnnotation, TextAnnotation, RectAnnotation } from './WorkbookAnnotations';
+import { ArrowAnnotation, TextAnnotation, RectAnnotation, XAnnotation, DrawAnnotation, HBracketAnnotation } from './WorkbookAnnotations';
 import { snapBounds, type Bounds, type Guide, type SnapOpts } from './alignGuides';
 import { toPng } from 'html-to-image';
 import { fetchContact } from '../../api/contacts.api';
@@ -34,6 +34,7 @@ import type { Task } from '../../api/tasks.api';
 import { TaskSlideOver } from '../tasks/TaskSlideOver';
 import { EmailCardExtension } from '../../lib/EmailCardExtension';
 import { ImageAttachmentExtension } from '../../lib/ImageAttachmentExtension';
+import { SectionBlockExtension } from '../../lib/SectionBlockExtension';
 import { parseEml } from '../../lib/parseEml';
 
 interface WorkbookEditorProps {
@@ -79,16 +80,34 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
   const uploadingRef = useRef(false);
   // Frei platzierbare Bilder
   const [pageImages, setPageImages] = useState<PageImage[]>([]);
-  const [selectedImageId, setSelectedImageId] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const nextDropAt = useRef<{ x: number; y: number } | null>(null);
   // Annotationen (Pfeile & Text)
   const [annotations, setAnnotations] = useState<PageAnnotation[]>([]);
-  const [selectedAnnoId, setSelectedAnnoId] = useState<number | null>(null);
-  const [annoMode, setAnnoMode] = useState<'none' | 'arrow' | 'text' | 'marker' | 'rect'>('none');
+  const [annoMode, setAnnoMode] = useState<'none' | 'arrow' | 'text' | 'marker' | 'rect' | 'x' | 'draw' | 'bracket'>('none');
+  const freePts = useRef<{ x: number; y: number }[]>([]);
+  const [freePreview, setFreePreview] = useState<{ x: number; y: number }[] | null>(null);
   const drawStart = useRef<{ x: number; y: number } | null>(null);
   // Smart-Guides: Ausrichtungslinien beim Ziehen frei platzierter Elemente.
   const [guides, setGuides] = useState<Guide[]>([]);
+  // Mehrfachauswahl freier Elemente (uid = "img:<id>" | "ann:<id>").
+  // selNodes ist die EINZIGE Quelle der Wahrheit; Einzelauswahl wird daraus abgeleitet.
+  const [selNodes, setSelNodes] = useState<Set<string>>(new Set());
+  const singleUid = selNodes.size === 1 ? [...selNodes][0] : null;
+  const selectedImageId = singleUid && singleUid.startsWith('img:') ? Number(singleUid.slice(4)) : null;
+  const selectedAnnoId = singleUid && singleUid.startsWith('ann:') ? Number(singleUid.slice(4)) : null;
+  const setSelectedImageId = (id: number | null) => setSelNodes(id == null ? new Set() : new Set([`img:${id}`]));
+  const setSelectedAnnoId = (id: number | null) => setSelNodes(id == null ? new Set() : new Set([`ann:${id}`]));
+  const [marqueeMode, setMarqueeMode] = useState(false); // "Auswählen"-Werkzeug aktiv
+  const [attachmentsOpen, setAttachmentsOpen] = useState(false); // Anhänge-Liste standardmäßig eingeklappt
+  const [marquee, setMarquee] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+  const marqueeStart = useRef<{ x: number; y: number } | null>(null);
+  const suppressDeselectClick = useRef(false);
+  const groupDrag = useRef<{ px: number; py: number; snap: Array<{ uid: string; kind: 'img' | 'text' | 'shape'; o: { x1: number; y1: number; x2: number; y2: number } }> } | null>(null);
+  const [zoom, setZoom] = useState(1); // Seitenzoom (0.4 – 1.5)
+  const zoomRef = useRef(1);
+  zoomRef.current = zoom;
+  function setZoomClamped(z: number) { setZoom(Math.min(1.5, Math.max(0.4, Math.round(z * 100) / 100))); }
   const [whiteBg, setWhiteBg] = useState(false);
   function toggleWhiteBg() {
     setWhiteBg((v) => { const n = !v; try { window.localStorage.setItem(`workbook.whiteBg.${page.id}`, n ? '1' : '0'); } catch { /* ignore */ } return n; });
@@ -221,6 +240,21 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     }
   }
 
+  // Bilder INLINE in einen Bereich einfügen (nicht als frei platzierte Seiten-Elemente).
+  async function insertImagesIntoSection(files: File[], atPos: number) {
+    const imgs = files.filter((f) => f.type.startsWith('image/'));
+    if (imgs.length === 0) return;
+    const nodes: Array<{ type: string; attrs: { attachmentId: number } }> = [];
+    for (const file of imgs) {
+      try {
+        const att = await uploadAttachment(page.id, file);
+        setAttachments((prev) => [...prev, att]);
+        nodes.push({ type: 'imageAttachment', attrs: { attachmentId: att.id } });
+      } catch { /* einzelnes Bild übersprungen */ }
+    }
+    if (nodes.length) editorRef.current?.chain().insertContentAt(atPos, nodes).run();
+  }
+
   // Ganze Seite (Text + freie Bilder) als PNG exportieren.
   function loadImg(src: string): Promise<HTMLImageElement> {
     return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
@@ -238,7 +272,12 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     if (!el) return;
     setSelectedImageId(null);
     setSelectedAnnoId(null);
-    await new Promise((r) => setTimeout(r, 80)); // Auswahl-Handles ausblenden lassen
+    // Zoom für den Export auf 100% neutralisieren (Canvas-Bilder rechnen in
+    // Element-Koordinaten; sonst passen DOM-Abbild und Fotos nicht zusammen).
+    const zoomWrap = el.querySelector(':scope > div') as HTMLElement | null;
+    const prevZoomStyle = zoomWrap?.style.zoom ?? '';
+    if (zoomWrap) zoomWrap.style.zoom = '1';
+    await new Promise((r) => setTimeout(r, 80)); // Auswahl-Handles ausblenden + Reflow
 
     const W = el.scrollWidth, H = el.scrollHeight, ratio = 2;
     const bg = getComputedStyle(el).backgroundColor || '#0f161e';
@@ -302,6 +341,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     finally {
       el.removeAttribute('data-exporting');
       if (prevBg) el.style.background = prevBg; else el.style.removeProperty('background');
+      if (zoomWrap) zoomWrap.style.zoom = prevZoomStyle;
       floatEls.forEach((f, i) => { f.style.visibility = prevVis[i]; });
       imgs.forEach((im, i) => { im.src = originals[i]; });
     }
@@ -312,7 +352,8 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     const el = scrollRef.current;
     if (!el) return null;
     const rect = el.getBoundingClientRect();
-    return { x: clientX - rect.left + el.scrollLeft, y: clientY - rect.top + el.scrollTop };
+    const z = zoomRef.current || 1;
+    return { x: (clientX - rect.left + el.scrollLeft) / z, y: (clientY - rect.top + el.scrollTop) / z };
   }
 
   // ── Rückgängig (Undo) für freie Elemente: jede Aktion legt ihre Umkehr-Aktion ab ──
@@ -349,7 +390,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     deleteAnnotation(id).catch(() => {});
     if (record && prev) pushUndo(async () => {
       const re = await createAnnotation(page.id, { kind: prev.kind, x1: prev.x1, y1: prev.y1, x2: prev.x2, y2: prev.y2, text: prev.text, color: prev.color, size: prev.size });
-      setAnnotations((p) => [...p, re]); setSelectedAnnoId(re.id); setSelectedImageId(null);
+      setAnnotations((p) => [...p, re]); setSelectedAnnoId(re.id);
     });
   }
   function commitImage(id: number, patch: Partial<Pick<PageImage, 'x' | 'y' | 'width' | 'height' | 'rotation'>>, record = true) {
@@ -376,8 +417,31 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
       setPageImages((p) => [...p, created]); setSelectedImageId(created.id); setSelectedAnnoId(null);
     });
   }
-  // Ausgewähltes Element duplizieren (leicht versetzt).
+  // Ausgewählte(s) Element(e) duplizieren (leicht versetzt).
   async function duplicateSelected() {
+    // Mehrfachauswahl -> alle duplizieren, danach die Kopien auswählen.
+    if (selNodes.size > 1) {
+      const o = 16; const newUids = new Set<string>();
+      for (const uid of [...selNodes]) {
+        try {
+          if (uid.startsWith('ann:')) {
+            const a = annotations.find((x) => x.id === Number(uid.slice(4))); if (!a) continue;
+            const body = a.kind === 'text'
+              ? { kind: a.kind, x1: a.x1 + o, y1: a.y1 + o, text: a.text, color: a.color, size: a.size }
+              : { kind: a.kind, x1: a.x1 + o, y1: a.y1 + o, x2: a.x2 + o, y2: a.y2 + o, color: a.color, size: a.size };
+            const re = await createAnnotation(page.id, body); setAnnotations((p) => [...p, re]); newUids.add(`ann:${re.id}`);
+          } else {
+            const im = pageImages.find((x) => x.id === Number(uid.slice(4))); if (!im) continue;
+            const re = await createPageImage(page.id, { attachment_id: im.attachment_id, x: im.x + o, y: im.y + o, width: im.width, height: im.height });
+            let c = re; if (im.rotation) { try { c = await updatePageImage(re.id, { rotation: im.rotation }); } catch { /* opt */ } }
+            setPageImages((p) => [...p, c]); newUids.add(`img:${c.id}`);
+          }
+        } catch { /* einzelnes Duplikat übersprungen */ }
+      }
+      setSelNodes(newUids);
+      pushUndo(async () => { for (const u of newUids) { if (u.startsWith('ann:')) { setAnnotations((f) => f.filter((x) => x.id !== Number(u.slice(4)))); await deleteAnnotation(Number(u.slice(4))).catch(() => {}); } else { setPageImages((f) => f.filter((x) => x.id !== Number(u.slice(4)))); await deletePageImage(Number(u.slice(4))).catch(() => {}); } } setSingleSel(null); });
+      return;
+    }
     if (selectedAnnoId != null) {
       const a = annotations.find((x) => x.id === selectedAnnoId);
       if (!a) return;
@@ -387,7 +451,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         : { kind: a.kind, x1: a.x1 + o, y1: a.y1 + o, x2: a.x2 + o, y2: a.y2 + o, color: a.color, size: a.size };
       try {
         const re = await createAnnotation(page.id, body);
-        setAnnotations((p) => [...p, re]); setSelectedAnnoId(re.id); setSelectedImageId(null);
+        setAnnotations((p) => [...p, re]); setSelectedAnnoId(re.id);
         pushUndo(async () => { setAnnotations((f) => f.filter((x) => x.id !== re.id)); setSelectedAnnoId(null); await deleteAnnotation(re.id).catch(() => {}); });
       } catch { /* Duplizieren fehlgeschlagen */ }
     } else if (selectedImageId != null) {
@@ -397,7 +461,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         const re = await createPageImage(page.id, { attachment_id: im.attachment_id, x: im.x + 16, y: im.y + 16, width: im.width, height: im.height });
         let created = re;
         if (im.rotation) { try { created = await updatePageImage(re.id, { rotation: im.rotation }); } catch { /* optional */ } }
-        setPageImages((p) => [...p, created]); setSelectedImageId(created.id); setSelectedAnnoId(null);
+        setPageImages((p) => [...p, created]); setSelectedImageId(created.id);
         pushUndo(async () => { setPageImages((f) => f.filter((x) => x.id !== created.id)); setSelectedImageId(null); await deletePageImage(created.id).catch(() => {}); });
       } catch { /* Duplizieren fehlgeschlagen */ }
     }
@@ -412,17 +476,43 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
       setAnnoMode('none');
       return;
     }
+    if (annoMode === 'draw') {
+      freePts.current = [at]; setFreePreview([at]);
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      return;
+    }
     drawStart.current = at;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
+  function drawPointerMove(e: React.PointerEvent) {
+    if (annoMode !== 'draw' || freePts.current.length === 0) return;
+    const at = computeDropAt(e.clientX, e.clientY); if (!at) return;
+    const last = freePts.current[freePts.current.length - 1];
+    if (Math.hypot(at.x - last.x, at.y - last.y) < 2) return; // Punkte ausdünnen
+    freePts.current.push(at);
+    setFreePreview([...freePts.current]);
+  }
   function drawPointerUp(e: React.PointerEvent) {
+    if (annoMode === 'draw') {
+      const pts = freePts.current; freePts.current = []; setFreePreview(null);
+      (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+      if (pts.length >= 2) {
+        const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+        const minX = Math.min(...xs), minY = Math.min(...ys), maxX = Math.max(...xs), maxY = Math.max(...ys);
+        const rel = pts.map((p) => [Math.round(p.x - minX), Math.round(p.y - minY)]);
+        createAnnotation(page.id, { kind: 'draw', x1: Math.round(minX), y1: Math.round(minY), x2: Math.round(maxX), y2: Math.round(maxY), color: '#ef4444', size: 3, text: JSON.stringify(rel) })
+          .then((a) => { setAnnotations((prev) => [...prev, a]); setSelectedAnnoId(a.id); pushUndo(async () => { setAnnotations((f) => f.filter((x) => x.id !== a.id)); setSelectedAnnoId(null); await deleteAnnotation(a.id).catch(() => {}); }); }).catch(() => {});
+      }
+      setAnnoMode('none');
+      return;
+    }
     const kind = annoMode;
-    if (!drawStart.current || !(kind === 'arrow' || kind === 'marker' || kind === 'rect')) return;
+    if (!drawStart.current || !(kind === 'arrow' || kind === 'marker' || kind === 'rect' || kind === 'x' || kind === 'bracket')) return;
     const end = computeDropAt(e.clientX, e.clientY);
     const s = drawStart.current; drawStart.current = null;
     (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
     if (end && (Math.abs(end.x - s.x) > 6 || Math.abs(end.y - s.y) > 6)) {
-      const def = kind === 'marker' ? { color: '#fde047', size: 16 } : kind === 'rect' ? { color: '#fde047', size: 2 } : { color: '#ef4444', size: 3 };
+      const def = kind === 'marker' ? { color: '#fde047', size: 16 } : kind === 'rect' ? { color: '#fde047', size: 2 } : kind === 'x' ? { color: '#ef4444', size: 6 } : kind === 'bracket' ? { color: '#ef4444', size: 4 } : { color: '#ef4444', size: 3 };
       createAnnotation(page.id, { kind, x1: s.x, y1: s.y, x2: end.x, y2: end.y, ...def })
         .then((a) => { setAnnotations((prev) => [...prev, a]); setSelectedAnnoId(a.id); pushUndo(async () => { setAnnotations((f) => f.filter((x) => x.id !== a.id)); setSelectedAnnoId(null); await deleteAnnotation(a.id).catch(() => {}); }); }).catch(() => {});
     }
@@ -486,13 +576,26 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     onCreate: ({ editor: ed }) => { editorRef.current = ed; },
     onDestroy: () => { editorRef.current = null; },
     editorProps: {
-      handleDrop: (_view, event) => {
+      handleDrop: (view, event) => {
         const dt = event.dataTransfer;
         if (!dt) return false;
         const files = extractDropFiles(dt);
         if (files.length > 0) {
           event.preventDefault();
           setDragOver(false);
+          // Landet der Drop innerhalb eines Bereichs? -> Bild(er) INLINE in den Bereich.
+          const at = view.posAtCoords({ left: event.clientX, top: event.clientY });
+          if (at) {
+            const $pos = view.state.doc.resolve(at.pos);
+            for (let d = $pos.depth; d > 0; d--) {
+              if ($pos.node(d).type.name === 'sectionBlock') {
+                const endInside = $pos.before(d) + $pos.node(d).nodeSize - 1;
+                insertImagesIntoSection(files, endInside);
+                return true;
+              }
+            }
+          }
+          // sonst: frei platziertes Seiten-Bild wie bisher
           nextDropAt.current = computeDropAt(event.clientX, event.clientY);
           handleUploadFiles(files);
           return true;
@@ -537,6 +640,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
       Highlight.configure({ multicolor: true }),
       EmailCardExtension,
       ImageAttachmentExtension,
+      SectionBlockExtension,
     ],
     content: (() => {
       try {
@@ -558,6 +662,16 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
       editor?.destroy();
     };
   }, [editor]);
+
+  // Pro-Bereich-PDF-Export: Handler in den Editor-Storage hängen (kennt page.id).
+  useEffect(() => {
+    if (!editor) return;
+    const store = (editor.storage as unknown as Record<string, unknown>).sectionBlock as { onExportPdf: ((i: number, t: string) => void) | null; onAddImage: ((files: File[], atPos: number) => void) | null } | undefined;
+    if (store) {
+      store.onExportPdf = (idx, filename) => { exportWorkbook({ format: 'pdf', page_id: page.id, section_index: idx, filename }).catch(() => {}); };
+      store.onAddImage = (files, atPos) => { insertImagesIntoSection(files, atPos); };
+    }
+  }, [editor, page.id]);
 
   // Sync title/tags when page changes; reset select mode
   useEffect(() => {
@@ -594,9 +708,9 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
       const editingText = !!el?.isContentEditable && !inProse; // Textbox-Annotation editieren
       const meta = e.metaKey || e.ctrlKey;
 
-      // Cmd/Ctrl+D -> ausgewähltes Element duplizieren
+      // Cmd/Ctrl+D -> ausgewählte(s) Element(e) duplizieren
       if (meta && (e.key === 'd' || e.key === 'D')) {
-        if (selectedAnnoId != null || selectedImageId != null) { e.preventDefault(); duplicateSelected(); }
+        if (selectedAnnoId != null || selectedImageId != null || selNodes.size > 0) { e.preventDefault(); duplicateSelected(); }
         return;
       }
       // Cmd/Ctrl+Z -> Rückgängig (nur außerhalb von Textfeldern/Editor; dort greift die native Undo)
@@ -604,20 +718,19 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         if (!inField && !inProse && !editingText) { e.preventDefault(); undoLast(); }
         return;
       }
-      // Entf/Backspace -> ausgewähltes Element löschen
+      // Entf/Backspace -> ausgewählte(s) Element(e) löschen
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (selectedAnnoId == null && selectedImageId == null) return; // nichts ausgewählt -> normal editieren
+        if (selectedAnnoId == null && selectedImageId == null && selNodes.size === 0) return; // nichts ausgewählt -> normal editieren
         if (inField) return; // Titel/Tags-Eingabefeld -> normal löschen
         const sel = annotations.find((a) => a.id === selectedAnnoId);
         if (sel?.kind === 'text' && editingText) return; // in Text-Annotation getippt -> Text editieren
         e.preventDefault();
-        if (selectedAnnoId != null) removeAnnotation(selectedAnnoId);
-        else if (selectedImageId != null) removeImage(selectedImageId);
+        deleteSelection();
       }
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [selectedAnnoId, selectedImageId, annotations, pageImages]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedAnnoId, selectedImageId, annotations, pageImages, selNodes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleTogglePin() {
     const updated = await togglePin(page.id);
@@ -632,6 +745,23 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
   async function handleToggleTemplate() {
     const updated = await toggleTemplate(page.id);
     onPageUpdated(updated);
+  }
+
+  // "An Herstellerin gesendet"-Markierung: setzen (mit Notiz), Notiz bearbeiten oder entfernen.
+  async function handleToggleSent() {
+    if (page.sent_at) {
+      if (!window.confirm('Markierung „an Herstellerin gesendet" entfernen?')) return;
+      onPageUpdated(await setPageSent(page.id, { sent_at: null, sent_note: null }));
+    } else {
+      const note = window.prompt('Notiz zur gesendeten Version (optional), z.B. „v1 an Jing":', '');
+      if (note === null) return; // Abbrechen
+      onPageUpdated(await setPageSent(page.id, { sent_at: Math.floor(Date.now() / 1000), sent_note: note.trim() || null }));
+    }
+  }
+  async function handleEditSentNote() {
+    const note = window.prompt('Notiz zur gesendeten Version:', page.sent_note ?? '');
+    if (note === null) return;
+    onPageUpdated(await setPageSent(page.id, { sent_note: note.trim() || null }));
   }
 
   function handleAddLink() {
@@ -672,16 +802,22 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
       style={{
         display: 'flex',
         alignItems: 'center',
-        padding: '0.3rem',
+        padding: '0.4rem',
         background: active ? 'rgba(148,170,255,0.15)' : 'transparent',
         border: 'none',
-        borderRadius: '0.3rem',
+        borderRadius: '0.35rem',
         cursor: 'pointer',
         color: active ? 'var(--color-primary)' : 'var(--color-on-surface-variant)',
         transition: 'background 0.1s',
       }}
     >
-      <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>{materialIcon}</span>
+      <span className="material-symbols-outlined" style={{ fontSize: '1.35rem' }}>{materialIcon}</span>
+    </button>
+  );
+  const alignBtn = (icon: string, title: string, onClick: () => void, color?: string) => (
+    <button type="button" title={title} onClick={onClick}
+      style={{ display: 'flex', alignItems: 'center', padding: '0.3rem', background: 'transparent', border: 'none', borderRadius: '0.35rem', cursor: 'pointer', color: color ?? 'var(--color-on-surface)' }}>
+      <span className="material-symbols-outlined" style={{ fontSize: '1.4rem' }}>{icon}</span>
     </button>
   );
 
@@ -716,6 +852,150 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
   }
   function endSnap() { setGuides([]); }
 
+  // ── Mehrfachauswahl & Ausrichten (selNodes = einzige Quelle der Wahrheit) ──
+  function setSingleSel(uid: string | null) { setSelNodes(uid == null ? new Set() : new Set([uid])); }
+  function selectNode(uid: string, additive?: boolean) {
+    if (!additive) { setSingleSel(uid); return; }
+    // Additive Auswahl (Shift/Cmd): neues Set aus aktuellem State berechnen.
+    const n = new Set(selNodes);
+    if (n.has(uid)) n.delete(uid); else n.add(uid);
+    setSelNodes(n);
+  }
+  function boundsOfUid(uid: string): Bounds | null {
+    if (uid.startsWith('img:')) { const i = pageImages.find((p) => p.id === Number(uid.slice(4))); return i ? { left: i.x, top: i.y, right: i.x + i.width, bottom: i.y + i.height } : null; }
+    const a = annotations.find((x) => x.id === Number(uid.slice(4))); if (!a) return null;
+    if (a.kind === 'text') { const w = Math.max(20, (a.text.length || 3) * a.size * 0.5); return { left: a.x1, top: a.y1, right: a.x1 + w, bottom: a.y1 + a.size * 1.4 }; }
+    return { left: Math.min(a.x1, a.x2), top: Math.min(a.y1, a.y2), right: Math.max(a.x1, a.x2), bottom: Math.max(a.y1, a.y2) };
+  }
+  function selItems(): Array<{ uid: string; b: Bounds }> {
+    const out: Array<{ uid: string; b: Bounds }> = [];
+    for (const uid of selNodes) { const b = boundsOfUid(uid); if (b) out.push({ uid, b }); }
+    return out;
+  }
+  function groupBounds(): Bounds | null {
+    const items = selItems(); if (items.length === 0) return null;
+    return { left: Math.min(...items.map((i) => i.b.left)), top: Math.min(...items.map((i) => i.b.top)), right: Math.max(...items.map((i) => i.b.right)), bottom: Math.max(...items.map((i) => i.b.bottom)) };
+  }
+  // Verschiebe-Patch je Element (ohne Undo-Aufzeichnung — Aufrufer bündelt Undo).
+  function moveUidBy(uid: string, dx: number, dy: number, record: boolean) {
+    if (uid.startsWith('img:')) { const id = Number(uid.slice(4)); const i = pageImages.find((p) => p.id === id); if (i) commitImage(id, { x: Math.round(i.x + dx), y: Math.round(i.y + dy) }, record); return; }
+    const id = Number(uid.slice(4)); const a = annotations.find((x) => x.id === id); if (!a) return;
+    if (a.kind === 'text') commitAnnotation(id, { x1: Math.round(a.x1 + dx), y1: Math.round(a.y1 + dy) }, record);
+    else commitAnnotation(id, { x1: Math.round(a.x1 + dx), y1: Math.round(a.y1 + dy), x2: Math.round(a.x2 + dx), y2: Math.round(a.y2 + dy) }, record);
+  }
+  function capturePos(uids: string[]): Array<{ uid: string; patch: Record<string, number> }> {
+    const snap: Array<{ uid: string; patch: Record<string, number> }> = [];
+    for (const uid of uids) {
+      if (uid.startsWith('img:')) { const i = pageImages.find((p) => p.id === Number(uid.slice(4))); if (i) snap.push({ uid, patch: { x: i.x, y: i.y } }); }
+      else { const a = annotations.find((x) => x.id === Number(uid.slice(4))); if (a) snap.push({ uid, patch: a.kind === 'text' ? { x1: a.x1, y1: a.y1 } : { x1: a.x1, y1: a.y1, x2: a.x2, y2: a.y2 } }); }
+    }
+    return snap;
+  }
+  function pushUndoRestore(snap: Array<{ uid: string; patch: Record<string, number> }>) {
+    pushUndo(() => { for (const s of snap) { if (s.uid.startsWith('img:')) commitImage(Number(s.uid.slice(4)), s.patch, false); else commitAnnotation(Number(s.uid.slice(4)), s.patch, false); } });
+  }
+  function alignSelection(mode: 'left' | 'hcenter' | 'right' | 'top' | 'vcenter' | 'bottom') {
+    const items = selItems(); if (items.length < 2) return;
+    const gb = groupBounds()!; const gcx = (gb.left + gb.right) / 2, gcy = (gb.top + gb.bottom) / 2;
+    const orig = capturePos(items.map((i) => i.uid));
+    for (const it of items) {
+      const w = it.b.right - it.b.left, h = it.b.bottom - it.b.top;
+      let dx = 0, dy = 0;
+      if (mode === 'left') dx = gb.left - it.b.left;
+      else if (mode === 'right') dx = gb.right - it.b.right;
+      else if (mode === 'hcenter') dx = gcx - (it.b.left + w / 2);
+      else if (mode === 'top') dy = gb.top - it.b.top;
+      else if (mode === 'bottom') dy = gb.bottom - it.b.bottom;
+      else if (mode === 'vcenter') dy = gcy - (it.b.top + h / 2);
+      if (dx || dy) moveUidBy(it.uid, dx, dy, false);
+    }
+    pushUndoRestore(orig);
+  }
+  function distributeSelection(axis: 'h' | 'v') {
+    const items = selItems(); if (items.length < 3) return;
+    const center = (b: Bounds) => axis === 'h' ? (b.left + b.right) / 2 : (b.top + b.bottom) / 2;
+    const sorted = [...items].sort((a, b) => center(a.b) - center(b.b));
+    const first = center(sorted[0].b), last = center(sorted[sorted.length - 1].b);
+    const step = (last - first) / (sorted.length - 1);
+    const orig = capturePos(sorted.map((i) => i.uid));
+    sorted.forEach((it, idx) => { const d = (first + step * idx) - center(it.b); if (Math.abs(d) > 0.5) { if (axis === 'h') moveUidBy(it.uid, d, 0, false); else moveUidBy(it.uid, 0, d, false); } });
+    pushUndoRestore(orig);
+  }
+  function deleteSelection() {
+    const uids = [...selNodes];
+    if (uids.length <= 1) { if (selectedAnnoId != null) removeAnnotation(selectedAnnoId); else if (selectedImageId != null) removeImage(selectedImageId); return; }
+    const annos = annotations.filter((a) => uids.includes(`ann:${a.id}`));
+    const imgs = pageImages.filter((p) => uids.includes(`img:${p.id}`));
+    setAnnotations((prev) => prev.filter((a) => !uids.includes(`ann:${a.id}`)));
+    setPageImages((prev) => prev.filter((p) => !uids.includes(`img:${p.id}`)));
+    setSingleSel(null);
+    annos.forEach((a) => deleteAnnotation(a.id).catch(() => {}));
+    imgs.forEach((p) => deletePageImage(p.id).catch(() => {}));
+    pushUndo(async () => {
+      const reUids = new Set<string>();
+      for (const a of annos) { const re = await createAnnotation(page.id, { kind: a.kind, x1: a.x1, y1: a.y1, x2: a.x2, y2: a.y2, text: a.text, color: a.color, size: a.size }); setAnnotations((p) => [...p, re]); reUids.add(`ann:${re.id}`); }
+      for (const im of imgs) { const re = await createPageImage(page.id, { attachment_id: im.attachment_id, x: im.x, y: im.y, width: im.width, height: im.height }); let c = re; if (im.rotation) { try { c = await updatePageImage(re.id, { rotation: im.rotation }); } catch { /* opt */ } } setPageImages((p) => [...p, c]); reUids.add(`img:${c.id}`); }
+      setSelNodes(reUids);
+    });
+  }
+  // Gruppen-Verschieben über das Auswahl-Rechteck.
+  function groupDown(e: React.PointerEvent) {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    groupDrag.current = { px: e.clientX, py: e.clientY, snap: [...selNodes].map((uid) => {
+      if (uid.startsWith('img:')) { const i = pageImages.find((p) => p.id === Number(uid.slice(4)))!; return { uid, kind: 'img' as const, o: { x1: i.x, y1: i.y, x2: 0, y2: 0 } }; }
+      const a = annotations.find((x) => x.id === Number(uid.slice(4)))!; return { uid, kind: (a.kind === 'text' ? 'text' : 'shape') as 'text' | 'shape', o: { x1: a.x1, y1: a.y1, x2: a.x2, y2: a.y2 } };
+    }) };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); e.preventDefault();
+  }
+  function groupMove(e: React.PointerEvent) {
+    const g = groupDrag.current; if (!g) return;
+    const z = zoomRef.current || 1;
+    const dx = (e.clientX - g.px) / z, dy = (e.clientY - g.py) / z;
+    setPageImages((prev) => prev.map((p) => { const s = g.snap.find((x) => x.uid === `img:${p.id}`); return s ? { ...p, x: Math.max(0, s.o.x1 + dx), y: Math.max(0, s.o.y1 + dy) } : p; }));
+    setAnnotations((prev) => prev.map((a) => { const s = g.snap.find((x) => x.uid === `ann:${a.id}`); if (!s) return a; return s.kind === 'text' ? { ...a, x1: Math.max(0, s.o.x1 + dx), y1: Math.max(0, s.o.y1 + dy) } : { ...a, x1: s.o.x1 + dx, y1: s.o.y1 + dy, x2: s.o.x2 + dx, y2: s.o.y2 + dy }; }));
+  }
+  function groupUp(e: React.PointerEvent) {
+    const g = groupDrag.current; if (!g) return;
+    (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId); groupDrag.current = null;
+    const z = zoomRef.current || 1;
+    const dx = (e.clientX - g.px) / z, dy = (e.clientY - g.py) / z;
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+    const restore = g.snap.map((s) => {
+      const patch: Record<string, number> = s.kind === 'img' ? { x: s.o.x1, y: s.o.y1 } : s.kind === 'text' ? { x1: s.o.x1, y1: s.o.y1 } : { x1: s.o.x1, y1: s.o.y1, x2: s.o.x2, y2: s.o.y2 };
+      return { uid: s.uid, patch };
+    });
+    for (const s of g.snap) {
+      if (s.kind === 'img') updatePageImage(Number(s.uid.slice(4)), { x: Math.round(s.o.x1 + dx), y: Math.round(s.o.y1 + dy) }).catch(() => {});
+      else if (s.kind === 'text') updateAnnotation(Number(s.uid.slice(4)), { x1: Math.round(s.o.x1 + dx), y1: Math.round(s.o.y1 + dy) }).catch(() => {});
+      else updateAnnotation(Number(s.uid.slice(4)), { x1: Math.round(s.o.x1 + dx), y1: Math.round(s.o.y1 + dy), x2: Math.round(s.o.x2 + dx), y2: Math.round(s.o.y2 + dy) }).catch(() => {});
+    }
+    pushUndoRestore(restore);
+  }
+  // Aufziehauswahl über das "Auswählen"-Werkzeug (Vollflächen-Overlay).
+  function marqueeDown(e: React.PointerEvent) {
+    if (e.button !== 0) return;
+    const at = computeDropAt(e.clientX, e.clientY); if (!at) return;
+    marqueeStart.current = at; setMarquee({ x1: at.x, y1: at.y, x2: at.x, y2: at.y });
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); e.preventDefault();
+  }
+  function marqueeMove(e: React.PointerEvent) {
+    if (!marqueeStart.current) return;
+    const at = computeDropAt(e.clientX, e.clientY); if (!at) return;
+    setMarquee({ x1: marqueeStart.current.x, y1: marqueeStart.current.y, x2: at.x, y2: at.y });
+  }
+  function marqueeUp(e: React.PointerEvent) {
+    (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+    const m = marquee; const had = marqueeStart.current; marqueeStart.current = null; setMarquee(null); setMarqueeMode(false);
+    if (!had || !m) { return; }
+    const rl = Math.min(m.x1, m.x2), rr = Math.max(m.x1, m.x2), rt = Math.min(m.y1, m.y2), rb = Math.max(m.y1, m.y2);
+    if (rr - rl < 5 && rb - rt < 5) { setSingleSel(null); return; }
+    const hits = new Set<string>();
+    for (const it of elementBounds()) { const b = it.b; if (b.left < rr && b.right > rl && b.top < rb && b.bottom > rt) hits.add(it.uid); }
+    setSelNodes(hits);
+    if (hits.size > 0) suppressDeselectClick.current = true;
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: 'var(--color-surface)' }}>
       {/* Toolbar — bleibt beim Scrollen oben fixiert */}
@@ -748,6 +1028,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         {iconBtn(editor?.isActive('code') ?? false, () => editor?.chain().focus().toggleCode().run(), 'code', 'Code')}
         {iconBtn(editor?.isActive('link') ?? false, handleAddLink, 'link', 'Link einfügen')}
         <div style={{ width: '1px', height: '1.2rem', background: 'var(--color-outline-variant)', margin: '0 0.2rem' }} />
+        {iconBtn(false, () => editor?.chain().focus().insertSectionBlock().run(), 'view_stream', 'Neuer Bereich (klappbarer Abschnitt mit Titel)')}
         {iconBtn(false, () => editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(), 'grid_on', 'Tabelle einfügen')}
         {editor?.isActive('table') && (
           <>
@@ -785,13 +1066,26 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         {iconBtn(page.is_pinned === 1, handleTogglePin, 'push_pin', page.is_pinned ? 'Pin entfernen' : 'Pinnen')}
         {iconBtn(page.is_archived === 1, handleToggleArchive, 'archive', page.is_archived ? 'Archivierung aufheben' : 'Archivieren')}
         {iconBtn(page.is_template === 1, handleToggleTemplate, 'bookmark', page.is_template ? 'Vorlage entfernen' : 'Als Vorlage')}
+        {iconBtn(!!page.sent_at, handleToggleSent, 'forward_to_inbox', page.sent_at ? 'Markierung „gesendet" entfernen' : 'Als „an Herstellerin gesendet" markieren')}
         {iconBtn(false, () => { exportWorkbook({ format: 'pdf', page_id: page.id }).catch(() => {}); }, 'picture_as_pdf', 'Diese Seite als PDF')}
         {iconBtn(false, handleExportPng, 'image', 'Diese Seite als PNG')}
         {iconBtn(annoMode === 'arrow', () => setAnnoMode((m) => (m === 'arrow' ? 'none' : 'arrow')), 'arrow_outward', 'Pfeil zeichnen')}
         {iconBtn(annoMode === 'text', () => setAnnoMode((m) => (m === 'text' ? 'none' : 'text')), 'title', 'Text hinzufügen')}
         {iconBtn(annoMode === 'marker', () => setAnnoMode((m) => (m === 'marker' ? 'none' : 'marker')), 'ink_pen', 'Marker-Streifen (überall, auch auf Bildern)')}
         {iconBtn(annoMode === 'rect', () => setAnnoMode((m) => (m === 'rect' ? 'none' : 'rect')), 'crop_square', 'Markier-Rechteck')}
+        {iconBtn(annoMode === 'x', () => setAnnoMode((m) => (m === 'x' ? 'none' : 'x')), 'close', 'X zum Markieren (aufziehen, Farbe/Größe änderbar)')}
+        {iconBtn(annoMode === 'draw', () => setAnnoMode((m) => (m === 'draw' ? 'none' : 'draw')), 'gesture', 'Freihand zeichnen (Stift)')}
+        {iconBtn(annoMode === 'bracket', () => setAnnoMode((m) => (m === 'bracket' ? 'none' : 'bracket')), 'straighten', 'Eingrenzen (H-Bügel, Breite/Höhe ziehbar)')}
+        {iconBtn(marqueeMode, () => { setAnnoMode('none'); setMarqueeMode((v) => !v); }, 'highlight_alt', 'Mehrere auswählen — Rahmen aufziehen')}
         {iconBtn(whiteBg, toggleWhiteBg, 'contrast', 'Weißer Hintergrund')}
+        {/* Seitenzoom */}
+        <div style={{ width: '1px', height: '1.2rem', background: 'var(--color-outline-variant)', margin: '0 0.2rem' }} />
+        {iconBtn(false, () => setZoomClamped(zoom - 0.1), 'zoom_out', 'Rauszoomen')}
+        <button type="button" onClick={() => setZoomClamped(1)} title="Zoom zurücksetzen (100%)"
+          style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-on-surface-variant)', fontFamily: 'var(--font-body)', fontSize: '0.72rem', fontWeight: 600, minWidth: '2.4rem', padding: '0.2rem 0.1rem' }}>
+          {Math.round(zoom * 100)}%
+        </button>
+        {iconBtn(false, () => setZoomClamped(zoom + 0.1), 'zoom_in', 'Reinzoomen')}
 
         {/* Kontakt-Zuordnung */}
         <div style={{ width: '1px', height: '1.2rem', background: 'var(--color-outline-variant)', margin: '0 0.2rem' }} />
@@ -891,6 +1185,18 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
           }}
         />
 
+        {/* "An Herstellerin gesendet"-Badge (Datum + Notiz) */}
+        {page.sent_at && (
+          <div style={{ margin: '0.4rem 2rem 0', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', alignSelf: 'flex-start', padding: '0.2rem 0.6rem', borderRadius: '999px', background: 'rgba(34,197,94,0.14)', border: '1px solid rgba(34,197,94,0.4)', color: '#4ade80', fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: 600 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '0.95rem' }}>check_circle</span>
+            <span>Gesendet am {new Date(page.sent_at * 1000).toLocaleDateString('de-DE')}</span>
+            {page.sent_note && <span style={{ fontWeight: 400, opacity: 0.9 }}>— {page.sent_note}</span>}
+            <button type="button" onClick={handleEditSentNote} title="Notiz bearbeiten" style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit', display: 'flex', alignItems: 'center', padding: 0, marginLeft: '0.15rem' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '0.9rem' }}>edit</span>
+            </button>
+          </div>
+        )}
+
       </div>
 
       {/* Editor with drag-and-drop */}
@@ -900,7 +1206,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         style={{ flex: 1, minHeight: 0, overflowY: 'auto', position: 'relative' }}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false); }}
-        onClick={() => { setSelectedImageId(null); setSelectedAnnoId(null); }}
+        onClick={() => { if (suppressDeselectClick.current) { suppressDeselectClick.current = false; return; } setSingleSel(null); }}
         onDrop={(e) => {
           setDragOver(false);
           const files = extractDropFiles(e.dataTransfer);
@@ -912,7 +1218,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
           // kein preventDefault bei reinen Text-Drops → TipTap fügt Text normal ein
         }}
       >
-        <div style={{ position: 'relative', minHeight: contentBottom > 0 ? contentBottom : undefined }}>
+        <div style={{ position: 'relative', minHeight: contentBottom > 0 ? contentBottom : undefined, zoom }}>
         <EditorContent editor={editor} />
         {/* Frei platzierbare Bilder */}
         {pageImages.map((img) => (
@@ -920,7 +1226,8 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
             key={img.id}
             image={img}
             selected={selectedImageId === img.id}
-            onSelect={() => setSelectedImageId(img.id)}
+            zoom={zoom}
+            onSelect={(additive) => selectNode(`img:${img.id}`, additive)}
             onCommit={(patch) => commitImage(img.id, patch)}
             onDelete={() => removeImage(img.id)}
             onSnap={(b, opts) => snapFor(`img:${img.id}`, b, opts)}
@@ -929,10 +1236,13 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         ))}
         {/* Annotationen: Pfeile, Marker, Rechtecke & Text */}
         {annotations.map((a) => {
-          const common = { key: a.id, anno: a, selected: selectedAnnoId === a.id,
-            onSelect: () => setSelectedAnnoId(a.id), onCommit: (p: AnnotationPatch) => commitAnnotation(a.id, p), onDelete: () => removeAnnotation(a.id),
+          const common = { key: a.id, anno: a, selected: selectedAnnoId === a.id, zoom,
+            onSelect: (additive?: boolean) => selectNode(`ann:${a.id}`, additive), onCommit: (p: AnnotationPatch) => commitAnnotation(a.id, p), onDelete: () => removeAnnotation(a.id),
             onSnap: (b: Bounds, opts?: SnapOpts) => snapFor(`ann:${a.id}`, b, opts), onSnapEnd: endSnap };
           if (a.kind === 'rect') return <RectAnnotation {...common} />;
+          if (a.kind === 'x') return <XAnnotation {...common} />;
+          if (a.kind === 'bracket') return <HBracketAnnotation {...common} />;
+          if (a.kind === 'draw') return <DrawAnnotation {...common} />;
           if (a.kind === 'text') return <TextAnnotation {...common} />;
           return <ArrowAnnotation {...common} />; // arrow + marker
         })}
@@ -944,17 +1254,77 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
               : <line key={i} x1={g.start} y1={g.pos} x2={g.end} y2={g.pos} stroke="#ff2d95" strokeWidth={1} shapeRendering="crispEdges" />)}
           </svg>
         )}
+        {/* Freihand-Live-Vorschau beim Zeichnen */}
+        {freePreview && freePreview.length > 1 && (
+          <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', overflow: 'visible', pointerEvents: 'none', zIndex: 60 }}>
+            <polyline points={freePreview.map((p) => `${p.x},${p.y}`).join(' ')} fill="none" stroke="#ef4444" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+        {/* Marquee (Aufziehauswahl) */}
+        {marquee && (
+          <div style={{ position: 'absolute', left: Math.min(marquee.x1, marquee.x2), top: Math.min(marquee.y1, marquee.y2), width: Math.abs(marquee.x2 - marquee.x1), height: Math.abs(marquee.y2 - marquee.y1), border: '1px solid var(--color-primary)', background: 'rgba(148,170,255,0.12)', zIndex: 68, pointerEvents: 'none', borderRadius: 2 }} />
+        )}
+        {/* Mehrfachauswahl: Member-Markierungen + Gruppen-Rahmen + Ausrichten-Leiste */}
+        {selNodes.size > 1 && (() => {
+          const items = selItems(); const gb = groupBounds(); if (!gb || items.length < 2) return null;
+          const many = items.length >= 3;
+          return (
+            <>
+              {items.map((it) => (
+                <div key={it.uid} style={{ position: 'absolute', left: it.b.left - 1, top: it.b.top - 1, width: it.b.right - it.b.left + 2, height: it.b.bottom - it.b.top + 2, border: '1.5px solid var(--color-primary)', borderRadius: 4, pointerEvents: 'none', zIndex: 55 }} />
+              ))}
+              <div
+                onPointerDown={groupDown} onPointerMove={groupMove} onPointerUp={groupUp} onClick={(e) => e.stopPropagation()}
+                title="Auswahl verschieben"
+                style={{ position: 'absolute', left: gb.left, top: gb.top, width: gb.right - gb.left, height: gb.bottom - gb.top, border: '1px dashed var(--color-primary)', background: 'rgba(148,170,255,0.05)', cursor: 'move', zIndex: 56, touchAction: 'none' }}
+              />
+              <div
+                onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}
+                style={{ position: 'absolute', left: Math.max(2, gb.left), top: Math.max(2, gb.top - 40), zIndex: 66, display: 'flex', alignItems: 'center', gap: 2, padding: '3px 5px', borderRadius: 8, background: 'var(--color-surface-container-high)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: '0 2px 8px rgba(0,0,0,0.4)' }}
+              >
+                {alignBtn('align_horizontal_left', 'Links ausrichten', () => alignSelection('left'))}
+                {alignBtn('align_horizontal_center', 'Horizontal zentrieren', () => alignSelection('hcenter'))}
+                {alignBtn('align_horizontal_right', 'Rechts ausrichten', () => alignSelection('right'))}
+                <div style={{ width: 1, height: 16, background: 'var(--color-outline-variant)', margin: '0 2px' }} />
+                {alignBtn('align_vertical_top', 'Oben ausrichten', () => alignSelection('top'))}
+                {alignBtn('align_vertical_center', 'Vertikal zentrieren', () => alignSelection('vcenter'))}
+                {alignBtn('align_vertical_bottom', 'Unten ausrichten', () => alignSelection('bottom'))}
+                {many && <div style={{ width: 1, height: 16, background: 'var(--color-outline-variant)', margin: '0 2px' }} />}
+                {many && alignBtn('horizontal_distribute', 'Horizontal verteilen', () => distributeSelection('h'))}
+                {many && alignBtn('vertical_distribute', 'Vertikal verteilen', () => distributeSelection('v'))}
+                <div style={{ width: 1, height: 16, background: 'var(--color-outline-variant)', margin: '0 2px' }} />
+                {alignBtn('content_copy', 'Auswahl duplizieren', () => duplicateSelected())}
+                {alignBtn('delete', 'Auswahl löschen', () => deleteSelection(), '#f87171')}
+              </div>
+            </>
+          );
+        })()}
         </div>
-        {/* Zeichnen-Fläche (nur im Pfeil-/Text-Modus) */}
+        {/* Zeichnen-Fläche (Pfeil/Text/Marker/Rechteck/X/Freihand) */}
         {annoMode !== 'none' && (
           <div
             onPointerDown={drawPointerDown}
+            onPointerMove={drawPointerMove}
             onPointerUp={drawPointerUp}
             style={{
               position: 'absolute', top: 0, left: 0,
               width: scrollRef.current?.scrollWidth ?? '100%',
               height: scrollRef.current?.scrollHeight ?? '100%',
               zIndex: 45, cursor: 'crosshair', touchAction: 'none',
+            }}
+          />
+        )}
+        {/* Auswahl-Werkzeug: Vollflächen-Overlay zum Rahmen-Aufziehen */}
+        {marqueeMode && (
+          <div
+            onPointerDown={marqueeDown}
+            onPointerMove={marqueeMove}
+            onPointerUp={marqueeUp}
+            style={{
+              position: 'absolute', top: 0, left: 0,
+              width: scrollRef.current?.scrollWidth ?? '100%',
+              height: scrollRef.current?.scrollHeight ?? '100%',
+              zIndex: 58, cursor: 'crosshair', touchAction: 'none',
             }}
           />
         )}
@@ -984,13 +1354,18 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
           padding: '0.75rem 2rem',
           display: 'flex', flexDirection: 'column', gap: '0.4rem',
         }}>
-          {/* Header: Label + Auswahl-Kontrolle */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-            <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.72rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-outline)' }}>
-              Anhänge
-            </div>
+          {/* Header: einklappbar (Label + Zähler + Auswahl-Kontrolle) */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: attachmentsOpen ? '0.25rem' : 0 }}>
+            <button
+              type="button"
+              onClick={() => setAttachmentsOpen((v) => !v)}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'var(--font-body)', fontSize: '0.72rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-outline)' }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>{attachmentsOpen ? 'expand_more' : 'chevron_right'}</span>
+              Anhänge ({attachments.length})
+            </button>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              {selectedIds.size > 0 && (
+              {attachmentsOpen && selectedIds.size > 0 && (
                 <button
                   onClick={handleBulkDelete}
                   style={{
@@ -1010,24 +1385,28 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
                   Auswahl löschen ({selectedIds.size})
                 </button>
               )}
-              <button
-                onClick={() => { setSelectMode((v) => !v); setSelectedIds(new Set()); }}
-                title={selectMode ? 'Auswahl beenden' : 'Mehrere auswählen'}
-                style={{
-                  display: 'flex', alignItems: 'center',
-                  padding: '0.2rem',
-                  background: selectMode ? 'rgba(148,170,255,0.15)' : 'transparent',
-                  border: 'none',
-                  borderRadius: '0.25rem',
-                  cursor: 'pointer',
-                  color: selectMode ? 'var(--color-primary)' : 'var(--color-outline)',
-                }}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>checklist</span>
-              </button>
+              {attachmentsOpen && (
+                <button
+                  onClick={() => { setSelectMode((v) => !v); setSelectedIds(new Set()); }}
+                  title={selectMode ? 'Auswahl beenden' : 'Mehrere auswählen'}
+                  style={{
+                    display: 'flex', alignItems: 'center',
+                    padding: '0.2rem',
+                    background: selectMode ? 'rgba(148,170,255,0.15)' : 'transparent',
+                    border: 'none',
+                    borderRadius: '0.25rem',
+                    cursor: 'pointer',
+                    color: selectMode ? 'var(--color-primary)' : 'var(--color-outline)',
+                  }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>checklist</span>
+                </button>
+              )}
             </div>
           </div>
 
+          {attachmentsOpen && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '180px', overflowY: 'auto' }}>
           {attachments.map((att) => (
             <div
               key={att.id}
@@ -1080,6 +1459,8 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
               )}
             </div>
           ))}
+          </div>
+          )}
         </div>
       )}
 

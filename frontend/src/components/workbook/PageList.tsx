@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { deletePage, fetchPages, updatePage, reorderPages, type Page } from '../../api/workbook.api';
+import { deletePage, fetchPages, updatePage, reorderPages, duplicatePage, type Page } from '../../api/workbook.api';
 
 interface PageListProps {
   pages: Page[];
@@ -58,6 +58,13 @@ export function PageList({ pages, activeId, onSelect, onNew, onNewChild, onReloa
       return next;
     });
     onReload();
+  }
+
+  async function handleDuplicate(e: React.MouseEvent, page: Page) {
+    e.stopPropagation();
+    const p = await duplicatePage(page.id);
+    onReload();
+    onSelect(p.id);
   }
 
   async function handleRename(e: React.MouseEvent, page: Page) {
@@ -281,6 +288,20 @@ export function PageList({ pages, activeId, onSelect, onNew, onNewChild, onReloa
                 <span className="material-symbols-outlined" style={{ fontSize: '0.9rem' }}>add</span>
               </button>
             )}
+
+            <button
+              className="page-action-btn"
+              onClick={(e) => handleDuplicate(e, page)}
+              title="Seite duplizieren"
+              style={{
+                opacity: 0, background: 'transparent', border: 'none',
+                cursor: 'pointer', padding: '0.1rem', display: 'flex',
+                alignItems: 'center', color: 'var(--color-on-surface-variant)',
+                transition: 'opacity 0.15s', flexShrink: 0, marginLeft: '0.25rem',
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '0.9rem' }}>content_copy</span>
+            </button>
 
             <button
               className="page-action-btn"

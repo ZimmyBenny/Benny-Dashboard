@@ -5,7 +5,8 @@ import type { Bounds, SnapOpts } from './alignGuides';
 interface Props {
   image: PageImage;
   selected: boolean;
-  onSelect: () => void;
+  zoom?: number;
+  onSelect: (additive?: boolean) => void;
   onCommit: (patch: Partial<Pick<PageImage, 'x' | 'y' | 'width' | 'height' | 'rotation'>>) => void;
   onDelete: () => void;
   onSnap?: (b: Bounds, opts?: SnapOpts) => { dx: number; dy: number };
@@ -18,7 +19,7 @@ type DragState =
   | { mode: 'rotate'; cx: number; cy: number; startRot: number; startAng: number }
   | null;
 
-export function FloatingImage({ image, selected, onSelect, onCommit, onDelete, onSnap, onSnapEnd }: Props) {
+export function FloatingImage({ image, selected, zoom = 1, onSelect, onCommit, onDelete, onSnap, onSnapEnd }: Props) {
   const [url, setUrl] = useState<string | null>(null);
   const [pos, setPos] = useState({ x: image.x, y: image.y, width: image.width, height: image.height });
   const [rot, setRot] = useState(image.rotation ?? 0);
@@ -41,6 +42,7 @@ export function FloatingImage({ image, selected, onSelect, onCommit, onDelete, o
 
   function onMovePointerDown(e: React.PointerEvent) {
     if (e.button !== 0) return;
+    if (e.shiftKey || e.metaKey || e.ctrlKey) { onSelect(true); e.preventDefault(); e.stopPropagation(); return; } // zur Mehrfachauswahl hinzufügen/entfernen
     onSelect();
     drag.current = { mode: 'move', px: e.clientX, py: e.clientY, ox: pos.x, oy: pos.y };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -69,13 +71,14 @@ export function FloatingImage({ image, selected, onSelect, onCommit, onDelete, o
   function onPointerMove(e: React.PointerEvent) {
     const d = drag.current;
     if (!d) return;
+    const z = zoom || 1;
     if (d.mode === 'move') {
-      let nx = Math.max(0, d.ox + (e.clientX - d.px));
-      let ny = Math.max(0, d.oy + (e.clientY - d.py));
+      let nx = Math.max(0, d.ox + (e.clientX - d.px) / z);
+      let ny = Math.max(0, d.oy + (e.clientY - d.py) / z);
       if (onSnap) { const s = onSnap({ left: nx, top: ny, right: nx + pos.width, bottom: ny + pos.height }); nx = Math.max(0, nx + s.dx); ny = Math.max(0, ny + s.dy); }
       setPos((p) => ({ ...p, x: nx, y: ny }));
     } else if (d.mode === 'resize') {
-      let w = Math.max(40, d.ow + (e.clientX - d.px));
+      let w = Math.max(40, d.ow + (e.clientX - d.px) / z);
       if (onSnap) { const s = onSnap({ left: pos.x, top: pos.y, right: pos.x + w, bottom: pos.y + Math.round(w * d.ratio) }, { xEdges: ['right'], yEdges: [] }); w = Math.max(40, w + s.dx); }
       setPos((p) => ({ ...p, width: w, height: Math.max(40, Math.round(w * d.ratio)) }));
     } else {

@@ -7,7 +7,8 @@ export const ANNO_PALETTE = ['#ef4444', '#3b82f6', '#22c55e', '#eab308', '#fffff
 interface Props {
   anno: PageAnnotation;
   selected: boolean;
-  onSelect: () => void;
+  zoom?: number;
+  onSelect: (additive?: boolean) => void;
   onCommit: (patch: AnnotationPatch) => void;
   onDelete: () => void;
   onSnap?: (b: Bounds, opts?: SnapOpts) => { dx: number; dy: number };
@@ -49,7 +50,7 @@ function Controls({ anno, left, top, onCommit, onDelete }: { anno: PageAnnotatio
 }
 const ctrlBtn: React.CSSProperties = { background: 'none', border: 'none', color: 'var(--color-on-surface)', cursor: 'pointer', fontSize: 12, fontWeight: 700, padding: '0 3px' };
 
-export function ArrowAnnotation({ anno, selected, onSelect, onCommit, onDelete, onSnap, onSnapEnd }: Props) {
+export function ArrowAnnotation({ anno, selected, zoom = 1, onSelect, onCommit, onDelete, onSnap, onSnapEnd }: Props) {
   const [p, setP] = useState({ x1: anno.x1, y1: anno.y1, x2: anno.x2, y2: anno.y2 });
   const drag = useRef<{ mode: 'move' | 'p1' | 'p2'; px: number; py: number; o: typeof p } | null>(null);
   useEffect(() => { if (!drag.current) setP({ x1: anno.x1, y1: anno.y1, x2: anno.x2, y2: anno.y2 }); }, [anno.x1, anno.y1, anno.x2, anno.y2]);
@@ -66,13 +67,16 @@ export function ArrowAnnotation({ anno, selected, onSelect, onCommit, onDelete, 
   const head = `${ex},${ey} ${bxp + headW * perpx},${byp + headW * perpy} ${bxp - headW * perpx},${byp - headW * perpy}`;
 
   function start(mode: 'move' | 'p1' | 'p2', e: React.PointerEvent) {
-    e.stopPropagation(); onSelect();
+    e.stopPropagation();
+    if (mode === 'move' && (e.shiftKey || e.metaKey || e.ctrlKey)) { onSelect(true); e.preventDefault(); return; }
+    onSelect();
     drag.current = { mode, px: e.clientX, py: e.clientY, o: { ...p } };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); e.preventDefault();
   }
   function move(e: React.PointerEvent) {
     const d = drag.current; if (!d) return;
-    let dx = e.clientX - d.px, dy = e.clientY - d.py;
+    const z = zoom || 1;
+    let dx = (e.clientX - d.px) / z, dy = (e.clientY - d.py) / z;
     if (d.mode === 'move') {
       if (onSnap) {
         const L = Math.min(d.o.x1, d.o.x2) + dx, T = Math.min(d.o.y1, d.o.y2) + dy;
@@ -119,7 +123,7 @@ export function ArrowAnnotation({ anno, selected, onSelect, onCommit, onDelete, 
   );
 }
 
-export function TextAnnotation({ anno, selected, onSelect, onCommit, onDelete, onSnap, onSnapEnd }: Props) {
+export function TextAnnotation({ anno, selected, zoom = 1, onSelect, onCommit, onDelete, onSnap, onSnapEnd }: Props) {
   const [pos, setPos] = useState({ x: anno.x1, y: anno.y1 });
   const drag = useRef<{ px: number; py: number; ox: number; oy: number } | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -128,13 +132,16 @@ export function TextAnnotation({ anno, selected, onSelect, onCommit, onDelete, o
   useEffect(() => { if (anno.text === '' && bodyRef.current) { bodyRef.current.focus(); } }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function gripDown(e: React.PointerEvent) {
-    e.stopPropagation(); onSelect();
+    e.stopPropagation();
+    if (e.shiftKey || e.metaKey || e.ctrlKey) { onSelect(true); e.preventDefault(); return; }
+    onSelect();
     drag.current = { px: e.clientX, py: e.clientY, ox: pos.x, oy: pos.y };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); e.preventDefault();
   }
   function gripMove(e: React.PointerEvent) {
     const d = drag.current; if (!d) return;
-    let nx = Math.max(0, d.ox + (e.clientX - d.px)), ny = Math.max(0, d.oy + (e.clientY - d.py));
+    const z = zoom || 1;
+    let nx = Math.max(0, d.ox + (e.clientX - d.px) / z), ny = Math.max(0, d.oy + (e.clientY - d.py) / z);
     if (onSnap && bodyRef.current) {
       const w = bodyRef.current.offsetWidth, h = bodyRef.current.offsetHeight;
       const s = onSnap({ left: nx, top: ny, right: nx + w, bottom: ny + h }); nx = Math.max(0, nx + s.dx); ny = Math.max(0, ny + s.dy);
@@ -160,7 +167,7 @@ export function TextAnnotation({ anno, selected, onSelect, onCommit, onDelete, o
         <div
           ref={bodyRef}
           contentEditable suppressContentEditableWarning
-          onFocus={onSelect}
+          onFocus={() => onSelect()}
           onClick={(e) => { e.stopPropagation(); onSelect(); }}
           onBlur={(e) => { const t = e.currentTarget.innerText; if (t !== anno.text) onCommit({ text: t }); }}
           style={{
@@ -176,20 +183,23 @@ export function TextAnnotation({ anno, selected, onSelect, onCommit, onDelete, o
 }
 
 // Halbtransparentes Markier-Rechteck (Bereich einrahmen, auch über Bildern).
-export function RectAnnotation({ anno, selected, onSelect, onCommit, onDelete, onSnap, onSnapEnd }: Props) {
+export function RectAnnotation({ anno, selected, zoom = 1, onSelect, onCommit, onDelete, onSnap, onSnapEnd }: Props) {
   const [p, setP] = useState({ x1: anno.x1, y1: anno.y1, x2: anno.x2, y2: anno.y2 });
   const drag = useRef<{ mode: 'move' | 'resize'; px: number; py: number; o: typeof p } | null>(null);
   useEffect(() => { if (!drag.current) setP({ x1: anno.x1, y1: anno.y1, x2: anno.x2, y2: anno.y2 }); }, [anno.x1, anno.y1, anno.x2, anno.y2]);
 
   const left = Math.min(p.x1, p.x2), top = Math.min(p.y1, p.y2), w = Math.abs(p.x2 - p.x1), h = Math.abs(p.y2 - p.y1);
   function start(mode: 'move' | 'resize', e: React.PointerEvent) {
-    e.stopPropagation(); onSelect();
+    e.stopPropagation();
+    if (mode === 'move' && (e.shiftKey || e.metaKey || e.ctrlKey)) { onSelect(true); e.preventDefault(); return; }
+    onSelect();
     drag.current = { mode, px: e.clientX, py: e.clientY, o: { ...p } };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); e.preventDefault();
   }
   function move(e: React.PointerEvent) {
     const d = drag.current; if (!d) return;
-    let dx = e.clientX - d.px, dy = e.clientY - d.py;
+    const z = zoom || 1;
+    let dx = (e.clientX - d.px) / z, dy = (e.clientY - d.py) / z;
     if (d.mode === 'move') {
       if (onSnap) {
         const L = Math.min(d.o.x1, d.o.x2) + dx, T = Math.min(d.o.y1, d.o.y2) + dy;
@@ -229,6 +239,192 @@ export function RectAnnotation({ anno, selected, onSelect, onCommit, onDelete, o
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => start('resize', e)} onPointerMove={move} onPointerUp={up}
             title="Größe ändern"
+            style={{ position: 'absolute', right: -7, bottom: -7, width: 15, height: 15, background: 'var(--color-primary)', borderRadius: 3, cursor: 'nwse-resize', touchAction: 'none' }}
+          />
+        )}
+      </div>
+      {selected && <Controls anno={anno} left={left} top={top} onCommit={onCommit} onDelete={onDelete} />}
+    </>
+  );
+}
+
+// Großes „X" zum Markieren („das will ich nicht") — Farbe, Dicke, frei skalierbar.
+export function XAnnotation({ anno, selected, zoom = 1, onSelect, onCommit, onDelete, onSnap, onSnapEnd }: Props) {
+  const [p, setP] = useState({ x1: anno.x1, y1: anno.y1, x2: anno.x2, y2: anno.y2 });
+  const drag = useRef<{ mode: 'move' | 'resize'; px: number; py: number; o: typeof p } | null>(null);
+  useEffect(() => { if (!drag.current) setP({ x1: anno.x1, y1: anno.y1, x2: anno.x2, y2: anno.y2 }); }, [anno.x1, anno.y1, anno.x2, anno.y2]);
+
+  const left = Math.min(p.x1, p.x2), top = Math.min(p.y1, p.y2), w = Math.max(1, Math.abs(p.x2 - p.x1)), h = Math.max(1, Math.abs(p.y2 - p.y1));
+  function start(mode: 'move' | 'resize', e: React.PointerEvent) {
+    e.stopPropagation();
+    if (mode === 'move' && (e.shiftKey || e.metaKey || e.ctrlKey)) { onSelect(true); e.preventDefault(); return; }
+    onSelect();
+    drag.current = { mode, px: e.clientX, py: e.clientY, o: { ...p } };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); e.preventDefault();
+  }
+  function move(e: React.PointerEvent) {
+    const d = drag.current; if (!d) return;
+    const z = zoom || 1;
+    let dx = (e.clientX - d.px) / z, dy = (e.clientY - d.py) / z;
+    if (d.mode === 'move') {
+      if (onSnap) {
+        const L = Math.min(d.o.x1, d.o.x2) + dx, T = Math.min(d.o.y1, d.o.y2) + dy;
+        const R = Math.max(d.o.x1, d.o.x2) + dx, B = Math.max(d.o.y1, d.o.y2) + dy;
+        const s = onSnap({ left: L, top: T, right: R, bottom: B }); dx += s.dx; dy += s.dy;
+      }
+      setP({ x1: d.o.x1 + dx, y1: d.o.y1 + dy, x2: d.o.x2 + dx, y2: d.o.y2 + dy });
+    } else {
+      let nx2 = d.o.x2 + dx, ny2 = d.o.y2 + dy;
+      if (onSnap) {
+        const L = Math.min(d.o.x1, nx2), T = Math.min(d.o.y1, ny2), R = Math.max(d.o.x1, nx2), B = Math.max(d.o.y1, ny2);
+        const s = onSnap({ left: L, top: T, right: R, bottom: B }, { xEdges: ['right'], yEdges: ['bottom'] }); nx2 += s.dx; ny2 += s.dy;
+      }
+      setP((q) => ({ ...q, x2: nx2, y2: ny2 }));
+    }
+  }
+  function up(e: React.PointerEvent) {
+    if (!drag.current) return;
+    (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId); drag.current = null;
+    onSnapEnd?.();
+    onCommit({ x1: Math.round(p.x1), y1: Math.round(p.y1), x2: Math.round(p.x2), y2: Math.round(p.y2) });
+  }
+  return (
+    <>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => start('move', e)} onPointerMove={move} onPointerUp={up}
+        style={{
+          position: 'absolute', left, top, width: w, height: h,
+          cursor: 'move', zIndex: selected ? 40 : 15, touchAction: 'none',
+          outline: selected ? '1px dashed var(--color-primary)' : 'none', outlineOffset: 2,
+        }}
+      >
+        <svg width={w} height={h} style={{ position: 'absolute', inset: 0, overflow: 'visible', pointerEvents: 'none' }}>
+          <line x1={0} y1={0} x2={w} y2={h} stroke={anno.color} strokeWidth={anno.size} strokeLinecap="round" />
+          <line x1={w} y1={0} x2={0} y2={h} stroke={anno.color} strokeWidth={anno.size} strokeLinecap="round" />
+        </svg>
+        {selected && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => start('resize', e)} onPointerMove={move} onPointerUp={up}
+            title="Größe ändern"
+            style={{ position: 'absolute', right: -7, bottom: -7, width: 15, height: 15, background: 'var(--color-primary)', borderRadius: 3, cursor: 'nwse-resize', touchAction: 'none' }}
+          />
+        )}
+      </div>
+      {selected && <Controls anno={anno} left={left} top={top} onCommit={onCommit} onDelete={onDelete} />}
+    </>
+  );
+}
+
+// Freihand-Zeichnung: Linienzug (Punkte als JSON in anno.text, relativ zur Bounding-Box).
+export function DrawAnnotation({ anno, selected, zoom = 1, onSelect, onCommit, onDelete, onSnap, onSnapEnd }: Props) {
+  const [p, setP] = useState({ x1: anno.x1, y1: anno.y1, x2: anno.x2, y2: anno.y2 });
+  const drag = useRef<{ px: number; py: number; o: typeof p } | null>(null);
+  useEffect(() => { if (!drag.current) setP({ x1: anno.x1, y1: anno.y1, x2: anno.x2, y2: anno.y2 }); }, [anno.x1, anno.y1, anno.x2, anno.y2]);
+
+  const pts: number[][] = (() => { try { const v = JSON.parse(anno.text || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } })();
+  const ptsStr = pts.map((pt) => `${pt[0]},${pt[1]}`).join(' ');
+  const left = Math.min(p.x1, p.x2), top = Math.min(p.y1, p.y2), w = Math.max(1, Math.abs(p.x2 - p.x1)), h = Math.max(1, Math.abs(p.y2 - p.y1));
+
+  function down(e: React.PointerEvent) {
+    e.stopPropagation();
+    if (e.shiftKey || e.metaKey || e.ctrlKey) { onSelect(true); e.preventDefault(); return; }
+    onSelect();
+    drag.current = { px: e.clientX, py: e.clientY, o: { ...p } };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); e.preventDefault();
+  }
+  function move(e: React.PointerEvent) {
+    const d = drag.current; if (!d) return;
+    const z = zoom || 1;
+    let dx = (e.clientX - d.px) / z, dy = (e.clientY - d.py) / z;
+    if (onSnap) {
+      const s = onSnap({ left: Math.min(d.o.x1, d.o.x2) + dx, top: Math.min(d.o.y1, d.o.y2) + dy, right: Math.max(d.o.x1, d.o.x2) + dx, bottom: Math.max(d.o.y1, d.o.y2) + dy });
+      dx += s.dx; dy += s.dy;
+    }
+    setP({ x1: d.o.x1 + dx, y1: d.o.y1 + dy, x2: d.o.x2 + dx, y2: d.o.y2 + dy });
+  }
+  function up(e: React.PointerEvent) {
+    if (!drag.current) return;
+    (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId); drag.current = null;
+    onSnapEnd?.();
+    onCommit({ x1: Math.round(p.x1), y1: Math.round(p.y1), x2: Math.round(p.x2), y2: Math.round(p.y2) });
+  }
+  return (
+    <>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={down} onPointerMove={move} onPointerUp={up}
+        style={{ position: 'absolute', left, top, width: w, height: h, cursor: 'move', zIndex: selected ? 40 : 15, touchAction: 'none', outline: selected ? '1px dashed var(--color-primary)' : 'none', outlineOffset: 2 }}
+      >
+        <svg width={w} height={h} style={{ position: 'absolute', inset: 0, overflow: 'visible', pointerEvents: 'none' }}>
+          <polyline points={ptsStr} fill="none" stroke={anno.color} strokeWidth={anno.size} strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+      {selected && <Controls anno={anno} left={left} top={top} onCommit={onCommit} onDelete={onDelete} />}
+    </>
+  );
+}
+
+// „Eingrenzen"-Bügel in H-Form: zwei senkrechte Balken + Querstrich in der Mitte.
+// Breite/Höhe frei über den Eck-Griff ziehbar; Farbe & Dicke änderbar.
+export function HBracketAnnotation({ anno, selected, zoom = 1, onSelect, onCommit, onDelete, onSnap, onSnapEnd }: Props) {
+  const [p, setP] = useState({ x1: anno.x1, y1: anno.y1, x2: anno.x2, y2: anno.y2 });
+  const drag = useRef<{ mode: 'move' | 'resize'; px: number; py: number; o: typeof p } | null>(null);
+  useEffect(() => { if (!drag.current) setP({ x1: anno.x1, y1: anno.y1, x2: anno.x2, y2: anno.y2 }); }, [anno.x1, anno.y1, anno.x2, anno.y2]);
+
+  const left = Math.min(p.x1, p.x2), top = Math.min(p.y1, p.y2), w = Math.max(1, Math.abs(p.x2 - p.x1)), h = Math.max(1, Math.abs(p.y2 - p.y1));
+  function start(mode: 'move' | 'resize', e: React.PointerEvent) {
+    e.stopPropagation();
+    if (mode === 'move' && (e.shiftKey || e.metaKey || e.ctrlKey)) { onSelect(true); e.preventDefault(); return; }
+    onSelect();
+    drag.current = { mode, px: e.clientX, py: e.clientY, o: { ...p } };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); e.preventDefault();
+  }
+  function move(e: React.PointerEvent) {
+    const d = drag.current; if (!d) return;
+    const z = zoom || 1;
+    let dx = (e.clientX - d.px) / z, dy = (e.clientY - d.py) / z;
+    if (d.mode === 'move') {
+      if (onSnap) {
+        const L = Math.min(d.o.x1, d.o.x2) + dx, T = Math.min(d.o.y1, d.o.y2) + dy;
+        const R = Math.max(d.o.x1, d.o.x2) + dx, B = Math.max(d.o.y1, d.o.y2) + dy;
+        const s = onSnap({ left: L, top: T, right: R, bottom: B }); dx += s.dx; dy += s.dy;
+      }
+      setP({ x1: d.o.x1 + dx, y1: d.o.y1 + dy, x2: d.o.x2 + dx, y2: d.o.y2 + dy });
+    } else {
+      let nx2 = d.o.x2 + dx, ny2 = d.o.y2 + dy;
+      if (onSnap) {
+        const L = Math.min(d.o.x1, nx2), T = Math.min(d.o.y1, ny2), R = Math.max(d.o.x1, nx2), B = Math.max(d.o.y1, ny2);
+        const s = onSnap({ left: L, top: T, right: R, bottom: B }, { xEdges: ['right'], yEdges: ['bottom'] }); nx2 += s.dx; ny2 += s.dy;
+      }
+      setP((q) => ({ ...q, x2: nx2, y2: ny2 }));
+    }
+  }
+  function up(e: React.PointerEvent) {
+    if (!drag.current) return;
+    (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId); drag.current = null;
+    onSnapEnd?.();
+    onCommit({ x1: Math.round(p.x1), y1: Math.round(p.y1), x2: Math.round(p.x2), y2: Math.round(p.y2) });
+  }
+  const my = h / 2;
+  return (
+    <>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => start('move', e)} onPointerMove={move} onPointerUp={up}
+        style={{ position: 'absolute', left, top, width: w, height: h, cursor: 'move', zIndex: selected ? 40 : 15, touchAction: 'none', outline: selected ? '1px dashed var(--color-primary)' : 'none', outlineOffset: 2 }}
+      >
+        <svg width={w} height={h} style={{ position: 'absolute', inset: 0, overflow: 'visible', pointerEvents: 'none' }}>
+          <line x1={0} y1={0} x2={0} y2={h} stroke={anno.color} strokeWidth={anno.size} strokeLinecap="round" />
+          <line x1={w} y1={0} x2={w} y2={h} stroke={anno.color} strokeWidth={anno.size} strokeLinecap="round" />
+          <line x1={0} y1={my} x2={w} y2={my} stroke={anno.color} strokeWidth={anno.size} strokeLinecap="round" />
+        </svg>
+        {selected && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => start('resize', e)} onPointerMove={move} onPointerUp={up}
+            title="Breite/Höhe ändern"
             style={{ position: 'absolute', right: -7, bottom: -7, width: 15, height: 15, background: 'var(--color-primary)', borderRadius: 3, cursor: 'nwse-resize', touchAction: 'none' }}
           />
         )}

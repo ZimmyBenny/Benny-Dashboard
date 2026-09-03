@@ -6,6 +6,7 @@ import fs from 'fs';
 import PDFDocument from 'pdfkit';
 import db from '../db/connection';
 import { todayLocal } from '../lib/dates';
+import { createBackup } from '../db/backup';
 
 // ── Upload storage ─────────────────────────────────────────────────────────────
 
@@ -31,6 +32,7 @@ router.get('/export', (req: Request, res: Response) => {
   const format = ((req.query.format as string) || 'csv').toLowerCase();
   const sectionId = req.query.section_id ? Number(req.query.section_id) : null;
   const pageId = req.query.page_id ? Number(req.query.page_id) : null;
+  const sectionIndex = req.query.section_index != null && req.query.section_index !== '' ? Number(req.query.section_index) : null;
 
   if (format !== 'csv' && format !== 'pdf') {
     res.status(400).json({ error: 'format muss csv oder pdf sein' });
@@ -139,9 +141,10 @@ router.get('/export', (req: Request, res: Response) => {
     doc.fillColor('black');
     doc.moveDown(0.3);
 
-    renderPageBody(doc, r.content, r.content_text);
-    // Frei platzierte Bilder der Seite anhängen (pixelgenaue Position im PDF: später)
-    const pageImgs = db.prepare(
+    renderPageBody(doc, r.content, r.content_text, sectionIndex);
+    // Frei platzierte Bilder gehören zur ganzen Seite, nicht zu einem Bereich —
+    // beim Einzel-Bereich-Export daher weglassen.
+    const pageImgs = sectionIndex != null ? [] : db.prepare(
       `SELECT a.storage_path FROM workbook_page_images pi
        JOIN workbook_attachments a ON a.id = pi.attachment_id
        WHERE pi.page_id = ? ORDER BY pi.z, pi.id`,
@@ -290,6 +293,19 @@ function renderBlocks(doc: PDFKit.PDFDocument, nodes: TT[]) {
         }
         break;
       }
+      case 'sectionBlock': {
+        const a = node.attrs ?? {};
+        doc.moveDown(0.4);
+        doc.fontSize(13).fillColor('#111').font('Helvetica-Bold').text(String(a.title ?? 'Bereich'));
+        if (a.sentAt) {
+          const d = new Date(Number(a.sentAt) * 1000).toLocaleDateString('de-DE');
+          doc.fontSize(9).fillColor('#16a34a').font('Helvetica').text(`Gesendet am ${d}${a.sentNote ? ' — ' + String(a.sentNote) : ''}`);
+        }
+        doc.fillColor('black').font('Helvetica').moveDown(0.2);
+        renderBlocks(doc, node.content ?? []);
+        doc.moveDown(0.35);
+        break;
+      }
       default:
         if (node.content) renderBlocks(doc, node.content);
     }
@@ -297,10 +313,20 @@ function renderBlocks(doc: PDFKit.PDFDocument, nodes: TT[]) {
 }
 
 // Seiten-Body rendern; Fallback auf platten Text, wenn JSON leer/kaputt.
-function renderPageBody(doc: PDFKit.PDFDocument, contentJson: string | null, contentText: string | null) {
+function renderPageBody(doc: PDFKit.PDFDocument, contentJson: string | null, contentText: string | null, sectionIndex?: number | null) {
   let root: TT | null = null;
   try { root = contentJson ? (JSON.parse(contentJson) as TT) : null; } catch { root = null; }
   const blocks = root?.content ?? [];
+
+  // Nur einen bestimmten Bereich (sectionBlock) exportieren?
+  if (sectionIndex != null && sectionIndex >= 0) {
+    const sections = blocks.filter((b) => b.type === 'sectionBlock');
+    const target = sections[sectionIndex];
+    if (target) { renderBlocks(doc, [target]); return; }
+    doc.font('Helvetica').fontSize(11).fillColor('black').text('(Bereich nicht gefunden)');
+    return;
+  }
+
   if (blocks.length === 0) {
     const fallback = (contentText ?? '').trim();
     doc.font('Helvetica').fontSize(11).fillColor('black').text(fallback || '(leer)');
@@ -502,6 +528,98 @@ router.post('/pages', (req: Request, res: Response) => {
 
   const page = db.prepare('SELECT * FROM workbook_pages WHERE id = ?').get(result.lastInsertRowid);
   res.status(201).json(page);
+});
+
+// ── Duplizieren (Seite / Bereich) ───────────────────────────────────────────────
+// Kopiert eine Seite komplett (Text, Anhänge inkl. Dateien, freie Bilder, Annotationen)
+// in einen Zielbereich. Gibt die neue Seiten-Id zurück.
+type AnyRow = Record<string, unknown>;
+function duplicatePageInto(srcId: number, targetSectionId: number | null, titleSuffix: string): number | null {
+  const src = db.prepare('SELECT * FROM workbook_pages WHERE id = ?').get(srcId) as AnyRow | undefined;
+  if (!src) return null;
+  const ins = db.prepare(
+    `INSERT INTO workbook_pages (workbook_id, section_id, parent_id, contact_id, title, content, content_text, excerpt, tags, template_id)
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    targetSectionId, null, src.contact_id ?? null,
+    `${(src.title as string) || 'Seite'}${titleSuffix}`,
+    src.content, src.content_text, src.excerpt ?? null, src.tags ?? null, src.template_id ?? null,
+  );
+  const newPageId = Number(ins.lastInsertRowid);
+
+  // Anhänge: Datei kopieren + Zeile anlegen; alte->neue Id merken.
+  const atts = db.prepare('SELECT * FROM workbook_attachments WHERE page_id = ?').all(srcId) as AnyRow[];
+  const attMap = new Map<number, number>();
+  for (const a of atts) {
+    let newStorage = a.storage_path as string;
+    try {
+      const ext = path.extname(newStorage);
+      const dest = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+      fs.copyFileSync(path.join(UPLOADS_DIR, newStorage), path.join(UPLOADS_DIR, dest));
+      newStorage = dest;
+    } catch { /* Originaldatei fehlt -> Verweis wiederverwenden */ }
+    const r = db.prepare(
+      'INSERT INTO workbook_attachments (page_id, file_name, file_type, file_size, storage_path) VALUES (?, ?, ?, ?, ?)'
+    ).run(newPageId, a.file_name, a.file_type, a.file_size, newStorage);
+    attMap.set(a.id as number, Number(r.lastInsertRowid));
+  }
+
+  // Frei platzierte Bilder (mit neuer attachment_id).
+  const imgs = db.prepare('SELECT * FROM workbook_page_images WHERE page_id = ?').all(srcId) as AnyRow[];
+  for (const im of imgs) {
+    const newAtt = attMap.get(im.attachment_id as number);
+    if (!newAtt) continue;
+    db.prepare(
+      'INSERT INTO workbook_page_images (page_id, attachment_id, x, y, width, height, z, rotation) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(newPageId, newAtt, im.x, im.y, im.width, im.height, im.z, im.rotation ?? 0);
+  }
+
+  // Annotationen.
+  const annos = db.prepare('SELECT * FROM workbook_page_annotations WHERE page_id = ?').all(srcId) as AnyRow[];
+  for (const an of annos) {
+    db.prepare(
+      'INSERT INTO workbook_page_annotations (page_id, kind, x1, y1, x2, y2, text, color, size, z) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(newPageId, an.kind, an.x1, an.y1, an.x2, an.y2, an.text, an.color, an.size, an.z);
+  }
+  return newPageId;
+}
+
+// Seite duplizieren (in denselben Bereich).
+router.post('/pages/:id/duplicate', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const src = db.prepare('SELECT section_id FROM workbook_pages WHERE id = ?').get(id) as { section_id: number | null } | undefined;
+  if (!src) { res.status(404).json({ error: 'not found' }); return; }
+  const newId = duplicatePageInto(id, src.section_id ?? null, ' (Kopie)');
+  if (!newId) { res.status(404).json({ error: 'not found' }); return; }
+  res.status(201).json(db.prepare('SELECT * FROM workbook_pages WHERE id = ?').get(newId));
+});
+
+// Bereich duplizieren (neuer Bereich + alle Seiten). Massen-Insert -> Backup zuerst.
+router.post('/sections/:id/duplicate', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const src = db.prepare('SELECT * FROM workbook_sections WHERE id = ?').get(id) as AnyRow | undefined;
+  if (!src) { res.status(404).json({ error: 'not found' }); return; }
+  createBackup('workbook-bereich-duplizieren');
+  const secIns = db.prepare(
+    'INSERT INTO workbook_sections (workbook_id, name, icon, color) VALUES (1, ?, ?, ?)'
+  ).run(`${(src.name as string) || 'Bereich'} (Kopie)`, src.icon ?? 'folder', src.color ?? null);
+  const newSectionId = Number(secIns.lastInsertRowid);
+  const pages = db.prepare('SELECT id FROM workbook_pages WHERE section_id = ? AND is_archived = 0 ORDER BY sort_order, id').all(id) as { id: number }[];
+  for (const p of pages) duplicatePageInto(p.id, newSectionId, '');
+  res.status(201).json(db.prepare('SELECT * FROM workbook_sections WHERE id = ?').get(newSectionId));
+});
+
+// "An Herstellerin gesendet"-Markierung setzen/ändern/entfernen.
+router.patch('/pages/:id/sent', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const cur = db.prepare('SELECT * FROM workbook_pages WHERE id = ?').get(id) as AnyRow | undefined;
+  if (!cur) { res.status(404).json({ error: 'not found' }); return; }
+  const b = (req.body ?? {}) as { sent_at?: number | null; sent_note?: string | null };
+  const sets: string[] = []; const vals: unknown[] = [];
+  if ('sent_at' in b) { sets.push('sent_at = ?'); vals.push(b.sent_at == null ? null : Math.trunc(Number(b.sent_at))); }
+  if ('sent_note' in b) { sets.push('sent_note = ?'); vals.push(b.sent_note == null ? null : String(b.sent_note)); }
+  if (sets.length) db.prepare(`UPDATE workbook_pages SET ${sets.join(', ')} WHERE id = ?`).run(...vals, id);
+  res.json(db.prepare('SELECT * FROM workbook_pages WHERE id = ?').get(id));
 });
 
 router.get('/pages/:id', (req: Request, res: Response) => {
@@ -786,7 +904,7 @@ router.delete('/pages/images/:imgId', (req: Request, res: Response) => {
 
 // ── Freie Annotationen: Pfeile & Textlabels (Migr. 139) ───────────────────────
 interface AnnotationRow { id: number; page_id: number; kind: string; x1: number; y1: number; x2: number; y2: number; text: string; color: string; size: number; z: number; created_at: number }
-const ANNO_KINDS = new Set(['arrow', 'text', 'marker', 'rect']);
+const ANNO_KINDS = new Set(['arrow', 'text', 'marker', 'rect', 'x', 'draw', 'bracket']);
 
 router.get('/pages/:id/annotations', (req: Request, res: Response) => {
   const pageId = Number(req.params.id);
@@ -804,7 +922,7 @@ router.post('/pages/:id/annotations', (req: Request, res: Response) => {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     pageId, kind, num(b.x1, 0), num(b.y1, 0), num(b.x2, 0), num(b.y2, 0),
-    String(b.text ?? '').slice(0, 2000), String(b.color ?? '#ef4444').slice(0, 20),
+    String(b.text ?? '').slice(0, kind === 'draw' ? 200000 : 2000), String(b.color ?? '#ef4444').slice(0, 20),
     Math.max(1, num(b.size, kind === 'text' ? 16 : 3)), maxZ + 1,
   );
   res.status(201).json(db.prepare('SELECT * FROM workbook_page_annotations WHERE id = ?').get(r.lastInsertRowid) as AnnotationRow);

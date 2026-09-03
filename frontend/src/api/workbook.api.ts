@@ -35,6 +35,8 @@ export interface Page {
   updated_at: string;
   parent_id?: number | null;
   contact_id?: number | null;
+  sent_at?: number | null;   // Unix-Sekunden: "an Herstellerin gesendet am"
+  sent_note?: string | null; // Notiz zur gesendeten Version
 }
 
 export interface Template {
@@ -157,6 +159,24 @@ export async function deletePage(id: number): Promise<void> {
   await apiClient.delete(`/workbook/pages/${id}`);
 }
 
+// Seite duplizieren (komplette Kopie in denselben Bereich).
+export async function duplicatePage(id: number): Promise<Page> {
+  const { data } = await apiClient.post<Page>(`/workbook/pages/${id}/duplicate`);
+  return data;
+}
+
+// Bereich duplizieren (neuer Bereich + alle Seiten).
+export async function duplicateSection(id: number): Promise<Section> {
+  const { data } = await apiClient.post<Section>(`/workbook/sections/${id}/duplicate`);
+  return data;
+}
+
+// "An Herstellerin gesendet"-Markierung setzen/ändern/entfernen.
+export async function setPageSent(id: number, patch: { sent_at?: number | null; sent_note?: string | null }): Promise<Page> {
+  const { data } = await apiClient.patch<Page>(`/workbook/pages/${id}/sent`, patch);
+  return data;
+}
+
 // Templates
 export async function fetchTemplates(): Promise<Template[]> {
   const { data } = await apiClient.get<Template[]>('/workbook/templates');
@@ -255,7 +275,7 @@ export async function deletePageImage(imgId: number): Promise<void> {
 }
 
 // Freie Annotationen (Pfeile & Textlabels, Migr. 139)
-export type AnnotationKind = 'arrow' | 'text' | 'marker' | 'rect';
+export type AnnotationKind = 'arrow' | 'text' | 'marker' | 'rect' | 'x' | 'draw' | 'bracket';
 export interface PageAnnotation {
   id: number; page_id: number; kind: AnnotationKind;
   x1: number; y1: number; x2: number; y2: number;
@@ -284,12 +304,15 @@ export interface ExportParams {
   format: 'csv' | 'pdf';
   section_id?: number | null;
   page_id?: number | null;
+  section_index?: number | null; // nur diesen Bereich (sectionBlock) einer Seite exportieren
+  filename?: string;
 }
 
 export async function exportWorkbook(params: ExportParams): Promise<void> {
   const query: Record<string, string> = { format: params.format };
   if (params.section_id != null) query.section_id = String(params.section_id);
   if (params.page_id != null) query.page_id = String(params.page_id);
+  if (params.section_index != null) query.section_index = String(params.section_index);
 
   const response = await apiClient.get('/workbook/export', {
     params: query,
@@ -299,7 +322,7 @@ export async function exportWorkbook(params: ExportParams): Promise<void> {
   // Dateiname aus Content-Disposition auslesen (Fallback: generisch)
   const disposition = (response.headers['content-disposition'] as string | undefined) ?? '';
   const match = disposition.match(/filename="?([^";]+)"?/);
-  const filename = match?.[1] ?? `arbeitsmappe-export.${params.format}`;
+  const filename = params.filename ? `${params.filename}.${params.format}` : (match?.[1] ?? `arbeitsmappe-export.${params.format}`);
 
   const blob = new Blob([response.data as BlobPart], {
     type: params.format === 'csv' ? 'text/csv;charset=utf-8;' : 'application/pdf',

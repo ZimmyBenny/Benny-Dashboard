@@ -493,6 +493,24 @@ body {
 [data-white-bg] .ProseMirror th, [data-white-bg] .ProseMirror td { border-color: #d1d5db; }
 [data-white-bg] .ProseMirror th { background: rgba(0,0,0,0.04); }
 
+/* Bereich (sectionBlock): beschriftete, klappbare Karte auf der Seite */
+.wb-section-block { border: 1px solid var(--color-outline-variant); border-radius: 10px; margin: 0.75rem 0; overflow: hidden; background: rgba(148,170,255,0.05); }
+.wb-section-header { display: flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.5rem; background: rgba(148,170,255,0.1); border-bottom: 1px solid var(--color-outline-variant); }
+.wb-section-block[data-collapsed] .wb-section-header { border-bottom: none; }
+.wb-section-block[data-collapsed] .wb-section-content { display: none; }
+.wb-section-content { padding: 0.35rem 0.7rem; }
+.wb-section-content > *:first-child { margin-top: 0.2rem; }
+.wb-section-title-input { flex: 1; min-width: 0; background: transparent; border: none; outline: none; font-family: var(--font-body); font-weight: 700; font-size: 0.98rem; color: var(--color-on-surface); }
+.wb-section-icon-btn { display: flex; align-items: center; justify-content: center; background: transparent; border: none; cursor: pointer; padding: 0.15rem; border-radius: 0.3rem; color: var(--color-on-surface-variant); flex-shrink: 0; }
+.wb-section-icon-btn:hover { background: rgba(148,170,255,0.15); }
+.wb-section-sent { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.1rem 0.5rem; border-radius: 999px; background: rgba(34,197,94,0.14); border: 1px solid rgba(34,197,94,0.4); color: #4ade80; font-family: var(--font-body); font-size: 0.72rem; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+.wb-section-block[data-exporting] .wb-section-icon-btn { display: none; }
+.wb-section-block[data-exporting] .wb-section-header { border-bottom: none; }
+[data-white-bg] .wb-section-title-input { color: #111827; }
+[data-white-bg] .wb-section-block { background: rgba(0,0,0,0.02); border-color: #d1d5db; }
+[data-white-bg] .wb-section-header { background: rgba(0,0,0,0.04); border-color: #d1d5db; }
+[data-white-bg] .wb-section-icon-btn { color: #4b5563; }
+
 .ProseMirror h1 { font-family: var(--font-headline); font-weight: 800; font-size: 2rem; margin: 1.5rem 0 0.75rem; letter-spacing: -0.02em; }
 .ProseMirror h2 { font-family: var(--font-headline); font-weight: 700; font-size: 1.5rem; margin: 1.25rem 0 0.5rem; }
 .ProseMirror h3 { font-family: var(--font-headline); font-weight: 700; font-size: 1.15rem; margin: 1rem 0 0.4rem; }
