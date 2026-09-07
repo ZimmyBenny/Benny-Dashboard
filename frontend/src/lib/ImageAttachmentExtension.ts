@@ -22,6 +22,11 @@ export const ImageAttachmentExtension = Node.create({
         parseHTML: (el) => (el as HTMLElement).getAttribute('alt') || '',
         renderHTML: (attrs) => (attrs.alt ? { alt: String(attrs.alt) } : {}),
       },
+      width: {
+        default: null,
+        parseHTML: (el) => { const v = (el as HTMLElement).getAttribute('data-w'); return v ? Number(v) : null; },
+        renderHTML: (attrs) => (attrs.width != null ? { 'data-w': String(attrs.width), style: `width:${attrs.width}px;max-width:100%` } : {}),
+      },
     };
   },
 

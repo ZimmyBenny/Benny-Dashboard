@@ -37,6 +37,7 @@ export interface Page {
   contact_id?: number | null;
   sent_at?: number | null;   // Unix-Sekunden: "an Herstellerin gesendet am"
   sent_note?: string | null; // Notiz zur gesendeten Version
+  child_count?: number;      // Anzahl Unterseiten (nur in Listen-Abfragen gesetzt)
 }
 
 export interface Template {
@@ -157,6 +158,12 @@ export async function toggleTemplate(id: number): Promise<Page> {
 
 export async function deletePage(id: number): Promise<void> {
   await apiClient.delete(`/workbook/pages/${id}`);
+}
+
+// Seite umhängen: unter eine andere Seite (Unterseite) oder zur Hauptseite (parent_id = null).
+export async function movePageToParent(id: number, parentId: number | null): Promise<Page> {
+  const { data } = await apiClient.patch<Page>(`/workbook/pages/${id}/parent`, { parent_id: parentId });
+  return data;
 }
 
 // Seite duplizieren (komplette Kopie in denselben Bereich).

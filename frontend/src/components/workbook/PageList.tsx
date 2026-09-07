@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { deletePage, fetchPages, updatePage, reorderPages, duplicatePage, type Page } from '../../api/workbook.api';
+import { deletePage, fetchPages, updatePage, reorderPages, duplicatePage, movePageToParent, type Page } from '../../api/workbook.api';
 
 interface PageListProps {
   pages: Page[];
@@ -9,9 +9,10 @@ interface PageListProps {
   onNew: () => void;
   onNewChild: (parentId: number) => void;
   onReload: () => void;
+  syncPage?: Page | null; // im Editor geänderte Seite -> Titel etc. in der Liste nachziehen
 }
 
-export function PageList({ pages, activeId, onSelect, onNew, onNewChild, onReload }: PageListProps) {
+export function PageList({ pages, activeId, onSelect, onNew, onNewChild, onReload, syncPage }: PageListProps) {
   const [showPinned, setShowPinned] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [childrenMap, setChildrenMap] = useState<Record<number, Page[]>>({});
@@ -28,6 +29,20 @@ export function PageList({ pages, activeId, onSelect, onNew, onNewChild, onReloa
 
   useEffect(() => { setLocalPages(pages); pagesRef.current = pages; }, [pages]);
   useEffect(() => { localPagesRef.current = localPages; }, [localPages]);
+
+  // Im Editor geänderte Seite (z.B. Titel) auch in Unterseiten-Cache + Top-Level nachziehen.
+  useEffect(() => {
+    if (!syncPage) return;
+    setLocalPages((prev) => prev.map((p) => (p.id === syncPage.id ? { ...p, ...syncPage } : p)));
+    setChildrenMap((prev) => {
+      let changed = false;
+      const next: Record<number, Page[]> = {};
+      for (const [k, arr] of Object.entries(prev)) {
+        next[Number(k)] = arr.map((c) => { if (c.id === syncPage.id) { changed = true; return { ...c, ...syncPage }; } return c; });
+      }
+      return changed ? next : prev;
+    });
+  }, [syncPage]);
 
   async function handleToggleExpand(e: React.MouseEvent, pageId: number) {
     e.stopPropagation();
@@ -67,18 +82,60 @@ export function PageList({ pages, activeId, onSelect, onNew, onNewChild, onReloa
     onSelect(p.id);
   }
 
-  async function handleRename(e: React.MouseEvent, page: Page) {
+  // Inline-Umbenennen (Enter = speichern, Esc = abbrechen).
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  function startRename(e: React.MouseEvent, page: Page) {
     e.stopPropagation();
-    const newTitle = window.prompt('Neuer Titel:', page.title || '');
-    if (newTitle === null || newTitle.trim() === page.title) return;
-    await updatePage(page.id, { title: newTitle.trim() });
-    onReload();
+    setEditingId(page.id); setEditTitle(page.title || '');
+  }
+  async function commitRename(page: Page) {
+    const id = page.id; const val = editTitle.trim();
+    setEditingId(null);
+    if (val === '' || val === (page.title || '')) return;
+    try {
+      await updatePage(id, { title: val });
+      setLocalPages((prev) => prev.map((p) => (p.id === id ? { ...p, title: val } : p)));
+      setChildrenMap((prev) => { const n: Record<number, Page[]> = {}; for (const [k, arr] of Object.entries(prev)) n[Number(k)] = arr.map((c) => (c.id === id ? { ...c, title: val } : c)); return n; });
+      onReload();
+    } catch { window.alert('Umbenennen fehlgeschlagen.'); }
   }
 
   function handleAddChild(e: React.MouseEvent, parentId: number) {
     e.stopPropagation();
     onNewChild(parentId);
   }
+
+  // „Einordnen"-Menü: Seite unter eine andere hängen (Unterseite) oder zur Hauptseite.
+  const [moveMenu, setMoveMenu] = useState<{ page: Page; x: number; y: number } | null>(null);
+  function openMoveMenu(e: React.MouseEvent, page: Page) {
+    e.stopPropagation();
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setMoveMenu({ page, x: r.left, y: r.bottom + 4 });
+  }
+  async function moveTo(page: Page, parentId: number | null) {
+    setMoveMenu(null);
+    try {
+      await movePageToParent(page.id, parentId);
+      onReload(); // Top-Level neu laden (verschobene Seite verlässt/betritt Top-Level)
+      // Kinder aller aufgeklappten Eltern frisch laden (inkl. neuem Ziel) — sonst stale.
+      const targets = new Set<number>(expandedIds);
+      if (parentId != null) targets.add(parentId);
+      const maps: Record<number, Page[]> = {};
+      await Promise.all([...targets].map(async (pid) => { maps[pid] = await fetchPages({ parent_id: pid }); }));
+      setChildrenMap(maps);
+      setExpandedIds(new Set(targets));
+      onSelect(page.id);
+    } catch { window.alert('Einordnen fehlgeschlagen.'); }
+  }
+  useEffect(() => {
+    if (!moveMenu) return;
+    const close = () => setMoveMenu(null);
+    const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') setMoveMenu(null); };
+    window.addEventListener('pointerdown', close);
+    window.addEventListener('keydown', onKey);
+    return () => { window.removeEventListener('pointerdown', close); window.removeEventListener('keydown', onKey); };
+  }, [moveMenu]);
 
   function startDrag(nativeEvent: PointerEvent, el: HTMLDivElement, page: Page) {
     const startX = nativeEvent.clientX;
@@ -239,17 +296,49 @@ export function PageList({ pages, activeId, onSelect, onNew, onNewChild, onReloa
               </button>
             )}
 
-            <span style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: isChild ? '0.82rem' : '0.88rem',
-              fontWeight: isChild ? 400 : 600,
-              color: isChild ? 'var(--color-on-surface-variant)' : 'var(--color-on-surface)',
-              overflow: 'hidden', display: '-webkit-box',
-              WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
-              flex: 1, pointerEvents: 'none',
-            }}>
-              {page.title || 'Unbenannte Seite'}
-            </span>
+            {isChild && (
+              <span className="material-symbols-outlined" style={{ fontSize: '0.85rem', color: 'var(--color-outline)', marginRight: '0.3rem', flexShrink: 0, pointerEvents: 'none' }}>
+                subdirectory_arrow_right
+              </span>
+            )}
+
+            {(page.child_count ?? 0) > 0 && (
+              <span title={`${page.child_count} Unterseite(n)`} style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', flexShrink: 0, marginRight: '0.4rem', boxShadow: '0 0 6px rgba(34,197,94,0.55)', pointerEvents: 'none' }} />
+            )}
+
+            {editingId === page.id ? (
+              <input
+                autoFocus
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') { e.preventDefault(); commitRename(page); }
+                  else if (e.key === 'Escape') { e.preventDefault(); setEditingId(null); }
+                }}
+                onBlur={() => commitRename(page)}
+                style={{
+                  flex: 1, minWidth: 0, background: 'var(--color-surface-container-high)',
+                  border: '1px solid var(--color-primary)', borderRadius: '0.35rem',
+                  color: 'var(--color-on-surface)', fontFamily: 'var(--font-body)',
+                  fontSize: isChild ? '0.82rem' : '0.88rem', fontWeight: isChild ? 400 : 600,
+                  padding: '0.15rem 0.4rem', outline: 'none',
+                }}
+              />
+            ) : (
+              <span style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: isChild ? '0.82rem' : '0.88rem',
+                fontWeight: isChild ? 400 : 600,
+                color: isChild ? 'var(--color-on-surface-variant)' : 'var(--color-on-surface)',
+                overflow: 'hidden', display: '-webkit-box',
+                WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
+                flex: 1, pointerEvents: 'none',
+              }}>
+                {page.title || 'Unbenannte Seite'}
+              </span>
+            )}
 
             {page.is_pinned === 1 && (
               <span className="material-symbols-outlined" style={{
@@ -262,7 +351,7 @@ export function PageList({ pages, activeId, onSelect, onNew, onNewChild, onReloa
 
             <button
               className="page-action-btn"
-              onClick={(e) => handleRename(e, page)}
+              onClick={(e) => startRename(e, page)}
               style={{
                 opacity: 0, background: 'transparent', border: 'none',
                 cursor: 'pointer', padding: '0.1rem', display: 'flex',
@@ -301,6 +390,20 @@ export function PageList({ pages, activeId, onSelect, onNew, onNewChild, onReloa
               }}
             >
               <span className="material-symbols-outlined" style={{ fontSize: '0.9rem' }}>content_copy</span>
+            </button>
+
+            <button
+              className="page-action-btn"
+              onClick={(e) => openMoveMenu(e, page)}
+              title="Einordnen (als Unterseite / zur Hauptseite)"
+              style={{
+                opacity: 0, background: 'transparent', border: 'none',
+                cursor: 'pointer', padding: '0.1rem', display: 'flex',
+                alignItems: 'center', color: 'var(--color-on-surface-variant)',
+                transition: 'opacity 0.15s', flexShrink: 0, marginLeft: '0.25rem',
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '0.9rem' }}>drive_file_move</span>
             </button>
 
             <button
@@ -363,6 +466,42 @@ export function PageList({ pages, activeId, onSelect, onNew, onNewChild, onReloa
           whiteSpace: 'nowrap',
         }}>
           {ghostLabel}
+        </div>,
+        document.body
+      )}
+
+      {/* „Einordnen"-Menü */}
+      {moveMenu && createPortal(
+        <div
+          onPointerDown={(e) => e.stopPropagation()}
+          style={{
+            position: 'fixed', left: Math.min(moveMenu.x, window.innerWidth - 250), top: moveMenu.y, zIndex: 10000,
+            minWidth: 220, maxHeight: 340, overflowY: 'auto', padding: 4,
+            background: 'var(--color-surface-container-high)', border: '1px solid var(--color-outline-variant)',
+            borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.5)', fontFamily: 'var(--font-body)', fontSize: '0.8rem',
+          }}
+        >
+          {moveMenu.page.parent_id != null && (
+            <>
+              <button type="button" onClick={() => moveTo(moveMenu.page, null)}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(148,170,255,0.12)')} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                style={{ display: 'block', width: '100%', textAlign: 'left', background: 'transparent', border: 'none', color: 'var(--color-on-surface)', cursor: 'pointer', padding: '6px 8px', borderRadius: 6, fontFamily: 'inherit', fontSize: 'inherit' }}>
+                ↩︎ Zur Hauptseite machen
+              </button>
+              <div style={{ height: 1, background: 'var(--color-outline-variant)', margin: '4px 0' }} />
+            </>
+          )}
+          <div style={{ padding: '4px 8px', color: 'var(--color-outline)', fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Als Unterseite von</div>
+          {localPages.filter((t) => t.id !== moveMenu.page.id).map((t) => (
+            <button key={t.id} type="button" onClick={() => moveTo(moveMenu.page, t.id)}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(148,170,255,0.12)')} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+              style={{ display: 'block', width: '100%', textAlign: 'left', background: 'transparent', border: 'none', color: 'var(--color-on-surface)', cursor: 'pointer', padding: '6px 8px', borderRadius: 6, fontFamily: 'inherit', fontSize: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {t.title || 'Unbenannte Seite'}
+            </button>
+          ))}
+          {localPages.filter((t) => t.id !== moveMenu.page.id).length === 0 && (
+            <div style={{ padding: '6px 8px', color: 'var(--color-outline)' }}>Keine andere Seite vorhanden</div>
+          )}
         </div>,
         document.body
       )}

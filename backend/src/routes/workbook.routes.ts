@@ -451,7 +451,7 @@ router.get('/pages', (req: Request, res: Response) => {
     return;
   }
 
-  let sql = 'SELECT * FROM workbook_pages WHERE 1=1';
+  let sql = 'SELECT *, (SELECT COUNT(*) FROM workbook_pages c WHERE c.parent_id = workbook_pages.id AND c.is_archived = 0) AS child_count FROM workbook_pages WHERE 1=1';
   const params: unknown[] = [];
 
   if (section_id !== undefined) {
@@ -619,6 +619,32 @@ router.patch('/pages/:id/sent', (req: Request, res: Response) => {
   if ('sent_at' in b) { sets.push('sent_at = ?'); vals.push(b.sent_at == null ? null : Math.trunc(Number(b.sent_at))); }
   if ('sent_note' in b) { sets.push('sent_note = ?'); vals.push(b.sent_note == null ? null : String(b.sent_note)); }
   if (sets.length) db.prepare(`UPDATE workbook_pages SET ${sets.join(', ')} WHERE id = ?`).run(...vals, id);
+  res.json(db.prepare('SELECT * FROM workbook_pages WHERE id = ?').get(id));
+});
+
+// Seite umhängen: als Unterseite unter eine andere Seite, oder zur Hauptseite (parent_id = null).
+router.patch('/pages/:id/parent', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const cur = db.prepare('SELECT id FROM workbook_pages WHERE id = ?').get(id);
+  if (!cur) { res.status(404).json({ error: 'not found' }); return; }
+  const raw = (req.body ?? {}).parent_id;
+  const parentId = raw == null ? null : Number(raw);
+
+  if (parentId != null) {
+    if (parentId === id) { res.status(400).json({ error: 'Seite kann nicht ihr eigenes Elternteil sein' }); return; }
+    const parent = db.prepare('SELECT id, section_id, parent_id FROM workbook_pages WHERE id = ?').get(parentId) as { id: number; section_id: number | null; parent_id: number | null } | undefined;
+    if (!parent) { res.status(404).json({ error: 'Zielseite nicht gefunden' }); return; }
+    // Zyklus verhindern: das neue Elternteil darf kein Nachfahre der Seite sein.
+    let p: number | null = parent.parent_id; const guard = new Set<number>();
+    while (p != null) {
+      if (p === id) { res.status(400).json({ error: 'Zyklus nicht erlaubt' }); return; }
+      if (guard.has(p)) break; guard.add(p);
+      p = (db.prepare('SELECT parent_id FROM workbook_pages WHERE id = ?').get(p) as { parent_id: number | null } | undefined)?.parent_id ?? null;
+    }
+    db.prepare("UPDATE workbook_pages SET parent_id = ?, section_id = ?, updated_at = datetime('now') WHERE id = ?").run(parentId, parent.section_id ?? null, id);
+  } else {
+    db.prepare("UPDATE workbook_pages SET parent_id = NULL, updated_at = datetime('now') WHERE id = ?").run(id);
+  }
   res.json(db.prepare('SELECT * FROM workbook_pages WHERE id = ?').get(id));
 });
 

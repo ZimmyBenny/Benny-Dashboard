@@ -242,19 +242,49 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     }
   }
 
-  // Bilder INLINE in einen Bereich einfügen (nicht als frei platzierte Seiten-Elemente).
-  async function insertImagesIntoSection(files: File[], atPos: number) {
+  // Bilder als FREI platzierte Elemente in einen Bereich (sectionBlock an sectionPos) legen.
+  async function addImagesToSection(sectionPos: number, files: File[], relX: number, relY: number) {
     const imgs = files.filter((f) => f.type.startsWith('image/'));
     if (imgs.length === 0) return;
-    const nodes: Array<{ type: string; attrs: { attachmentId: number } }> = [];
+    const ed = editorRef.current; if (!ed) return;
+    const entries: Array<{ id: string; attachmentId: number; x: number; y: number; w: number; h: number; rot: number }> = [];
+    let ox = Math.max(0, relX), oy = Math.max(0, relY);
     for (const file of imgs) {
       try {
         const att = await uploadAttachment(page.id, file);
         setAttachments((prev) => [...prev, att]);
-        nodes.push({ type: 'imageAttachment', attrs: { attachmentId: att.id } });
+        entries.push({ id: `si_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`, attachmentId: att.id, x: Math.round(ox), y: Math.round(oy), w: 240, h: 180, rot: 0 });
+        ox += 22; oy += 22;
       } catch { /* einzelnes Bild übersprungen */ }
     }
-    if (nodes.length) editorRef.current?.chain().insertContentAt(atPos, nodes).run();
+    if (!entries.length) return;
+    const node = ed.state.doc.nodeAt(sectionPos);
+    const existing = Array.isArray(node?.attrs.images) ? (node!.attrs.images as unknown[]) : [];
+    ed.chain().command(({ tr }) => { tr.setNodeAttribute(sectionPos, 'images', [...existing, ...entries]); return true; }).run();
+  }
+
+  // Liegt der Drop-Punkt in einem Bereich? Dann Bild(er) als freie Elemente in genau diesen Bereich.
+  function tryDropIntoSection(target: EventTarget | null, clientX: number, clientY: number, files: File[]): boolean {
+    const view = editorRef.current?.view;
+    if (!view) return false;
+    const dom = (target as HTMLElement | null) ?? (document.elementFromPoint(clientX, clientY) as HTMLElement | null);
+    const sectionEl = (dom?.closest?.('.wb-section-block') ?? dom?.closest?.('[data-section-block]')) as HTMLElement | null;
+    if (!sectionEl) return false;
+    let handled = false;
+    view.state.doc.descendants((node, pos) => {
+      if (handled || node.type.name !== 'sectionBlock') return !handled;
+      const nd = view.nodeDOM(pos) as HTMLElement | null;
+      if (nd && (nd === sectionEl || nd.contains(sectionEl))) {
+        const contentEl = sectionEl.querySelector('.wb-section-content') as HTMLElement | null;
+        const rect = (contentEl ?? sectionEl).getBoundingClientRect();
+        const z = zoomRef.current || 1;
+        addImagesToSection(pos, files, (clientX - rect.left) / z - 120, (clientY - rect.top) / z - 90);
+        handled = true;
+        return false;
+      }
+      return true;
+    });
+    return handled;
   }
 
   // Ganze Seite (Text + freie Bilder) als PNG exportieren.
@@ -578,25 +608,21 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     onCreate: ({ editor: ed }) => { editorRef.current = ed; },
     onDestroy: () => { editorRef.current = null; },
     editorProps: {
-      handleDrop: (view, event) => {
+      // Zeiger-Events auf frei platzierten Bereichs-Bildern NICHT von ProseMirror behandeln
+      // (sonst setzt es die Auswahl -> NodeView-Re-Render -> Ziehen bricht ab).
+      handleDOMEvents: {
+        mousedown: (_v, e) => !!(e.target as HTMLElement | null)?.closest?.('.wb-section-image'),
+        pointerdown: (_v, e) => !!(e.target as HTMLElement | null)?.closest?.('.wb-section-image'),
+      },
+      handleDrop: (_view, event) => {
         const dt = event.dataTransfer;
         if (!dt) return false;
         const files = extractDropFiles(dt);
         if (files.length > 0) {
           event.preventDefault();
           setDragOver(false);
-          // Landet der Drop innerhalb eines Bereichs? -> Bild(er) INLINE in den Bereich.
-          const at = view.posAtCoords({ left: event.clientX, top: event.clientY });
-          if (at) {
-            const $pos = view.state.doc.resolve(at.pos);
-            for (let d = $pos.depth; d > 0; d--) {
-              if ($pos.node(d).type.name === 'sectionBlock') {
-                const endInside = $pos.before(d) + $pos.node(d).nodeSize - 1;
-                insertImagesIntoSection(files, endInside);
-                return true;
-              }
-            }
-          }
+          // In einem Bereich abgelegt? -> Bild(er) INLINE in genau diesen Bereich.
+          if (tryDropIntoSection(event.target, event.clientX, event.clientY, files)) return true;
           // sonst: frei platziertes Seiten-Bild wie bisher
           nextDropAt.current = computeDropAt(event.clientX, event.clientY);
           handleUploadFiles(files);
@@ -668,10 +694,10 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
   // Pro-Bereich-PDF-Export: Handler in den Editor-Storage hängen (kennt page.id).
   useEffect(() => {
     if (!editor) return;
-    const store = (editor.storage as unknown as Record<string, unknown>).sectionBlock as { onExportPdf: ((i: number, t: string) => void) | null; onAddImage: ((files: File[], atPos: number) => void) | null } | undefined;
+    const store = (editor.storage as unknown as Record<string, unknown>).sectionBlock as { onExportPdf: ((i: number, t: string) => void) | null; addSectionImages: ((sectionPos: number, files: File[], x: number, y: number) => void) | null } | undefined;
     if (store) {
       store.onExportPdf = (idx, filename) => { exportWorkbook({ format: 'pdf', page_id: page.id, section_index: idx, filename }).catch(() => {}); };
-      store.onAddImage = (files, atPos) => { insertImagesIntoSection(files, atPos); };
+      store.addSectionImages = (sectionPos, files, x, y) => { addImagesToSection(sectionPos, files, x, y); };
     }
   }, [editor, page.id]);
 
@@ -1221,6 +1247,8 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
           const files = extractDropFiles(e.dataTransfer);
           if (files.length > 0) {
             e.preventDefault(); // nur verhindern wenn wir selbst verarbeiten
+            // In einem Bereich abgelegt? -> INLINE in den Bereich, sonst frei platziert.
+            if (tryDropIntoSection(e.target, e.clientX, e.clientY, files)) return;
             nextDropAt.current = computeDropAt(e.clientX, e.clientY);
             handleUploadFiles(files);
           }

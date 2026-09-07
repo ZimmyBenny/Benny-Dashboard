@@ -41,6 +41,12 @@ export const SectionBlockExtension = Node.create({
         parseHTML: (el) => (el as HTMLElement).getAttribute('data-sent-note') || null,
         renderHTML: (attrs) => (attrs.sentNote ? { 'data-sent-note': String(attrs.sentNote) } : {}),
       },
+      // Frei platzierte Bilder im Bereich: [{id, attachmentId, x, y, w, h, rot}]
+      images: {
+        default: [],
+        parseHTML: (el) => { try { const v = JSON.parse((el as HTMLElement).getAttribute('data-images') || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } },
+        renderHTML: (attrs) => (Array.isArray(attrs.images) && attrs.images.length ? { 'data-images': JSON.stringify(attrs.images) } : {}),
+      },
     };
   },
 
@@ -48,7 +54,7 @@ export const SectionBlockExtension = Node.create({
   addStorage() {
     return {
       onExportPdf: null as null | ((sectionIndex: number, title: string) => void),
-      onAddImage: null as null | ((files: File[], atPos: number) => void),
+      addSectionImages: null as null | ((sectionPos: number, files: File[], x: number, y: number) => void),
     };
   },
 

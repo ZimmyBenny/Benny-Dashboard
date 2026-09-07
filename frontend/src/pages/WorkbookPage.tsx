@@ -190,6 +190,7 @@ export function WorkbookPage() {
         {!panelsCollapsed && (<PageList
           pages={pages}
           activeId={activePageId}
+          syncPage={activePage}
           onSelect={setActivePageId}
           onNew={() => setTemplateModalOpen(true)}
           onNewChild={async (parentId: number) => {
