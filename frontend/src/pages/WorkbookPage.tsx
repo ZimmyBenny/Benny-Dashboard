@@ -216,6 +216,10 @@ export function WorkbookPage() {
               setActivePage(p);
               setPages((ps) => ps.map((x) => (x.id === p.id ? p : x)));
             }}
+            onPageDuplicated={(p: Page) => {
+              if (activeSectionId !== null) fetchPages({ section_id: activeSectionId }).then(setPages).catch(() => {});
+              setActivePageId(p.id);
+            }}
             sectionName={sections.find((s) => s.id === activeSectionId)?.name ?? ''}
           />
         ) : (

@@ -19,7 +19,7 @@ import {
   updatePageContact, exportWorkbook,
   fetchPageImages, createPageImage, updatePageImage, deletePageImage,
   fetchAnnotations, createAnnotation, updateAnnotation, deleteAnnotation,
-  getAttachmentDataUrl, setPageSent,
+  getAttachmentDataUrl, setPageSent, duplicatePage,
   type Page, type Attachment, type PageImage, type PageAnnotation, type AnnotationPatch,
 } from '../../api/workbook.api';
 import { FloatingImage } from './FloatingImage';
@@ -42,6 +42,7 @@ interface WorkbookEditorProps {
   onSaveStatusChange: (s: SaveStatus) => void;
   saveStatus: SaveStatus;
   onPageUpdated: (p: Page) => void;
+  onPageDuplicated?: (p: Page) => void;
   sectionName?: string;
 }
 
@@ -71,7 +72,7 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpdated, sectionName }: WorkbookEditorProps) {
+export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpdated, onPageDuplicated, sectionName }: WorkbookEditorProps) {
   const [title, setTitle] = useState(page.title);
   const [tags, setTags] = useState(page.tags ?? '');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -108,7 +109,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
   const zoomRef = useRef(1);
   zoomRef.current = zoom;
   function setZoomClamped(z: number) { setZoom(Math.min(1.5, Math.max(0.4, Math.round(z * 100) / 100))); }
-  const [whiteBg, setWhiteBg] = useState(false);
+  const [whiteBg, setWhiteBg] = useState(true);
   function toggleWhiteBg() {
     setWhiteBg((v) => { const n = !v; try { window.localStorage.setItem(`workbook.whiteBg.${page.id}`, n ? '1' : '0'); } catch { /* ignore */ } return n; });
   }
@@ -176,7 +177,8 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     setSelectedImageId(null);
     setSelectedAnnoId(null);
     setAnnoMode('none');
-    try { setWhiteBg(window.localStorage.getItem(`workbook.whiteBg.${page.id}`) === '1'); } catch { setWhiteBg(false); }
+    // Standard: weißer Hintergrund. Nur wenn ausdrücklich auf dunkel gestellt ('0') -> dunkel.
+    try { const s = window.localStorage.getItem(`workbook.whiteBg.${page.id}`); setWhiteBg(s === null ? true : s === '1'); } catch { setWhiteBg(true); }
   }, [page.id]);
 
   async function handleUploadFiles(files: FileList | File[]) {
@@ -747,6 +749,12 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     onPageUpdated(updated);
   }
 
+  // Ganze Seite duplizieren (komplette Kopie inkl. Inhalt/Bilder/Anhänge) und zur Kopie springen.
+  async function handleDuplicatePage() {
+    try { const copy = await duplicatePage(page.id); onPageDuplicated?.(copy); }
+    catch { window.alert('Seite konnte nicht dupliziert werden.'); }
+  }
+
   // "An Herstellerin gesendet"-Markierung: setzen (mit Notiz), Notiz bearbeiten oder entfernen.
   async function handleToggleSent() {
     if (page.sent_at) {
@@ -1063,6 +1071,7 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         <div style={{ width: '1px', height: '1.2rem', background: 'var(--color-outline-variant)', margin: '0 0.2rem' }} />
 
         {/* Page actions */}
+        {iconBtn(false, handleDuplicatePage, 'file_copy', 'Ganze Seite duplizieren')}
         {iconBtn(page.is_pinned === 1, handleTogglePin, 'push_pin', page.is_pinned ? 'Pin entfernen' : 'Pinnen')}
         {iconBtn(page.is_archived === 1, handleToggleArchive, 'archive', page.is_archived ? 'Archivierung aufheben' : 'Archivieren')}
         {iconBtn(page.is_template === 1, handleToggleTemplate, 'bookmark', page.is_template ? 'Vorlage entfernen' : 'Als Vorlage')}

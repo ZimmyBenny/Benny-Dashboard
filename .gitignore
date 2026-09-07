@@ -62,3 +62,8 @@ Dokumente/
 # Root-verankert (/Belege/) — sonst kollidiert es case-insensitiv (macOS) mit
 # frontend/src/pages/belege/ und backend/src/routes/belege*.
 /Belege/
+
+# iCloud-Duplikate von node_modules-Symlinks (z.B. "node_modules 3")
+node_modules [0-9]*
+frontend/node_modules [0-9]*
+backend/node_modules [0-9]*
