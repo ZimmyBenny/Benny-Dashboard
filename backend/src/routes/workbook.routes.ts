@@ -897,6 +897,30 @@ router.post('/pages/:id/images', (req: Request, res: Response) => {
   res.status(201).json(db.prepare('SELECT * FROM workbook_page_images WHERE id = ?').get(r.lastInsertRowid) as PageImageRow);
 });
 
+// Bild in eine Seite einfügen und dabei den Anhang UNABHÄNGIG kopieren (Copy/Paste zwischen Seiten).
+router.post('/pages/:id/images/copy', (req: Request, res: Response) => {
+  const pageId = Number(req.params.id);
+  const b = (req.body ?? {}) as Record<string, unknown>;
+  const srcAtt = db.prepare('SELECT * FROM workbook_attachments WHERE id = ?').get(Number(b.attachment_id)) as Record<string, unknown> | undefined;
+  if (!srcAtt) { res.status(404).json({ error: 'Anhang nicht gefunden' }); return; }
+  let newStorage = srcAtt.storage_path as string;
+  try {
+    const ext = path.extname(newStorage);
+    const dest = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+    fs.copyFileSync(path.join(UPLOADS_DIR, newStorage), path.join(UPLOADS_DIR, dest));
+    newStorage = dest;
+  } catch { /* Originaldatei fehlt -> Verweis teilen */ }
+  const attIns = db.prepare(
+    'INSERT INTO workbook_attachments (page_id, file_name, file_type, file_size, storage_path) VALUES (?, ?, ?, ?, ?)'
+  ).run(pageId, srcAtt.file_name, srcAtt.file_type, srcAtt.file_size, newStorage);
+  const newAttId = Number(attIns.lastInsertRowid);
+  const maxZ = (db.prepare('SELECT COALESCE(MAX(z),0) AS m FROM workbook_page_images WHERE page_id = ?').get(pageId) as { m: number }).m;
+  const r = db.prepare(
+    'INSERT INTO workbook_page_images (page_id, attachment_id, x, y, width, height, z, rotation) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  ).run(pageId, newAttId, Math.max(0, num(b.x, 20)), Math.max(0, num(b.y, 20)), Math.max(40, num(b.width, 300)), Math.max(40, num(b.height, 200)), maxZ + 1, ((num(b.rotation, 0) % 360) + 360) % 360);
+  res.status(201).json(db.prepare('SELECT * FROM workbook_page_images WHERE id = ?').get(r.lastInsertRowid) as PageImageRow);
+});
+
 router.patch('/pages/images/:imgId', (req: Request, res: Response) => {
   const id = Number(req.params.imgId);
   const cur = db.prepare('SELECT * FROM workbook_page_images WHERE id = ?').get(id) as PageImageRow | undefined;
@@ -914,17 +938,14 @@ router.patch('/pages/images/:imgId', (req: Request, res: Response) => {
   res.json(db.prepare('SELECT * FROM workbook_page_images WHERE id = ?').get(id) as PageImageRow);
 });
 
-// Löscht Bild-Zeile UND den zugehörigen Anhang (Datei + Zeile; page_image cascaded).
+// Entfernt NUR die Bild-Platzierung auf der Seite. Anhang + Datei bleiben IMMER erhalten
+// (Datensicherheit: kein Datei-Löschen durch Verschieben/Kopieren/Rückgängig; der Anhang
+// bleibt in der Anhänge-Liste und kann dort bei Bedarf bewusst gelöscht werden).
 router.delete('/pages/images/:imgId', (req: Request, res: Response) => {
   const id = Number(req.params.imgId);
-  const img = db.prepare('SELECT attachment_id FROM workbook_page_images WHERE id = ?').get(id) as { attachment_id: number } | undefined;
+  const img = db.prepare('SELECT id FROM workbook_page_images WHERE id = ?').get(id) as { id: number } | undefined;
   if (!img) { res.status(404).json({ error: 'not found' }); return; }
-  const att = db.prepare('SELECT storage_path FROM workbook_attachments WHERE id = ?').get(img.attachment_id) as { storage_path: string } | undefined;
-  if (att) {
-    const fp = path.join(UPLOADS_DIR, att.storage_path);
-    if (fs.existsSync(fp)) { try { fs.unlinkSync(fp); } catch { /* schon weg */ } }
-  }
-  db.prepare('DELETE FROM workbook_attachments WHERE id = ?').run(img.attachment_id); // cascaded page_image
+  db.prepare('DELETE FROM workbook_page_images WHERE id = ?').run(id);
   res.status(204).end();
 });
 

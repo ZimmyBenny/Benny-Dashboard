@@ -215,7 +215,8 @@ export function WorkbookPage() {
             saveStatus={saveStatus}
             onPageUpdated={(p: Page) => {
               setActivePage(p);
-              setPages((ps) => ps.map((x) => (x.id === p.id ? p : x)));
+              // Merge statt Ersetzen: die Update-Antwort enthält kein child_count -> sonst verschwindet der grüne Punkt.
+              setPages((ps) => ps.map((x) => (x.id === p.id ? { ...x, ...p } : x)));
             }}
             onPageDuplicated={(p: Page) => {
               if (activeSectionId !== null) fetchPages({ section_id: activeSectionId }).then(setPages).catch(() => {});

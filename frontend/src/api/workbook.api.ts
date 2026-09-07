@@ -273,6 +273,11 @@ export async function createPageImage(pageId: number, body: { attachment_id: num
   const { data } = await apiClient.post<PageImage>(`/workbook/pages/${pageId}/images`, body);
   return data;
 }
+// Bild in eine Seite einfügen und den Anhang unabhängig mitkopieren (Copy/Paste).
+export async function copyPageImage(pageId: number, body: { attachment_id: number; x?: number; y?: number; width?: number; height?: number; rotation?: number }): Promise<PageImage> {
+  const { data } = await apiClient.post<PageImage>(`/workbook/pages/${pageId}/images/copy`, body);
+  return data;
+}
 export async function updatePageImage(imgId: number, patch: Partial<Pick<PageImage, 'x' | 'y' | 'width' | 'height' | 'z' | 'rotation'>>): Promise<PageImage> {
   const { data } = await apiClient.patch<PageImage>(`/workbook/pages/images/${imgId}`, patch);
   return data;

@@ -17,10 +17,10 @@ import {
   updatePage, togglePin, toggleArchive, toggleTemplate,
   fetchAttachments, uploadAttachment, deleteAttachment, getAttachmentDownloadUrl,
   updatePageContact, exportWorkbook,
-  fetchPageImages, createPageImage, updatePageImage, deletePageImage,
+  fetchPageImages, createPageImage, updatePageImage, deletePageImage, copyPageImage,
   fetchAnnotations, createAnnotation, updateAnnotation, deleteAnnotation,
   getAttachmentDataUrl, setPageSent, duplicatePage,
-  type Page, type Attachment, type PageImage, type PageAnnotation, type AnnotationPatch,
+  type Page, type Attachment, type PageImage, type PageAnnotation, type AnnotationPatch, type AnnotationKind,
 } from '../../api/workbook.api';
 import { FloatingImage } from './FloatingImage';
 import { ArrowAnnotation, TextAnnotation, RectAnnotation, XAnnotation, DrawAnnotation, HBracketAnnotation } from './WorkbookAnnotations';
@@ -741,6 +741,16 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         if (selectedAnnoId != null || selectedImageId != null || selNodes.size > 0) { e.preventDefault(); duplicateSelected(); }
         return;
       }
+      // Cmd/Ctrl+C -> Auswahl kopieren (nur außerhalb von Textfeldern/Editor -> dort native Kopie)
+      if (meta && (e.key === 'c' || e.key === 'C')) {
+        if (!inField && !inProse && !editingText && selNodes.size > 0) { e.preventDefault(); copySelection(); }
+        return;
+      }
+      // Cmd/Ctrl+V -> auf diese Seite einfügen (nur außerhalb von Textfeldern/Editor)
+      if (meta && (e.key === 'v' || e.key === 'V')) {
+        if (!inField && !inProse && !editingText) { e.preventDefault(); pasteClipboard(); }
+        return;
+      }
       // Cmd/Ctrl+Z -> Rückgängig (nur außerhalb von Textfeldern/Editor; dort greift die native Undo)
       if (meta && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
         if (!inField && !inProse && !editingText) { e.preventDefault(); undoLast(); }
@@ -971,6 +981,38 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
       for (const im of imgs) { const re = await createPageImage(page.id, { attachment_id: im.attachment_id, x: im.x, y: im.y, width: im.width, height: im.height }); let c = re; if (im.rotation) { try { c = await updatePageImage(re.id, { rotation: im.rotation }); } catch { /* opt */ } } setPageImages((p) => [...p, c]); reUids.add(`img:${c.id}`); }
       setSelNodes(reUids);
     });
+  }
+
+  // Auswahl in die App-Zwischenablage (localStorage) kopieren — auch seitenübergreifend.
+  function copySelection() {
+    const imgs = pageImages.filter((p) => selNodes.has(`img:${p.id}`)).map((p) => ({ attachment_id: p.attachment_id, x: p.x, y: p.y, width: p.width, height: p.height, rotation: p.rotation }));
+    const anns = annotations.filter((a) => selNodes.has(`ann:${a.id}`)).map((a) => ({ kind: a.kind, x1: a.x1, y1: a.y1, x2: a.x2, y2: a.y2, text: a.text, color: a.color, size: a.size }));
+    if (imgs.length + anns.length === 0) return;
+    try { window.localStorage.setItem('workbook.clipboard', JSON.stringify({ images: imgs, annotations: anns })); } catch { /* ignore */ }
+  }
+  // Aus der App-Zwischenablage auf DIESE Seite einfügen (Bilder werden unabhängig kopiert).
+  async function pasteClipboard() {
+    let payload: { images?: Array<{ attachment_id: number; x: number; y: number; width: number; height: number; rotation: number }>; annotations?: Array<{ kind: AnnotationKind; x1: number; y1: number; x2: number; y2: number; text: string; color: string; size: number }> } | null = null;
+    try { payload = JSON.parse(window.localStorage.getItem('workbook.clipboard') || 'null'); } catch { payload = null; }
+    if (!payload || ((payload.images?.length ?? 0) + (payload.annotations?.length ?? 0) === 0)) return;
+    const off = 24;
+    const newUids = new Set<string>(); const imgIds: number[] = []; const annIds: number[] = [];
+    for (const im of payload.images ?? []) {
+      try { const c = await copyPageImage(page.id, { attachment_id: im.attachment_id, x: (im.x || 0) + off, y: (im.y || 0) + off, width: im.width, height: im.height, rotation: im.rotation }); setPageImages((p) => [...p, c]); newUids.add(`img:${c.id}`); imgIds.push(c.id); } catch { /* übersprungen */ }
+    }
+    for (const a of payload.annotations ?? []) {
+      try { const re = await createAnnotation(page.id, { kind: a.kind, x1: a.x1 + off, y1: a.y1 + off, x2: (a.x2 ?? 0) + off, y2: (a.y2 ?? 0) + off, text: a.text, color: a.color, size: a.size }); setAnnotations((p) => [...p, re]); newUids.add(`ann:${re.id}`); annIds.push(re.id); } catch { /* übersprungen */ }
+    }
+    if (newUids.size) {
+      setSelNodes(newUids);
+      pushUndo(async () => {
+        setAnnotations((f) => f.filter((x) => !annIds.includes(x.id)));
+        setPageImages((f) => f.filter((x) => !imgIds.includes(x.id)));
+        setSelNodes(new Set());
+        for (const id of annIds) await deleteAnnotation(id).catch(() => {});
+        for (const id of imgIds) await deletePageImage(id).catch(() => {});
+      });
+    }
   }
   // Gruppen-Verschieben über das Auswahl-Rechteck.
   function groupDown(e: React.PointerEvent) {
