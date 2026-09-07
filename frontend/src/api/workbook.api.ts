@@ -273,6 +273,11 @@ export async function createPageImage(pageId: number, body: { attachment_id: num
   const { data } = await apiClient.post<PageImage>(`/workbook/pages/${pageId}/images`, body);
   return data;
 }
+// Nur einen Anhang unabhängig in eine Seite kopieren (für Bereichs-Bild-Paste).
+export async function copyAttachment(pageId: number, attachmentId: number): Promise<Attachment> {
+  const { data } = await apiClient.post<Attachment>(`/workbook/pages/${pageId}/attachments/copy`, { attachment_id: attachmentId });
+  return data;
+}
 // Bild in eine Seite einfügen und den Anhang unabhängig mitkopieren (Copy/Paste).
 export async function copyPageImage(pageId: number, body: { attachment_id: number; x?: number; y?: number; width?: number; height?: number; rotation?: number }): Promise<PageImage> {
   const { data } = await apiClient.post<PageImage>(`/workbook/pages/${pageId}/images/copy`, body);

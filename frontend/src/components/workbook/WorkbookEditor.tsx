@@ -17,7 +17,7 @@ import {
   updatePage, togglePin, toggleArchive, toggleTemplate,
   fetchAttachments, uploadAttachment, deleteAttachment, getAttachmentDownloadUrl,
   updatePageContact, exportWorkbook,
-  fetchPageImages, createPageImage, updatePageImage, deletePageImage, copyPageImage,
+  fetchPageImages, createPageImage, updatePageImage, deletePageImage, copyPageImage, copyAttachment,
   fetchAnnotations, createAnnotation, updateAnnotation, deleteAnnotation,
   getAttachmentDataUrl, setPageSent, duplicatePage,
   type Page, type Attachment, type PageImage, type PageAnnotation, type AnnotationPatch, type AnnotationKind,
@@ -311,7 +311,20 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     if (zoomWrap) zoomWrap.style.zoom = '1';
     await new Promise((r) => setTimeout(r, 80)); // Auswahl-Handles ausblenden + Reflow
 
-    const W = el.scrollWidth, H = el.scrollHeight, ratio = 2;
+    // Export-Größe so wählen, dass ALLE frei platzierten Bilder (inkl. Drehung) und
+    // Annotationen vollständig hineinpassen — sonst werden überstehende Elemente abgeschnitten.
+    let maxX = el.scrollWidth, maxY = el.scrollHeight;
+    for (const pi of pageImages) {
+      const cx = pi.x + pi.width / 2, cy = pi.y + pi.height / 2, rad = (pi.rotation || 0) * Math.PI / 180;
+      const hw = (Math.abs(Math.cos(rad)) * pi.width + Math.abs(Math.sin(rad)) * pi.height) / 2;
+      const hh = (Math.abs(Math.sin(rad)) * pi.width + Math.abs(Math.cos(rad)) * pi.height) / 2;
+      maxX = Math.max(maxX, cx + hw); maxY = Math.max(maxY, cy + hh);
+    }
+    for (const a of annotations) {
+      maxX = Math.max(maxX, a.x1, a.x2, a.x1 + (a.kind === 'text' ? (a.text.length || 3) * a.size * 0.6 : 0));
+      maxY = Math.max(maxY, a.y1, a.y2, a.y1 + (a.kind === 'text' ? a.size * 1.5 : 0));
+    }
+    const W = Math.ceil(maxX) + 8, H = Math.ceil(maxY) + 8, ratio = 2;
     const bg = getComputedStyle(el).backgroundColor || '#0f161e';
 
     // Frei platzierte Fotos zeichnet html-to-image bei großen Bildern nicht ins
@@ -746,9 +759,17 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         if (!inField && !inProse && !editingText && selNodes.size > 0) { e.preventDefault(); copySelection(); }
         return;
       }
-      // Cmd/Ctrl+V -> auf diese Seite einfügen (nur außerhalb von Textfeldern/Editor)
+      // Cmd/Ctrl+V -> einfügen:
+      //  • NUR Bild + Cursor im Text -> inline an der Cursor-Stelle (wo es blinkt)
+      //  • sonst (Striche/Pfeile dabei, oder Cursor nicht im Text) -> ALLES als freie, verschiebbare Gruppe
       if (meta && (e.key === 'v' || e.key === 'V')) {
-        if (!inField && !inProse && !editingText) { e.preventDefault(); pasteClipboard(); }
+        let clip: { images?: Array<{ attachment_id: number; width: number }>; annotations?: unknown[] } | null = null;
+        try { clip = JSON.parse(window.localStorage.getItem('workbook.clipboard') || 'null'); } catch { clip = null; }
+        const hasImgs = (clip?.images?.length ?? 0) > 0;
+        const hasAnns = (clip?.annotations?.length ?? 0) > 0;
+        if (!clip || (!hasImgs && !hasAnns)) return; // nichts kopiert -> native Einfügen
+        if (hasImgs && !hasAnns && inProse) { e.preventDefault(); pasteInlineAtCursor(clip); return; } // reines Bild an Cursor
+        if (!inField && !editingText) { e.preventDefault(); pasteClipboard(); } // volle Auswahl (Bilder + Striche) als freie Gruppe
         return;
       }
       // Cmd/Ctrl+Z -> Rückgängig (nur außerhalb von Textfeldern/Editor; dort greift die native Undo)
@@ -1013,6 +1034,19 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         for (const id of imgIds) await deletePageImage(id).catch(() => {});
       });
     }
+  }
+  // Kopierte Bilder INLINE an der Cursor-Stelle (wo der Strich blinkt) einfügen — Anhang unabhängig kopiert.
+  async function pasteInlineAtCursor(clip: { images?: Array<{ attachment_id: number; width: number }> }) {
+    const ed = editorRef.current; if (!ed) return;
+    const nodes: Array<{ type: string; attrs: { attachmentId: number; width: number | null } }> = [];
+    for (const im of clip.images ?? []) {
+      try {
+        const att = await copyAttachment(page.id, im.attachment_id);
+        setAttachments((p) => [...p, att]);
+        nodes.push({ type: 'imageAttachment', attrs: { attachmentId: att.id, width: im.width ? Math.min(400, im.width) : null } });
+      } catch { /* übersprungen */ }
+    }
+    if (nodes.length) ed.chain().focus().insertContent(nodes).run();
   }
   // Gruppen-Verschieben über das Auswahl-Rechteck.
   function groupDown(e: React.PointerEvent) {

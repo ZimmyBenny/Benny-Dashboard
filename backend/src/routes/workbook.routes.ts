@@ -897,6 +897,25 @@ router.post('/pages/:id/images', (req: Request, res: Response) => {
   res.status(201).json(db.prepare('SELECT * FROM workbook_page_images WHERE id = ?').get(r.lastInsertRowid) as PageImageRow);
 });
 
+// Nur einen Anhang unabhängig in eine Seite kopieren (Datei + Zeile) — für Bereichs-Bild-Paste.
+router.post('/pages/:id/attachments/copy', (req: Request, res: Response) => {
+  const pageId = Number(req.params.id);
+  const b = (req.body ?? {}) as Record<string, unknown>;
+  const src = db.prepare('SELECT * FROM workbook_attachments WHERE id = ?').get(Number(b.attachment_id)) as Record<string, unknown> | undefined;
+  if (!src) { res.status(404).json({ error: 'Anhang nicht gefunden' }); return; }
+  let newStorage = src.storage_path as string;
+  try {
+    const ext = path.extname(newStorage);
+    const dest = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+    fs.copyFileSync(path.join(UPLOADS_DIR, newStorage), path.join(UPLOADS_DIR, dest));
+    newStorage = dest;
+  } catch { /* Originaldatei fehlt -> Verweis teilen */ }
+  const r = db.prepare(
+    'INSERT INTO workbook_attachments (page_id, file_name, file_type, file_size, storage_path) VALUES (?, ?, ?, ?, ?)'
+  ).run(pageId, src.file_name, src.file_type, src.file_size, newStorage);
+  res.status(201).json(db.prepare('SELECT * FROM workbook_attachments WHERE id = ?').get(r.lastInsertRowid));
+});
+
 // Bild in eine Seite einfügen und dabei den Anhang UNABHÄNGIG kopieren (Copy/Paste zwischen Seiten).
 router.post('/pages/:id/images/copy', (req: Request, res: Response) => {
   const pageId = Number(req.params.id);
