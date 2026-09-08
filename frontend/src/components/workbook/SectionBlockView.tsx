@@ -92,7 +92,10 @@ export function SectionBlockView({ node, updateAttributes, deleteNode, editor, g
       const ratio = 2;
       const cardRect = el.getBoundingClientRect();
       const W = Math.round(cardRect.width), H = Math.round(cardRect.height);
-      const domUrl = await toPng(el, { backgroundColor: whiteBg ? '#ffffff' : '#0f161e', width: W, height: H, pixelRatio: ratio });
+      const domUrl = await toPng(el, {
+        backgroundColor: whiteBg ? '#ffffff' : '#0f161e', width: W, height: H, pixelRatio: ratio,
+        filter: (node) => !(node instanceof HTMLElement && node.hasAttribute('data-floating-image')),
+      });
       const canvas = document.createElement('canvas'); canvas.width = W * ratio; canvas.height = H * ratio;
       const ctx = canvas.getContext('2d')!; ctx.scale(ratio, ratio);
       const dom = await loadImg(domUrl);

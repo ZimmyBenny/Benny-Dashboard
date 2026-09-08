@@ -299,6 +299,59 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
     ctx.drawImage(im, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
   }
 
+  // Eine Annotation (Pfeil/Text/Marker/Rechteck/X/Freihand/Bügel) direkt aufs Canvas
+  // zeichnen — deterministisch aus den Daten, unabhängig von html-to-image. Koordinaten
+  // sind Seiten-Koordinaten (Zoom neutralisiert), identisch zum DOM-Rendering.
+  function drawAnnotation(ctx: CanvasRenderingContext2D, a: PageAnnotation, fontFamily: string) {
+    const col = a.color || '#ef4444';
+    const size = a.size || 2;
+    const left = Math.min(a.x1, a.x2), top = Math.min(a.y1, a.y2);
+    const w = Math.abs(a.x2 - a.x1), h = Math.abs(a.y2 - a.y1);
+    ctx.save();
+    ctx.strokeStyle = col; ctx.fillStyle = col;
+    ctx.lineWidth = size; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    if (a.kind === 'text') {
+      ctx.font = `600 ${size}px ${fontFamily}`;
+      ctx.textBaseline = 'top';
+      const lines = (a.text || '').split('\n');
+      lines.forEach((ln, i) => ctx.fillText(ln, a.x1 + 3, a.y1 + 1 + i * size * 1.25));
+    } else if (a.kind === 'marker') {
+      ctx.globalAlpha = 0.4;
+      ctx.beginPath(); ctx.moveTo(a.x1, a.y1); ctx.lineTo(a.x2, a.y2); ctx.stroke();
+    } else if (a.kind === 'arrow') {
+      const ang = Math.atan2(a.y2 - a.y1, a.x2 - a.x1);
+      const headLen = 9 + size * 2.4, headW = 5 + size * 1.6;
+      const bxp = a.x2 - headLen * Math.cos(ang), byp = a.y2 - headLen * Math.sin(ang);
+      const px = -Math.sin(ang), py = Math.cos(ang);
+      ctx.beginPath(); ctx.moveTo(a.x1, a.y1); ctx.lineTo(bxp, byp); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(a.x2, a.y2);
+      ctx.lineTo(bxp + headW * px, byp + headW * py);
+      ctx.lineTo(bxp - headW * px, byp - headW * py);
+      ctx.closePath(); ctx.fill();
+    } else if (a.kind === 'rect') {
+      ctx.globalAlpha = 0.2; ctx.fillRect(left, top, w, h);
+      ctx.globalAlpha = 1; ctx.lineWidth = 2; ctx.strokeRect(left, top, w, h);
+    } else if (a.kind === 'x') {
+      ctx.beginPath(); ctx.moveTo(left, top); ctx.lineTo(left + w, top + h); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(left + w, top); ctx.lineTo(left, top + h); ctx.stroke();
+    } else if (a.kind === 'bracket') {
+      const my = top + h / 2;
+      ctx.beginPath(); ctx.moveTo(left, top); ctx.lineTo(left, top + h); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(left + w, top); ctx.lineTo(left + w, top + h); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(left, my); ctx.lineTo(left + w, my); ctx.stroke();
+    } else if (a.kind === 'draw') {
+      let pts: number[][] = [];
+      try { const v = JSON.parse(a.text || '[]'); if (Array.isArray(v)) pts = v; } catch { /* keine Punkte */ }
+      if (pts.length > 1) {
+        ctx.beginPath(); ctx.moveTo(left + pts[0][0], top + pts[0][1]);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(left + pts[i][0], top + pts[i][1]);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
   async function handleExportPng() {
     const el = scrollRef.current;
     if (!el) return;
@@ -351,9 +404,33 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
       }
     }));
 
+    // Bereichs-Bilder (frei platziert IN Bereichen) mit absoluter Position sammeln,
+    // damit sie im Ganze-Seite-Export ebenfalls gezeichnet werden.
+    const sectionDraws: Array<{ attachmentId: number; x: number; y: number; w: number; h: number; rot: number }> = [];
+    const wrapRect = zoomWrap?.getBoundingClientRect();
+    if (editor && wrapRect) {
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name !== 'sectionBlock' || node.attrs.collapsed) return true;
+        const imgs = Array.isArray(node.attrs.images) ? (node.attrs.images as Array<{ attachmentId: number; x: number; y: number; w: number; h: number; rot: number }>) : [];
+        if (!imgs.length) return true;
+        const dom = editor.view.nodeDOM(pos) as HTMLElement | null;
+        const contentEl = dom?.querySelector('.wb-section-content') as HTMLElement | null;
+        if (!contentEl) return true;
+        const cr = contentEl.getBoundingClientRect();
+        const ox = cr.left - wrapRect.left, oy = cr.top - wrapRect.top;
+        for (const im of imgs) sectionDraws.push({ attachmentId: im.attachmentId, x: ox + im.x, y: oy + im.y, w: im.w, h: im.h, rot: im.rot || 0 });
+        return true;
+      });
+    }
+
     try {
-      // 1) Text + Annotationen transparent abgreifen
-      const domUrl = await toPng(el, { width: W, height: H, pixelRatio: ratio, style: { overflow: 'visible' } });
+      // 1) Text + Annotationen transparent abgreifen. Die frei platzierten Bilder
+      //    (riesige Data-URLs) werden AUSGESCHLOSSEN — sonst scheitert html-to-image
+      //    und liefert ein leeres Abbild (Pfeile/Text fehlen). Bilder kommen per Canvas.
+      const domUrl = await toPng(el, {
+        width: W, height: H, pixelRatio: ratio, style: { overflow: 'visible' },
+        filter: (node) => !(node instanceof HTMLElement && (node.hasAttribute('data-floating-image') || node.hasAttribute('data-annotation'))),
+      });
 
       // 2) Canvas komponieren: Hintergrund -> Fotos -> Text/Annotationen darüber
       const canvas = document.createElement('canvas');
@@ -375,8 +452,30 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
           }
         } catch { /* Bild überspringen */ }
       }
+      // Bereichs-Bilder (absolute Positionen) ebenfalls zeichnen
+      for (const sd of sectionDraws) {
+        try {
+          const im = await loadImg(await getAttachmentDataUrl(sd.attachmentId));
+          if (sd.rot) {
+            const ccx = sd.x + sd.w / 2, ccy = sd.y + sd.h / 2;
+            ctx.save(); ctx.translate(ccx, ccy); ctx.rotate(sd.rot * Math.PI / 180); ctx.translate(-ccx, -ccy);
+            drawContain(ctx, im, sd.x, sd.y, sd.w, sd.h);
+            ctx.restore();
+          } else {
+            drawContain(ctx, im, sd.x, sd.y, sd.w, sd.h);
+          }
+        } catch { /* Bild überspringen */ }
+      }
       const dom = await loadImg(domUrl);
       ctx.drawImage(dom, 0, 0, W, H);
+
+      // Annotationen (Pfeile, Text, Marker, Rechtecke, X, Freihand, Bügel) deterministisch
+      // per Canvas ÜBER Fotos + Text zeichnen — html-to-image liefert sie auf dieser Seite
+      // unzuverlässig, deshalb kommen sie garantiert aus den Daten.
+      const annoFont = getComputedStyle(el).fontFamily || 'sans-serif';
+      for (const an of annotations) {
+        try { drawAnnotation(ctx, an, annoFont); } catch { /* Annotation überspringen */ }
+      }
 
       const a = document.createElement('a');
       a.href = canvas.toDataURL('image/png');
@@ -1349,15 +1448,19 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         ))}
         {/* Annotationen: Pfeile, Marker, Rechtecke & Text */}
         {annotations.map((a) => {
-          const common = { key: a.id, anno: a, selected: selectedAnnoId === a.id, zoom,
+          const common = { anno: a, selected: selectedAnnoId === a.id, zoom,
             onSelect: (additive?: boolean) => selectNode(`ann:${a.id}`, additive), onCommit: (p: AnnotationPatch) => commitAnnotation(a.id, p), onDelete: () => removeAnnotation(a.id),
             onSnap: (b: Bounds, opts?: SnapOpts) => snapFor(`ann:${a.id}`, b, opts), onSnapEnd: endSnap };
-          if (a.kind === 'rect') return <RectAnnotation {...common} />;
-          if (a.kind === 'x') return <XAnnotation {...common} />;
-          if (a.kind === 'bracket') return <HBracketAnnotation {...common} />;
-          if (a.kind === 'draw') return <DrawAnnotation {...common} />;
-          if (a.kind === 'text') return <TextAnnotation {...common} />;
-          return <ArrowAnnotation {...common} />; // arrow + marker
+          let el;
+          if (a.kind === 'rect') el = <RectAnnotation {...common} />;
+          else if (a.kind === 'x') el = <XAnnotation {...common} />;
+          else if (a.kind === 'bracket') el = <HBracketAnnotation {...common} />;
+          else if (a.kind === 'draw') el = <DrawAnnotation {...common} />;
+          else if (a.kind === 'text') el = <TextAnnotation {...common} />;
+          else el = <ArrowAnnotation {...common} />; // arrow + marker
+          // display:contents -> Wrapper erzeugt keine Box, absolute Positionen bleiben korrekt.
+          // data-annotation: wird beim PNG-Export aus dem DOM-Abbild gefiltert (wird per Canvas gezeichnet).
+          return <span key={a.id} data-annotation="" style={{ display: 'contents' }}>{el}</span>;
         })}
         {/* Smart-Guides: Ausrichtungslinien beim Ziehen */}
         {guides.length > 0 && (
