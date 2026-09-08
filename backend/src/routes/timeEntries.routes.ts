@@ -20,7 +20,7 @@ router.get('/', (req, res) => {
       c.name  AS client_name,
       te.contact_id,
       CASE WHEN ct.contact_kind = 'person'
-        THEN COALESCE(ct.first_name || ' ' || ct.last_name, ct.organization_name)
+        THEN COALESCE(NULLIF(TRIM(COALESCE(ct.first_name, '') || ' ' || COALESCE(ct.last_name, '')), ''), ct.organization_name)
         ELSE ct.organization_name
       END AS contact_name
     FROM time_entries te
@@ -102,7 +102,7 @@ router.post('/', (req, res) => {
   const created = db.prepare(`
     SELECT te.*, p.name AS project_name, c.name AS client_name,
       CASE WHEN ct.contact_kind = 'person'
-        THEN COALESCE(ct.first_name || ' ' || ct.last_name, ct.organization_name)
+        THEN COALESCE(NULLIF(TRIM(COALESCE(ct.first_name, '') || ' ' || COALESCE(ct.last_name, '')), ''), ct.organization_name)
         ELSE ct.organization_name
       END AS contact_name
     FROM time_entries te
@@ -157,7 +157,7 @@ router.put('/:id', (req, res) => {
   const updated = db.prepare(`
     SELECT te.*, p.name AS project_name, c.name AS client_name,
       CASE WHEN ct.contact_kind = 'person'
-        THEN COALESCE(ct.first_name || ' ' || ct.last_name, ct.organization_name)
+        THEN COALESCE(NULLIF(TRIM(COALESCE(ct.first_name, '') || ' ' || COALESCE(ct.last_name, '')), ''), ct.organization_name)
         ELSE ct.organization_name
       END AS contact_name
     FROM time_entries te
