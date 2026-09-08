@@ -7,8 +7,24 @@ interface DragPromptProps {
   onCancel: () => void;
 }
 
+// Heutiges Datum als "TT.MM.JJJJ" (mit führenden Nullen).
+function heute(): string {
+  const d = new Date();
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${dd}.${mm}.${d.getFullYear()}`;
+}
+
 export function DragPrompt({ fromCol, toCol, onConfirm, onCancel }: DragPromptProps) {
   const [note, setNote] = useState('');
+  const datum = heute();
+
+  // Datum immer mit in die Notiz aufnehmen, damit auf der Karte sichtbar ist,
+  // wann der Status zuletzt geändert wurde.
+  function confirm() {
+    const text = note.trim();
+    onConfirm(text ? `${datum} — ${text}` : datum);
+  }
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -58,14 +74,23 @@ export function DragPrompt({ fromCol, toCol, onConfirm, onCancel }: DragPromptPr
             color: 'var(--color-on-surface)',
             marginBottom: '0.25rem',
           }}>
-            Status geaendert: {fromCol} &rarr; {toCol}
+            Status geändert: {fromCol} &rarr; {toCol}
           </p>
           <p style={{
             fontFamily: 'var(--font-body)',
             fontSize: '0.8rem',
             color: 'var(--color-on-surface-variant)',
           }}>
-            Wartet auf / Naechster Schritt (optional)
+            Wartet auf / Nächster Schritt (optional)
+          </p>
+          <p style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.72rem',
+            color: 'var(--color-on-surface-variant)',
+            marginTop: '0.35rem',
+            opacity: 0.85,
+          }}>
+            Datum wird notiert: {datum}
           </p>
         </div>
 
@@ -74,8 +99,12 @@ export function DragPrompt({ fromCol, toCol, onConfirm, onCancel }: DragPromptPr
           autoFocus
           value={note}
           onChange={(e) => setNote(e.target.value)}
+          onKeyDown={(e) => {
+            // Enter bestätigt, Shift+Enter macht einen Zeilenumbruch.
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); confirm(); }
+          }}
           rows={3}
-          placeholder="z.B. Wartet auf Rueckmeldung von..."
+          placeholder="z.B. Wartet auf Rückmeldung von… (Enter bestätigt)"
           style={{
             width: '100%',
             background: 'var(--color-surface-container-low)',
@@ -110,7 +139,7 @@ export function DragPrompt({ fromCol, toCol, onConfirm, onCancel }: DragPromptPr
             Abbrechen
           </button>
           <button
-            onClick={() => onConfirm(note)}
+            onClick={confirm}
             style={{
               padding: '0.5rem 1.25rem',
               borderRadius: '9999px',

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { fetchReminders, completeReminder, triggerRemindersSync, type AppleReminder } from '../../api/reminders.api';
+import { CollapseButton } from './CollapsedColumn';
 
 // ---------------------------------------------------------------------------
 // Konstanten
@@ -64,7 +65,12 @@ function groupByList(items: AppleReminder[]): { name: string; items: AppleRemind
 // Komponente
 // ---------------------------------------------------------------------------
 
-export function RemindersColumn() {
+interface RemindersColumnProps {
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
+}
+
+export function RemindersColumn({ collapsed: columnCollapsed = false, onToggleCollapse }: RemindersColumnProps = {}) {
   const [reminders, setReminders] = useState<AppleReminder[]>([]);
   const [loading, setLoading]     = useState(true);
   const [syncing, setSyncing]     = useState(false);
@@ -138,7 +144,7 @@ export function RemindersColumn() {
         alignItems: 'center',
         gap: '0.5rem',
         padding: '0.875rem 1rem',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        borderBottom: columnCollapsed ? 'none' : '1px solid rgba(255,255,255,0.06)',
       }}>
         <span
           className="material-symbols-outlined"
@@ -198,8 +204,10 @@ export function RemindersColumn() {
             sync
           </span>
         </button>
+        {onToggleCollapse && <CollapseButton collapsed={columnCollapsed} onClick={onToggleCollapse} />}
       </div>
 
+      {!columnCollapsed && (<>
       {/* Suchfeld */}
       <div style={{ padding: '0.5rem 0.75rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div style={{
@@ -452,6 +460,7 @@ export function RemindersColumn() {
           );
         })}
       </div>
+      </>)}
     </div>
   );
 }

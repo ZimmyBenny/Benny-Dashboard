@@ -64,6 +64,19 @@ export function KanbanBoard({ filters, onTaskClick, onShowAllDone, refreshKey = 
   const [loading, setLoading] = useState(true);
   const [pendingDrag, setPendingDrag] = useState<PendingDrag | null>(null);
 
+  // Eingeklappte Spalten (inkl. "reminders") — im Browser gemerkt.
+  const [collapsedCols, setCollapsedCols] = useState<Record<string, boolean>>(() => {
+    try { return JSON.parse(localStorage.getItem('tasks.columnsCollapsed') || '{}'); }
+    catch { return {}; }
+  });
+  function toggleCollapse(colId: string) {
+    setCollapsedCols((prev) => {
+      const next = { ...prev, [colId]: !prev[colId] };
+      try { localStorage.setItem('tasks.columnsCollapsed', JSON.stringify(next)); } catch { /* ignorieren */ }
+      return next;
+    });
+  }
+
   const load = useCallback(() => {
     setLoading(true);
     fetchTasks(filters)
@@ -269,7 +282,10 @@ export function KanbanBoard({ filters, onTaskClick, onShowAllDone, refreshKey = 
           paddingBottom: '0.5rem',
           alignItems: 'flex-start',
         }}>
-          <RemindersColumn />
+          <RemindersColumn
+            collapsed={!!collapsedCols.reminders}
+            onToggleCollapse={() => toggleCollapse('reminders')}
+          />
           {COLUMNS.map((col) => (
             <KanbanColumn
               key={col.id}
@@ -283,6 +299,8 @@ export function KanbanBoard({ filters, onTaskClick, onShowAllDone, refreshKey = 
               totalDoneCount={col.id === 'done' ? tasksByColumn.done.length : undefined}
               onArchive={col.id === 'done' ? handleArchive : undefined}
               onDelete={handleDelete}
+              collapsed={!!collapsedCols[col.id]}
+              onToggleCollapse={() => toggleCollapse(col.id)}
             />
           ))}
         </div>

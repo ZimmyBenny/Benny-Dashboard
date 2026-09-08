@@ -2,6 +2,7 @@ import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import type { Task } from '../../api/tasks.api';
 import { TaskCard } from './TaskCard';
+import { CollapseButton } from './CollapsedColumn';
 
 interface KanbanColumnProps {
   id: string;
@@ -14,6 +15,8 @@ interface KanbanColumnProps {
   totalDoneCount?: number;
   onArchive?: (id: number) => void;
   onDelete?: (id: number, title: string) => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export function KanbanColumn({
@@ -27,6 +30,8 @@ export function KanbanColumn({
   totalDoneCount,
   onArchive,
   onDelete,
+  collapsed = false,
+  onToggleCollapse,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
@@ -50,7 +55,7 @@ export function KanbanColumn({
         alignItems: 'center',
         gap: '0.5rem',
         padding: '0.875rem 1rem',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        borderBottom: collapsed ? 'none' : '1px solid rgba(255,255,255,0.06)',
       }}>
         <span className="material-symbols-outlined" style={{ fontSize: '18px', color, flexShrink: 0 }}>
           {icon}
@@ -82,24 +87,29 @@ export function KanbanColumn({
         }}>
           {tasks.length}
         </span>
+        {onToggleCollapse && <CollapseButton collapsed={collapsed} onClick={onToggleCollapse} />}
       </div>
 
-      {/* Drop zone */}
+      {/* Drop zone — eingeklappt: Höhe 0, Einträge ausgeblendet (Kopf bleibt sichtbar) */}
       <div
         ref={setNodeRef}
         style={{
-          flex: 1,
-          padding: '0.75rem',
-          minHeight: '200px',
+          flex: collapsed ? '0 0 auto' : 1,
+          padding: collapsed ? 0 : '0.75rem',
+          minHeight: collapsed ? 0 : '200px',
+          height: collapsed ? 0 : undefined,
+          overflow: 'hidden',
           background: isOver ? 'rgba(148,170,255,0.04)' : 'transparent',
           transition: 'background 150ms ease',
         }}
       >
+        {!collapsed && (
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           {tasks.map((task) => (
             <TaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} onArchive={onArchive} onDelete={onDelete} />
           ))}
         </SortableContext>
+        )}
 
         {tasks.length === 0 && (
           <div style={{

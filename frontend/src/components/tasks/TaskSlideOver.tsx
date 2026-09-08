@@ -465,7 +465,7 @@ export function TaskSlideOver({ isOpen, onClose, task, onSave, onDelete, prefill
                 value={form.status_note}
                 onChange={(e) => handleChange('status_note', e.target.value)}
                 rows={2}
-                placeholder="Wartet auf / Naechster Schritt..."
+                placeholder="Wartet auf / Nächster Schritt…"
               />
             </div>
 
