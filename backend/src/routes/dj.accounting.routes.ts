@@ -156,7 +156,7 @@ router.get('/payments', (req, res) => {
       r.receipt_number                                       AS invoice_number,
       (r.amount_gross_cents / 100.0)                         AS total_gross,
       COALESCE(
-        NULLIF(TRIM(c.first_name || ' ' || c.last_name), ''),
+        NULLIF(TRIM(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '')), ''),
         r.supplier_name
       )                                                      AS customer_name,
       COALESCE(c.organization_name, r.supplier_name)         AS customer_org

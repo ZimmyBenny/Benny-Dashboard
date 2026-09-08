@@ -38,7 +38,9 @@ router.get('/', (req, res) => {
   let sql = `
     SELECT
       e.*,
-      c.first_name || ' ' || c.last_name AS customer_name,
+      -- NULL-sicher: in SQLite ergibt (x || NULL) sonst komplett NULL, d.h. ein
+      -- Kontakt mit nur Vor- ODER Nachname hätte einen leeren Kundennamen.
+      TRIM(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '')) AS customer_name,
       c.organization_name AS customer_org,
       COALESCE(e.venue_name, l.name) AS location_name,
       COALESCE(e.venue_city, l.city) AS location_city

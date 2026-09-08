@@ -24,7 +24,7 @@ function loadQuote(id: number) {
 router.get('/', (req, res) => {
   const { year, status, customer_id } = req.query as Record<string, string>;
   let sql = `
-    SELECT q.*, c.first_name || ' ' || c.last_name AS customer_name, c.organization_name AS customer_org
+    SELECT q.*, TRIM(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '')) AS customer_name, c.organization_name AS customer_org
     FROM dj_quotes q
     LEFT JOIN contacts c ON c.id = q.customer_id
     WHERE q.deleted_at IS NULL

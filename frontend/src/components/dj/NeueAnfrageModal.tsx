@@ -521,13 +521,12 @@ export function NeueAnfrageModal({ onClose, onCreated, eventId, onUpdated }: Neu
 
   const filteredCustomers = customers
     .filter(c => {
-      if (!customerSearch.trim()) return true;
-      const q = customerSearch.toLowerCase();
-      return (
-        (c.first_name ?? '').toLowerCase().includes(q) ||
-        (c.last_name ?? '').toLowerCase().includes(q) ||
-        (c.organization_name ?? '').toLowerCase().includes(q)
-      );
+      const q = customerSearch.trim().toLowerCase();
+      if (!q) return true;
+      // Gegen den kompletten Namen suchen: jedes eingegebene Wort muss vorkommen
+      // (findet auch "Marion Philipp" mit Vor- + Nachname zusammen).
+      const hay = `${c.first_name ?? ''} ${c.last_name ?? ''} ${c.organization_name ?? ''}`.toLowerCase();
+      return q.split(/\s+/).every(tok => hay.includes(tok));
     })
     .slice(0, 8);
 

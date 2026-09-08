@@ -45,7 +45,7 @@ function updateInvoiceTotals(invoiceId: number) {
 router.get('/', (req, res) => {
   const { year, status, customer_id } = req.query as Record<string, string>;
   let sql = `
-    SELECT i.*, c.first_name || ' ' || c.last_name AS customer_name, c.organization_name AS customer_org
+    SELECT i.*, TRIM(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '')) AS customer_name, c.organization_name AS customer_org
     FROM dj_invoices i
     LEFT JOIN contacts c ON c.id = i.customer_id
     WHERE 1=1

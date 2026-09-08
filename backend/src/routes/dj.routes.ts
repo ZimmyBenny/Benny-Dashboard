@@ -75,7 +75,7 @@ router.get('/overview', (req, res) => {
 
   const recentCompleted = db.prepare(`
     SELECT e.id, e.title, e.event_type, e.event_date,
-           c.first_name || ' ' || c.last_name AS customer_name, c.organization_name
+           TRIM(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '')) AS customer_name, c.organization_name
     FROM dj_events e
     LEFT JOIN contacts c ON c.id = e.customer_id
     WHERE e.status = 'abgeschlossen' AND e.deleted_at IS NULL
@@ -113,7 +113,7 @@ router.get('/overview', (req, res) => {
   // Detail-Listen fuer den Aufklapp-Bereich:
   const bookedEventDetails = db.prepare(`
     SELECT e.event_date AS date, e.event_type, e.title, e.status, 'event' AS source,
-           COALESCE(c.organization_name, NULLIF(TRIM(c.first_name || ' ' || c.last_name), '')) AS customer
+           COALESCE(c.organization_name, NULLIF(TRIM(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '')), '')) AS customer
     FROM dj_events e
     LEFT JOIN contacts c ON c.id = e.customer_id
     WHERE e.status = 'bestaetigt' AND e.deleted_at IS NULL
@@ -125,7 +125,7 @@ router.get('/overview', (req, res) => {
   const bookedInvoiceDetails = db.prepare(`
     SELECT i.invoice_date AS date, 'rechnung' AS event_type, i.subject AS title,
            i.status, 'invoice' AS source, i.total_gross,
-           COALESCE(c.organization_name, NULLIF(TRIM(c.first_name || ' ' || c.last_name), '')) AS customer
+           COALESCE(c.organization_name, NULLIF(TRIM(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '')), '')) AS customer
     FROM dj_invoices i
     LEFT JOIN contacts c ON c.id = i.customer_id
     WHERE i.is_cancellation = 0 AND i.finalized_at IS NOT NULL
@@ -136,7 +136,7 @@ router.get('/overview', (req, res) => {
 
   const pendingEventDetails = db.prepare(`
     SELECT e.event_date AS date, e.event_type, e.title, e.status, 'event' AS source,
-           COALESCE(c.organization_name, NULLIF(TRIM(c.first_name || ' ' || c.last_name), '')) AS customer
+           COALESCE(c.organization_name, NULLIF(TRIM(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '')), '')) AS customer
     FROM dj_events e
     LEFT JOIN contacts c ON c.id = e.customer_id
     WHERE e.status IN ('anfrage','neu','vorgespraech_vereinbart','angebot_gesendet')
