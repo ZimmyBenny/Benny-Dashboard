@@ -48,7 +48,8 @@ export function DjOpenTasks() {
   const today = todayLocal();
 
   const open = (data ?? [])
-    .filter((t) => t.status !== 'done' && t.status !== 'archived')
+    // "Wartend" ist geparkt/blockiert -> zählt nicht als offen. Erledigt/archiviert ebenso raus.
+    .filter((t) => t.status !== 'done' && t.status !== 'archived' && t.status !== 'waiting')
     .map((t) => {
       const dl = dueLocalOf(t.due_date);
       const overdue = dl !== null && dl < today;
