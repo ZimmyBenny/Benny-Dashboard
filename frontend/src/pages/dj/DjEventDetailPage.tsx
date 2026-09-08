@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import {
   fetchDjEvent, fetchDjCustomers, createDjEvent, updateDjEvent,
@@ -35,6 +35,10 @@ export function DjEventDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
+  // Zurück dorthin, wo man hergekommen ist (z.B. Dashboard). Fallback: Anfragen-Liste.
+  const backTo = (location.state as { from?: string } | null)?.from ?? '/dj/events';
+  const backLabel = backTo === '/dj/events' ? 'Zurück zu Anfragen' : 'Zurück';
   const isNew = !id;
 
   // Formularfelder — customer_id aus URL-Param vorbelegen falls vorhanden
@@ -128,13 +132,12 @@ export function DjEventDetailPage() {
   // Picker: gefilterte Kunden
   // ---------------------------------------------------------------------------
   const filteredCustomers = customers.filter(c => {
-    if (!customerSearch.trim()) return true;
-    const q = customerSearch.toLowerCase();
-    return (
-      (c.first_name ?? '').toLowerCase().includes(q) ||
-      (c.last_name ?? '').toLowerCase().includes(q) ||
-      (c.organization_name ?? '').toLowerCase().includes(q)
-    );
+    const q = customerSearch.trim().toLowerCase();
+    if (!q) return true;
+    // Gegen den kompletten Namen suchen: jedes eingegebene Wort muss irgendwo
+    // vorkommen. So findet auch "Marion Philipp" (Vor- + Nachname zusammen).
+    const hay = `${c.first_name ?? ''} ${c.last_name ?? ''} ${c.organization_name ?? ''}`.toLowerCase();
+    return q.split(/\s+/).every(tok => hay.includes(tok));
   }).slice(0, 8);
 
   const selectedCustomer = customerId != null ? customers.find(c => c.id === customerId) : null;
@@ -170,7 +173,7 @@ export function DjEventDetailPage() {
       } else {
         await updateDjEvent(Number(id), payload);
       }
-      navigate('/dj/events');
+      navigate(backTo);
     } catch {
       setError('Fehler beim Speichern. Bitte erneut versuchen.');
     } finally {
@@ -273,7 +276,7 @@ export function DjEventDetailPage() {
       {/* Zurück-Button */}
       <button
         type="button"
-        onClick={() => navigate('/dj/events')}
+        onClick={() => navigate(backTo)}
         style={{
           background: 'transparent', border: 'none',
           color: 'var(--color-on-surface-variant)', cursor: 'pointer',
@@ -283,7 +286,7 @@ export function DjEventDetailPage() {
         }}
       >
         <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_back</span>
-        Zurück zu Anfragen
+        {backLabel}
       </button>
 
       {/* Header */}
@@ -380,8 +383,9 @@ export function DjEventDetailPage() {
               left: 0,
               right: 0,
               marginTop: '0.25rem',
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(148,170,255,0.15)',
+              // Deckender Hintergrund — sonst scheinen die Felder darunter durch (unlesbar).
+              background: 'var(--color-surface-container-high)',
+              border: '1px solid rgba(148,170,255,0.25)',
               borderRadius: '0.75rem',
               padding: '0.75rem',
               boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
@@ -599,7 +603,7 @@ export function DjEventDetailPage() {
 
         {/* Speichern-Button (unten, mobil) */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', gap: '0.75rem' }}>
-          <button type="button" style={btnSecondary} onClick={() => navigate('/dj/events')}>
+          <button type="button" style={btnSecondary} onClick={() => navigate(backTo)}>
             Abbrechen
           </button>
           <button type="button" style={btnPrimary} onClick={() => void handleSave()} disabled={saving}>

@@ -48,7 +48,16 @@ export function DjOverviewPage() {
 
   // Nächste Events Widget
   // 2 | 4 = Zeitfenster in Wochen, 0 = alle zukünftigen Events (kein Ende)
-  const [upcomingWeeks, setUpcomingWeeks] = useState<2 | 4 | 0>(2);
+  // Zeitraum-Auswahl (2/4 Wochen bzw. Alle) im Browser merken — bleibt beim
+  // Zurückkommen von der Event-Detailseite erhalten.
+  const [upcomingWeeks, setUpcomingWeeksState] = useState<2 | 4 | 0>(() => {
+    const v = Number(localStorage.getItem('dj.upcomingWeeks'));
+    return v === 4 || v === 0 ? v : 2;
+  });
+  const setUpcomingWeeks = (w: 2 | 4 | 0) => {
+    setUpcomingWeeksState(w);
+    try { localStorage.setItem('dj.upcomingWeeks', String(w)); } catch { /* ignorieren */ }
+  };
   const upcomingEvents = useMemo(() => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const end = new Date(today);
@@ -295,9 +304,15 @@ export function DjOverviewPage() {
                 <tbody>
                   {upcomingEvents.map((e, idx) => {
                     const isFirst = idx === 0;
+                    // Jahres-Wechsel erkennen: kräftigerer Trennstrich, wenn ein neues Jahr beginnt.
+                    const curYear = e.event_date.slice(0, 4);
+                    const prevYear = idx > 0 ? upcomingEvents[idx - 1].event_date.slice(0, 4) : null;
+                    const yearBreak = prevYear !== null && curYear !== prevYear;
                     const tdStyle: React.CSSProperties = {
                       padding: '0.875rem 1.25rem',
-                      borderTop: '1px solid rgba(148,170,255,0.08)',
+                      borderTop: yearBreak
+                        ? '2px solid rgba(148,170,255,0.5)'
+                        : '1px solid rgba(148,170,255,0.08)',
                       fontFamily: 'var(--font-body)',
                       fontSize: '0.875rem',
                       color: 'var(--color-on-surface)',
@@ -312,7 +327,10 @@ export function DjOverviewPage() {
                     return (
                       <tr
                         key={e.id}
+                        onClick={() => navigate(`/dj/events/${e.id}`, { state: { from: '/dj' } })}
+                        title="Veranstaltung öffnen"
                         style={{
+                          cursor: 'pointer',
                           background: isFirst
                             ? 'rgba(148,170,255,0.06)'
                             : e.status === 'bestaetigt'
