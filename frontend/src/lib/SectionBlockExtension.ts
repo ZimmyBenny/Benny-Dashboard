@@ -55,6 +55,10 @@ export const SectionBlockExtension = Node.create({
     return {
       onExportPdf: null as null | ((sectionIndex: number, title: string) => void),
       addSectionImages: null as null | ((sectionPos: number, files: File[], x: number, y: number) => void),
+      // Zeichnet die seiten-weiten Annotationen (Pfeile/Text/…) in Seiten-Koordinaten
+      // aufs Canvas — genutzt vom Bereich-Export, damit über dem Bereich liegende
+      // Pfeile im PNG erscheinen.
+      drawPageAnnotations: null as null | ((ctx: CanvasRenderingContext2D) => void),
     };
   },
 

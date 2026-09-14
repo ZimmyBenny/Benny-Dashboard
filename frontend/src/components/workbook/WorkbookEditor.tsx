@@ -85,6 +85,8 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
   const nextDropAt = useRef<{ x: number; y: number } | null>(null);
   // Annotationen (Pfeile & Text)
   const [annotations, setAnnotations] = useState<PageAnnotation[]>([]);
+  const annotationsRef = useRef<PageAnnotation[]>([]);
+  annotationsRef.current = annotations; // stets aktuell für Storage-Handler (Bereich-Export)
   const [annoMode, setAnnoMode] = useState<'none' | 'arrow' | 'text' | 'marker' | 'rect' | 'x' | 'draw' | 'bracket'>('none');
   const freePts = useRef<{ x: number; y: number }[]>([]);
   const [freePreview, setFreePreview] = useState<{ x: number; y: number }[] | null>(null);
@@ -193,10 +195,15 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
         // Bild-Dateien: als frei platzierbares Bild an der Drop-Stelle anlegen
         if (file.type.startsWith('image/')) {
           const at = nextDropAt.current;
+          const dims = await imageStartSize(file); // echte Proportion statt fester 300×200-Kasten
           try {
             const created = await createPageImage(
               page.id,
-              at ? { attachment_id: att.id, x: Math.round(at.x), y: Math.round(at.y) } : { attachment_id: att.id },
+              {
+                attachment_id: att.id,
+                ...(at ? { x: Math.round(at.x), y: Math.round(at.y) } : {}),
+                ...(dims ?? {}),
+              },
             );
             setPageImages((prev) => [...prev, created]);
             setSelectedImageId(created.id);
@@ -253,7 +260,8 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
       try {
         const att = await uploadAttachment(page.id, file);
         setAttachments((prev) => [...prev, att]);
-        entries.push({ id: `si_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`, attachmentId: att.id, x: Math.round(ox), y: Math.round(oy), w: 240, h: 180, rot: 0 });
+        const dims = await imageStartSize(file); // echte Proportion statt fester 240×180
+        entries.push({ id: `si_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`, attachmentId: att.id, x: Math.round(ox), y: Math.round(oy), w: dims?.width ?? 240, h: dims?.height ?? 180, rot: 0 });
         ox += 22; oy += 22;
       } catch { /* einzelnes Bild übersprungen */ }
     }
@@ -290,6 +298,20 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
   // Ganze Seite (Text + freie Bilder) als PNG exportieren.
   function loadImg(src: string): Promise<HTMLImageElement> {
     return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+  }
+  // Startmaße eines eingefügten Bildes aus der echten Bildproportion ableiten
+  // (längste Seite auf MAX begrenzt) — sonst landet es im festen 300×200-Kasten.
+  async function imageStartSize(file: File): Promise<{ width: number; height: number } | null> {
+    const MAX = 360;
+    let url: string | null = null;
+    try {
+      url = URL.createObjectURL(file);
+      const im = await loadImg(url);
+      const nw = im.naturalWidth || 1, nh = im.naturalHeight || 1;
+      const scale = Math.min(1, MAX / Math.max(nw, nh));
+      return { width: Math.max(40, Math.round(nw * scale)), height: Math.max(40, Math.round(nh * scale)) };
+    } catch { return null; }
+    finally { if (url) URL.revokeObjectURL(url); }
   }
   // Ein Bild mit "contain"-Logik in eine Box zeichnen (wie objectFit: contain).
   function drawContain(ctx: CanvasRenderingContext2D, im: HTMLImageElement, x: number, y: number, w: number, h: number) {
@@ -806,10 +828,15 @@ export function WorkbookEditor({ page, onSaveStatusChange, saveStatus, onPageUpd
   // Pro-Bereich-PDF-Export: Handler in den Editor-Storage hängen (kennt page.id).
   useEffect(() => {
     if (!editor) return;
-    const store = (editor.storage as unknown as Record<string, unknown>).sectionBlock as { onExportPdf: ((i: number, t: string) => void) | null; addSectionImages: ((sectionPos: number, files: File[], x: number, y: number) => void) | null } | undefined;
+    const store = (editor.storage as unknown as Record<string, unknown>).sectionBlock as { onExportPdf: ((i: number, t: string) => void) | null; addSectionImages: ((sectionPos: number, files: File[], x: number, y: number) => void) | null; drawPageAnnotations: ((ctx: CanvasRenderingContext2D) => void) | null } | undefined;
     if (store) {
       store.onExportPdf = (idx, filename) => { exportWorkbook({ format: 'pdf', page_id: page.id, section_index: idx, filename }).catch(() => {}); };
       store.addSectionImages = (sectionPos, files, x, y) => { addImagesToSection(sectionPos, files, x, y); };
+      // Seiten-Annotationen (Pfeile/Text/…) in Seiten-Koordinaten zeichnen — für den Bereich-Export.
+      store.drawPageAnnotations = (ctx) => {
+        const font = getComputedStyle(scrollRef.current ?? document.body).fontFamily || 'sans-serif';
+        for (const a of annotationsRef.current) { try { drawAnnotation(ctx, a, font); } catch { /* überspringen */ } }
+      };
     }
   }, [editor, page.id]);
 

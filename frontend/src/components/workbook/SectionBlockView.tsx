@@ -112,6 +112,18 @@ export function SectionBlockView({ node, updateAttributes, deleteNode, editor, g
           ctx.restore();
         } catch { /* Bild überspringen */ }
       }
+      // Seiten-Annotationen (Pfeile/Text/…) über dem Bereich einzeichnen. Sie liegen in
+      // Seiten-Koordinaten -> Versatz zwischen Bereichs-Karte und Zoom-Wrapper abziehen,
+      // auf die Karte begrenzt, damit nichts Fremdes hineinragt.
+      const store = (editor.storage as unknown as Record<string, unknown>).sectionBlock as { drawPageAnnotations?: (ctx: CanvasRenderingContext2D) => void } | undefined;
+      if (store?.drawPageAnnotations && zw) {
+        const zwRect = zw.getBoundingClientRect();
+        ctx.save();
+        ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip();
+        ctx.translate(-(cardRect.left - zwRect.left), -(cardRect.top - zwRect.top));
+        store.drawPageAnnotations(ctx);
+        ctx.restore();
+      }
       const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = `${fileBase()}.png`;
       document.body.appendChild(a); a.click(); a.remove();
     } catch { /* ignorieren */ }
