@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   type ChecklistItem, type ChecklistItemCreate, type ChecklistItemPatch,
   type ChecklistSection, type ChecklistSectionPatch,
@@ -33,6 +33,7 @@ export function ChecklistSectionBlock({
   onCreateItem, onUpdateItem, onRequestEditItem, onRequestDeleteItem,
 }: Props) {
   const [title, setTitle] = useState(section.title);
+  const titleRef = useRef<HTMLInputElement>(null);
   useEffect(() => { setTitle(section.title); }, [section.title]);
 
   function saveTitle() {
@@ -57,16 +58,33 @@ export function ChecklistSectionBlock({
         style={{ background: 'rgba(101,163,13,0.18)' }}
       >
         <input
+          ref={titleRef}
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onBlur={saveTitle}
+          onKeyDown={(e) => {
+            // Enter bestätigt, Esc verwirft (globale Regel).
+            if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
+            else if (e.key === 'Escape') { setTitle(section.title); e.currentTarget.blur(); }
+          }}
           maxLength={200}
           autoComplete="off"
           spellCheck={false}
-          className="flex-1 bg-transparent border-0 outline-none font-semibold text-base"
+          placeholder="Titel …"
+          title="Titel bearbeiten"
+          className="flex-1 min-w-0 bg-transparent border-0 outline-none font-semibold text-base rounded px-1 -mx-1 transition-colors hover:bg-white/5 focus:bg-white/10"
           style={{ color: '#bef264' }}
         />
+        <button
+          type="button"
+          onClick={() => { titleRef.current?.focus(); titleRef.current?.select(); }}
+          title="Titel bearbeiten"
+          aria-label="Titel bearbeiten"
+          className="p-1 rounded hover:bg-white/10"
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#bef264' }}>edit</span>
+        </button>
         <span
           className="text-xs px-2 py-0.5 rounded-full"
           style={{ background: 'rgba(255,255,255,0.08)', color: '#bef264' }}
