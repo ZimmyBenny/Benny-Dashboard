@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PageWrapper } from '../../components/layout/PageWrapper';
 import { type SteuerCategory, exportSteuerPdf, exportSteuerZip } from '../../api/steuer.api';
 import {
@@ -54,7 +54,14 @@ function DeleteCategoryDialog({ name, onConfirm, onClose }: { name: string; onCo
 
 export function TaxChecklistPage() {
   const currentYear = new Date().getFullYear();
-  const [jahr, setJahr] = useState(() => currentYear);
+  // Zuletzt geöffnetes Jahr merken — beim Zurückkommen dort bleiben statt aufs aktuelle Jahr springen.
+  const [jahr, setJahr] = useState(() => {
+    const v = Number(localStorage.getItem('finanzen.taxYear'));
+    return Number.isInteger(v) && v >= 2000 && v <= 2100 ? v : currentYear;
+  });
+  useEffect(() => {
+    try { localStorage.setItem('finanzen.taxYear', String(jahr)); } catch { /* ignorieren */ }
+  }, [jahr]);
   const [pendingDelete, setPendingDelete] = useState<SteuerCategory | null>(null);
   const [catOrder, setCatOrder] = useState<number[] | null>(null);
   const [newYearInput, setNewYearInput] = useState('');
