@@ -16,11 +16,11 @@ function todayIso(): string {
 // Wizard-Schritte & FormState
 // ---------------------------------------------------------------------------
 
-type WizardStep = 'typ' | 'datum' | 'betrag' | 'kategorie' | 'monat' | 'wer_bezahlt' | 'aufteilung';
+type WizardStep = 'typ' | 'datum' | 'betrag' | 'kategorie' | 'monat' | 'wer_bezahlt' | 'aufteilung' | 'beschreibung';
 
-const SCHRITTE_AUSGABE: WizardStep[] = ['typ', 'datum', 'kategorie', 'betrag', 'wer_bezahlt', 'aufteilung'];
-const SCHRITTE_MIETE_TYP: WizardStep[] = ['typ', 'monat'];
-const SCHRITTE_GELDÜBERGABE: WizardStep[] = ['typ', 'datum', 'betrag', 'wer_bezahlt'];
+const SCHRITTE_AUSGABE: WizardStep[] = ['typ', 'datum', 'kategorie', 'betrag', 'wer_bezahlt', 'aufteilung', 'beschreibung'];
+const SCHRITTE_MIETE_TYP: WizardStep[] = ['typ', 'monat', 'beschreibung'];
+const SCHRITTE_GELDÜBERGABE: WizardStep[] = ['typ', 'datum', 'betrag', 'wer_bezahlt', 'beschreibung'];
 
 function currentMonthIso(): string {
   const now = new Date();
@@ -56,6 +56,7 @@ interface FormState {
   kategorie: string;
   sonstigesText: string; // Freitext wenn Kategorie = "Sonstiges"
   mietmonat: string;     // ISO "YYYY-MM" wenn Kategorie = "Miete"
+  beschreibung: string;  // Wofür die Ausgabe war
   bezahlt_von: 'benny' | 'julia';
   eintrag_typ: 'ausgabe' | 'geldübergabe';
   aufteilung_modus: AufteilungModus;
@@ -71,6 +72,7 @@ function eintragToForm(eintrag?: HaushaltEintrag): FormState {
       kategorie: 'Haushalt',
       sonstigesText: '',
       mietmonat: currentMonthIso(),
+      beschreibung: '',
       bezahlt_von: 'benny',
       eintrag_typ: 'ausgabe',
       aufteilung_modus: '50_50',
@@ -102,6 +104,7 @@ function eintragToForm(eintrag?: HaushaltEintrag): FormState {
     kategorie: eintrag.kategorie,
     sonstigesText: eintrag.kategorie === 'Sonstiges' ? eintrag.beschreibung : '',
     mietmonat: currentMonthIso(),
+    beschreibung: eintrag.beschreibung ?? '',
     bezahlt_von: eintrag.bezahlt_von,
     eintrag_typ: eintrag.eintrag_typ,
     aufteilung_modus,
@@ -202,13 +205,16 @@ function ModalContent({
     setSaving(true);
     try {
       const prozent = aufteilungZuProzent(form.aufteilung_modus, form.aufteilung_prozent);
-      const beschreibung = isMieteTyp
-        ? formatMietmonat(form.mietmonat)
-        : form.eintrag_typ === 'geldübergabe'
-        ? 'Geldübergabe'
-        : form.kategorie === 'Sonstiges'
-        ? form.sonstigesText.trim()
-        : form.kategorie;
+      // Nutze die vom Benutzer eingegebene Beschreibung, sonst Kategorie-basiert
+      const beschreibung = form.beschreibung.trim() || (
+        isMieteTyp
+          ? formatMietmonat(form.mietmonat)
+          : form.eintrag_typ === 'geldübergabe'
+          ? 'Geldübergabe'
+          : form.kategorie === 'Sonstiges'
+          ? form.sonstigesText.trim()
+          : form.kategorie
+      );
       const payload: Partial<HaushaltEintrag> = {
         datum: isMieteTyp ? todayIso() : form.datum,
         betrag: isMieteTyp ? 100 : form.einzelbetraege.reduce((s, b) => s + parseFloat(b), 0) + (parseFloat(form.betrag) || 0),
@@ -626,7 +632,7 @@ function ModalContent({
         )}
 
         {/* ── Schritt 6: Aufteilung ── */}
-        {schritt === 'aufteilung' && (
+        {schritt === 'aufteilung' && !isMieteTyp && (
           <div>
             <p style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-outline)', marginBottom: '1rem', marginTop: 0 }}>
               Aufteilung
@@ -687,6 +693,33 @@ function ModalContent({
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ── Schritt 7: Beschreibung ── */}
+        {schritt === 'beschreibung' && (
+          <div>
+            <p style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-outline)', marginBottom: '1rem', marginTop: 0 }}>
+              Wofür war die Ausgabe?
+            </p>
+            <textarea
+              value={form.beschreibung}
+              onChange={e => set('beschreibung', e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) { handleSave(); } }}
+              placeholder="z.B. Lebensmittel, Winterreifen, Kindergeburtstag…"
+              style={{
+                width: '100%',
+                padding: '0.875rem',
+                borderRadius: '0.5rem',
+                border: '1px solid var(--color-outline-variant)',
+                background: 'var(--color-surface-container)',
+                color: 'var(--color-on-surface)',
+                fontFamily: 'var(--font-body)',
+                fontSize: '0.9rem',
+                resize: 'vertical',
+                minHeight: '6rem',
+              }}
+            />
           </div>
         )}
       </div>

@@ -27,6 +27,13 @@ function formatDatum(iso: string): string {
   return `${d}.${m}.${y}`;
 }
 
+function formatMonat(iso: string): string {
+  if (!iso) return '—';
+  const [y, m] = iso.split('-');
+  const monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  return `${monthNames[parseInt(m, 10) - 1]} ${y}`;
+}
+
 function formatBetrag(betrag: number): string {
   return betrag.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -82,7 +89,6 @@ function EintragZeile({
   onDelete?: () => void;
 }) {
   const istGeldubergabe = eintrag.eintrag_typ === 'geldübergabe';
-  const andereAufteilung = eintrag.aufteilung_prozent !== 50;
 
   return (
     <div
@@ -113,6 +119,12 @@ function EintragZeile({
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '0.875rem', color: 'var(--color-on-surface)', fontWeight: 500 }}>
             {eintrag.beschreibung}
+            {/* Zeitraum-Info hinzufügen für Nebenkosten/Miete mit Zeitspanne */}
+            {eintrag.zeitraum_von && !eintrag.beschreibung.includes('Miete') && (
+              <span style={{ marginLeft: '0.25rem', color: 'var(--color-outline)' }}>
+                ({formatMonat(eintrag.zeitraum_von)})
+              </span>
+            )}
           </span>
           {/* Kategorie-Badge */}
           <span style={{
@@ -135,12 +147,10 @@ function EintragZeile({
           }}>
             {eintrag.bezahlt_von === 'benny' ? 'Benny' : 'Julia'}
           </span>
-          {/* Aufteilung */}
-          {andereAufteilung && (
-            <span style={{ fontSize: '0.7rem', color: 'var(--color-outline)' }}>
-              {eintrag.aufteilung_prozent}/{100 - eintrag.aufteilung_prozent}
-            </span>
-          )}
+          {/* Aufteilung (immer anzeigen) */}
+          <span style={{ fontSize: '0.7rem', color: 'var(--color-outline)' }}>
+            {eintrag.aufteilung_prozent}/{100 - eintrag.aufteilung_prozent}
+          </span>
         </div>
         <div style={{ fontSize: '0.75rem', color: 'var(--color-outline)', marginTop: '0.2rem' }}>
           {formatDatum(eintrag.datum)}
@@ -423,6 +433,19 @@ export function HaushaltPage() {
               </span>
             )}
           </div>
+          {/* Aufteilung anzeigen: wer schuldet was + Prozentanteile */}
+          {!neutral && (saldo.julia_schuldet > 0 || saldo.benny_schuldet > 0) && (() => {
+            const gesamt = saldo.julia_schuldet + saldo.benny_schuldet;
+            const juliaPct = gesamt > 0 ? Math.round((saldo.julia_schuldet / gesamt) * 100) : 0;
+            const bennyPct = 100 - juliaPct;
+            return (
+              <div style={{ fontSize: '0.8rem', color: 'var(--color-on-surface-variant)', marginTop: '0.3rem' }}>
+                {saldo.julia_schuldet > 0 && `Julia: ${formatBetrag(saldo.julia_schuldet)} € (${juliaPct}%)`}
+                {saldo.benny_schuldet > 0 && (saldo.julia_schuldet > 0 ? ', ' : '')}
+                {saldo.benny_schuldet > 0 && `Benny: ${formatBetrag(saldo.benny_schuldet)} € (${bennyPct}%)`}
+              </div>
+            );
+          })()}
           <div style={{ fontSize: '0.75rem', color: 'var(--color-outline)', marginTop: '0.15rem' }}>
             {saldo.offene_eintraege} offene {saldo.offene_eintraege === 1 ? 'Eintrag' : 'Einträge'}
           </div>
